@@ -1,1 +1,1 @@
-export const APP_VERSION = 'v3.5.70-cache-webp-focus';
+export const APP_VERSION = 'v3.5.71-webp-pixel-slice';

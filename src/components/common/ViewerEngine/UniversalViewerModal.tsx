@@ -64,9 +64,10 @@ export default function UniversalViewerModal({
   const [hdActiveDocIds, setHdActiveDocIds] = useState<Record<string, boolean>>({});
   const [hdPagesMap, setHdPagesMap] = useState<Record<string, string[]>>({});
   const [webpFocusActive, setWebpFocusActive] = useState<boolean>(false);
+  const [isWebpSlicing, setIsWebpSlicing] = useState<boolean>(false);
   const singleImageRef = useRef<HTMLImageElement | null>(null);
   const singleWrapperRef = useRef<HTMLDivElement | null>(null);
-  const [webpSlice, setWebpSlice] = useState<{ dataUrl: string; rect: { left: number; top: number; width: number; height: number } } | null>(null);
+  const [webpSlice, setWebpSlice] = useState<{ dataUrl: string; scale: number; rect: { left: number; top: number; width: number; height: number } } | null>(null);
 
   useEffect(() => {
     if (onIndexChange) onIndexChange(currentIndex);
@@ -189,6 +190,123 @@ export default function UniversalViewerModal({
       console.warn('Failed to render Ultra-HD PDF pages:', err);
     } finally {
       setIsHdRendering(false);
+    }
+  };
+
+  // High-Resolution Local Viewport Slicing for WebP / Raster Images:
+  // Samples directly from natural-resolution image element and applies unsharp mask kernel!
+  const handleRenderWebpFocusRegion = async () => {
+    if (isWebpSlicing) return;
+    const wrapper = singleWrapperRef.current;
+    const img = singleImageRef.current;
+    if (!wrapper || !img) return;
+
+    setIsWebpSlicing(true);
+    try {
+      const wrapperRect = wrapper.getBoundingClientRect();
+      const imgRect = img.getBoundingClientRect();
+
+      const visibleLeft = Math.max(wrapperRect.left, imgRect.left);
+      const visibleTop = Math.max(wrapperRect.top, imgRect.top);
+      const visibleRight = Math.min(wrapperRect.right, imgRect.right);
+      const visibleBottom = Math.min(wrapperRect.bottom, imgRect.bottom);
+
+      const visibleWidth = visibleRight - visibleLeft;
+      const visibleHeight = visibleBottom - visibleTop;
+
+      if (visibleWidth <= 20 || visibleHeight <= 20) {
+        setIsWebpSlicing(false);
+        return;
+      }
+
+      // Normalized coordinates within on-screen bounding box (0.0 to 1.0)
+      const normX = (visibleLeft - imgRect.left) / imgRect.width;
+      const normY = (visibleTop - imgRect.top) / imgRect.height;
+      const normW = visibleWidth / imgRect.width;
+      const normH = visibleHeight / imgRect.height;
+
+      // Map to natural dimensions of the source image (e.g. 4000x3000 px)
+      const natW = img.naturalWidth || imgRect.width;
+      const natH = img.naturalHeight || imgRect.height;
+
+      const srcX = Math.round(normX * natW);
+      const srcY = Math.round(normY * natH);
+      const srcW = Math.max(1, Math.round(normW * natW));
+      const srcH = Math.max(1, Math.round(normH * natH));
+
+      // Device Pixel Ratio for crystal clarity on high-DPI screens
+      const dpr = Math.min(3, typeof window !== 'undefined' ? (window.devicePixelRatio || 2) : 2);
+      const canvasW = Math.round(visibleWidth * dpr);
+      const canvasH = Math.round(visibleHeight * dpr);
+
+      const canvas = document.createElement('canvas');
+      canvas.width = canvasW;
+      canvas.height = canvasH;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      if (!ctx) {
+        setIsWebpSlicing(false);
+        return;
+      }
+
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, canvasW, canvasH);
+
+      // Apply true 3x3 Sharpening Convolution Kernel (Unsharp Mask) on pixel buffer
+      try {
+        const imgData = ctx.getImageData(0, 0, canvasW, canvasH);
+        const data = imgData.data;
+        const copy = new Uint8ClampedArray(data);
+        const w = canvasW;
+        const h = canvasH;
+
+        // Kernel:
+        // [  0, -0.6,   0 ]
+        // [ -0.6, 3.4, -0.6 ]
+        // [  0, -0.6,   0 ]
+        const weightCenter = 3.4;
+        const weightNeighbor = -0.6;
+
+        for (let y = 1; y < h - 1; y++) {
+          const rowOffset = y * w * 4;
+          const upOffset = (y - 1) * w * 4;
+          const downOffset = (y + 1) * w * 4;
+
+          for (let x = 1; x < w - 1; x++) {
+            const idx = rowOffset + (x * 4);
+            const up = upOffset + (x * 4);
+            const down = downOffset + (x * 4);
+            const left = rowOffset + ((x - 1) * 4);
+            const right = rowOffset + ((x + 1) * 4);
+
+            for (let c = 0; c < 3; c++) {
+              const val = (copy[idx + c] * weightCenter) +
+                ((copy[up + c] + copy[down + c] + copy[left + c] + copy[right + c]) * weightNeighbor);
+              data[idx + c] = Math.min(255, Math.max(0, val));
+            }
+          }
+        }
+        ctx.putImageData(imgData, 0, 0);
+      } catch (convErr) {
+        console.warn('Canvas pixel manipulation skipped (CORS fallback):', convErr);
+      }
+
+      const sliceUrl = canvas.toDataURL('image/webp', 0.95);
+      setWebpSlice({
+        dataUrl: sliceUrl,
+        scale: currentScale,
+        rect: {
+          left: normX * 100,
+          top: normY * 100,
+          width: normW * 100,
+          height: normH * 100
+        }
+      });
+      setWebpFocusActive(true);
+    } catch (err) {
+      console.error('Failed to generate WebP focus slice:', err);
+    } finally {
+      setIsWebpSlicing(false);
     }
   };
 
@@ -898,7 +1016,8 @@ export default function UniversalViewerModal({
                 pinch={{ step: 5 }}
                 onTransform={(ref: any) => {
                   setCurrentScale(ref.state.scale);
-                  if (webpFocusActive) {
+                  if (webpSlice && Math.abs(ref.state.scale - webpSlice.scale) > 0.8) {
+                    setWebpSlice(null);
                     setWebpFocusActive(false);
                   }
                 }}
@@ -974,14 +1093,39 @@ export default function UniversalViewerModal({
                             userSelect: 'none',
                             border: '1px solid rgba(255, 255, 255, 0.08)',
                             imageRendering: currentScale > 2.0 ? '-webkit-optimize-contrast' : 'auto',
-                            filter: webpFocusActive 
-                              ? 'contrast(160%) brightness(105%) saturate(120%) drop-shadow(0 0 1px rgba(0,0,0,0.8))' 
-                              : 'none',
                             position: 'relative',
-                            zIndex: 2,
-                            transition: 'filter 0.2s ease'
+                            zIndex: 2
                           }}
                         />
+
+                        {/* High-Resolution Focus Overlay Slice for WebP with Edge Sharpening */}
+                        {webpSlice && (
+                          <div
+                            style={{
+                              position: 'absolute',
+                              left: `${webpSlice.rect.left}%`,
+                              top: `${webpSlice.rect.top}%`,
+                              width: `${webpSlice.rect.width}%`,
+                              height: `${webpSlice.rect.height}%`,
+                              pointerEvents: 'none',
+                              zIndex: 15,
+                              borderRadius: '4px',
+                              overflow: 'hidden',
+                              boxShadow: '0 0 0 2px #38bdf8, 0 4px 20px rgba(0,0,0,0.6)'
+                            }}
+                          >
+                            <img
+                              src={webpSlice.dataUrl}
+                              alt="מקטע WebP ממוקד"
+                              style={{
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'fill',
+                                display: 'block'
+                              }}
+                            />
+                          </div>
+                        )}
                       </div>
                     </TransformComponent>
 
@@ -1000,28 +1144,51 @@ export default function UniversalViewerModal({
                     >
                       <button
                         type="button"
-                        onClick={() => setWebpFocusActive(prev => !prev)}
+                        onClick={handleRenderWebpFocusRegion}
+                        disabled={isWebpSlicing}
                         style={{
-                          background: webpFocusActive ? '#059669' : '#2563eb',
+                          background: webpSlice ? '#059669' : '#2563eb',
                           backdropFilter: 'blur(8px)',
-                          border: webpFocusActive ? '1.5px solid #34d399' : '1.5px solid #60a5fa',
+                          border: webpSlice ? '1.5px solid #34d399' : '1.5px solid #60a5fa',
                           color: '#ffffff',
                           padding: '8px 14px',
                           borderRadius: '24px',
                           fontSize: '0.84rem',
                           fontWeight: 800,
-                          cursor: 'pointer',
+                          cursor: isWebpSlicing ? 'wait' : 'pointer',
                           display: 'flex',
                           alignItems: 'center',
                           gap: '6px',
                           boxShadow: '0 4px 16px rgba(37,99,235,0.4)',
                           transition: 'all 0.2s ease'
                         }}
-                        title="חידוד תמונת WebP (השוואה ל-PDF)"
+                        title="חידוד אזור WebP מוצג במסך ברזולוציה מקסימלית"
                       >
-                        <span>{webpFocusActive ? '✓' : '🎯'}</span>
-                        <span>{webpFocusActive ? 'חידוד WebP פעיל ✓' : 'חדד אזור WebP (Focus)'}</span>
+                        <span>{isWebpSlicing ? '⏳' : (webpSlice ? '✓' : '🎯')}</span>
+                        <span>{isWebpSlicing ? 'מחדד פיקסלים...' : (webpSlice ? 'אזור WebP חד ✓' : 'חדד אזור WebP (Focus)')}</span>
                       </button>
+
+                      {webpSlice && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setWebpSlice(null);
+                            setWebpFocusActive(false);
+                          }}
+                          style={{
+                            background: 'rgba(15, 23, 42, 0.75)',
+                            border: '1px solid rgba(255, 255, 255, 0.2)',
+                            color: '#94a3b8',
+                            padding: '6px 10px',
+                            borderRadius: '16px',
+                            fontSize: '0.75rem',
+                            cursor: 'pointer'
+                          }}
+                          title="בטל חידוד"
+                        >
+                          בטל חידוד
+                        </button>
+                      )}
                     </div>
 
                     {/* Floating Quick-Zoom Action Controls */}
