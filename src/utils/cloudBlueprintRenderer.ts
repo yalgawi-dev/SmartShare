@@ -5,6 +5,7 @@
 import { getCachedPdfPages, setCachedPdfPages } from '@/utils/imageOptimizer';
 
 export const CLOUD_RENDERER_URL = 'https://renderblueprint-ovrjchd3fq-uc.a.run.app';
+export const CPP_TILER_URL = 'https://smartshare-cpp-tiler-731292009937.us-central1.run.app';
 
 /**
  * Returns a high-resolution cloud-rendered WebP URL or fetches it as a blob/base64 cached in IndexedDB.
@@ -65,7 +66,7 @@ export async function getCloudFocusedSlice(
   canvasW: number,
   canvasH: number,
   page: number = 1
-): Promise<string> {
+): Promise<{ dataUrl: string; serverRenderMs?: string }> {
   const params = new URLSearchParams({
     pdfUrl,
     page: String(page),
@@ -73,22 +74,25 @@ export async function getCloudFocusedSlice(
     cropY: normY.toFixed(5),
     cropW: normW.toFixed(5),
     cropH: normH.toFixed(5),
-    canvasW: String(canvasW),
-    canvasH: String(canvasH),
-    quality: '90',
+    outW: String(canvasW),
+    outH: String(canvasH),
+    quality: '88',
   });
 
-  const requestUrl = `${CLOUD_RENDERER_URL}?${params.toString()}`;
+  const requestUrl = `${CPP_TILER_URL}/slice?${params.toString()}`;
   const response = await fetch(requestUrl);
   if (!response.ok) {
-    throw new Error(`Cloud slice failed (${response.status}): ${response.statusText}`);
+    throw new Error(`C++ Cloud slice failed (${response.status}): ${response.statusText}`);
   }
 
+  const serverRenderMs = response.headers.get('X-Render-Time-Ms') || undefined;
   const blob = await response.blob();
-  return new Promise<string>((resolve, reject) => {
+  const dataUrl = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onloadend = () => resolve(reader.result as string);
     reader.onerror = reject;
     reader.readAsDataURL(blob);
   });
+
+  return { dataUrl, serverRenderMs };
 }
