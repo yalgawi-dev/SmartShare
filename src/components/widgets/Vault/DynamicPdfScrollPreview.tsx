@@ -59,9 +59,41 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
           setIsLoading(false);
           viewerMetrics.endSession(sessionDocId, true, 'הוצג מיידית מ-IndexedDB');
           if (onPagesLoaded) onPagesLoaded(cachedPages);
+          return;
         }
 
-        viewerMetrics.recordStep(sessionDocId, 'טוען ספריית PDF.js');
+        // Fast-path 2: If we have an existing thumbnail, display it IMMEDIATELY (0ms) so user never stares at a spinner!
+        if (thumbnailUrl && isMounted) {
+          viewerMetrics.recordStep(sessionDocId, 'הצגת תמונה זמנית מיידית (0ms)');
+          setPages([thumbnailUrl]);
+          setIsLoading(false);
+        }
+
+        // PRIORITY 1: Fetch ultra-sharp WebP (4500px) directly from Cloud Renderer!
+        // Zero CPU usage on mobile - the Google Cloud server handles the 13m garmushka rendering!
+        if (url.startsWith('http')) {
+          viewerMetrics.recordStep(sessionDocId, 'פנייה ישירה לענן לרינדור גרמושקה (WebP 4500px)');
+          try {
+            const cloudWebp = await getCloudRenderedBlueprint(url, 1, 4500);
+            if (cloudWebp && isMounted) {
+              viewerMetrics.recordStep(sessionDocId, 'WebP מוכן התקבל מהענן!');
+              setPages([cloudWebp]);
+              setIsLoading(false);
+              setIsHdActive(true);
+              // Save permanently to IndexedDB so reload is 0ms
+              setCachedPdfPages(url, [cloudWebp]).catch(() => {});
+              viewerMetrics.endSession(sessionDocId, false, 'רינדור ענן הושלם בהצלחה');
+              if (onPagesLoaded) onPagesLoaded([cloudWebp]);
+              return;
+            }
+          } catch (cloudErr: any) {
+            viewerMetrics.recordStep(sessionDocId, `שגיאת שרת ענן: ${cloudErr.message || 'unknown'}`);
+            console.warn('Direct cloud render failed, falling back to local:', cloudErr);
+          }
+        }
+
+        // Fallback only if offline or cloud unreachable: local low-res render
+        viewerMetrics.recordStep(sessionDocId, 'Fallback מקומי: טוען PDF.js מקומי');
         await ensurePdfJsLoaded();
 
         let bytes: Uint8Array | null = null;
@@ -167,37 +199,20 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
           return '';
         };
 
-        // 1. Render Page 1 IMMEDIATELY! (< 150ms)
+        // 1. Render Page 1 IMMEDIATELY (Fallback)
         const page1 = await renderPageCanvas(1);
         if (!isMounted) return;
 
         if (page1) {
-          viewerMetrics.recordStep(sessionDocId, 'עמוד 1 מוצג למשתמש!');
+          viewerMetrics.recordStep(sessionDocId, 'עמוד 1 מוצג למשתמש (Fallback מקומי)');
           setPages([page1]);
-          setIsLoading(false); // First page ready! User sees document instantly!
+          setIsLoading(false);
           viewerMetrics.endSession(sessionDocId, false, 'עמוד ראשון הוצג');
         }
 
         // Cache rendered page 1 in IndexedDB immediately so reload is 0ms
         if (page1 && numPages === 1) {
           setCachedPdfPages(url, [page1]).catch(() => {});
-        }
-
-        // If this document is a blueprint or has large dimensions, fetch the 4500px Cloud WebP in the background
-        if (numPages <= 5 && url.startsWith('http')) {
-          viewerMetrics.recordStep(sessionDocId, 'מתחיל משיכת WebP 4500px משרת הענן');
-          getCloudRenderedBlueprint(url, 1, 4500)
-            .then((cloudHighResWebp) => {
-              if (isMounted && cloudHighResWebp) {
-                viewerMetrics.recordStep(sessionDocId, 'WebP 4500px התקבל מהענן והוחלף!');
-                setPages(prev => [cloudHighResWebp, ...prev.slice(1)]);
-                setIsHdActive(true);
-              }
-            })
-            .catch((e) => {
-              viewerMetrics.recordStep(sessionDocId, `שגיאת שרת ענן: ${e.message}`);
-              console.warn('Cloud high-res blueprint background fetch:', e);
-            });
         }
 
         // 2. Stream subsequent pages in background
