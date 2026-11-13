@@ -6,9 +6,7 @@ import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { downloadDocument, formatFileSize } from '@/utils/documentUtils';
 import DynamicPdfScrollPreview from '@/components/widgets/Vault/DynamicPdfScrollPreview';
 import { extractPdfPages } from '@/utils/imageOptimizer';
-import { getCloudRenderedBlueprint } from '@/utils/cloudBlueprintRenderer';
 import { APP_VERSION } from '@/constants/version';
-import MetricsPanel from '@/components/common/ViewerEngine/MetricsPanel';
 
 export interface ViewerDocument {
   id?: string;
@@ -71,7 +69,6 @@ export default function UniversalViewerModal({
   const singleWrapperRef = useRef<HTMLDivElement | null>(null);
   const [webpSlice, setWebpSlice] = useState<{ dataUrl: string; scale: number; rect: { left: number; top: number; width: number; height: number } } | null>(null);
   const webpAutoFocusTimeoutRef = useRef<any>(null);
-  const [showMetrics, setShowMetrics] = useState<boolean>(false);
 
   useEffect(() => {
     if (onIndexChange) onIndexChange(currentIndex);
@@ -180,24 +177,6 @@ export default function UniversalViewerModal({
 
     setIsHdRendering(true);
     try {
-      // 1. First priority: Use Google Cloud Function to render 4500px Ultra-HD without burdening mobile CPU
-      if (typeof pdfSource === 'string' && pdfSource.startsWith('http')) {
-        try {
-          const cloudWebp = await getCloudRenderedBlueprint(pdfSource, 1, 4500);
-          if (cloudWebp) {
-            setHdPagesMap(prev => ({ ...prev, [currentDocKey]: [cloudWebp] }));
-            setHdActiveDocIds(prev => ({ ...prev, [currentDocKey]: true }));
-            currentDoc.pages = [cloudWebp];
-            if (onNormalizeDoc && currentDoc.id) {
-              onNormalizeDoc(currentDoc.id, [cloudWebp]);
-            }
-            return;
-          }
-        } catch (cloudErr) {
-          console.warn('Cloud render fallback to client extraction:', cloudErr);
-        }
-      }
-
       // Render at 3200px Ultra-HD for crystal-clear CAD & plan reading
       const hdPages = await extractPdfPages(pdfSource, 3200, 0.90);
       if (hdPages && hdPages.length > 0) {
@@ -352,11 +331,10 @@ export default function UniversalViewerModal({
 
   const handleDownload = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const downloadTargetUrl = currentDoc.rawPdfUrl || currentDoc.downloadUrl || currentDoc.originalUrl || currentDoc.url;
     if (onDownload) {
-      onDownload(downloadTargetUrl, currentDoc.title);
+      onDownload(currentDoc.url, currentDoc.title);
     } else {
-      downloadDocument(downloadTargetUrl, currentDoc.title);
+      downloadDocument(currentDoc.url, currentDoc.title);
     }
   };
 
@@ -571,28 +549,6 @@ export default function UniversalViewerModal({
 
         {/* Top Controls: Ultra-HD Button & Close */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-          {/* Performance Profiler Metrics Toggle Button */}
-          <button
-            type="button"
-            onClick={() => setShowMetrics(prev => !prev)}
-            style={{
-              background: showMetrics ? '#0284c7' : 'rgba(255, 255, 255, 0.15)',
-              border: '1px solid rgba(255, 255, 255, 0.25)',
-              color: '#ffffff',
-              padding: '4px 8px',
-              borderRadius: '16px',
-              fontSize: '0.75rem',
-              fontWeight: 700,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px'
-            }}
-            title="הצג לוג זמנים ומדדי טעינה ורשת"
-          >
-            ⏱️ מדדים
-          </button>
-
           {/* Universal Ultra-HD Button: Only visible when an actual PDF source exists for 3200px re-rendering */}
           {hasPdfSource && (
             <button
@@ -1473,12 +1429,6 @@ export default function UniversalViewerModal({
           <span>📤 שתף</span>
         </button>
       </div>
-
-      {/* Real-Time Performance & Timing Metrics Panel */}
-      <MetricsPanel
-        isOpen={showMetrics}
-        onClose={() => setShowMetrics(false)}
-      />
     </div>,
     document.body
   );

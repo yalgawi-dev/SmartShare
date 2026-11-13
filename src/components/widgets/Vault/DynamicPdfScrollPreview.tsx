@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { compressCanvasWebP, ensurePdfJsLoaded, getCachedPdfBytes, setCachedPdfBytes, getCachedPdfPages, setCachedPdfPages } from '@/utils/imageOptimizer';
 import { getDocumentPreviewUrl } from '@/utils/documentUtils';
-import { getCloudRenderedBlueprint } from '@/utils/cloudBlueprintRenderer';
 import { viewerMetrics } from '@/utils/viewerMetrics';
 
 interface DynamicPdfScrollPreviewProps {
@@ -45,55 +44,17 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
     setError(false);
     setPages([]);
 
-    const sessionDocId = url.slice(-20);
-    viewerMetrics.startSession(sessionDocId, 'pdf');
-
     const loadProgressively = async () => {
       try {
         // Fast-path: Check if we have pre-rendered pages cached in IndexedDB!
         // If so, display instantly (<50ms) without waiting for PDF fetch & parsing!
         const cachedPages = await getCachedPdfPages(url);
         if (cachedPages && cachedPages.length > 0 && isMounted) {
-          viewerMetrics.recordStep(sessionDocId, '⚡ נמצאו דפים מרונדרים ב-IndexedDB');
           setPages(cachedPages);
           setIsLoading(false);
-          viewerMetrics.endSession(sessionDocId, true, 'הוצג מיידית מ-IndexedDB');
           if (onPagesLoaded) onPagesLoaded(cachedPages);
-          return;
         }
 
-        // Fast-path 2: If we have an existing thumbnail, display it IMMEDIATELY (0ms) so user never stares at a spinner!
-        if (thumbnailUrl && isMounted) {
-          viewerMetrics.recordStep(sessionDocId, 'הצגת תמונה זמנית מיידית (0ms)');
-          setPages([thumbnailUrl]);
-          setIsLoading(false);
-        }
-
-        // PRIORITY 1: Fetch ultra-sharp WebP (4500px) directly from Cloud Renderer!
-        // Zero CPU usage on mobile - the Google Cloud server handles the 13m garmushka rendering!
-        if (url.startsWith('http')) {
-          viewerMetrics.recordStep(sessionDocId, 'פנייה ישירה לענן לרינדור גרמושקה (WebP 4500px)');
-          try {
-            const cloudWebp = await getCloudRenderedBlueprint(url, 1, 4500);
-            if (cloudWebp && isMounted) {
-              viewerMetrics.recordStep(sessionDocId, 'WebP מוכן התקבל מהענן!');
-              setPages([cloudWebp]);
-              setIsLoading(false);
-              setIsHdActive(true);
-              // Save permanently to IndexedDB so reload is 0ms
-              setCachedPdfPages(url, [cloudWebp]).catch(() => {});
-              viewerMetrics.endSession(sessionDocId, false, 'רינדור ענן הושלם בהצלחה');
-              if (onPagesLoaded) onPagesLoaded([cloudWebp]);
-              return;
-            }
-          } catch (cloudErr: any) {
-            viewerMetrics.recordStep(sessionDocId, `שגיאת שרת ענן: ${cloudErr.message || 'unknown'}`);
-            console.warn('Direct cloud render failed, falling back to local:', cloudErr);
-          }
-        }
-
-        // Fallback only if offline or cloud unreachable: local low-res render
-        viewerMetrics.recordStep(sessionDocId, 'Fallback מקומי: טוען PDF.js מקומי');
         await ensurePdfJsLoaded();
 
         let bytes: Uint8Array | null = null;
@@ -102,13 +63,11 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
         (window as any).__smartshare_pdf_bytes_cache = memoryCache;
 
         if (memoryCache.has(url)) {
-          viewerMetrics.recordStep(sessionDocId, 'בייטס נמצאו ב-RAM Cache');
           bytes = memoryCache.get(url)!;
         } else {
           // 2. Check IndexedDB persistent cache
           const dbCachedBytes = await getCachedPdfBytes(url);
           if (dbCachedBytes && dbCachedBytes.length > 0) {
-            viewerMetrics.recordStep(sessionDocId, 'בייטס נטענו מ-IndexedDB');
             bytes = dbCachedBytes;
             memoryCache.set(url, bytes);
           }
@@ -116,7 +75,6 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
 
         // 3. If still not cached, fetch from network or base64
         if (!bytes) {
-          viewerMetrics.recordStep(sessionDocId, 'מוריד קובץ PDF מקורי מהרשת');
           if (url.startsWith('data:')) {
             const base64Data = url.includes('base64,') ? url.split('base64,')[1] : url;
             const binaryString = window.atob(base64Data);
@@ -129,14 +87,12 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
               const ab = await res.arrayBuffer();
               bytes = new Uint8Array(ab);
             } catch {
-              viewerMetrics.recordStep(sessionDocId, 'Fallback ל-pdf-proxy');
               const proxyRes = await fetch(`/api/pdf-proxy?url=${encodeURIComponent(url)}`);
               const ab = await proxyRes.arrayBuffer();
               bytes = new Uint8Array(ab);
             }
           }
           if (bytes && bytes.length > 0) {
-            viewerMetrics.recordStep(sessionDocId, `הורדה הושלמה (${(bytes.length / 1024).toFixed(0)} KB)`);
             memoryCache.set(url, bytes);
             // Save to IndexedDB asynchronously so next time it opens instantly
             setCachedPdfBytes(url, bytes).catch(() => {});
@@ -145,7 +101,6 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
 
         if (!bytes) throw new Error('Failed to obtain PDF bytes');
 
-        viewerMetrics.recordStep(sessionDocId, 'מפענח מסמך באמצעות PDF.js');
         const loadingTask = window.pdfjsLib.getDocument({ data: bytes, disableFontFace: true });
         const pdf = await loadingTask.promise;
         if (!isMounted) return;
@@ -169,13 +124,14 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
         }
 
         const renderPageCanvas = async (pageNum: number) => {
-          viewerMetrics.recordStep(sessionDocId, `מרנדר עמוד ${pageNum} מקומית בקנבס`);
           const page = await pdf.getPage(pageNum);
           const unscaledViewport = page.getViewport({ scale: 1.0 });
           const currentMax = Math.max(unscaledViewport.width, unscaledViewport.height);
           const currentMin = Math.min(unscaledViewport.width, unscaledViewport.height);
           const aspectRatio = currentMax / Math.max(1, currentMin);
 
+          // For blueprints / megilot / CAD (aspect ratio >= 2.5): guarantee short axis is at least 2200px
+          // so every CAD measurement number and fine line is crystal clear!
           let scale: number;
           if (aspectRatio >= 2.5) {
             const targetByMin = 2200 / currentMin;
@@ -199,20 +155,13 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
           return '';
         };
 
-        // 1. Render Page 1 IMMEDIATELY (Fallback)
+        // 1. Render Page 1 IMMEDIATELY! (< 150ms)
         const page1 = await renderPageCanvas(1);
         if (!isMounted) return;
 
         if (page1) {
-          viewerMetrics.recordStep(sessionDocId, 'עמוד 1 מוצג למשתמש (Fallback מקומי)');
           setPages([page1]);
-          setIsLoading(false);
-          viewerMetrics.endSession(sessionDocId, false, 'עמוד ראשון הוצג');
-        }
-
-        // Cache rendered page 1 in IndexedDB immediately so reload is 0ms
-        if (page1 && numPages === 1) {
-          setCachedPdfPages(url, [page1]).catch(() => {});
+          setIsLoading(false); // First page ready! User sees document instantly!
         }
 
         // 2. Stream subsequent pages in background
@@ -254,26 +203,16 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
 
   // On-demand Ultra-HD re-rendering for architectural plans / deep reading of tiny dimensions
   const handleToggleUltraHd = async () => {
-    if (isHdRendering) return;
+    if (!pdfDocRef.current || isHdRendering) return;
 
     if (isHdActive) {
+      // Revert to fast preview by triggering re-mount or re-render
       setIsHdActive(false);
       return;
     }
 
     setIsHdRendering(true);
     try {
-      // Prioritize Cloud Rendering Service for 4500px ultra-crisp WebP without choking mobile CPU
-      if (url.startsWith('http')) {
-        const cloudWebp = await getCloudRenderedBlueprint(url, 1, 4500);
-        if (cloudWebp) {
-          setPages(prev => [cloudWebp, ...prev.slice(1)]);
-          setIsHdActive(true);
-          return;
-        }
-      }
-
-      if (!pdfDocRef.current) return;
       const pdf = pdfDocRef.current;
       const numPages = pdf.numPages || 1;
       const hdUrls: string[] = [];
@@ -329,6 +268,10 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
     const img = imgRef.current;
     if (!wrapper || !img) return;
 
+    const sliceSessionId = `focus_${Date.now()}`;
+    viewerMetrics.startSession(sliceSessionId, 'pdf');
+    viewerMetrics.recordStep(sliceSessionId, 'התחלת חידוד אזור מוצג (Focus Slicing)');
+
     setIsSlicing(true);
     try {
       const wrapperRect = wrapper.getBoundingClientRect();
@@ -345,8 +288,11 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
 
       if (visibleWidth <= 20 || visibleHeight <= 20) {
         setIsSlicing(false);
+        viewerMetrics.endSession(sliceSessionId, false, 'אזור קטן מדי לחידוד');
         return;
       }
+
+      viewerMetrics.recordStep(sliceSessionId, `מיפוי קואורדינטות מסך (${Math.round(visibleWidth)}x${Math.round(visibleHeight)} px)`);
 
       // Normalized coordinates within the full image (0.0 to 1.0)
       const normX = (visibleLeft - imgRect.left) / imgRect.width;
@@ -355,6 +301,7 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
       const normH = visibleHeight / imgRect.height;
 
       // Map to PDF Page 1 vector space
+      viewerMetrics.recordStep(sliceSessionId, 'טוען עמוד 1 מ-PDF.js');
       const page = await pdfDocRef.current.getPage(1);
       const unscaledViewport = page.getViewport({ scale: 1.0 });
 
@@ -368,6 +315,8 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
       const canvasW = Math.round(visibleWidth * dpr);
       const canvasH = Math.round(visibleHeight * dpr);
 
+      viewerMetrics.recordStep(sliceSessionId, `הקצאת קנבס חיתוך (${canvasW}x${canvasH} px, DPR=${dpr})`);
+
       // Dedicated slice canvas sized EXACTLY to screen viewport (typically ~800x1600 px = 1.2MP only!)
       const canvas = document.createElement('canvas');
       canvas.width = canvasW;
@@ -376,6 +325,7 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
 
       if (!ctx) {
         setIsSlicing(false);
+        viewerMetrics.endSession(sliceSessionId, false, 'שגיאת יצירת Canvas 2D');
         return;
       }
 
@@ -388,10 +338,6 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
       // Build target viewport at the exact renderScale
       const scaledViewport = page.getViewport({ scale: renderScale });
 
-      // Transform: Translate the target region to (0, 0) on the canvas
-      // In PDF.js canvas coordinate space (which already handles PDF top-down coordinate flip):
-      // Target region starts at (pdfX * renderScale, pdfY * renderScale).
-      // Applying transform [1, 0, 0, 1, -pdfX * renderScale, -pdfY * renderScale] translates it perfectly without flipping!
       const transform = [
         1,
         0,
@@ -401,13 +347,16 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
         -pdfY * renderScale
       ];
 
+      viewerMetrics.recordStep(sliceSessionId, 'מתחיל רינדור וקטורי של החלון בלבד (page.render)');
       await page.render({
         canvasContext: ctx,
         viewport: scaledViewport,
         transform: transform
       }).promise;
+      viewerMetrics.recordStep(sliceSessionId, 'סיום רינדור וקטורי, מתחיל דחיסת WebP');
 
       const sliceDataUrl = compressCanvasWebP(canvas, 0.92);
+      viewerMetrics.recordStep(sliceSessionId, 'דחיסת WebP הושלמה');
 
       // Calculate relative position within the unscaled image container so it sits right in place!
       const relativeLeft = (normX * 100);
@@ -425,7 +374,10 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
           height: relativeHeight
         }
       });
-    } catch (err) {
+      viewerMetrics.endSession(sliceSessionId, false, 'אזור חודד בהצלחה על המסך');
+    } catch (err: any) {
+      viewerMetrics.recordStep(sliceSessionId, `שגיאה בחידוד: ${err.message}`);
+      viewerMetrics.endSession(sliceSessionId, false, 'שגיאה');
       console.error('Failed to render focused region slice:', err);
     } finally {
       setIsSlicing(false);
