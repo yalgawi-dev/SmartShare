@@ -3,6 +3,7 @@ import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { compressCanvasWebP, ensurePdfJsLoaded, getCachedPdfBytes, setCachedPdfBytes, getCachedPdfPages, setCachedPdfPages } from '@/utils/imageOptimizer';
 import { getDocumentPreviewUrl } from '@/utils/documentUtils';
 import { getCloudRenderedBlueprint } from '@/utils/cloudBlueprintRenderer';
+import { viewerMetrics } from '@/utils/viewerMetrics';
 
 interface DynamicPdfScrollPreviewProps {
   url: string;
@@ -44,17 +45,23 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
     setError(false);
     setPages([]);
 
+    const sessionDocId = url.slice(-20);
+    viewerMetrics.startSession(sessionDocId, 'pdf');
+
     const loadProgressively = async () => {
       try {
         // Fast-path: Check if we have pre-rendered pages cached in IndexedDB!
         // If so, display instantly (<50ms) without waiting for PDF fetch & parsing!
         const cachedPages = await getCachedPdfPages(url);
         if (cachedPages && cachedPages.length > 0 && isMounted) {
+          viewerMetrics.recordStep(sessionDocId, '⚡ נמצאו דפים מרונדרים ב-IndexedDB');
           setPages(cachedPages);
           setIsLoading(false);
+          viewerMetrics.endSession(sessionDocId, true, 'הוצג מיידית מ-IndexedDB');
           if (onPagesLoaded) onPagesLoaded(cachedPages);
         }
 
+        viewerMetrics.recordStep(sessionDocId, 'טוען ספריית PDF.js');
         await ensurePdfJsLoaded();
 
         let bytes: Uint8Array | null = null;
@@ -63,11 +70,13 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
         (window as any).__smartshare_pdf_bytes_cache = memoryCache;
 
         if (memoryCache.has(url)) {
+          viewerMetrics.recordStep(sessionDocId, 'בייטס נמצאו ב-RAM Cache');
           bytes = memoryCache.get(url)!;
         } else {
           // 2. Check IndexedDB persistent cache
           const dbCachedBytes = await getCachedPdfBytes(url);
           if (dbCachedBytes && dbCachedBytes.length > 0) {
+            viewerMetrics.recordStep(sessionDocId, 'בייטס נטענו מ-IndexedDB');
             bytes = dbCachedBytes;
             memoryCache.set(url, bytes);
           }
@@ -75,6 +84,7 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
 
         // 3. If still not cached, fetch from network or base64
         if (!bytes) {
+          viewerMetrics.recordStep(sessionDocId, 'מוריד קובץ PDF מקורי מהרשת');
           if (url.startsWith('data:')) {
             const base64Data = url.includes('base64,') ? url.split('base64,')[1] : url;
             const binaryString = window.atob(base64Data);
@@ -87,12 +97,14 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
               const ab = await res.arrayBuffer();
               bytes = new Uint8Array(ab);
             } catch {
+              viewerMetrics.recordStep(sessionDocId, 'Fallback ל-pdf-proxy');
               const proxyRes = await fetch(`/api/pdf-proxy?url=${encodeURIComponent(url)}`);
               const ab = await proxyRes.arrayBuffer();
               bytes = new Uint8Array(ab);
             }
           }
           if (bytes && bytes.length > 0) {
+            viewerMetrics.recordStep(sessionDocId, `הורדה הושלמה (${(bytes.length / 1024).toFixed(0)} KB)`);
             memoryCache.set(url, bytes);
             // Save to IndexedDB asynchronously so next time it opens instantly
             setCachedPdfBytes(url, bytes).catch(() => {});
@@ -101,6 +113,7 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
 
         if (!bytes) throw new Error('Failed to obtain PDF bytes');
 
+        viewerMetrics.recordStep(sessionDocId, 'מפענח מסמך באמצעות PDF.js');
         const loadingTask = window.pdfjsLib.getDocument({ data: bytes, disableFontFace: true });
         const pdf = await loadingTask.promise;
         if (!isMounted) return;
@@ -124,14 +137,13 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
         }
 
         const renderPageCanvas = async (pageNum: number) => {
+          viewerMetrics.recordStep(sessionDocId, `מרנדר עמוד ${pageNum} מקומית בקנבס`);
           const page = await pdf.getPage(pageNum);
           const unscaledViewport = page.getViewport({ scale: 1.0 });
           const currentMax = Math.max(unscaledViewport.width, unscaledViewport.height);
           const currentMin = Math.min(unscaledViewport.width, unscaledViewport.height);
           const aspectRatio = currentMax / Math.max(1, currentMin);
 
-          // For blueprints / megilot / CAD (aspect ratio >= 2.5): guarantee short axis is at least 2200px
-          // so every CAD measurement number and fine line is crystal clear!
           let scale: number;
           if (aspectRatio >= 2.5) {
             const targetByMin = 2200 / currentMin;
@@ -160,20 +172,30 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
         if (!isMounted) return;
 
         if (page1) {
+          viewerMetrics.recordStep(sessionDocId, 'עמוד 1 מוצג למשתמש!');
           setPages([page1]);
           setIsLoading(false); // First page ready! User sees document instantly!
+          viewerMetrics.endSession(sessionDocId, false, 'עמוד ראשון הוצג');
+        }
+
+        // Cache rendered page 1 in IndexedDB immediately so reload is 0ms
+        if (page1 && numPages === 1) {
+          setCachedPdfPages(url, [page1]).catch(() => {});
         }
 
         // If this document is a blueprint or has large dimensions, fetch the 4500px Cloud WebP in the background
         if (numPages <= 5 && url.startsWith('http')) {
+          viewerMetrics.recordStep(sessionDocId, 'מתחיל משיכת WebP 4500px משרת הענן');
           getCloudRenderedBlueprint(url, 1, 4500)
             .then((cloudHighResWebp) => {
               if (isMounted && cloudHighResWebp) {
+                viewerMetrics.recordStep(sessionDocId, 'WebP 4500px התקבל מהענן והוחלף!');
                 setPages(prev => [cloudHighResWebp, ...prev.slice(1)]);
                 setIsHdActive(true);
               }
             })
             .catch((e) => {
+              viewerMetrics.recordStep(sessionDocId, `שגיאת שרת ענן: ${e.message}`);
               console.warn('Cloud high-res blueprint background fetch:', e);
             });
         }

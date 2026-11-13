@@ -1,1 +1,1 @@
-export const APP_VERSION = 'v3.5.74-cloud-hd';
+export const APP_VERSION = 'v3.5.75-metrics-profiler';
