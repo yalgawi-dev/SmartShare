@@ -7,6 +7,7 @@ import { downloadDocument, formatFileSize } from '@/utils/documentUtils';
 import DynamicPdfScrollPreview from '@/components/widgets/Vault/DynamicPdfScrollPreview';
 import { extractPdfPages } from '@/utils/imageOptimizer';
 import { APP_VERSION } from '@/constants/version';
+import MetricsPanel from '@/components/common/ViewerEngine/MetricsPanel';
 
 export interface ViewerDocument {
   id?: string;
@@ -69,6 +70,7 @@ export default function UniversalViewerModal({
   const singleWrapperRef = useRef<HTMLDivElement | null>(null);
   const [webpSlice, setWebpSlice] = useState<{ dataUrl: string; scale: number; rect: { left: number; top: number; width: number; height: number } } | null>(null);
   const webpAutoFocusTimeoutRef = useRef<any>(null);
+  const [showMetrics, setShowMetrics] = useState<boolean>(false);
 
   useEffect(() => {
     if (onIndexChange) onIndexChange(currentIndex);
@@ -549,6 +551,28 @@ export default function UniversalViewerModal({
 
         {/* Top Controls: Ultra-HD Button & Close */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+          {/* Performance Profiler Metrics Toggle Button */}
+          <button
+            type="button"
+            onClick={() => setShowMetrics(prev => !prev)}
+            style={{
+              background: showMetrics ? '#0284c7' : 'rgba(255, 255, 255, 0.15)',
+              border: '1px solid rgba(255, 255, 255, 0.25)',
+              color: '#ffffff',
+              padding: '4px 8px',
+              borderRadius: '16px',
+              fontSize: '0.75rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+            title="הצג לוג זמנים ומדדי טעינה ורשת"
+          >
+            ⏱️ מדדים
+          </button>
+
           {/* Universal Ultra-HD Button: Only visible when an actual PDF source exists for 3200px re-rendering */}
           {hasPdfSource && (
             <button
@@ -1429,6 +1453,12 @@ export default function UniversalViewerModal({
           <span>📤 שתף</span>
         </button>
       </div>
+
+      {/* Real-Time Performance & Timing Metrics Panel */}
+      <MetricsPanel
+        isOpen={showMetrics}
+        onClose={() => setShowMetrics(false)}
+      />
     </div>,
     document.body
   );
