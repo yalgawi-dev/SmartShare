@@ -1,0 +1,14 @@
+{
+  "name": "smartshare-cpp-tiler",
+  "version": "1.0.0",
+  "description": "High-speed C++ (MuPDF/Poppler) PDF Tiler & Viewport Renderer on Google Cloud Run",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.1",
+    "sharp": "^0.33.5"
+  }
+}
