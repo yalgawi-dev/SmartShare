@@ -15,6 +15,10 @@ let pdfjsLib = null;
 let napiCanvas = null;
 let sharp = null;
 
+// In-memory LRU cache for PDF bytes on warm instances (avoids re-downloading 20MB on every zoom/pan)
+const pdfBytesCache = new Map();
+const MAX_CACHED_PDFS = 3;
+
 function getDependencies() {
   if (!napiCanvas) {
     napiCanvas = require("@napi-rs/canvas");
@@ -51,7 +55,7 @@ class NodeCanvasFactory {
 
 /**
  * renderBlueprint:
- * Converts a PDF page (blueprint / garmushka) into an ultra-sharp WebP image (~4500px width).
+ * Converts a PDF page (or a specific normalized viewport crop) into an ultra-sharp WebP image.
  */
 exports.renderBlueprint = onRequest(
   {
@@ -63,7 +67,18 @@ exports.renderBlueprint = onRequest(
   (req, res) => {
     return cors(req, res, async () => {
       try {
-        const { pdfUrl, page = 1, targetWidth = 4500, quality = 85 } = req.query;
+        const {
+          pdfUrl,
+          page = 1,
+          targetWidth = 4500,
+          quality = 85,
+          cropX,
+          cropY,
+          cropW,
+          cropH,
+          canvasW,
+          canvasH,
+        } = req.query;
 
         if (!pdfUrl) {
           return res.status(400).json({ error: "Missing required parameter: pdfUrl" });
@@ -75,17 +90,25 @@ exports.renderBlueprint = onRequest(
 
         const { pdfjsLib: pdfjs, sharp: shp } = getDependencies();
 
-        // Fetch PDF file buffer
-        const pdfResponse = await fetch(pdfUrl);
-        if (!pdfResponse.ok) {
-          return res.status(502).json({ error: `Failed to fetch PDF: ${pdfResponse.statusText}` });
-        }
-        const arrayBuffer = await pdfResponse.arrayBuffer();
-        const uint8Array = new Uint8Array(arrayBuffer);
+        // Check warm instance cache first
+        let uint8Array = pdfBytesCache.get(pdfUrl);
+        if (!uint8Array) {
+          const pdfResponse = await fetch(pdfUrl);
+          if (!pdfResponse.ok) {
+            return res.status(502).json({ error: `Failed to fetch PDF: ${pdfResponse.statusText}` });
+          }
+          const arrayBuffer = await pdfResponse.arrayBuffer();
+          uint8Array = new Uint8Array(arrayBuffer);
 
-        // Load PDF document
+          if (pdfBytesCache.size >= MAX_CACHED_PDFS) {
+            const firstKey = pdfBytesCache.keys().next().value;
+            pdfBytesCache.delete(firstKey);
+          }
+          pdfBytesCache.set(pdfUrl, uint8Array);
+        }
+
         const loadingTask = pdfjs.getDocument({
-          data: uint8Array,
+          data: uint8Array.slice(), // pass a copy so worker/parser doesn't detach cached buffer
           cMapUrl: "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/",
           cMapPacked: true,
           standardFontDataUrl: "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/standard_fonts/",
@@ -101,27 +124,65 @@ exports.renderBlueprint = onRequest(
         const pdfPage = await pdfDoc.getPage(pageNum);
         const initialViewport = pdfPage.getViewport({ scale: 1.0 });
 
-        // Calculate scale to achieve targetWidth (or aspect-ratio safe budget for 13m garmushka)
-        const unscaledMax = Math.max(initialViewport.width, initialViewport.height);
-        const scale = Math.min(widthLimit / unscaledMax, 30000 / unscaledMax);
-        const viewport = pdfPage.getViewport({ scale });
+        const hasCrop =
+          cropX !== undefined &&
+          cropY !== undefined &&
+          cropW !== undefined &&
+          cropH !== undefined;
 
-        // Create canvas with calculated dimensions
         const canvasFactory = new NodeCanvasFactory();
-        const canvasAndContext = canvasFactory.create(
-          Math.floor(viewport.width),
-          Math.floor(viewport.height)
-        );
+        let canvasAndContext;
 
-        const renderContext = {
-          canvasContext: canvasAndContext.context,
-          viewport: viewport,
-          canvasFactory: canvasFactory,
-        };
+        if (hasCrop) {
+          // Focused Viewport Slicing mode
+          const normX = Math.max(0, Math.min(1, parseFloat(cropX) || 0));
+          const normY = Math.max(0, Math.min(1, parseFloat(cropY) || 0));
+          const normW = Math.max(0.01, Math.min(1 - normX, parseFloat(cropW) || 1));
+          const normH = Math.max(0.01, Math.min(1 - normY, parseFloat(cropH) || 1));
 
-        await pdfPage.render(renderContext).promise;
+          const outW = Math.min(Math.max(parseInt(canvasW, 10) || 1000, 100), 3000);
+          const outH = Math.min(Math.max(parseInt(canvasH, 10) || 1600, 100), 3000);
 
-        // Extract raw buffer and compress to WebP using sharp
+          const pdfX = normX * initialViewport.width;
+          const pdfY = normY * initialViewport.height;
+          const pdfW = normW * initialViewport.width;
+          const pdfH = normH * initialViewport.height;
+
+          const renderScale = Math.min(outW / pdfW, outH / pdfH);
+          const scaledViewport = pdfPage.getViewport({ scale: renderScale });
+
+          canvasAndContext = canvasFactory.create(outW, outH);
+          canvasAndContext.context.fillStyle = "#ffffff";
+          canvasAndContext.context.fillRect(0, 0, outW, outH);
+
+          const transform = [1, 0, 0, 1, -pdfX * renderScale, -pdfY * renderScale];
+
+          await pdfPage.render({
+            canvasContext: canvasAndContext.context,
+            viewport: scaledViewport,
+            transform,
+            canvasFactory,
+          }).promise;
+        } else {
+          // Full page mode
+          const unscaledMax = Math.max(initialViewport.width, initialViewport.height);
+          const scale = Math.min(widthLimit / unscaledMax, 30000 / unscaledMax);
+          const viewport = pdfPage.getViewport({ scale });
+
+          canvasAndContext = canvasFactory.create(
+            Math.floor(viewport.width),
+            Math.floor(viewport.height)
+          );
+          canvasAndContext.context.fillStyle = "#ffffff";
+          canvasAndContext.context.fillRect(0, 0, canvasAndContext.canvas.width, canvasAndContext.canvas.height);
+
+          await pdfPage.render({
+            canvasContext: canvasAndContext.context,
+            viewport,
+            canvasFactory,
+          }).promise;
+        }
+
         const rawPngBuffer = canvasAndContext.canvas.toBuffer("image/png");
         canvasFactory.destroy(canvasAndContext);
 
@@ -129,7 +190,6 @@ exports.renderBlueprint = onRequest(
           .webp({ quality: webpQuality, effort: 4 })
           .toBuffer();
 
-        // Send high-res WebP image
         res.set("Content-Type", "image/webp");
         res.set("Cache-Control", "public, max-age=604800, s-maxage=604800, stale-while-revalidate=86400");
         return res.status(200).send(webpBuffer);

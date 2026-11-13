@@ -52,3 +52,43 @@ export async function getCloudRenderedBlueprint(
 
   return dataUrl;
 }
+
+/**
+ * Fetches a high-resolution WebP slice of a specific normalized viewport rectangle from the Cloud Function.
+ */
+export async function getCloudFocusedSlice(
+  pdfUrl: string,
+  normX: number,
+  normY: number,
+  normW: number,
+  normH: number,
+  canvasW: number,
+  canvasH: number,
+  page: number = 1
+): Promise<string> {
+  const params = new URLSearchParams({
+    pdfUrl,
+    page: String(page),
+    cropX: normX.toFixed(5),
+    cropY: normY.toFixed(5),
+    cropW: normW.toFixed(5),
+    cropH: normH.toFixed(5),
+    canvasW: String(canvasW),
+    canvasH: String(canvasH),
+    quality: '90',
+  });
+
+  const requestUrl = `${CLOUD_RENDERER_URL}?${params.toString()}`;
+  const response = await fetch(requestUrl);
+  if (!response.ok) {
+    throw new Error(`Cloud slice failed (${response.status}): ${response.statusText}`);
+  }
+
+  const blob = await response.blob();
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
