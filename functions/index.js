@@ -1,34 +1,37 @@
 const { onRequest } = require("firebase-functions/v2/https");
 const cors = require("cors")({ origin: true });
 
-// Lazy-load heavier libraries only when a request actually arrives,
-// preventing deployment timeouts during cold discovery.
+// Alias canvas to @napi-rs/canvas inside Node module cache so pdfjs-dist finds it cleanly!
+const Module = require("module");
+const originalRequire = Module.prototype.require;
+Module.prototype.require = function (id) {
+  if (id === "canvas") {
+    return originalRequire.call(this, "@napi-rs/canvas");
+  }
+  return originalRequire.call(this, id);
+};
+
 let pdfjsLib = null;
-let createCanvas = null;
+let napiCanvas = null;
 let sharp = null;
 
 function getDependencies() {
+  if (!napiCanvas) {
+    napiCanvas = require("@napi-rs/canvas");
+  }
   if (!pdfjsLib) {
     pdfjsLib = require("pdfjs-dist/legacy/build/pdf.js");
     pdfjsLib.GlobalWorkerOptions.workerSrc = false;
   }
-  if (!createCanvas) {
-    const napi = require("@napi-rs/canvas");
-    createCanvas = napi.createCanvas;
-  }
   if (!sharp) {
     sharp = require("sharp");
   }
-  return { pdfjsLib, createCanvas, sharp };
+  return { pdfjsLib, napiCanvas, sharp };
 }
 
 class NodeCanvasFactory {
-  constructor(canvasFn) {
-    this.createCanvas = canvasFn;
-  }
-
   create(width, height) {
-    const canvas = this.createCanvas(width, height);
+    const canvas = napiCanvas.createCanvas(width, height);
     const context = canvas.getContext("2d");
     return { canvas, context };
   }
@@ -70,7 +73,7 @@ exports.renderBlueprint = onRequest(
         const widthLimit = Math.min(Math.max(parseInt(targetWidth, 10) || 4500, 1000), 6000);
         const webpQuality = Math.min(Math.max(parseInt(quality, 10) || 85, 50), 100);
 
-        const { pdfjsLib: pdfjs, createCanvas: cvsFn, sharp: shp } = getDependencies();
+        const { pdfjsLib: pdfjs, sharp: shp } = getDependencies();
 
         // Fetch PDF file buffer
         const pdfResponse = await fetch(pdfUrl);
@@ -98,12 +101,13 @@ exports.renderBlueprint = onRequest(
         const pdfPage = await pdfDoc.getPage(pageNum);
         const initialViewport = pdfPage.getViewport({ scale: 1.0 });
 
-        // Calculate scale to achieve targetWidth
-        const scale = widthLimit / initialViewport.width;
+        // Calculate scale to achieve targetWidth (or aspect-ratio safe budget for 13m garmushka)
+        const unscaledMax = Math.max(initialViewport.width, initialViewport.height);
+        const scale = Math.min(widthLimit / unscaledMax, 30000 / unscaledMax);
         const viewport = pdfPage.getViewport({ scale });
 
         // Create canvas with calculated dimensions
-        const canvasFactory = new NodeCanvasFactory(cvsFn);
+        const canvasFactory = new NodeCanvasFactory();
         const canvasAndContext = canvasFactory.create(
           Math.floor(viewport.width),
           Math.floor(viewport.height)
