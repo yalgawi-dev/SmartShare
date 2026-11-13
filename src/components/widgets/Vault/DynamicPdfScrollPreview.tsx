@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { compressCanvasWebP, ensurePdfJsLoaded, getCachedPdfBytes, setCachedPdfBytes, getCachedPdfPages, setCachedPdfPages } from '@/utils/imageOptimizer';
 import { getDocumentPreviewUrl } from '@/utils/documentUtils';
-import { getCloudFocusedSlice } from '@/utils/cloudBlueprintRenderer';
 import { viewerMetrics } from '@/utils/viewerMetrics';
 
 interface DynamicPdfScrollPreviewProps {
@@ -315,31 +314,6 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
       const dpr = Math.min(3, typeof window !== 'undefined' ? (window.devicePixelRatio || 2) : 2);
       const canvasW = Math.round(visibleWidth * dpr);
       const canvasH = Math.round(visibleHeight * dpr);
-
-      // 1. Try Cloud Viewport Slicing first (offloads 10s vector scan from mobile CPU)
-      if (url.startsWith('http')) {
-        try {
-          viewerMetrics.recordStep(sliceSessionId, `שולח חיתוך נקודתי לענן (${canvasW}x${canvasH} px)`);
-          const cloudSliceUrl = await getCloudFocusedSlice(url, normX, normY, normW, normH, canvasW, canvasH, 1);
-          if (cloudSliceUrl) {
-            viewerMetrics.recordStep(sliceSessionId, 'חיתוך נקודתי WebP התקבל מהענן!');
-            setRegionSlice({
-              dataUrl: cloudSliceUrl,
-              scale: pdfScale,
-              rect: {
-                left: normX * 100,
-                top: normY * 100,
-                width: normW * 100,
-                height: normH * 100
-              }
-            });
-            viewerMetrics.endSession(sliceSessionId, false, 'חיתוך ענן הושלם בהצלחה');
-            return;
-          }
-        } catch (cloudErr: any) {
-          viewerMetrics.recordStep(sliceSessionId, `שגיאת ענן (${cloudErr.message}) - עובר ל-Fallback מקומי`);
-        }
-      }
 
       viewerMetrics.recordStep(sliceSessionId, `הקצאת קנבס חיתוך (${canvasW}x${canvasH} px, DPR=${dpr})`);
 

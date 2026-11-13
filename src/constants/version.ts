@@ -1,1 +1,1 @@
-export const APP_VERSION = 'v3.5.80-cloud-slice';
+export const APP_VERSION = 'v3.5.81-local-focus';
