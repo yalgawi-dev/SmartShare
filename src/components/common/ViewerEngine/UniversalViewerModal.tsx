@@ -6,6 +6,7 @@ import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { downloadDocument, formatFileSize } from '@/utils/documentUtils';
 import DynamicPdfScrollPreview from '@/components/widgets/Vault/DynamicPdfScrollPreview';
 import { extractPdfPages } from '@/utils/imageOptimizer';
+import { getCloudRenderedBlueprint } from '@/utils/cloudBlueprintRenderer';
 import { APP_VERSION } from '@/constants/version';
 
 export interface ViewerDocument {
@@ -177,6 +178,24 @@ export default function UniversalViewerModal({
 
     setIsHdRendering(true);
     try {
+      // 1. First priority: Use Google Cloud Function to render 4500px Ultra-HD without burdening mobile CPU
+      if (typeof pdfSource === 'string' && pdfSource.startsWith('http')) {
+        try {
+          const cloudWebp = await getCloudRenderedBlueprint(pdfSource, 1, 4500);
+          if (cloudWebp) {
+            setHdPagesMap(prev => ({ ...prev, [currentDocKey]: [cloudWebp] }));
+            setHdActiveDocIds(prev => ({ ...prev, [currentDocKey]: true }));
+            currentDoc.pages = [cloudWebp];
+            if (onNormalizeDoc && currentDoc.id) {
+              onNormalizeDoc(currentDoc.id, [cloudWebp]);
+            }
+            return;
+          }
+        } catch (cloudErr) {
+          console.warn('Cloud render fallback to client extraction:', cloudErr);
+        }
+      }
+
       // Render at 3200px Ultra-HD for crystal-clear CAD & plan reading
       const hdPages = await extractPdfPages(pdfSource, 3200, 0.90);
       if (hdPages && hdPages.length > 0) {
@@ -331,10 +350,11 @@ export default function UniversalViewerModal({
 
   const handleDownload = (e: React.MouseEvent) => {
     e.stopPropagation();
+    const downloadTargetUrl = currentDoc.rawPdfUrl || currentDoc.downloadUrl || currentDoc.originalUrl || currentDoc.url;
     if (onDownload) {
-      onDownload(currentDoc.url, currentDoc.title);
+      onDownload(downloadTargetUrl, currentDoc.title);
     } else {
-      downloadDocument(currentDoc.url, currentDoc.title);
+      downloadDocument(downloadTargetUrl, currentDoc.title);
     }
   };
 

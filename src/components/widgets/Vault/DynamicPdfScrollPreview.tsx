@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { compressCanvasWebP, ensurePdfJsLoaded, getCachedPdfBytes, setCachedPdfBytes, getCachedPdfPages, setCachedPdfPages } from '@/utils/imageOptimizer';
 import { getDocumentPreviewUrl } from '@/utils/documentUtils';
+import { getCloudRenderedBlueprint } from '@/utils/cloudBlueprintRenderer';
 
 interface DynamicPdfScrollPreviewProps {
   url: string;
@@ -163,6 +164,20 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
           setIsLoading(false); // First page ready! User sees document instantly!
         }
 
+        // If this document is a blueprint or has large dimensions, fetch the 4500px Cloud WebP in the background
+        if (numPages <= 5 && url.startsWith('http')) {
+          getCloudRenderedBlueprint(url, 1, 4500)
+            .then((cloudHighResWebp) => {
+              if (isMounted && cloudHighResWebp) {
+                setPages(prev => [cloudHighResWebp, ...prev.slice(1)]);
+                setIsHdActive(true);
+              }
+            })
+            .catch((e) => {
+              console.warn('Cloud high-res blueprint background fetch:', e);
+            });
+        }
+
         // 2. Stream subsequent pages in background
         if (numPages > 1) {
           const allUrls = [page1];
@@ -202,16 +217,26 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
 
   // On-demand Ultra-HD re-rendering for architectural plans / deep reading of tiny dimensions
   const handleToggleUltraHd = async () => {
-    if (!pdfDocRef.current || isHdRendering) return;
+    if (isHdRendering) return;
 
     if (isHdActive) {
-      // Revert to fast preview by triggering re-mount or re-render
       setIsHdActive(false);
       return;
     }
 
     setIsHdRendering(true);
     try {
+      // Prioritize Cloud Rendering Service for 4500px ultra-crisp WebP without choking mobile CPU
+      if (url.startsWith('http')) {
+        const cloudWebp = await getCloudRenderedBlueprint(url, 1, 4500);
+        if (cloudWebp) {
+          setPages(prev => [cloudWebp, ...prev.slice(1)]);
+          setIsHdActive(true);
+          return;
+        }
+      }
+
+      if (!pdfDocRef.current) return;
       const pdf = pdfDocRef.current;
       const numPages = pdf.numPages || 1;
       const hdUrls: string[] = [];
