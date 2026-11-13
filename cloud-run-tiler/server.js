@@ -6,10 +6,18 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const sharp = require('sharp');
+const admin = require('firebase-admin');
+
+if (!admin.apps.length) {
+  admin.initializeApp({
+    storageBucket: process.env.FIREBASE_STORAGE_BUCKET || 'myspace-da215.firebasestorage.app',
+  });
+}
 
 const execFileAsync = promisify(execFile);
 const app = express();
 app.use(cors({ origin: true }));
+app.use(express.json());
 
 const CACHE_DIR = '/tmp/pdf-cache';
 if (!fs.existsSync(CACHE_DIR)) {
@@ -154,6 +162,176 @@ app.get('/slice', async (req, res) => {
     return res.status(200).send(webpBuffer);
   } catch (err) {
     console.error('C++ slice error:', err);
+    return res.status(500).json({ error: err.message || 'Internal server error' });
+  }
+});
+
+/**
+ * GET /tiles-manifest?docId=...
+ * Fast check if pre-rendered tiles already exist in Firebase Storage.
+ */
+app.get('/tiles-manifest', async (req, res) => {
+  try {
+    const { docId } = req.query;
+    if (!docId) return res.status(400).json({ error: 'Missing docId' });
+
+    const bucket = admin.storage().bucket();
+    const manifestFile = bucket.file(`rendered_tiles/${docId}/manifest.json`);
+    const [exists] = await manifestFile.exists();
+    if (!exists) {
+      return res.status(404).json({ exists: false });
+    }
+
+    const [content] = await manifestFile.download();
+    return res.status(200).json(JSON.parse(content.toString('utf8')));
+  } catch (err) {
+    console.error('tiles-manifest error:', err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /pre-tile
+ * Body: { pdfUrl, docId, page = 1 }
+ * Pre-renders a blueprint into a grid of sharp WebP tiles in parallel using all 4 vCPUs,
+ * uploads them to Firebase Storage, and saves manifest.json.
+ */
+app.post('/pre-tile', async (req, res) => {
+  const start = Date.now();
+  try {
+    const { pdfUrl, docId, page = 1 } = req.body || {};
+    if (!pdfUrl || !docId) {
+      return res.status(400).json({ error: 'Missing required fields: pdfUrl, docId' });
+    }
+
+    const bucket = admin.storage().bucket();
+    const manifestFile = bucket.file(`rendered_tiles/${docId}/manifest.json`);
+    const [exists] = await manifestFile.exists();
+    if (exists) {
+      const [content] = await manifestFile.download();
+      return res.status(200).json({ cached: true, ...JSON.parse(content.toString('utf8')) });
+    }
+
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const pdfPath = await getLocalPdfPath(pdfUrl);
+    const { widthPts, heightPts } = await getPdfPageDimensions(pdfPath, pageNum);
+
+    const aspect = widthPts / Math.max(1, heightPts);
+    // Auto-determine grid: wide garmushka -> 8x2 (16 tiles), tall -> 2x8, standard -> 2x2
+    let cols = 2;
+    let rows = 2;
+    if (aspect >= 2.5) {
+      cols = 8;
+      rows = 2;
+    } else if (aspect <= 0.4) {
+      cols = 2;
+      rows = 8;
+    } else if (aspect >= 1.5) {
+      cols = 4;
+      rows = 2;
+    }
+
+    const tileTargetPx = 1400;
+    const tileNormW = 1 / cols;
+    const tileNormH = 1 / rows;
+
+    const cropWidthInches = (tileNormW * widthPts) / 72;
+    const cropHeightInches = (tileNormH * heightPts) / 72;
+    const dpi = Math.min(Math.max(Math.round(Math.min(tileTargetPx / cropWidthInches, tileTargetPx / cropHeightInches)), 72), 400);
+
+    const fullW = Math.round((widthPts / 72) * dpi);
+    const fullH = Math.round((heightPts / 72) * dpi);
+
+    // Build tile job list
+    const jobs = [];
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        jobs.push({ col: c, row: r });
+      }
+    }
+
+    const tiles = [];
+    const CONCURRENCY = 4; // Utilize all 4 vCPUs in parallel
+
+    async function processTile(job) {
+      const { col, row } = job;
+      const normX = col * tileNormW;
+      const normY = row * tileNormH;
+      const pxX = Math.floor(normX * fullW);
+      const pxY = Math.floor(normY * fullH);
+      const pxW = Math.min(fullW - pxX, Math.ceil(tileNormW * fullW));
+      const pxH = Math.min(fullH - pxY, Math.ceil(tileNormH * fullH));
+
+      const outPrefix = path.join(CACHE_DIR, `pretile_${docId}_${col}_${row}_${Date.now()}`);
+      await execFileAsync('pdftoppm', [
+        '-png',
+        '-singlefile',
+        '-f', String(pageNum),
+        '-l', String(pageNum),
+        '-r', String(dpi),
+        '-x', String(pxX),
+        '-y', String(pxY),
+        '-W', String(pxW),
+        '-H', String(pxH),
+        pdfPath,
+        outPrefix,
+      ]);
+
+      const pngPath = `${outPrefix}.png`;
+      const webpBuffer = await sharp(pngPath)
+        .webp({ quality: 86, effort: 3 })
+        .toBuffer();
+      try { fs.unlinkSync(pngPath); } catch (_) {}
+
+      const storagePath = `rendered_tiles/${docId}/tile_${col}_${row}.webp`;
+      const file = bucket.file(storagePath);
+      await file.save(webpBuffer, {
+        metadata: {
+          contentType: 'image/webp',
+          cacheControl: 'public, max-age=31536000',
+        },
+      });
+      await file.makePublic();
+
+      const publicUrl = `https://storage.googleapis.com/${bucket.name}/${storagePath}`;
+      tiles.push({
+        col,
+        row,
+        normX,
+        normY,
+        normW: tileNormW,
+        normH: tileNormH,
+        url: publicUrl,
+      });
+    }
+
+    // Run 4 workers in parallel
+    for (let i = 0; i < jobs.length; i += CONCURRENCY) {
+      await Promise.all(jobs.slice(i, i + CONCURRENCY).map(processTile));
+    }
+
+    const manifest = {
+      docId,
+      cols,
+      rows,
+      widthPts,
+      heightPts,
+      dpi,
+      renderTimeMs: Date.now() - start,
+      tiles,
+    };
+
+    await manifestFile.save(JSON.stringify(manifest), {
+      metadata: {
+        contentType: 'application/json',
+        cacheControl: 'public, max-age=31536000',
+      },
+    });
+    await manifestFile.makePublic();
+
+    return res.status(200).json(manifest);
+  } catch (err) {
+    console.error('pre-tile error:', err);
     return res.status(500).json({ error: err.message || 'Internal server error' });
   }
 });
