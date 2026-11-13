@@ -722,10 +722,8 @@ export default function UniversalViewerModal({
                   initialScale={1}
                   minScale={0.8}
                   maxScale={30}
-                  centerOnInit={false}
-                  initialPositionX={0}
-                  initialPositionY={0}
-                  centerZoomedOut={false}
+                  centerOnInit={true}
+                  centerZoomedOut={true}
                   limitToBounds={true}
                   panning={{ velocityDisabled: true }}
                   trackPadPanning={{ velocityDisabled: true }}
@@ -737,13 +735,20 @@ export default function UniversalViewerModal({
                   {({ zoomIn, zoomOut, resetTransform }: any) => (
                     <>
                       <TransformComponent
-                        wrapperStyle={{ width: '100%', height: '100%' }}
+                        wrapperStyle={{
+                          width: '100%',
+                          height: '100%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
                         contentStyle={{
                           width: '100%',
-                          minHeight: '100%',
+                          height: '100%',
                           display: 'flex',
                           flexDirection: 'column',
-                          alignItems: 'center'
+                          alignItems: 'center',
+                          justifyContent: 'center'
                         }}
                       >
                         <div

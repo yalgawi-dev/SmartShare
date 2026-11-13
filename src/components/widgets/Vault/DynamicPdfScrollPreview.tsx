@@ -405,10 +405,8 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
           initialScale={1}
           minScale={0.8}
           maxScale={30}
-          centerOnInit={false}
-          initialPositionX={0}
-          initialPositionY={0}
-          centerZoomedOut={false}
+          centerOnInit={true}
+          centerZoomedOut={true}
           limitToBounds={true}
           panning={{ velocityDisabled: true }}
           trackPadPanning={{ velocityDisabled: true }}
@@ -454,13 +452,20 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
           {({ zoomIn, zoomOut, resetTransform }: any) => (
             <>
               <TransformComponent
-                wrapperStyle={{ width: '100%', height: '100%' }}
+                wrapperStyle={{
+                  width: '100%',
+                  height: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
                 contentStyle={{
                   width: '100%',
-                  minHeight: '100%',
+                  height: '100%',
                   display: 'flex',
                   flexDirection: 'column',
-                  alignItems: 'center'
+                  alignItems: 'center',
+                  justifyContent: 'center'
                 }}
               >
                 <div
@@ -468,9 +473,10 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
+                    justifyContent: 'center',
                     gap: '16px',
-                    padding: '1rem 0.5rem 6rem 0.5rem',
-                    maxWidth: '900px',
+                    padding: '0.5rem',
+                    maxWidth: '1200px',
                     width: '100%'
                   }}
                 >
