@@ -313,7 +313,7 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
       const pdfH = normH * unscaledViewport.height;
 
       // Device Pixel Ratio for retina-grade sharpness (2x to 3x)
-      const dpr = Math.min(1.75, typeof window !== 'undefined' ? (window.devicePixelRatio || 1.75) : 1.75);
+      const dpr = Math.min(3, typeof window !== 'undefined' ? (window.devicePixelRatio || 2) : 2);
       const canvasW = Math.round(visibleWidth * dpr);
       const canvasH = Math.round(visibleHeight * dpr);
 
@@ -368,9 +368,12 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
             canvasH: canvas.height,
           });
           viewerMetrics.recordStep(sliceSessionId, 'רינדור PDFium WASM הושלם');
-        } catch (pdfiumErr) {
+        } catch (pdfiumErr: any) {
           console.warn('[PDFium] Fallback to PDF.js:', pdfiumErr);
+          viewerMetrics.recordStep(sliceSessionId, `PDFium נכשל (${pdfiumErr?.message || 'שגיאה'}), עובר ל-PDF.js`);
         }
+      } else {
+        viewerMetrics.recordStep(sliceSessionId, 'אין pdfBytes בזיכרון, עובר ל-PDF.js');
       }
 
       if (!sliceDataUrl) {
