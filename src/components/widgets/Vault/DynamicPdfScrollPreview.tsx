@@ -45,23 +45,6 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
     setIsLoading(true);
     setError(false);
     setPages([]);
-    setTilesManifest(null);
-
-    if (url.startsWith('http')) {
-      const docId = getStableDocIdFromUrl(url);
-      getTilesManifest(docId).then((manifest) => {
-        if (manifest && isMounted) {
-          setTilesManifest(manifest);
-        } else if (isMounted) {
-          // Trigger background pre-tiling on 4-vCPU Cloud Run so next zoom/open is 50ms
-          triggerPreTile(url, docId, 1).then((created) => {
-            if (created && isMounted) {
-              setTilesManifest(created);
-            }
-          });
-        }
-      });
-    }
 
     const loadProgressively = async () => {
       try {
@@ -330,7 +313,7 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
       const pdfH = normH * unscaledViewport.height;
 
       // Device Pixel Ratio for retina-grade sharpness (2x to 3x)
-      const dpr = Math.min(3, typeof window !== 'undefined' ? (window.devicePixelRatio || 2) : 2);
+      const dpr = Math.min(1.75, typeof window !== 'undefined' ? (window.devicePixelRatio || 1.75) : 1.75);
       const canvasW = Math.round(visibleWidth * dpr);
       const canvasH = Math.round(visibleHeight * dpr);
 
@@ -370,7 +353,9 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
       await page.render({
         canvasContext: ctx,
         viewport: scaledViewport,
-        transform: transform
+        transform: transform,
+        annotationMode: 0,
+        intent: 'display'
       }).promise;
       viewerMetrics.recordStep(sliceSessionId, 'סיום רינדור וקטורי, מתחיל דחיסת WebP');
 
@@ -523,67 +508,23 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
                         justifyContent: 'center'
                       }}
                     >
-                      <div style={{ position: 'relative', display: 'inline-block', maxWidth: '100%', maxHeight: '76vh' }}>
-                        <img
-                          ref={pageIdx === 0 ? imgRef : undefined}
-                          src={pageUrl}
-                          alt={`עמוד ${pageIdx + 1}`}
-                          loading="eager"
-                          style={{
-                            display: 'block',
-                            maxWidth: '100%',
-                            maxHeight: '76vh',
-                            width: 'auto',
-                            height: 'auto',
-                            borderRadius: '10px',
-                            boxShadow: '0 8px 30px rgba(0, 0, 0, 0.65)',
-                            userSelect: 'none',
-                            border: '1px solid rgba(255, 255, 255, 0.08)',
-                            imageRendering: pdfScale > 2.0 ? '-webkit-optimize-contrast' : 'auto'
-                          }}
-                        />
-
-                        {/* Pre-tiled Cloud HD Grid Overlay (loads in ~50ms from Storage when zoomed in, only if aspect ratio matches) */}
-                        {pageIdx === 0 && tilesManifest && pdfScale > 1.25 && (() => {
-                          const imgW = imgRef.current?.naturalWidth || 0;
-                          const imgH = imgRef.current?.naturalHeight || 0;
-                          const imgAspect = imgH > 0 ? imgW / imgH : 0;
-                          const manifestAspect = tilesManifest.heightPts > 0 ? tilesManifest.widthPts / tilesManifest.heightPts : 0;
-                          const isAligned = imgAspect > 0 && manifestAspect > 0 && Math.abs(imgAspect - manifestAspect) < 0.15;
-                          if (!isAligned) return null;
-                          return (
-                            <div
-                              style={{
-                                position: 'absolute',
-                                inset: 0,
-                                pointerEvents: 'none',
-                                zIndex: 12,
-                                overflow: 'hidden',
-                                borderRadius: '10px'
-                              }}
-                            >
-                              {tilesManifest.tiles.map((tile) => (
-                                <img
-                                  key={`${tile.col}_${tile.row}`}
-                                  src={tile.url}
-                                  alt=""
-                                  loading="lazy"
-                                  decoding="async"
-                                  style={{
-                                    position: 'absolute',
-                                    left: `${tile.normX * 100}%`,
-                                    top: `${tile.normY * 100}%`,
-                                    width: `${tile.normW * 100}%`,
-                                    height: `${tile.normH * 100}%`,
-                                    objectFit: 'fill',
-                                    display: 'block'
-                                  }}
-                                />
-                              ))}
-                            </div>
-                          );
-                        })()}
-                      </div>
+                      <img
+                        ref={pageIdx === 0 ? imgRef : undefined}
+                        src={pageUrl}
+                        alt={`עמוד ${pageIdx + 1}`}
+                        loading="eager"
+                        style={{
+                          maxWidth: '100%',
+                          maxHeight: '76vh',
+                          width: 'auto',
+                          height: 'auto',
+                          borderRadius: '10px',
+                          boxShadow: '0 8px 30px rgba(0, 0, 0, 0.65)',
+                          userSelect: 'none',
+                          border: '1px solid rgba(255, 255, 255, 0.08)',
+                          imageRendering: pdfScale > 2.0 ? '-webkit-optimize-contrast' : 'auto'
+                        }}
+                      />
 
                       {/* Focused Vector Slice Overlay (200% razor-sharp CAD dimensions & numbers) */}
                       {pageIdx === 0 && regionSlice && (
