@@ -1,1 +1,1 @@
-export const APP_VERSION = 'v3.5.95-pdfium-metrics';
+export const APP_VERSION = 'v3.5.96-progressive-hd';

@@ -133,13 +133,14 @@ export async function renderSliceWithPdfium(params: {
       const byteLen = stride * canvasH;
       const bgra = (pdfium.pdfium as any).HEAPU8.subarray(bufPtr, bufPtr + byteLen);
 
-      // Convert BGRA -> RGBA into ImageData
+      // Fast BGRA -> RGBA conversion using 32-bit word operations
+      const pixelCount = canvasW * canvasH;
+      const src32 = new Uint32Array(bgra.buffer, bgra.byteOffset, pixelCount);
       const rgba = new Uint8ClampedArray(byteLen);
-      for (let i = 0; i < byteLen; i += 4) {
-        rgba[i] = bgra[i + 2];     // R
-        rgba[i + 1] = bgra[i + 1]; // G
-        rgba[i + 2] = bgra[i];     // B
-        rgba[i + 3] = 255;         // A
+      const dst32 = new Uint32Array(rgba.buffer);
+      for (let i = 0; i < pixelCount; i++) {
+        const v = src32[i];
+        dst32[i] = 0xFF000000 | ((v & 0x000000FF) << 16) | (v & 0x0000FF00) | ((v & 0x00FF0000) >>> 16);
       }
 
       const canvas = document.createElement('canvas');

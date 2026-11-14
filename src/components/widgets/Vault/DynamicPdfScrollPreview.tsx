@@ -148,24 +148,46 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
             scale = Math.min(1.8, Math.max(0.8, 1600 / currentMax));
           }
 
-          // Fast-path: render full page with C++ PDFium WASM (~0.8s instead of ~15s in PDF.js)
+          // Fast-path: render full page with C++ PDFium WASM
           if (bytes) {
             const initSessionId = pageNum === 1 ? `pdf_init_${Date.now()}` : null;
             if (initSessionId) viewerMetrics.startSession(initSessionId, 'pdf');
             try {
-              if (initSessionId) viewerMetrics.recordStep(initSessionId, `מתחיל רינדור עמוד ${pageNum} (PDFium WASM ${Math.round(unscaledViewport.width * scale)}x${Math.round(unscaledViewport.height * scale)})`);
+              const fullW = unscaledViewport.width * scale;
+              const fullH = unscaledViewport.height * scale;
+              const isWideBlueprint = pageNum === 1 && aspectRatio >= 2.5;
+              const initialW = isWideBlueprint ? Math.round(fullW * 0.5) : fullW;
+              const initialH = isWideBlueprint ? Math.round(fullH * 0.5) : fullH;
+
+              if (initSessionId) viewerMetrics.recordStep(initSessionId, `מתחיל רינדור עמוד ${pageNum} (PDFium WASM ${Math.round(initialW)}x${Math.round(initialH)})`);
               const { renderFullPageWithPdfium } = await import('@/utils/pdfiumSliceRenderer');
               const dataUrl = await renderFullPageWithPdfium({
                 pdfBytes: bytes,
                 docKey: url,
                 pageIndex: pageNum - 1,
-                targetW: unscaledViewport.width * scale,
-                targetH: unscaledViewport.height * scale,
+                targetW: initialW,
+                targetH: initialH,
               });
               if (initSessionId) {
                 viewerMetrics.recordStep(initSessionId, `רינדור עמוד ${pageNum} ב-PDFium הושלם`);
                 viewerMetrics.endSession(initSessionId, true);
               }
+
+              // Progressive HD upgrade in background for wide blueprints
+              if (isWideBlueprint) {
+                renderFullPageWithPdfium({
+                  pdfBytes: bytes,
+                  docKey: url,
+                  pageIndex: pageNum - 1,
+                  targetW: fullW,
+                  targetH: fullH,
+                }).then((fullDataUrl) => {
+                  if (isMounted && fullDataUrl) {
+                    setPages((prev) => (prev.length > 0 ? [fullDataUrl, ...prev.slice(1)] : [fullDataUrl]));
+                  }
+                }).catch(() => {});
+              }
+
               return dataUrl;
             } catch (pdfiumPageErr: any) {
               console.warn(`[PDFium] Page ${pageNum} fallback to PDF.js:`, pdfiumPageErr);
