@@ -31,6 +31,8 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
   const [isHdRendering, setIsHdRendering] = useState<boolean>(false);
   const [isHdActive, setIsHdActive] = useState<boolean>(false);
   const [isPlanDetected, setIsPlanDetected] = useState<boolean>(false);
+  const [bgUpgrading, setBgUpgrading] = useState(false);
+  const [bgUpgradeDone, setBgUpgradeDone] = useState(false);
   const [regionSlices, setRegionSlices] = useState<RegionSliceState[]>([]);
   const regionSlice = regionSlices.length > 0 ? regionSlices[regionSlices.length - 1] : null;
   const setRegionSlice = (val: RegionSliceState | null) => {
@@ -175,6 +177,8 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
 
               // Progressive HD upgrade in background for wide blueprints
               if (isWideBlueprint) {
+                setBgUpgrading(true);
+                setBgUpgradeDone(false);
                 renderFullPageWithPdfium({
                   pdfBytes: bytes,
                   docKey: url,
@@ -184,8 +188,13 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
                 }).then((fullDataUrl) => {
                   if (isMounted && fullDataUrl) {
                     setPages((prev) => (prev.length > 0 ? [fullDataUrl, ...prev.slice(1)] : [fullDataUrl]));
+                    setBgUpgrading(false);
+                    setBgUpgradeDone(true);
+                    setTimeout(() => { if (isMounted) setBgUpgradeDone(false); }, 2500);
                   }
-                }).catch(() => {});
+                }).catch(() => {
+                  if (isMounted) setBgUpgrading(false);
+                });
               }
 
               return dataUrl;
@@ -809,6 +818,29 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
             </>
           )}
         </TransformWrapper>
+        {(bgUpgrading || bgUpgradeDone) && (
+          <div
+            style={{
+              position: 'fixed',
+              bottom: '84px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 60,
+              pointerEvents: 'none',
+              background: bgUpgradeDone ? 'rgba(5, 150, 105, 0.92)' : 'rgba(15, 23, 42, 0.9)',
+              color: '#fff',
+              padding: '7px 14px',
+              borderRadius: '999px',
+              fontSize: '12px',
+              fontWeight: 600,
+              border: bgUpgradeDone ? '1px solid #34d399' : '1px solid rgba(96, 165, 250, 0.45)',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.45)',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {bgUpgradeDone ? '✅ איכות HD מלאה מוכנה!' : '⏳ משפר איכות ל-HD ברקע (ניתן לעבוד בינתיים)...'}
+          </div>
+        )}
       </div>
     );
   }
