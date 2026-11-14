@@ -41,7 +41,18 @@ export const uploadBlobToStorage = async (blob: Blob, path: string): Promise<str
     cacheControl: 'public, max-age=31536000, immutable'
   };
   const snapshot = await uploadBytes(storageRef, blob, metadata);
-  return await getDownloadURL(snapshot.ref);
+  const downloadUrl = await getDownloadURL(snapshot.ref);
+
+  // Auto-trigger background Cloud Run pre-tiling for PDFs at upload time
+  if (blob.type === 'application/pdf' || path.toLowerCase().endsWith('.pdf')) {
+    import('../utils/cloudBlueprintRenderer')
+      .then(({ triggerPreTile, getStableDocIdFromUrl }) => {
+        triggerPreTile(downloadUrl, getStableDocIdFromUrl(downloadUrl));
+      })
+      .catch(() => {});
+  }
+
+  return downloadUrl;
 };
 
 export const uploadImageToStorage = async (inputDataUrl: string, path: string): Promise<string> => {

@@ -523,55 +523,59 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
                         justifyContent: 'center'
                       }}
                     >
-                      <img
-                        ref={pageIdx === 0 ? imgRef : undefined}
-                        src={pageUrl}
-                        alt={`עמוד ${pageIdx + 1}`}
-                        loading="eager"
-                        style={{
-                          maxWidth: '100%',
-                          maxHeight: '76vh',
-                          width: 'auto',
-                          height: 'auto',
-                          borderRadius: '10px',
-                          boxShadow: '0 8px 30px rgba(0, 0, 0, 0.65)',
-                          userSelect: 'none',
-                          border: '1px solid rgba(255, 255, 255, 0.08)',
-                          imageRendering: pdfScale > 2.0 ? '-webkit-optimize-contrast' : 'auto'
-                        }}
-                      />
-
-                      {/* Pre-tiled Cloud HD Grid Overlay (loads in ~50ms from Storage when zoomed in) */}
-                      {pageIdx === 0 && tilesManifest && pdfScale > 1.25 && (
-                        <div
+                      <div style={{ position: 'relative', display: 'inline-block', maxWidth: '100%', maxHeight: '76vh' }}>
+                        <img
+                          ref={pageIdx === 0 ? imgRef : undefined}
+                          src={pageUrl}
+                          alt={`עמוד ${pageIdx + 1}`}
+                          loading="eager"
                           style={{
-                            position: 'absolute',
-                            inset: 0,
-                            pointerEvents: 'none',
-                            zIndex: 12,
-                            overflow: 'hidden'
+                            display: 'block',
+                            maxWidth: '100%',
+                            maxHeight: '76vh',
+                            width: 'auto',
+                            height: 'auto',
+                            borderRadius: '10px',
+                            boxShadow: '0 8px 30px rgba(0, 0, 0, 0.65)',
+                            userSelect: 'none',
+                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                            imageRendering: pdfScale > 2.0 ? '-webkit-optimize-contrast' : 'auto'
                           }}
-                        >
-                          {tilesManifest.tiles.map((tile) => (
-                            <img
-                              key={`${tile.col}_${tile.row}`}
-                              src={tile.url}
-                              alt=""
-                              loading="lazy"
-                              decoding="async"
-                              style={{
-                                position: 'absolute',
-                                left: `${tile.normX * 100}%`,
-                                top: `${tile.normY * 100}%`,
-                                width: `${tile.normW * 100}%`,
-                                height: `${tile.normH * 100}%`,
-                                objectFit: 'fill',
-                                display: 'block'
-                              }}
-                            />
-                          ))}
-                        </div>
-                      )}
+                        />
+
+                        {/* Pre-tiled Cloud HD Grid Overlay (loads in ~50ms from Storage when zoomed in) */}
+                        {pageIdx === 0 && tilesManifest && pdfScale > 1.25 && (
+                          <div
+                            style={{
+                              position: 'absolute',
+                              inset: 0,
+                              pointerEvents: 'none',
+                              zIndex: 12,
+                              overflow: 'hidden',
+                              borderRadius: '10px'
+                            }}
+                          >
+                            {tilesManifest.tiles.map((tile) => (
+                              <img
+                                key={`${tile.col}_${tile.row}`}
+                                src={tile.url}
+                                alt=""
+                                loading="lazy"
+                                decoding="async"
+                                style={{
+                                  position: 'absolute',
+                                  left: `${tile.normX * 100}%`,
+                                  top: `${tile.normY * 100}%`,
+                                  width: `${tile.normW * 100}%`,
+                                  height: `${tile.normH * 100}%`,
+                                  objectFit: 'fill',
+                                  display: 'block'
+                                }}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
 
                       {/* Focused Vector Slice Overlay (200% razor-sharp CAD dimensions & numbers) */}
                       {pageIdx === 0 && regionSlice && (
