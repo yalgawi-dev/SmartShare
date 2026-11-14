@@ -543,38 +543,46 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
                           }}
                         />
 
-                        {/* Pre-tiled Cloud HD Grid Overlay (loads in ~50ms from Storage when zoomed in) */}
-                        {pageIdx === 0 && tilesManifest && pdfScale > 1.25 && (
-                          <div
-                            style={{
-                              position: 'absolute',
-                              inset: 0,
-                              pointerEvents: 'none',
-                              zIndex: 12,
-                              overflow: 'hidden',
-                              borderRadius: '10px'
-                            }}
-                          >
-                            {tilesManifest.tiles.map((tile) => (
-                              <img
-                                key={`${tile.col}_${tile.row}`}
-                                src={tile.url}
-                                alt=""
-                                loading="lazy"
-                                decoding="async"
-                                style={{
-                                  position: 'absolute',
-                                  left: `${tile.normX * 100}%`,
-                                  top: `${tile.normY * 100}%`,
-                                  width: `${tile.normW * 100}%`,
-                                  height: `${tile.normH * 100}%`,
-                                  objectFit: 'fill',
-                                  display: 'block'
-                                }}
-                              />
-                            ))}
-                          </div>
-                        )}
+                        {/* Pre-tiled Cloud HD Grid Overlay (loads in ~50ms from Storage when zoomed in, only if aspect ratio matches) */}
+                        {pageIdx === 0 && tilesManifest && pdfScale > 1.25 && (() => {
+                          const imgW = imgRef.current?.naturalWidth || 0;
+                          const imgH = imgRef.current?.naturalHeight || 0;
+                          const imgAspect = imgH > 0 ? imgW / imgH : 0;
+                          const manifestAspect = tilesManifest.heightPts > 0 ? tilesManifest.widthPts / tilesManifest.heightPts : 0;
+                          const isAligned = imgAspect > 0 && manifestAspect > 0 && Math.abs(imgAspect - manifestAspect) < 0.15;
+                          if (!isAligned) return null;
+                          return (
+                            <div
+                              style={{
+                                position: 'absolute',
+                                inset: 0,
+                                pointerEvents: 'none',
+                                zIndex: 12,
+                                overflow: 'hidden',
+                                borderRadius: '10px'
+                              }}
+                            >
+                              {tilesManifest.tiles.map((tile) => (
+                                <img
+                                  key={`${tile.col}_${tile.row}`}
+                                  src={tile.url}
+                                  alt=""
+                                  loading="lazy"
+                                  decoding="async"
+                                  style={{
+                                    position: 'absolute',
+                                    left: `${tile.normX * 100}%`,
+                                    top: `${tile.normY * 100}%`,
+                                    width: `${tile.normW * 100}%`,
+                                    height: `${tile.normH * 100}%`,
+                                    objectFit: 'fill',
+                                    display: 'block'
+                                  }}
+                                />
+                              ))}
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       {/* Focused Vector Slice Overlay (200% razor-sharp CAD dimensions & numbers) */}
