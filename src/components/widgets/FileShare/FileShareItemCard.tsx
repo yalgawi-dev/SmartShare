@@ -607,9 +607,14 @@ export function FileShareItemCard({
         <div style={{ fontSize: '0.72rem', color: '#64748b', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
           <span>{new Date(item.createdAt).toLocaleDateString('he-IL')}</span>
           {item.size ? (
-            <span style={{ fontSize: '0.62rem', background: '#f1f5f9', color: '#334155', padding: '1px 5px', borderRadius: '4px', fontWeight: 700, border: '1px solid #e2e8f0' }} title="גודל הקובץ">
-              ⚖️ {formatFileSize(item.size)}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span style={{ fontSize: '0.62rem', background: isPdf ? '#fef2f2' : '#eff6ff', color: isPdf ? '#dc2626' : '#2563eb', padding: '1px 5px', borderRadius: '4px', fontWeight: 800, border: `1px solid ${isPdf ? '#fecaca' : '#bfdbfe'}` }}>
+                {isPdf ? 'PDF' : (item.url?.toLowerCase().includes('.webp') ? 'WEBP' : 'IMG')}
+              </span>
+              <span style={{ fontSize: '0.62rem', background: '#f1f5f9', color: '#334155', padding: '1px 5px', borderRadius: '4px', fontWeight: 700, border: '1px solid #e2e8f0' }} title="גודל הקובץ">
+                ⚖️ {formatFileSize(item.size)}
+              </span>
+            </div>
           ) : null}
         </div>
 

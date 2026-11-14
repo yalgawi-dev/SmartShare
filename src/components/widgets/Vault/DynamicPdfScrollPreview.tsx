@@ -40,7 +40,6 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
     else setRegionSlices((prev) => [...prev.slice(-24), val]);
   };
   const [isSlicing, setIsSlicing] = useState<boolean>(false);
-  const [tilesManifest, setTilesManifest] = useState<TilesManifest | null>(null);
   const pdfDocRef = React.useRef<any>(null);
   const wrapperRef = React.useRef<HTMLDivElement | null>(null);
   const imgRef = React.useRef<HTMLImageElement | null>(null);
