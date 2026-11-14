@@ -1,1 +1,1 @@
-export const APP_VERSION = 'v3.5.91-pdfium-full';
+export const APP_VERSION = 'v3.5.92-pdfium-hd';
