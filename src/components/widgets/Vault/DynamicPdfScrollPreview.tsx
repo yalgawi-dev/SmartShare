@@ -176,25 +176,29 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
               }
 
               // Progressive HD upgrade in background for wide blueprints
+              // Defer by 150ms so the browser paints the initial image + indicator first!
               if (isWideBlueprint) {
                 setBgUpgrading(true);
                 setBgUpgradeDone(false);
-                renderFullPageWithPdfium({
-                  pdfBytes: bytes,
-                  docKey: url,
-                  pageIndex: pageNum - 1,
-                  targetW: fullW,
-                  targetH: fullH,
-                }).then((fullDataUrl) => {
-                  if (isMounted && fullDataUrl) {
-                    setPages((prev) => (prev.length > 0 ? [fullDataUrl, ...prev.slice(1)] : [fullDataUrl]));
-                    setBgUpgrading(false);
-                    setBgUpgradeDone(true);
-                    setTimeout(() => { if (isMounted) setBgUpgradeDone(false); }, 2500);
-                  }
-                }).catch(() => {
-                  if (isMounted) setBgUpgrading(false);
-                });
+                setTimeout(() => {
+                  if (!isMounted) return;
+                  renderFullPageWithPdfium({
+                    pdfBytes: bytes,
+                    docKey: url,
+                    pageIndex: pageNum - 1,
+                    targetW: fullW,
+                    targetH: fullH,
+                  }).then((fullDataUrl) => {
+                    if (isMounted && fullDataUrl) {
+                      setPages((prev) => (prev.length > 0 ? [fullDataUrl, ...prev.slice(1)] : [fullDataUrl]));
+                      setBgUpgrading(false);
+                      setBgUpgradeDone(true);
+                      setTimeout(() => { if (isMounted) setBgUpgradeDone(false); }, 2500);
+                    }
+                  }).catch(() => {
+                    if (isMounted) setBgUpgrading(false);
+                  });
+                }, 150);
               }
 
               return dataUrl;
