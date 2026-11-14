@@ -156,7 +156,8 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
                 pdfBytes: bytes,
                 docKey: url,
                 pageIndex: pageNum - 1,
-                maxDim: 3200,
+                targetW: unscaledViewport.width * scale,
+                targetH: unscaledViewport.height * scale,
               });
             } catch (pdfiumPageErr) {
               console.warn(`[PDFium] Page ${pageNum} fallback to PDF.js:`, pdfiumPageErr);
