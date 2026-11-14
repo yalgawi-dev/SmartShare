@@ -27,6 +27,28 @@ export default function PdfThumbnail({ base64Uri, url, style, onClick }: PdfThum
     if (!targetPdf) return;
     
     const renderPdf = async () => {
+      // Fast-path: try C++ PDFium WASM for thumbnail rendering
+      try {
+        const res = await fetch(targetPdf);
+        if (res.ok) {
+          const bytes = new Uint8Array(await res.arrayBuffer());
+          const { renderFullPageWithPdfium } = await import('@/utils/pdfiumSliceRenderer');
+          const thumbUrl = await renderFullPageWithPdfium({
+            pdfBytes: bytes,
+            docKey: targetPdf,
+            pageIndex: 0,
+            targetW: 240,
+            targetH: 240,
+          });
+          if (isMounted && thumbUrl) {
+            setImgSrc(thumbUrl);
+            return;
+          }
+        }
+      } catch {
+        // Fallback to PDF.js below
+      }
+
       try {
         const pdfjs = await ensurePdfJsLoaded();
         if (!pdfjs) throw new Error('PDF.js unavailable');
