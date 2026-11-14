@@ -33,6 +33,7 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
   const [isPlanDetected, setIsPlanDetected] = useState<boolean>(false);
   const [bgUpgrading, setBgUpgrading] = useState(false);
   const [bgUpgradeDone, setBgUpgradeDone] = useState(false);
+  const isWideBlueprintRef = React.useRef<boolean>(false);
   const [regionSlices, setRegionSlices] = useState<RegionSliceState[]>([]);
   const regionSlice = regionSlices.length > 0 ? regionSlices[regionSlices.length - 1] : null;
   const setRegionSlice = (val: RegionSliceState | null) => {
@@ -139,6 +140,9 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
           const currentMax = Math.max(unscaledViewport.width, unscaledViewport.height);
           const currentMin = Math.min(unscaledViewport.width, unscaledViewport.height);
           const aspectRatio = currentMax / Math.max(1, currentMin);
+          if (pageNum === 1) {
+            isWideBlueprintRef.current = aspectRatio >= 2.2;
+          }
 
           // For blueprints / megilot / CAD (aspect ratio >= 2.5): guarantee short axis is at least 2200px
           // so every CAD measurement number and fine line is crystal clear!
