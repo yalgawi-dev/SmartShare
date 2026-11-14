@@ -61,10 +61,17 @@ async function getPdfPageDimensions(pdfPath, pageNum = 1) {
   if (!match) {
     throw new Error('Could not parse PDF page dimensions from pdfinfo');
   }
-  return {
-    widthPts: parseFloat(match[1]),
-    heightPts: parseFloat(match[2]),
-  };
+  let widthPts = parseFloat(match[1]);
+  let heightPts = parseFloat(match[2]);
+
+  // Check if page has /Rotate (90 or 270) and swap dimensions to match PDF.js & pdftoppm
+  const rotMatch = stdout.match(/Page\s+\d+\s+rot:\s+(\d+)/i) || stdout.match(/Page rot:\s+(\d+)/i);
+  const rot = rotMatch ? parseInt(rotMatch[1], 10) : 0;
+  if (rot === 90 || rot === 270) {
+    [widthPts, heightPts] = [heightPts, widthPts];
+  }
+
+  return { widthPts, heightPts };
 }
 
 app.get('/health', (req, res) => {
