@@ -519,7 +519,7 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
         <TransformWrapper
           initialScale={1}
           minScale={0.8}
-          maxScale={30}
+          maxScale={50}
           centerOnInit={true}
           centerZoomedOut={true}
           limitToBounds={true}

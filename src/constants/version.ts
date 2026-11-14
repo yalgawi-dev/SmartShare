@@ -1,1 +1,1 @@
-export const APP_VERSION = 'v3.5.101-pdfium-thumbs';
+export const APP_VERSION = 'v3.5.102-zoom-50x';
