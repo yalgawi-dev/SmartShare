@@ -143,6 +143,21 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
             scale = Math.min(1.8, Math.max(0.8, 1600 / currentMax));
           }
 
+          // Fast-path: render full page with C++ PDFium WASM (~0.8s instead of ~15s in PDF.js)
+          if (bytes) {
+            try {
+              const { renderFullPageWithPdfium } = await import('@/utils/pdfiumSliceRenderer');
+              return await renderFullPageWithPdfium({
+                pdfBytes: bytes,
+                docKey: url,
+                pageIndex: pageNum - 1,
+                maxDim: 1600,
+              });
+            } catch (pdfiumPageErr) {
+              console.warn(`[PDFium] Page ${pageNum} fallback to PDF.js:`, pdfiumPageErr);
+            }
+          }
+
           const viewport = page.getViewport({ scale });
           const canvas = document.createElement('canvas');
           canvas.width = viewport.width;

@@ -157,3 +157,44 @@ export async function renderSliceWithPdfium(params: {
     pdfium.FPDF_ClosePage(pagePtr);
   }
 }
+
+/**
+ * Renders a full PDF page at up to `maxDim` pixels using C++ PDFium WASM.
+ * Replaces slow PDF.js initial page rendering (~15s -> ~0.8s).
+ */
+export async function renderFullPageWithPdfium(params: {
+  pdfBytes: Uint8Array;
+  docKey: string;
+  pageIndex: number;
+  maxDim?: number;
+}): Promise<string> {
+  const { pdfBytes, docKey, pageIndex, maxDim = 1600 } = params;
+  const pdfium = await getPdfium();
+  const docPtr = await getOrLoadDocument(pdfium, pdfBytes, docKey);
+  const pagePtr = pdfium.FPDF_LoadPage(docPtr, pageIndex);
+  if (!pagePtr) throw new Error(`PDFium failed to load page ${pageIndex}`);
+
+  let canvasW: number;
+  let canvasH: number;
+  try {
+    const pageW = pdfium.FPDF_GetPageWidthF(pagePtr);
+    const pageH = pdfium.FPDF_GetPageHeightF(pagePtr);
+    const scale = Math.min(maxDim / Math.max(pageW, pageH), 2.5);
+    canvasW = Math.max(1, Math.round(pageW * scale));
+    canvasH = Math.max(1, Math.round(pageH * scale));
+  } finally {
+    pdfium.FPDF_ClosePage(pagePtr);
+  }
+
+  return renderSliceWithPdfium({
+    pdfBytes,
+    docKey,
+    pageIndex,
+    normX: 0,
+    normY: 0,
+    normW: 1,
+    normH: 1,
+    canvasW,
+    canvasH,
+  });
+}
