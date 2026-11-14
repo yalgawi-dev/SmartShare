@@ -49,6 +49,7 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
 
   useEffect(() => {
     let isMounted = true;
+    import('@/utils/pdfiumSliceRenderer').then(({ prewarmPdfium }) => prewarmPdfium()).catch(() => {});
     setIsLoading(true);
     setError(false);
     setPages([]);

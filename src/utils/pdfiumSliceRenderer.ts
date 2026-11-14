@@ -23,6 +23,14 @@ async function getPdfium(): Promise<WrappedPdfiumModule> {
 }
 
 /**
+ * Pre-warms PDFium WASM in the background so opening a PDF has 0ms WASM init delay.
+ */
+export function prewarmPdfium(): void {
+  if (typeof window === 'undefined') return;
+  getPdfium().catch(() => {});
+}
+
+/**
  * Loads PDF bytes into PDFium WASM memory (reuses cached document if same key).
  */
 async function getOrLoadDocument(pdfium: WrappedPdfiumModule, pdfBytes: Uint8Array, docKey: string): Promise<number> {
