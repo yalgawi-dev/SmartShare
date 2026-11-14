@@ -32,7 +32,6 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
   const [isPlanDetected, setIsPlanDetected] = useState<boolean>(false);
   const [bgUpgrading, setBgUpgrading] = useState(false);
   const [bgUpgradeDone, setBgUpgradeDone] = useState(false);
-  const [useNativePdf, setUseNativePdf] = useState(false);
   const isWideBlueprintRef = React.useRef<boolean>(false);
   const [regionSlices, setRegionSlices] = useState<RegionSliceState[]>([]);
   const regionSlice = regionSlices.length > 0 ? regionSlices[regionSlices.length - 1] : null;
@@ -125,13 +124,6 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
           const vp = firstPage.getViewport({ scale: 1.0 });
           if (vp.width > 900 || vp.height > 900 || (vp.width / vp.height > 1.3 && vp.width > 800)) {
             setIsPlanDetected(true);
-          }
-          // Multi-page A4 documents: open natively in browser PDF viewer without WebP conversion!
-          const ar1 = Math.max(vp.width, vp.height) / Math.max(1, Math.min(vp.width, vp.height));
-          if (numPages > 1 && ar1 < 2.2 && isMounted) {
-            setUseNativePdf(true);
-            setIsLoading(false);
-            return;
           }
         } catch (_) {}
 
@@ -519,18 +511,6 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
         <div style={{ width: '48px', height: '48px', border: '4px solid rgba(255,255,255,0.2)', borderTopColor: '#38bdf8', borderRadius: '50%', animation: 'spin 1s linear infinite', zIndex: 10 }} />
         <span style={{ fontSize: '1rem', fontWeight: 'bold', zIndex: 10, textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}>טוען את דפי המסמך...</span>
         <span style={{ fontSize: '0.8rem', color: '#94a3b8', zIndex: 10 }}>טעינת דפים באיכות גבוהה</span>
-      </div>
-    );
-  }
-
-  if (useNativePdf) {
-    return (
-      <div style={{ width: '100%', height: '78vh', position: 'relative', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 8px 30px rgba(0,0,0,0.5)', background: '#1e293b' }}>
-        <iframe
-          src={getDocumentPreviewUrl(url)}
-          style={{ width: '100%', height: '100%', border: 'none' }}
-          title={title || 'PDF Document'}
-        />
       </div>
     );
   }
