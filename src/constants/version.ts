@@ -1,1 +1,1 @@
-export const APP_VERSION = 'v3.5.105-filetype-badge';
+export const APP_VERSION = 'v3.5.106-grid-badge';
