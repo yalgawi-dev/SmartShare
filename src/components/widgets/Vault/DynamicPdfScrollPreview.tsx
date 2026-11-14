@@ -150,17 +150,29 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
 
           // Fast-path: render full page with C++ PDFium WASM (~0.8s instead of ~15s in PDF.js)
           if (bytes) {
+            const initSessionId = pageNum === 1 ? `pdf_init_${Date.now()}` : null;
+            if (initSessionId) viewerMetrics.startSession(initSessionId, 'pdf');
             try {
+              if (initSessionId) viewerMetrics.recordStep(initSessionId, `מתחיל רינדור עמוד ${pageNum} (PDFium WASM ${Math.round(unscaledViewport.width * scale)}x${Math.round(unscaledViewport.height * scale)})`);
               const { renderFullPageWithPdfium } = await import('@/utils/pdfiumSliceRenderer');
-              return await renderFullPageWithPdfium({
+              const dataUrl = await renderFullPageWithPdfium({
                 pdfBytes: bytes,
                 docKey: url,
                 pageIndex: pageNum - 1,
                 targetW: unscaledViewport.width * scale,
                 targetH: unscaledViewport.height * scale,
               });
-            } catch (pdfiumPageErr) {
+              if (initSessionId) {
+                viewerMetrics.recordStep(initSessionId, `רינדור עמוד ${pageNum} ב-PDFium הושלם`);
+                viewerMetrics.endSession(initSessionId, true);
+              }
+              return dataUrl;
+            } catch (pdfiumPageErr: any) {
               console.warn(`[PDFium] Page ${pageNum} fallback to PDF.js:`, pdfiumPageErr);
+              if (initSessionId) {
+                viewerMetrics.recordStep(initSessionId, `PDFium עמוד ${pageNum} נכשל (${pdfiumPageErr?.message || 'שגיאה'}), עובר ל-PDF.js`);
+                viewerMetrics.endSession(initSessionId, false, pdfiumPageErr?.message);
+              }
             }
           }
 
