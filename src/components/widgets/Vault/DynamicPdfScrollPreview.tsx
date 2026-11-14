@@ -31,7 +31,12 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
   const [isHdRendering, setIsHdRendering] = useState<boolean>(false);
   const [isHdActive, setIsHdActive] = useState<boolean>(false);
   const [isPlanDetected, setIsPlanDetected] = useState<boolean>(false);
-  const [regionSlice, setRegionSlice] = useState<RegionSliceState | null>(null);
+  const [regionSlices, setRegionSlices] = useState<RegionSliceState[]>([]);
+  const regionSlice = regionSlices.length > 0 ? regionSlices[regionSlices.length - 1] : null;
+  const setRegionSlice = (val: RegionSliceState | null) => {
+    if (!val) setRegionSlices([]);
+    else setRegionSlices((prev) => [...prev.slice(-24), val]);
+  };
   const [isSlicing, setIsSlicing] = useState<boolean>(false);
   const [tilesManifest, setTilesManifest] = useState<TilesManifest | null>(null);
   const pdfDocRef = React.useRef<any>(null);
@@ -568,22 +573,23 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
                         }}
                       />
 
-                      {/* Focused Vector Slice Overlay (200% razor-sharp CAD dimensions & numbers) */}
-                      {pageIdx === 0 && regionSlice && (
+                      {/* Focused Vector Slice Puzzle Overlay (200% razor-sharp CAD dimensions & numbers) */}
+                      {pageIdx === 0 && regionSlices.map((slice, sIdx) => (
                         <div
+                          key={`${slice.rect.left.toFixed(2)}_${slice.rect.top.toFixed(2)}_${sIdx}`}
                           style={{
                             position: 'absolute',
-                            left: `${regionSlice.rect.left}%`,
-                            top: `${regionSlice.rect.top}%`,
-                            width: `${regionSlice.rect.width}%`,
-                            height: `${regionSlice.rect.height}%`,
+                            left: `${slice.rect.left}%`,
+                            top: `${slice.rect.top}%`,
+                            width: `${slice.rect.width}%`,
+                            height: `${slice.rect.height}%`,
                             pointerEvents: 'none',
                             zIndex: 15,
                             overflow: 'hidden'
                           }}
                         >
                           <img
-                            src={regionSlice.dataUrl}
+                            src={slice.dataUrl}
                             alt=""
                             style={{
                               width: '100%',
@@ -593,7 +599,7 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
                             }}
                           />
                         </div>
-                      )}
+                      ))}
 
                       {pages.length > 1 && (
                         <div
