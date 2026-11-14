@@ -349,18 +349,42 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
         -pdfY * renderScale
       ];
 
-      viewerMetrics.recordStep(sliceSessionId, 'מתחיל רינדור וקטורי של החלון בלבד (page.render)');
-      await page.render({
-        canvasContext: ctx,
-        viewport: scaledViewport,
-        transform: transform,
-        annotationMode: 0,
-        intent: 'display'
-      }).promise;
-      viewerMetrics.recordStep(sliceSessionId, 'סיום רינדור וקטורי, מתחיל דחיסת WebP');
+      viewerMetrics.recordStep(sliceSessionId, 'מתחיל רינדור וקטורי (PDFium WASM)');
+      let sliceDataUrl: string | null = null;
+      const memoryCache = (window as any).__smartshare_pdf_bytes_cache as Map<string, Uint8Array> | undefined;
+      const pdfBytes = memoryCache?.get(url);
+      if (pdfBytes) {
+        try {
+          const { renderSliceWithPdfium } = await import('@/utils/pdfiumSliceRenderer');
+          sliceDataUrl = await renderSliceWithPdfium({
+            pdfBytes,
+            docKey: url,
+            pageIndex: 0,
+            normX,
+            normY,
+            normW,
+            normH,
+            canvasW: canvas.width,
+            canvasH: canvas.height,
+          });
+          viewerMetrics.recordStep(sliceSessionId, 'רינדור PDFium WASM הושלם');
+        } catch (pdfiumErr) {
+          console.warn('[PDFium] Fallback to PDF.js:', pdfiumErr);
+        }
+      }
 
-      const sliceDataUrl = compressCanvasWebP(canvas, 0.92);
-      viewerMetrics.recordStep(sliceSessionId, 'דחיסת WebP הושלמה');
+      if (!sliceDataUrl) {
+        await page.render({
+          canvasContext: ctx,
+          viewport: scaledViewport,
+          transform: transform,
+          annotationMode: 0,
+          intent: 'display'
+        }).promise;
+        viewerMetrics.recordStep(sliceSessionId, 'סיום רינדור וקטורי, מתחיל דחיסת WebP');
+        sliceDataUrl = compressCanvasWebP(canvas, 0.92);
+        viewerMetrics.recordStep(sliceSessionId, 'דחיסת WebP הושלמה');
+      }
 
       // Calculate relative position within the unscaled image container so it sits right in place!
       const relativeLeft = (normX * 100);
