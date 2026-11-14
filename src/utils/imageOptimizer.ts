@@ -584,6 +584,23 @@ export async function generatePdfFirstPageThumbnail(source: Blob | string, maxDi
   const scale = Math.min(1.5, maxDim / currentMax);
   const viewport = page.getViewport({ scale: Math.max(0.3, scale) });
 
+  // Fast-path: use C++ PDFium WASM for thumbnail generation
+  if (source instanceof Blob) {
+    try {
+      const bytes = new Uint8Array(await source.arrayBuffer());
+      const { renderFullPageWithPdfium } = await import('./pdfiumSliceRenderer');
+      return await renderFullPageWithPdfium({
+        pdfBytes: bytes,
+        docKey: `upload_${source.size}_${source.type}`,
+        pageIndex: 0,
+        targetW: viewport.width,
+        targetH: viewport.height,
+      });
+    } catch {
+      // Fallback to PDF.js below
+    }
+  }
+
   const canvas = document.createElement('canvas');
   canvas.width = viewport.width;
   canvas.height = viewport.height;
