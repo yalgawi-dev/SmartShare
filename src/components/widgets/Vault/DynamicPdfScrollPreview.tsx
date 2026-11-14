@@ -3,7 +3,6 @@ import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { compressCanvasWebP, ensurePdfJsLoaded, getCachedPdfBytes, setCachedPdfBytes, getCachedPdfPages, setCachedPdfPages } from '@/utils/imageOptimizer';
 import { getDocumentPreviewUrl } from '@/utils/documentUtils';
 import { viewerMetrics } from '@/utils/viewerMetrics';
-import { getStableDocIdFromUrl, getTilesManifest, triggerPreTile, TilesManifest } from '@/utils/cloudBlueprintRenderer';
 
 interface DynamicPdfScrollPreviewProps {
   url: string;
