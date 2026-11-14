@@ -103,7 +103,7 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
 
         if (!bytes) throw new Error('Failed to obtain PDF bytes');
 
-        const loadingTask = window.pdfjsLib.getDocument({ data: bytes, disableFontFace: true });
+        const loadingTask = window.pdfjsLib.getDocument({ data: bytes.slice(), disableFontFace: true });
         const pdf = await loadingTask.promise;
         if (!isMounted) return;
         pdfDocRef.current = pdf;

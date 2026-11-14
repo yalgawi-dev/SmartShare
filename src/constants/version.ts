@@ -1,1 +1,1 @@
-export const APP_VERSION = 'v3.5.89-pdfium-diag';
+export const APP_VERSION = 'v3.5.90-pdfium-active';
