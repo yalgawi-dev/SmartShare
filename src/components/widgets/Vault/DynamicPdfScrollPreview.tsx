@@ -248,6 +248,8 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
               allUrls.push(nextPage);
               setPages(prev => [...prev, nextPage]);
             }
+            // Yield to UI thread so scrolling/touch stays 100% responsive on 50+ page PDFs
+            await new Promise((r) => setTimeout(r, 80));
           }
           setCachedPdfPages(url, allUrls).catch(() => {});
           if (onPagesLoaded && isMounted) {
