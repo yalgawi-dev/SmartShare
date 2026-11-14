@@ -3,6 +3,7 @@ import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { compressCanvasWebP, ensurePdfJsLoaded, getCachedPdfBytes, setCachedPdfBytes, getCachedPdfPages, setCachedPdfPages } from '@/utils/imageOptimizer';
 import { getDocumentPreviewUrl } from '@/utils/documentUtils';
 import { viewerMetrics } from '@/utils/viewerMetrics';
+import { getStableDocIdFromUrl, getTilesManifest, triggerPreTile, TilesManifest } from '@/utils/cloudBlueprintRenderer';
 
 interface DynamicPdfScrollPreviewProps {
   url: string;
@@ -32,6 +33,7 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
   const [isPlanDetected, setIsPlanDetected] = useState<boolean>(false);
   const [regionSlice, setRegionSlice] = useState<RegionSliceState | null>(null);
   const [isSlicing, setIsSlicing] = useState<boolean>(false);
+  const [tilesManifest, setTilesManifest] = useState<TilesManifest | null>(null);
   const pdfDocRef = React.useRef<any>(null);
   const wrapperRef = React.useRef<HTMLDivElement | null>(null);
   const imgRef = React.useRef<HTMLImageElement | null>(null);
@@ -43,6 +45,23 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
     setIsLoading(true);
     setError(false);
     setPages([]);
+    setTilesManifest(null);
+
+    if (url.startsWith('http')) {
+      const docId = getStableDocIdFromUrl(url);
+      getTilesManifest(docId).then((manifest) => {
+        if (manifest && isMounted) {
+          setTilesManifest(manifest);
+        } else if (isMounted) {
+          // Trigger background pre-tiling on 4-vCPU Cloud Run so next zoom/open is 50ms
+          triggerPreTile(url, docId, 1).then((created) => {
+            if (created && isMounted) {
+              setTilesManifest(created);
+            }
+          });
+        }
+      });
+    }
 
     const loadProgressively = async () => {
       try {
@@ -521,6 +540,38 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
                           imageRendering: pdfScale > 2.0 ? '-webkit-optimize-contrast' : 'auto'
                         }}
                       />
+
+                      {/* Pre-tiled Cloud HD Grid Overlay (loads in ~50ms from Storage when zoomed in) */}
+                      {pageIdx === 0 && tilesManifest && pdfScale > 1.25 && (
+                        <div
+                          style={{
+                            position: 'absolute',
+                            inset: 0,
+                            pointerEvents: 'none',
+                            zIndex: 12,
+                            overflow: 'hidden'
+                          }}
+                        >
+                          {tilesManifest.tiles.map((tile) => (
+                            <img
+                              key={`${tile.col}_${tile.row}`}
+                              src={tile.url}
+                              alt=""
+                              loading="lazy"
+                              decoding="async"
+                              style={{
+                                position: 'absolute',
+                                left: `${tile.normX * 100}%`,
+                                top: `${tile.normY * 100}%`,
+                                width: `${tile.normW * 100}%`,
+                                height: `${tile.normH * 100}%`,
+                                objectFit: 'fill',
+                                display: 'block'
+                              }}
+                            />
+                          ))}
+                        </div>
+                      )}
 
                       {/* Focused Vector Slice Overlay (200% razor-sharp CAD dimensions & numbers) */}
                       {pageIdx === 0 && regionSlice && (

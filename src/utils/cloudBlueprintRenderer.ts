@@ -96,3 +96,70 @@ export async function getCloudFocusedSlice(
 
   return { dataUrl, serverRenderMs };
 }
+
+export interface BlueprintTile {
+  col: number;
+  row: number;
+  normX: number;
+  normY: number;
+  normW: number;
+  normH: number;
+  url: string;
+}
+
+export interface TilesManifest {
+  docId: string;
+  cols: number;
+  rows: number;
+  widthPts: number;
+  heightPts: number;
+  dpi: number;
+  renderTimeMs?: number;
+  tiles: BlueprintTile[];
+}
+
+const STORAGE_BUCKET = 'myspace-da215.firebasestorage.app';
+
+/**
+ * Generates a deterministic short ID from a PDF URL for Storage tile caching.
+ */
+export function getStableDocIdFromUrl(pdfUrl: string): string {
+  let hash = 0;
+  for (let i = 0; i < pdfUrl.length; i++) {
+    const ch = pdfUrl.charCodeAt(i);
+    hash = ((hash << 5) - hash) + ch;
+    hash |= 0;
+  }
+  return `doc_${Math.abs(hash).toString(36)}`;
+}
+
+/**
+ * Checks Firebase Storage directly (<50ms) if pre-rendered tiles already exist.
+ */
+export async function getTilesManifest(docId: string): Promise<TilesManifest | null> {
+  try {
+    const manifestUrl = `https://storage.googleapis.com/${STORAGE_BUCKET}/rendered_tiles/${docId}/manifest.json`;
+    const res = await fetch(manifestUrl, { cache: 'no-cache' });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Triggers parallel 4-vCPU C++ pre-tiling on Cloud Run and persists tiles to Firebase Storage.
+ */
+export async function triggerPreTile(pdfUrl: string, docId: string, page: number = 1): Promise<TilesManifest | null> {
+  try {
+    const res = await fetch(`${CPP_TILER_URL}/pre-tile`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pdfUrl, docId, page }),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
