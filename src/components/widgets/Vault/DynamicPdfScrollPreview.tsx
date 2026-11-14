@@ -169,6 +169,7 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
                 pageIndex: pageNum - 1,
                 targetW: initialW,
                 targetH: initialH,
+                onStep: initSessionId ? (lbl) => viewerMetrics.recordStep(initSessionId, lbl) : undefined,
               });
               if (initSessionId) {
                 viewerMetrics.recordStep(initSessionId, `רינדור עמוד ${pageNum} ב-PDFium הושלם`);

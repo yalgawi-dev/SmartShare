@@ -69,10 +69,13 @@ export async function renderSliceWithPdfium(params: {
   normH: number;
   canvasW: number;
   canvasH: number;
+  onStep?: (label: string) => void;
 }): Promise<string> {
-  const { pdfBytes, docKey, pageIndex, normX, normY, normW, normH, canvasW, canvasH } = params;
+  const { pdfBytes, docKey, pageIndex, normX, normY, normW, normH, canvasW, canvasH, onStep } = params;
   const pdfium = await getPdfium();
+  onStep?.('PDFium: מנוע WASM מוכן');
   const docPtr = await getOrLoadDocument(pdfium, pdfBytes, docKey);
+  onStep?.('PDFium: מסמך נטען לזיכרון');
 
   const pagePtr = pdfium.FPDF_LoadPage(docPtr, pageIndex);
   if (!pagePtr) {
@@ -124,6 +127,7 @@ export async function renderSliceWithPdfium(params: {
 
         // 0x01 = FPDF_ANNOT (skip or include? 0 = fastest, no annot overhead)
         pdfium.FPDF_RenderPageBitmapWithMatrix(bitmapPtr, pagePtr, matrixPtr, clipPtr, 0);
+        onStep?.('PDFium: רינדור C++ הסתיים');
       } finally {
         pdfium.pdfium.wasmExports.free(matrixPtr);
         pdfium.pdfium.wasmExports.free(clipPtr);
@@ -149,8 +153,11 @@ export async function renderSliceWithPdfium(params: {
       const ctx = canvas.getContext('2d');
       if (!ctx) throw new Error('Could not get 2d context');
       ctx.putImageData(new ImageData(rgba, canvasW, canvasH), 0, 0);
+      onStep?.('PDFium: המרת צבעים + putImageData הסתיימו');
 
-      return canvas.toDataURL('image/webp', 0.92);
+      const outUrl = canvas.toDataURL('image/webp', 0.92);
+      onStep?.('PDFium: קידוד WebP הסתיים');
+      return outUrl;
     } finally {
       pdfium.FPDFBitmap_Destroy(bitmapPtr);
     }
@@ -169,8 +176,9 @@ export async function renderFullPageWithPdfium(params: {
   pageIndex: number;
   targetW: number;
   targetH: number;
+  onStep?: (label: string) => void;
 }): Promise<string> {
-  const { pdfBytes, docKey, pageIndex, targetW, targetH } = params;
+  const { pdfBytes, docKey, pageIndex, targetW, targetH, onStep } = params;
   return renderSliceWithPdfium({
     pdfBytes,
     docKey,
@@ -181,5 +189,6 @@ export async function renderFullPageWithPdfium(params: {
     normH: 1,
     canvasW: Math.max(1, Math.round(targetW)),
     canvasH: Math.max(1, Math.round(targetH)),
+    onStep,
   });
 }
