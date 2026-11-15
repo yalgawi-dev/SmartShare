@@ -5,6 +5,7 @@ import { useAuth } from '@/app/context/AuthContext';
 import { RecaptchaVerifier, ConfirmationResult } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { COUNTRIES } from '@/utils/countries';
+import { OTPInput } from 'input-otp';
 
 export default function AuthWall() {
   const { loginWithPhone, loginWithGoogle, loginWithApple, isLoaded, user, updateProfile } = useAuth();
@@ -13,7 +14,7 @@ export default function AuthWall() {
   const [name, setName] = useState('');
   const [countryCode, setCountryCode] = useState('+972');
   const [step, setStep] = useState(1);
-  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [otpValue, setOtpValue] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
@@ -58,8 +59,7 @@ export default function AuthWall() {
             const extractedCode = otpCredential.code.trim();
             const digitsOnly = extractedCode.replace(/\D/g, '');
             if (digitsOnly.length === 6) {
-              const digits = digitsOnly.split('');
-              setOtp(digits);
+              setOtpValue(digitsOnly);
               handleVerify(digitsOnly);
             }
           }
@@ -225,46 +225,14 @@ export default function AuthWall() {
     }
   };
 
-  const handleMasterOtpChange = (value: string) => {
+  const handleOtpChange = (value: string) => {
     setErrorMsg('');
     const digitsOnly = value.replace(/\D/g, '').slice(0, 6);
-    const newOtp = ['', '', '', '', '', ''];
-    for (let i = 0; i < digitsOnly.length; i++) {
-      newOtp[i] = digitsOnly[i];
-    }
-    setOtp(newOtp);
+    setOtpValue(digitsOnly);
 
     if (digitsOnly.length === 6) {
       setTimeout(() => {
         handleVerify(digitsOnly);
-      }, 50);
-    }
-  };
-
-  const handleOtpChange = (index: number, value: string) => {
-    setErrorMsg('');
-    if (!value) {
-      const newOtp = [...otp];
-      newOtp[index] = '';
-      setOtp(newOtp);
-      return;
-    }
-
-    // If pasted or auto-filled full code (e.g. 6 digits or SMS code text)
-    const digitsOnly = value.replace(/\D/g, '');
-    if (digitsOnly.length > 1) {
-      handleMasterOtpChange(digitsOnly);
-      return;
-    }
-    
-    if (!/^\d*$/.test(value)) return;
-    
-    const newOtp = [...otp];
-    newOtp[index] = value;
-    setOtp(newOtp);
-    if (index === 5 && newOtp.join('').length === 6) {
-      setTimeout(() => {
-        handleVerify(newOtp.join(''));
       }, 50);
     }
   };
@@ -294,7 +262,7 @@ export default function AuthWall() {
   };
 
   const handleVerify = async (directCode?: string) => {
-    const code = (typeof directCode === 'string' ? directCode : otp.join('')).trim();
+    const code = (typeof directCode === 'string' ? directCode : otpValue).trim();
     if (code.length < 6) {
       setErrorMsg('אנא הכנס קוד בן 6 ספרות.');
       return;
@@ -383,7 +351,7 @@ export default function AuthWall() {
         </div>
         <h2 className="auth-title">MySpace</h2>
         <p className="auth-subtitle">התחברות מאובטחת למרחב האישי שלך</p>
-        <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 500, marginTop: '2px', display: 'inline-block' }}>v3.5.131</span>
+        <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 500, marginTop: '2px', display: 'inline-block' }}>v3.5.132</span>
       </div>
 
       <div className="auth-card">
@@ -574,49 +542,28 @@ export default function AuthWall() {
               <b dir="ltr">{countryCode} {phone}</b>
             </div>
             
-            <div 
-              className="otp-container-relative" 
-              dir="ltr"
-              onClick={() => masterOtpInputRef.current?.focus()}
-            >
-              {/* Master Input: Full opacity 1 with transparent text color so Chrome & Android Autofill treat it as a 100% visible, fully interactable input */}
-              <input
-                ref={masterOtpInputRef}
-                id="otp-master-input"
-                name="one-time-code"
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                autoComplete="one-time-code"
+            <div className="otp-container-relative" dir="ltr">
+              <OTPInput
                 maxLength={6}
-                value={otp.join('')}
-                onChange={e => handleMasterOtpChange(e.target.value)}
-                onInput={e => {
-                  const target = e.target as HTMLInputElement;
-                  if (target.value) handleMasterOtpChange(target.value);
-                }}
-                onPaste={e => {
-                  e.preventDefault();
-                  const pastedData = e.clipboardData.getData('text');
-                  handleMasterOtpChange(pastedData);
-                }}
-                className="otp-master-real-input"
-                aria-label="קוד אימות 6 ספרות"
+                value={otpValue}
+                onChange={handleOtpChange}
+                containerClassName="otp-inputs"
+                render={({ slots }) => (
+                  <>
+                    {slots.map((slot, idx) => (
+                      <div
+                        key={idx}
+                        className={`otp-box ${slot.char ? 'filled' : ''} ${slot.isActive ? 'active' : ''}`}
+                      >
+                        {slot.char}
+                        {slot.hasFakeCaret && (
+                          <div className="otp-fake-caret" />
+                        )}
+                      </div>
+                    ))}
+                  </>
+                )}
               />
-
-              <div className="otp-inputs">
-                {otp.map((digit, i) => {
-                  const isCurrent = otp.join('').length === i;
-                  return (
-                    <div
-                      key={i}
-                      className={`otp-box ${digit ? 'filled' : ''} ${isCurrent ? 'active' : ''}`}
-                    >
-                      {digit}
-                    </div>
-                  );
-                })}
-              </div>
             </div>
 
             {errorMsg && (
@@ -629,7 +576,7 @@ export default function AuthWall() {
               <button 
                 onClick={() => {
                   setStep(1);
-                  setOtp(['', '', '', '', '', '']);
+                  setOtpValue('');
                   setErrorMsg('');
                   setTimeout(() => {
                     handleSendCode();
@@ -645,7 +592,7 @@ export default function AuthWall() {
             <div className="auth-actions">
               <button
                 onClick={() => handleVerify()}
-                disabled={isSubmitting || otp.join('').length < 6}
+                disabled={isSubmitting || otpValue.length < 6}
                 className="auth-btn auth-btn-primary"
               >
                 {isSubmitting ? <div className="spinner-small"></div> : 'אימות קוד'}
@@ -653,7 +600,7 @@ export default function AuthWall() {
               <button
                 onClick={() => {
                   setStep(1);
-                  setOtp(['', '', '', '', '', '']);
+                  setOtpValue('');
                   setErrorMsg('');
                 }}
                 className="auth-btn auth-btn-secondary"
@@ -888,41 +835,8 @@ export default function AuthWall() {
         .otp-container-relative {
           position: relative;
           width: 100%;
-          cursor: text;
-        }
-
-        /* Real overlay input with opacity: 1, transparent text & caret, preventing Chrome Autofill discard */
-        .otp-master-real-input {
-          position: absolute;
-          inset: 0;
-          width: 100%;
-          height: 100%;
-          opacity: 1;
-          color: transparent !important;
-          -webkit-text-fill-color: transparent !important;
-          caret-color: transparent;
-          background: transparent !important;
-          border: none !important;
-          outline: none !important;
-          cursor: text;
-          z-index: 5;
-          font-size: 24px;
-          letter-spacing: 20px;
-          text-indent: 15px;
-          box-shadow: none !important;
-        }
-
-        .otp-master-real-input:-webkit-autofill,
-        .otp-master-real-input:-webkit-autofill:hover,
-        .otp-master-real-input:-webkit-autofill:focus {
-          -webkit-text-fill-color: transparent !important;
-          caret-color: transparent !important;
-          transition: background-color 50000s ease-in-out 0s;
-        }
-
-        .otp-master-real-input::selection {
-          background: transparent !important;
-          color: transparent !important;
+          display: flex;
+          justify-content: center;
         }
 
         .otp-inputs {
@@ -930,11 +844,10 @@ export default function AuthWall() {
           justify-content: center;
           gap: 12px;
           position: relative;
-          z-index: 1;
-          pointer-events: none; /* Touches pass directly to .otp-master-real-input */
         }
 
         .otp-box {
+          position: relative;
           width: 48px;
           height: 58px;
           background: #F8FAFC;
@@ -962,6 +875,20 @@ export default function AuthWall() {
           border-color: #CBD5E1;
           background: #FFFFFF;
           color: #0F172A;
+        }
+
+        .otp-fake-caret {
+          position: absolute;
+          width: 2px;
+          height: 24px;
+          background: var(--primary, #4F46E5);
+          border-radius: 1px;
+          animation: caret-blink 1.2s ease-in-out infinite;
+        }
+
+        @keyframes caret-blink {
+          0%, 70%, 100% { opacity: 1; }
+          20%, 50% { opacity: 0; }
         }
 
         .auth-actions {
