@@ -10,9 +10,11 @@ import { downscaleBase64, extractPdfPages, analyzePdfStructure, isTrueOriginalPd
 import { saveLocalDeviceFile } from '../../utils/localDeviceStorage';
 import InvoiceAttachMatchModal, { ScannedReceiptInput } from './Finance/InvoiceAttachMatchModal';
 import DynamicPdfScrollPreview from './Vault/DynamicPdfScrollPreview';
+import { FileShareItem } from '../../utils/fileShareUtils';
+import { APP_VERSION } from '../../constants/version';
 
 export default function SharedFileHandler() {
-  const { spaces, addInboxItems, addToPersonalInbox, setPersonalInbox, addDocument, addShelf, addDocumentFolder } = useSpaces();
+  const { spaces, addInboxItems, addToPersonalInbox, setPersonalInbox, addDocument, addShelf, addDocumentFolder, updateFileShareItems } = useSpaces();
   const { user } = useAuth();
   
   const [clientKeys, setClientKeys] = useState<any>({});
@@ -31,7 +33,7 @@ export default function SharedFileHandler() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
   const [searchQuery, setSearchQuery] = useState('');
-  const [routeDestination, setRouteDestination] = useState<'direct' | 'inbox' | 'personal' | 'vault' | 'attach_existing'>('personal');
+  const [routeDestination, setRouteDestination] = useState<'direct' | 'inbox' | 'personal' | 'vault' | 'fileshare' | 'attach_existing'>('personal');
   const [attachQueueState, setAttachQueueState] = useState<{ spaceId: string; queue: ScannedReceiptInput[] } | null>(null);
   const [zoomedIndex, setZoomedIndex] = useState<number | null>(null);
   const [touchStartX, setTouchStartX] = useState(0);
@@ -408,6 +410,11 @@ export default function SharedFileHandler() {
     return f.includes('vault') || f.includes('documents');
   }, [currentSelectedSpace]);
 
+  const spaceHasFileShare = React.useMemo(() => {
+    const f = currentSelectedSpace?.features || [];
+    return f.includes('fileshare') || ((currentSelectedSpace as any)?.type === 'file_share') || Boolean(currentSelectedSpace?.title && currentSelectedSpace.title.includes('שיתוף'));
+  }, [currentSelectedSpace]);
+
   useEffect(() => {
     if (isModalOpen && displayedSpaces && displayedSpaces.length > 0) {
       if (!selectedSpaceId || !displayedSpaces.find((s:any) => s.id === selectedSpaceId)) {
@@ -420,12 +427,16 @@ export default function SharedFileHandler() {
   // Automatically tune destination based on the space capabilities
   useEffect(() => {
     if (routeDestination === 'personal') return;
-    if (spaceHasFinance && !spaceHasVault) {
-      if (routeDestination === 'vault') setRouteDestination(sharedFiles.length > 1 ? 'inbox' : 'direct');
-    } else if (!spaceHasFinance && spaceHasVault) {
-      if (routeDestination === 'direct' || routeDestination === 'inbox' || routeDestination === 'attach_existing') setRouteDestination('vault');
+    if (spaceHasFileShare && !spaceHasVault && !spaceHasFinance) {
+      setRouteDestination('fileshare');
+    } else if (spaceHasFinance && !spaceHasVault && !spaceHasFileShare) {
+      if (routeDestination === 'vault' || routeDestination === 'fileshare') setRouteDestination(sharedFiles.length > 1 ? 'inbox' : 'direct');
+    } else if (!spaceHasFinance && spaceHasVault && !spaceHasFileShare) {
+      if (routeDestination === 'direct' || routeDestination === 'inbox' || routeDestination === 'attach_existing' || routeDestination === 'fileshare') setRouteDestination('vault');
+    } else if (spaceHasFileShare && routeDestination !== 'fileshare' && routeDestination !== 'vault' && routeDestination !== 'direct' && routeDestination !== 'inbox' && routeDestination !== 'attach_existing') {
+      setRouteDestination('fileshare');
     }
-  }, [selectedSpaceId, spaceHasFinance, spaceHasVault, routeDestination, sharedFiles.length]);
+  }, [selectedSpaceId, spaceHasFinance, spaceHasVault, spaceHasFileShare, routeDestination, sharedFiles.length]);
 
   useEffect(() => {
     setSelectedFolderId(null);
@@ -697,6 +708,126 @@ export default function SharedFileHandler() {
         setIsProcessing(false);
         setShowTimingModal(true);
         // User can inspect timings, click Copy (C), and proceed to space!
+        return;
+      } else if (routeDestination === 'fileshare') {
+        const currentSpace = activeSpaces.find((s: any) => s.id === selectedSpaceId);
+        const existingItems: FileShareItem[] = Array.isArray(currentSpace?.fileShareItems)
+          ? [...currentSpace.fileShareItems]
+          : [];
+
+        setUploadProgress({ current: 0, total: sharedFiles.length });
+        let currentIdx = 0;
+        const newFileItems: FileShareItem[] = [];
+
+        for (const dataUri of sharedFiles) {
+          currentIdx++;
+          setUploadProgress({ current: currentIdx, total: sharedFiles.length });
+          const cleanUri = dataUri.replace(/^"|"$/g, '');
+          const correspondingBlob = sharedBlobs[currentIdx - 1];
+          const isPdf = Boolean(
+            (correspondingBlob?.blob && (correspondingBlob.blob.type === 'application/pdf' || correspondingBlob.blob.name?.toLowerCase().endsWith('.pdf'))) ||
+            correspondingBlob?.type === 'application/pdf' ||
+            correspondingBlob?.name?.toLowerCase().endsWith('.pdf') ||
+            cleanUri.toLowerCase().includes('.pdf') ||
+            cleanUri.startsWith('data:application/pdf')
+          );
+
+          let fileUrl = '';
+          let thumbUrl: string | undefined = undefined;
+          let pagesArr: string[] | undefined = undefined;
+          let calculatedSize = 0;
+
+          if (isPdf) {
+            const blobToUpload = (correspondingBlob?.blob instanceof Blob)
+              ? correspondingBlob.blob
+              : await fetch(cleanUri).then(r => r.blob()).catch(() => null);
+
+            if (blobToUpload) {
+              calculatedSize = blobToUpload.size;
+              const buffer = await blobToUpload.arrayBuffer();
+              const analysis = await analyzePdfStructure(buffer);
+              const isOriginalSignedOrVector = isTrueOriginalPdf(analysis, blobToUpload.size);
+
+              // Upload original PDF
+              const rawUrl = await uploadBlobToStorage(
+                blobToUpload,
+                `fileshare/${selectedSpaceId}/${Date.now()}-${currentIdx}-${Math.random().toString(36).substring(7)}.pdf`
+              );
+              fileUrl = rawUrl;
+
+              // Generate preview thumbnail
+              try {
+                const extracted = await extractPdfPages(blobToUpload, 1200, 0.85);
+                if (extracted && extracted.length > 0) {
+                  thumbUrl = await uploadImageToStorage(
+                    extracted[0],
+                    `fileshare/${selectedSpaceId}/thumb_${Date.now()}-${currentIdx}.webp`
+                  );
+                  pagesArr = extracted;
+                }
+              } catch (pdfThumbErr) {
+                console.warn('Failed generating PDF thumbnail for fileshare item:', pdfThumbErr);
+              }
+            } else {
+              fileUrl = cleanUri;
+            }
+          } else {
+            // Image
+            let compressedUri = cleanUri;
+            try {
+              compressedUri = await downscaleBase64(cleanUri, 1500, 0.85);
+            } catch (err) {
+              console.error('Downscale failed', err);
+            }
+            calculatedSize = cleanUri.startsWith('data:') ? Math.round((cleanUri.length * 3) / 4) : 0;
+            const ext = compressedUri.startsWith('data:image/webp') ? 'webp' : 'jpg';
+            fileUrl = await uploadImageToStorage(
+              compressedUri,
+              `fileshare/${selectedSpaceId}/${Date.now()}-${currentIdx}-${Math.random().toString(36).substring(7)}.${ext}`
+            );
+            thumbUrl = fileUrl;
+          }
+
+          const originalName = correspondingBlob?.name || correspondingBlob?.blob?.name || (isPdf ? `מסמך ששותף ${currentIdx}.pdf` : `תמונה ששותפה ${currentIdx}.webp`);
+
+          newFileItems.push({
+            id: `file_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+            spaceId: selectedSpaceId,
+            name: originalName,
+            type: 'file',
+            url: fileUrl,
+            thumbnailUrl: thumbUrl,
+            pages: pagesArr,
+            fileType: isPdf ? 'pdf' : 'image',
+            size: calculatedSize,
+            parentId: selectedFolderId || null,
+            createdAt: Date.now(),
+            createdBy: user?.id || 'me',
+            creatorName: user?.realName || user?.nickname || 'שותף',
+            allowedPartners: [],
+          });
+        }
+
+        if (newFileItems.length > 0 && typeof updateFileShareItems === 'function') {
+          await updateFileShareItems(selectedSpaceId, [...existingItems, ...newFileItems]);
+        }
+
+        try {
+          const request = indexedDB.open('MySpaceDB', 1);
+          request.onsuccess = (e: any) => {
+            const db = e.target.result;
+            if (db.objectStoreNames.contains('sharedFiles')) {
+              const tx = db.transaction('sharedFiles', 'readwrite');
+              tx.objectStore('sharedFiles').delete('latest_shared');
+            }
+          };
+        } catch (e) {}
+
+        setIsModalOpen(false);
+        setIsProcessing(false);
+        setSharedFiles([]);
+        clearAllShareStores();
+        router.push('/space/' + selectedSpaceId);
         return;
       } else if (routeDestination === 'attach_existing') {
         // Prepare queue with converted WebP pages right away so OCR and thumbnail work immediately without raw PDF issues
@@ -1020,7 +1151,7 @@ export default function SharedFileHandler() {
               <span style={{ fontSize: '1.3rem' }}>📥</span>
               <div>
                 <div style={{ fontSize: '0.9rem', fontWeight: '800', letterSpacing: '-0.01em' }}>
-                  קליטת שיתוף <span style={{ fontSize: '0.72rem', opacity: 0.85, fontWeight: 'normal' }}>v6.8.21</span>
+                  קליטת שיתוף <span style={{ fontSize: '0.72rem', opacity: 0.85, fontWeight: 'normal' }}>{APP_VERSION}</span>
                 </div>
                 <div style={{ fontSize: '0.74rem', opacity: 0.92 }}>
                   {routeDestination === 'personal' 
@@ -1230,6 +1361,32 @@ export default function SharedFileHandler() {
                 </label>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                   
+                  {/* Option 0: FileShare space */}
+                  {spaceHasFileShare && (
+                    <label style={{
+                      display: 'flex', alignItems: 'flex-start', gap: '0.75rem', padding: '0.75rem 0.85rem',
+                      borderRadius: '12px', cursor: 'pointer', transition: 'all 0.15s ease',
+                      border: routeDestination === 'fileshare' ? '2px solid #4f46e5' : '1px solid #e2e8f0',
+                      backgroundColor: routeDestination === 'fileshare' ? '#eef2ff' : '#ffffff'
+                    }}>
+                      <input 
+                        type="radio" 
+                        name="spaceAction" 
+                        checked={routeDestination === 'fileshare'} 
+                        onChange={() => setRouteDestination('fileshare')}
+                        style={{ marginTop: '0.2rem' }}
+                      />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: '800', fontSize: '0.88rem', color: '#1e293b' }}>
+                          📁 מרחב שיתוף קבצים
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.15rem' }}>
+                          שומר ישירות לתיקייה במרחב השיתוף ומאפשר צפייה והורדה.
+                        </div>
+                      </div>
+                    </label>
+                  )}
+
                   {/* Option 1: Documents Vault (NO OCR) */}
                   {spaceHasVault && (
                     <label style={{
@@ -1338,7 +1495,7 @@ export default function SharedFileHandler() {
                 </div>
               </div>
 
-              {/* Sub-step A: Shelf Picker if Vault Selected */}
+              {/* Sub-step A: Shelf/Folder Picker if Vault Selected */}
               {routeDestination === 'vault' && selectedSpaceId && (() => {
                 const curSp = activeSpaces.find((s: any) => s.id === selectedSpaceId);
                 const availableFolders = (curSp?.documentFolders || []).filter((f: any) => !f.deletedAt && f.shelfId === selectedShelfId);
@@ -1470,6 +1627,136 @@ export default function SharedFileHandler() {
                 );
               })()}
 
+              {/* Sub-step A2: Folder Picker if FileShare Selected */}
+              {routeDestination === 'fileshare' && selectedSpaceId && (() => {
+                const curSp = activeSpaces.find((s: any) => s.id === selectedSpaceId);
+                const fileShareFolders = (curSp?.fileShareItems || []).filter((i: any) => i && i.type === 'folder' && !i.deletedAt);
+                return (
+                  <div style={{ marginBottom: '1.25rem', background: '#f8fafc', padding: '0.85rem', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                        <label style={{ fontSize: '0.82rem', fontWeight: '800', color: '#334155' }}>
+                          תיקיית יעד במרחב השיתוף:
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setIsCreatingFolder(v => !v)}
+                          style={{
+                            background: isCreatingFolder ? '#fee2e2' : '#eff6ff',
+                            color: isCreatingFolder ? '#dc2626' : '#2563eb',
+                            border: isCreatingFolder ? '1px solid #fca5a5' : '1px solid #bfdbfe',
+                            borderRadius: '7px',
+                            padding: '2px 8px',
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {isCreatingFolder ? '✕ ביטול' : '➕ תיקייה חדשה'}
+                        </button>
+                      </div>
+
+                      {isCreatingFolder && (
+                        <div style={{ display: 'flex', gap: '6px', marginBottom: '0.5rem' }}>
+                          <input
+                            type="text"
+                            value={newFolderName}
+                            onChange={e => setNewFolderName(e.target.value)}
+                            onKeyDown={async e => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                if (newFolderName.trim() && selectedSpaceId && typeof updateFileShareItems === 'function') {
+                                  const newFId = `folder_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+                                  const newFItem: FileShareItem = {
+                                    id: newFId,
+                                    spaceId: selectedSpaceId,
+                                    name: newFolderName.trim(),
+                                    type: 'folder',
+                                    parentId: selectedFolderId || null,
+                                    createdAt: Date.now(),
+                                    createdBy: user?.id || 'user',
+                                    creatorName: user?.realName || user?.nickname || 'שותף',
+                                    allowedPartners: [],
+                                  };
+                                  const existing = Array.isArray(curSp?.fileShareItems) ? [...curSp.fileShareItems] : [];
+                                  await updateFileShareItems(selectedSpaceId, [...existing, newFItem]);
+                                  setSelectedFolderId(newFId);
+                                  setNewFolderName('');
+                                  setIsCreatingFolder(false);
+                                }
+                              }
+                            }}
+                            placeholder="שם תיקייה חדשה..."
+                            autoFocus
+                            style={{
+                              flex: 1,
+                              padding: '0.45rem 0.65rem',
+                              borderRadius: '8px',
+                              border: '1.5px solid #3b82f6',
+                              fontSize: '0.84rem',
+                              outline: 'none',
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (newFolderName.trim() && selectedSpaceId && typeof updateFileShareItems === 'function') {
+                                const newFId = `folder_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+                                const newFItem: FileShareItem = {
+                                  id: newFId,
+                                  spaceId: selectedSpaceId,
+                                  name: newFolderName.trim(),
+                                  type: 'folder',
+                                  parentId: selectedFolderId || null,
+                                  createdAt: Date.now(),
+                                  createdBy: user?.id || 'user',
+                                  creatorName: user?.realName || user?.nickname || 'שותף',
+                                  allowedPartners: [],
+                                };
+                                const existing = Array.isArray(curSp?.fileShareItems) ? [...curSp.fileShareItems] : [];
+                                await updateFileShareItems(selectedSpaceId, [...existing, newFItem]);
+                                setSelectedFolderId(newFId);
+                                setNewFolderName('');
+                                setIsCreatingFolder(false);
+                              }
+                            }}
+                            disabled={!newFolderName.trim()}
+                            style={{
+                              background: newFolderName.trim() ? '#2563eb' : '#94a3b8',
+                              color: '#fff',
+                              border: 'none',
+                              borderRadius: '8px',
+                              padding: '0 12px',
+                              fontWeight: 700,
+                              cursor: newFolderName.trim() ? 'pointer' : 'not-allowed',
+                              fontSize: '0.8rem',
+                            }}
+                          >
+                            צור
+                          </button>
+                        </div>
+                      )}
+
+                      <select 
+                        value={selectedFolderId || ''} 
+                        onChange={e => setSelectedFolderId(e.target.value || null)}
+                        style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.75rem', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '0.9rem', backgroundColor: '#ffffff' }}
+                      >
+                        <option value="">📁 ראשי (ללא תיקייה)</option>
+                        {fileShareFolders.map((f: any) => {
+                          const parentF = f.parentId ? fileShareFolders.find((p: any) => p.id === f.parentId) : null;
+                          return (
+                            <option key={f.id} value={f.id}>
+                              📁 {parentF ? parentF.name + ' > ' : ''}{f.name}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Sub-step B: Payer Selection ONLY if Direct Expense Selected */}
               {routeDestination === 'direct' && selectedSpaceId && (
                 <div style={{ marginBottom: '1.25rem', background: '#f8fafc', padding: '0.85rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
@@ -1526,7 +1813,9 @@ export default function SharedFileHandler() {
                   ? '📥 שמור במחסן האישי'
                   : routeDestination === 'vault'
                     ? '🗂️ שמור במדף המסמכים'
-                    : routeDestination === 'inbox'
+                    : routeDestination === 'fileshare'
+                      ? '📁 שמור במרחב השיתוף'
+                      : routeDestination === 'inbox'
                       ? '📥 העבר למחסן ההמתנה'
                       : routeDestination === 'attach_existing'
                         ? '🔗 אתר הוצאה וצרף חשבונית'
