@@ -12,7 +12,7 @@ import InvoiceAttachMatchModal, { ScannedReceiptInput } from './Finance/InvoiceA
 import DynamicPdfScrollPreview from './Vault/DynamicPdfScrollPreview';
 
 export default function SharedFileHandler() {
-  const { spaces, addInboxItems, addToPersonalInbox, setPersonalInbox, addDocument, addShelf } = useSpaces();
+  const { spaces, addInboxItems, addToPersonalInbox, setPersonalInbox, addDocument, addShelf, addDocumentFolder } = useSpaces();
   const { user } = useAuth();
   
   const [clientKeys, setClientKeys] = useState<any>({});
@@ -25,6 +25,8 @@ export default function SharedFileHandler() {
   const [selectedSpaceId, setSelectedSpaceId] = useState<string>('');
   const [selectedShelfId, setSelectedShelfId] = useState<string>('');
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
   const [selectedPayerId, setSelectedPayerId] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
@@ -1358,11 +1360,95 @@ export default function SharedFileHandler() {
                       </select>
                     </div>
 
-                    {availableFolders.length > 0 && selectedShelfId !== '__new__' && (
+                    {selectedShelfId !== '__new__' && (
                       <div>
-                        <label style={{ fontSize: '0.82rem', fontWeight: '800', color: '#334155', marginBottom: '0.35rem', display: 'block' }}>
-                          בחר תיקייה בתוך המדף (אופציונלי):
-                        </label>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                          <label style={{ fontSize: '0.82rem', fontWeight: '800', color: '#334155' }}>
+                            תיקיית יעד במדף:
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setIsCreatingFolder(v => !v)}
+                            style={{
+                              background: isCreatingFolder ? '#fee2e2' : '#eff6ff',
+                              color: isCreatingFolder ? '#dc2626' : '#2563eb',
+                              border: isCreatingFolder ? '1px solid #fca5a5' : '1px solid #bfdbfe',
+                              borderRadius: '7px',
+                              padding: '2px 8px',
+                              fontSize: '0.75rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {isCreatingFolder ? '✕ ביטול' : '➕ תיקייה חדשה'}
+                          </button>
+                        </div>
+
+                        {isCreatingFolder && (
+                          <div style={{ display: 'flex', gap: '6px', marginBottom: '0.5rem' }}>
+                            <input
+                              type="text"
+                              value={newFolderName}
+                              onChange={e => setNewFolderName(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  if (newFolderName.trim() && selectedSpaceId && selectedShelfId) {
+                                    const createdId = addDocumentFolder(selectedSpaceId, {
+                                      name: newFolderName.trim(),
+                                      shelfId: selectedShelfId,
+                                      parentId: selectedFolderId || undefined,
+                                      allowedPartners: []
+                                    });
+                                    if (createdId) setSelectedFolderId(createdId);
+                                    setNewFolderName('');
+                                    setIsCreatingFolder(false);
+                                  }
+                                }
+                              }}
+                              placeholder="שם תיקייה חדשה..."
+                              autoFocus
+                              style={{
+                                flex: 1,
+                                padding: '0.45rem 0.65rem',
+                                borderRadius: '8px',
+                                border: '1.5px solid #3b82f6',
+                                fontSize: '0.84rem',
+                                outline: 'none',
+                              }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (newFolderName.trim() && selectedSpaceId && selectedShelfId) {
+                                  const createdId = addDocumentFolder(selectedSpaceId, {
+                                    name: newFolderName.trim(),
+                                    shelfId: selectedShelfId,
+                                    parentId: selectedFolderId || undefined,
+                                    allowedPartners: []
+                                  });
+                                  if (createdId) setSelectedFolderId(createdId);
+                                  setNewFolderName('');
+                                  setIsCreatingFolder(false);
+                                }
+                              }}
+                              disabled={!newFolderName.trim()}
+                              style={{
+                                background: newFolderName.trim() ? '#2563eb' : '#94a3b8',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: '8px',
+                                padding: '0 12px',
+                                fontWeight: 700,
+                                cursor: newFolderName.trim() ? 'pointer' : 'not-allowed',
+                                fontSize: '0.8rem',
+                              }}
+                            >
+                              צור
+                            </button>
+                          </div>
+                        )}
+
                         <select 
                           value={selectedFolderId || ''} 
                           onChange={e => setSelectedFolderId(e.target.value || null)}
