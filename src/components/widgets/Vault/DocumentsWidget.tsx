@@ -4418,6 +4418,12 @@ const handleDeleteDocument = (docId: string, title?: string) => {
 
       {renderRecycleBinModal()}
       {renderDocNoteModal()}
+      <ExportToSpaceModal
+        isOpen={Boolean(exportToSpaceFile)}
+        onClose={() => setExportToSpaceFile(null)}
+        file={exportToSpaceFile}
+        currentSpaceId={space.id}
+      />
       </>
     );
   }
