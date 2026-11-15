@@ -4925,7 +4925,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
         isOpen={Boolean(exportToSpaceFile)}
         onClose={() => setExportToSpaceFile(null)}
         file={exportToSpaceFile}
-        currentSpaceId={spaceId}
+        currentSpaceId={space.id}
       />
     </div>
   );
