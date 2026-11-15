@@ -2,6 +2,7 @@
 import { canAccessItem } from '../../../utils/permissionUtils';
 import { recordTelemetryAction } from '../../../utils/telemetryTracker';
 import UniversalViewerModal from '@/components/common/ViewerEngine/UniversalViewerModal';
+import { ExportToSpaceModal, ExportableFilePayload } from '@/components/common/ExportToSpaceModal';
 import React, { useState, useEffect, forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
 import { universalSearch, universalSort } from '../../../utils/searchEngine';
 import { useAuth } from '../../../app/context/AuthContext';
@@ -108,6 +109,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
 
   // Custom modal states (replacing browser alert/prompt/confirm)
   const [activeDocMenuId, setActiveDocMenuId] = useState<string | null>(null);
+  const [exportToSpaceFile, setExportToSpaceFile] = useState<ExportableFilePayload | null>(null);
   const [noteDocId, setNoteDocId] = useState<string | null>(null);
   const hasFinance = (space.features || []).includes('finance');
   const showTimeline = !!space.settings?.showVaultTimeline;
@@ -3540,6 +3542,22 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                               </button>
                                               <button
                                                 type="button"
+                                                onClick={() => {
+                                                  setActiveDocMenuId(null);
+                                                  setExportToSpaceFile({
+                                                    name: doc.title || doc.name || 'מסמך',
+                                                    url: doc.url,
+                                                    size: doc.size,
+                                                    type: doc.type,
+                                                    thumbnailUrl: doc.thumbnailUrl,
+                                                  });
+                                                }}
+                                                style={{ background: 'transparent', border: 'none', padding: '0.35rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#6d28d9', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.45rem' }}
+                                              >
+                                                🗂️ העבר למרחב אחר
+                                              </button>
+                                              <button
+                                                type="button"
                                                 onClick={() => { setActiveDocMenuId(null); handleMoveDocument(doc.id, activeShelf.id); }}
                                                 style={{ background: 'transparent', border: 'none', padding: '0.35rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#475569', display: 'flex', alignItems: 'center', gap: '0.45rem' }}
                                               >
@@ -4903,6 +4921,12 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           onCancel={() => setDuplicateMatchState(null)}
         />
       )}
+      <ExportToSpaceModal
+        isOpen={Boolean(exportToSpaceFile)}
+        onClose={() => setExportToSpaceFile(null)}
+        file={exportToSpaceFile}
+        currentSpaceId={spaceId}
+      />
     </div>
   );
 });
