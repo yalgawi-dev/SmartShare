@@ -3542,11 +3542,12 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                               </button>
                                               <button
                                                 type="button"
-                                                onClick={() => {
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
                                                   setActiveDocMenuId(null);
                                                   setExportToSpaceFile({
                                                     name: doc.title || doc.name || 'מסמך',
-                                                    url: doc.url,
+                                                    url: doc.url || doc.fileUrl || (doc.pages && doc.pages[0]) || '',
                                                     size: doc.size,
                                                     type: doc.type,
                                                     thumbnailUrl: doc.thumbnailUrl,
