@@ -1,1 +1,1 @@
-export const APP_VERSION = 'v3.5.111-ondemand-pages';
+export const APP_VERSION = 'v3.5.112';
