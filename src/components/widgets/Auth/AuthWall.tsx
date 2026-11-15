@@ -83,24 +83,21 @@ export default function AuthWall() {
       const container = document.getElementById('recaptcha-container');
       if (container) container.innerHTML = '';
 
+      // Initialize invisible reCAPTCHA on the container element without calling render() directly
       (window as any).recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
         size: 'invisible',
-        callback: () => { /* reCAPTCHA solved silently */ },
+        callback: () => { /* reCAPTCHA solved */ },
         'expired-callback': () => {
-          // Auto reset on expiration
           initRecaptcha();
         }
       });
-      // Do not call render() eagerly; Firebase calls render() automatically on verify()
     } catch (e) {
       console.error('reCAPTCHA init error', e);
     }
   };
 
   useEffect(() => {
-    if (step === 1) {
-      initRecaptcha();
-    }
+    initRecaptcha();
     return () => {
       if (typeof window !== 'undefined' && (window as any).recaptchaVerifier) {
         try {
@@ -111,7 +108,7 @@ export default function AuthWall() {
       const container = document.getElementById('recaptcha-container');
       if (container) container.innerHTML = '';
     };
-  }, [step]);
+  }, []);
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setErrorMsg('');
@@ -175,8 +172,8 @@ export default function AuthWall() {
       // Re-initialize reCAPTCHA after any failure so the user doesn't get stuck with a consumed widget
       initRecaptcha();
       
-      if (errCode === 'auth/argument-error') {
-        setErrorMsg('שגיאת אימות זמנית. אנא נסה שוב.');
+      if (errCode === 'auth/argument-error' || errMsg.includes('already been rendered')) {
+        setErrorMsg('שגיאת אימות זמנית. לחץ שוב על "המשך" לשליחת הקוד.');
       } else if (errCode === 'auth/invalid-phone-number') {
         setErrorMsg('מספר הטלפון אינו תקין. ודא שהמספר הוזן ללא קידומת בינלאומית כפולה. (קוד: ' + errCode + ')');
       } else if (errCode === 'auth/too-many-requests') {
