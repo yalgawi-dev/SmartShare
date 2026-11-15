@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import { collection, query, where, getDocs, addDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 
@@ -134,7 +133,7 @@ export const ExportToSpaceModal: React.FC<ExportToSpaceModalProps> = ({
     };
   }, [isOpen, selectedSpaceId, targetKind]);
 
-  if (!isOpen || !file || typeof document === 'undefined') return null;
+  if (!isOpen || !file) return null;
 
   const visibleFolders = folders.filter((f) => (f.parentId || null) === currentFolderId);
 
@@ -205,7 +204,7 @@ export const ExportToSpaceModal: React.FC<ExportToSpaceModalProps> = ({
     }
   };
 
-  return createPortal(
+  return (
     <div
       style={{
         position: 'fixed',
@@ -464,7 +463,6 @@ export const ExportToSpaceModal: React.FC<ExportToSpaceModalProps> = ({
           {isSaving ? 'מעביר...' : '🗂️ העבר למרחב הנבחר'}
         </button>
       </div>
-    </div>,
-    document.body
+    </div>
   );
 };
