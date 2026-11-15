@@ -18,6 +18,18 @@ export default function AuthWall() {
   const [errorMsg, setErrorMsg] = useState('');
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
 
+  // Hidden master input ref for robust OS autofill & focus
+  const masterOtpInputRef = React.useRef<HTMLInputElement | null>(null);
+
+  // Auto-focus master input on entering step 2
+  useEffect(() => {
+    if (step === 2) {
+      setTimeout(() => {
+        masterOtpInputRef.current?.focus();
+      }, 100);
+    }
+  }, [step]);
+
   useEffect(() => {
     // If user is logged in via social/secondary provider without phone, or missing realName
     if (user && !user.phone) {
@@ -48,7 +60,6 @@ export default function AuthWall() {
             if (digitsOnly.length === 6) {
               const digits = digitsOnly.split('');
               setOtp(digits);
-              handleOtpChange(0, digitsOnly);
               handleVerify(digitsOnly);
             }
           }
@@ -68,7 +79,7 @@ export default function AuthWall() {
         abortController.abort();
       }
     };
-  }, [step, confirmationResult]);
+  }, [step]);
 
 
   const initRecaptcha = () => {
@@ -197,6 +208,22 @@ export default function AuthWall() {
     }
   };
 
+  const handleMasterOtpChange = (value: string) => {
+    setErrorMsg('');
+    const digitsOnly = value.replace(/\D/g, '').slice(0, 6);
+    const newOtp = ['', '', '', '', '', ''];
+    for (let i = 0; i < digitsOnly.length; i++) {
+      newOtp[i] = digitsOnly[i];
+    }
+    setOtp(newOtp);
+
+    if (digitsOnly.length === 6) {
+      setTimeout(() => {
+        handleVerify(digitsOnly);
+      }, 50);
+    }
+  };
+
   const handleOtpChange = (index: number, value: string) => {
     setErrorMsg('');
     if (!value) {
@@ -209,19 +236,7 @@ export default function AuthWall() {
     // If pasted or auto-filled full code (e.g. 6 digits or SMS code text)
     const digitsOnly = value.replace(/\D/g, '');
     if (digitsOnly.length > 1) {
-      const chars = digitsOnly.slice(0, 6).split('');
-      const newOtp = ['', '', '', '', '', ''];
-      chars.forEach((c, i) => { newOtp[i] = c; });
-      setOtp(newOtp);
-      // Focus last filled digit or submit if 6 digits
-      if (chars.length === 6) {
-        document.getElementById('otp-5')?.focus();
-        setTimeout(() => {
-          handleVerify(newOtp.join(''));
-        }, 50);
-      } else {
-        document.getElementById(`otp-${Math.min(5, chars.length)}`)?.focus();
-      }
+      handleMasterOtpChange(digitsOnly);
       return;
     }
     
@@ -351,6 +366,7 @@ export default function AuthWall() {
         </div>
         <h2 className="auth-title">MySpace</h2>
         <p className="auth-subtitle">התחברות מאובטחת למרחב האישי שלך</p>
+        <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 500, marginTop: '2px', display: 'inline-block' }}>v3.5.129</span>
       </div>
 
       <div className="auth-card">
@@ -541,38 +557,44 @@ export default function AuthWall() {
               <b dir="ltr">{countryCode} {phone}</b>
             </div>
             
-            <div className="otp-inputs" dir="ltr">
-              {otp.map((digit, i) => (
-                <input
-                  key={i}
-                  id={`otp-${i}`}
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete={i === 0 ? "one-time-code" : "off"}
-                  maxLength={6}
-                  className="otp-input"
-                  value={digit}
-                  onPaste={e => {
-                    e.preventDefault();
-                    const pastedData = e.clipboardData.getData('text');
-                    handleOtpChange(0, pastedData);
-                  }}
-                  onChange={e => {
-                    handleOtpChange(i, e.target.value);
-                    if (e.target.value.length === 1 && i < 5) {
-                      document.getElementById(`otp-${i + 1}`)?.focus();
-                    }
-                  }}
-                  onKeyDown={e => {
-                    if (e.key === 'Backspace' && !digit && i > 0) {
-                      document.getElementById(`otp-${i - 1}`)?.focus();
-                    }
-                    if (e.key === 'Enter') {
-                      handleVerify();
-                    }
-                  }}
-                />
-              ))}
+            <div 
+              className="otp-container-relative" 
+              dir="ltr"
+              onClick={() => masterOtpInputRef.current?.focus()}
+            >
+              {/* Invisible Master Input: Captures Android SMS Autofill, iOS SMS QuickType, and physical keyboards reliably */}
+              <input
+                ref={masterOtpInputRef}
+                id="otp-master-input"
+                type="tel"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                autoComplete="one-time-code"
+                maxLength={6}
+                value={otp.join('')}
+                onChange={e => handleMasterOtpChange(e.target.value)}
+                onPaste={e => {
+                  e.preventDefault();
+                  const pastedData = e.clipboardData.getData('text');
+                  handleMasterOtpChange(pastedData);
+                }}
+                className="otp-master-hidden-input"
+                aria-label="קוד אימות 6 ספרות"
+              />
+
+              <div className="otp-inputs">
+                {otp.map((digit, i) => {
+                  const isCurrent = otp.join('').length === i;
+                  return (
+                    <div
+                      key={i}
+                      className={`otp-box ${digit ? 'filled' : ''} ${isCurrent ? 'active' : ''}`}
+                    >
+                      {digit}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
             {errorMsg && (
@@ -841,30 +863,60 @@ export default function AuthWall() {
           display: block;
         }
 
+        .otp-container-relative {
+          position: relative;
+          width: 100%;
+          cursor: text;
+        }
+
+        .otp-master-hidden-input {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          opacity: 0;
+          cursor: text;
+          z-index: 5;
+          font-size: 1px;
+        }
+
         .otp-inputs {
           display: flex;
           justify-content: center;
           gap: 12px;
+          position: relative;
+          z-index: 1;
         }
 
-        .otp-input {
-          width: 50px;
-          height: 60px;
+        .otp-box {
+          width: 48px;
+          height: 58px;
           background: #F8FAFC;
           border: 2px solid #E2E8F0;
           border-radius: 14px;
           font-size: 24px;
           font-weight: 700;
-          text-align: center;
+          display: flex;
+          align-items: center;
+          justify-content: center;
           color: #0F172A;
-          transition: all 0.2s ease;
-          outline: none;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+          user-select: none;
         }
 
-        .otp-input:focus {
+        .otp-box.active {
           border-color: var(--primary, #4F46E5);
           background: #FFFFFF;
-          box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
+          box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.15);
+          transform: translateY(-2px);
+        }
+
+        .otp-box.filled {
+          border-color: #CBD5E1;
+          background: #FFFFFF;
+          color: #0F172A;
         }
 
         .auth-actions {
