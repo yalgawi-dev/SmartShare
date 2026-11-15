@@ -92,9 +92,11 @@ export default function AuthWall() {
         (window as any).recaptchaVerifier = null;
       }
       const container = document.getElementById('recaptcha-container');
-      if (container) container.innerHTML = '';
+      if (container) {
+        container.innerHTML = '';
+      }
 
-      // Initialize invisible reCAPTCHA on the container element without calling render() directly
+      // Initialize invisible reCAPTCHA on the container element
       (window as any).recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
         size: 'invisible',
         callback: () => { /* reCAPTCHA solved */ },
@@ -102,8 +104,10 @@ export default function AuthWall() {
           initRecaptcha();
         }
       });
+      return (window as any).recaptchaVerifier;
     } catch (e) {
       console.error('reCAPTCHA init error', e);
+      return null;
     }
   };
 
@@ -157,8 +161,7 @@ export default function AuthWall() {
       setErrorMsg('');
       let appVerifier = (window as any).recaptchaVerifier;
       if (!appVerifier) {
-        initRecaptcha();
-        appVerifier = (window as any).recaptchaVerifier;
+        appVerifier = initRecaptcha();
       }
 
       if (!appVerifier) {
@@ -169,7 +172,21 @@ export default function AuthWall() {
 
       const formattedPhone = `${countryCode}${cleanPhone}`;
       
-      const confirmation = await loginWithPhone(formattedPhone, appVerifier);
+      let confirmation: ConfirmationResult;
+      try {
+        confirmation = await loginWithPhone(formattedPhone, appVerifier);
+      } catch (phoneErr: any) {
+        // If recaptcha was already consumed, re-init and retry ONCE seamlessly
+        if (phoneErr?.message?.includes('already been rendered') || phoneErr?.code === 'auth/argument-error') {
+          console.warn('reCAPTCHA already rendered, reinitializing and retrying...');
+          const freshVerifier = initRecaptcha();
+          if (!freshVerifier) throw phoneErr;
+          confirmation = await loginWithPhone(formattedPhone, freshVerifier);
+        } else {
+          throw phoneErr;
+        }
+      }
+
       setConfirmationResult(confirmation);
       setIsSubmitting(false);
       setStep(2);
@@ -180,11 +197,11 @@ export default function AuthWall() {
       const errCode = error.code || '';
       const errMsg = error.message || '';
 
-      // Re-initialize reCAPTCHA after any failure so the user doesn't get stuck with a consumed widget
+      // Re-initialize reCAPTCHA after failure
       initRecaptcha();
       
       if (errCode === 'auth/argument-error' || errMsg.includes('already been rendered')) {
-        setErrorMsg('שגיאת אימות זמנית. לחץ שוב על "המשך" לשליחת הקוד.');
+        setErrorMsg('האימות חודש. אנא לחץ שוב על "המשך".');
       } else if (errCode === 'auth/invalid-phone-number') {
         setErrorMsg('מספר הטלפון אינו תקין. ודא שהמספר הוזן ללא קידומת בינלאומית כפולה. (קוד: ' + errCode + ')');
       } else if (errCode === 'auth/too-many-requests') {
@@ -366,7 +383,7 @@ export default function AuthWall() {
         </div>
         <h2 className="auth-title">MySpace</h2>
         <p className="auth-subtitle">התחברות מאובטחת למרחב האישי שלך</p>
-        <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 500, marginTop: '2px', display: 'inline-block' }}>v3.5.129</span>
+        <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 500, marginTop: '2px', display: 'inline-block' }}>v3.5.130</span>
       </div>
 
       <div className="auth-card">
