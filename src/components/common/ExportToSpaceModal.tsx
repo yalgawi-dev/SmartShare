@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { collection, query, where, getDocs, addDoc } from 'firebase/firestore';
-import { db, auth } from '@/lib/firebase';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useSpaces } from '@/app/context/SpacesContext';
+import { useAuth } from '@/app/context/AuthContext';
+import { FileShareItem } from '@/utils/fileShareUtils';
 
 export interface ExportableFilePayload {
   name: string;
@@ -21,13 +22,6 @@ interface ExportToSpaceModalProps {
   onSuccess?: (targetSpaceName: string) => void;
 }
 
-interface SpaceOption {
-  id: string;
-  name: string;
-  icon?: string;
-  type?: string;
-}
-
 interface FolderOption {
   id: string;
   name: string;
@@ -41,160 +35,197 @@ export const ExportToSpaceModal: React.FC<ExportToSpaceModalProps> = ({
   currentSpaceId,
   onSuccess,
 }) => {
-  const user = auth.currentUser;
-  const [spaces, setSpaces] = useState<SpaceOption[]>([]);
+  const { spaces, updateFileShareItems, addInvoice } = useSpaces();
+  const { user } = useAuth();
+
   const [selectedSpaceId, setSelectedSpaceId] = useState<string>('');
   const [targetKind, setTargetKind] = useState<'document' | 'invoice'>('document');
-  const [folders, setFolders] = useState<FolderOption[]>([]);
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [folderPath, setFolderPath] = useState<{ id: string | null; name: string }[]>([
     { id: null, name: 'ראשי' },
   ]);
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
-  const [isLoadingSpaces, setIsLoadingSpaces] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Load user's spaces
-  useEffect(() => {
-    if (!isOpen || !user?.uid) return;
-    let active = true;
-    setIsLoadingSpaces(true);
-    setErrorMsg('');
+  // Authorized spaces calculation (Single Source of Truth, identical to ImportExistingFileModal)
+  const isAuthorizedMemberOfSpace = useMemo(() => {
+    return (s: any): boolean => {
+      if (!s || s.status === 'pending_deletion' || s.id === '__global_announcement__') return false;
+      if (!user?.id) return false;
 
-    const loadSpaces = async () => {
-      try {
-        const q = query(collection(db, 'spaces'), where('members', 'array-contains', user.uid));
-        const snap = await getDocs(q);
-        const list: SpaceOption[] = snap.docs.map((d) => ({
-          id: d.id,
-          name: d.data().name || 'מרחב ללא שם',
-          icon: d.data().icon || '📁',
-          type: d.data().type || '',
-        }));
-        // Sort so file-sharing spaces appear first
-        list.sort((a, b) => {
-          const aShare = a.name.includes('שיתוף') || a.type === 'file_share' ? -1 : 0;
-          const bShare = b.name.includes('שיתוף') || b.type === 'file_share' ? -1 : 0;
-          return aShare - bShare;
-        });
-        if (active) {
-          setSpaces(list);
-          const firstOther = list.find((s) => s.id !== currentSpaceId) || list[0];
-          if (firstOther) setSelectedSpaceId(firstOther.id);
+      // 1. Direct creator
+      if (s.creatorId && user.id === s.creatorId) return true;
+      if (user.spaceKeys?.[s.id]?.role === 'creator') return true;
+
+      // 2. Explicit active member in space.members
+      if (Array.isArray(s.members) && s.members.length > 0) {
+        const m = s.members.find((mem: any) => mem && (mem.userId === user.id || (mem.userId && user.spaceKeys?.[s.id]?.token === mem.userId)));
+        if (m && m.status !== 'removed' && m.isActive !== false) {
+          return true;
         }
-      } catch (err) {
-        console.error('Failed loading spaces:', err);
-        if (active) setErrorMsg('שגיאה בטעינת המרחבים');
-      } finally {
-        if (active) setIsLoadingSpaces(false);
       }
-    };
 
-    loadSpaces();
-    return () => {
-      active = false;
-    };
-  }, [isOpen, user?.uid, currentSpaceId]);
+      // 3. Authenticated partner key
+      const partnerKey = user.spaceKeys?.[s.id];
+      if (partnerKey && (partnerKey.role === 'creator' || partnerKey.role === 'partner' || partnerKey.role === 'admin')) {
+        if (Array.isArray(s.members)) {
+          const m = s.members.find((mem: any) => mem && (mem.userId === user.id || mem.userId === partnerKey.token));
+          if (m && (m.status === 'removed' || m.isActive === false)) return false;
+        }
+        return true;
+      }
 
-  // Load folders for selected space
+      return false;
+    };
+  }, [user?.id, user?.spaceKeys]);
+
+  const availableSpaces = useMemo(() => {
+    if (!Array.isArray(spaces)) return [];
+    const list = spaces.filter(s => isAuthorizedMemberOfSpace(s));
+    // Sort: file-sharing spaces first, then others, prioritizing other spaces over currentSpaceId
+    return list.sort((a, b) => {
+      const aShare = (a.title && a.title.includes('שיתוף')) || a.icon === '📁' ? -1 : 0;
+      const bShare = (b.title && b.title.includes('שיתוף')) || b.icon === '📁' ? -1 : 0;
+      if (aShare !== bShare) return aShare - bShare;
+      if (a.id === currentSpaceId) return 1;
+      if (b.id === currentSpaceId) return -1;
+      return 0;
+    });
+  }, [spaces, currentSpaceId, isAuthorizedMemberOfSpace]);
+
+  // Set default selected space when modal opens or spaces load
   useEffect(() => {
-    if (!isOpen || !selectedSpaceId || targetKind !== 'document') {
-      setFolders([]);
-      return;
+    if (!isOpen) return;
+    if (availableSpaces.length > 0) {
+      if (!selectedSpaceId || !availableSpaces.some(s => s.id === selectedSpaceId)) {
+        const defaultSpace = availableSpaces.find(s => s.id !== currentSpaceId) || availableSpaces[0];
+        setSelectedSpaceId(defaultSpace.id);
+      }
     }
-    let active = true;
-    const loadFolders = async () => {
-      try {
-        const q = query(
-          collection(db, 'file_share_folders'),
-          where('spaceId', '==', selectedSpaceId)
-        );
-        const snap = await getDocs(q);
-        if (active) {
-          setFolders(
-            snap.docs.map((d) => ({
-              id: d.id,
-              name: d.data().name || 'תיקייה',
-              parentId: d.data().parentId || null,
-            }))
-          );
-          setCurrentFolderId(null);
-          setFolderPath([{ id: null, name: 'ראשי' }]);
-        }
-      } catch (err) {
-        console.error('Failed loading folders:', err);
-      }
-    };
-    loadFolders();
-    return () => {
-      active = false;
-    };
-  }, [isOpen, selectedSpaceId, targetKind]);
+  }, [isOpen, availableSpaces, selectedSpaceId, currentSpaceId]);
+
+  // Reset folder navigation when target space changes
+  useEffect(() => {
+    setCurrentFolderId(null);
+    setFolderPath([{ id: null, name: 'ראשי' }]);
+    setIsCreatingFolder(false);
+    setNewFolderName('');
+    setErrorMsg('');
+  }, [selectedSpaceId, targetKind]);
+
+  const targetSpace = useMemo(() => {
+    return availableSpaces.find(s => s.id === selectedSpaceId) || null;
+  }, [availableSpaces, selectedSpaceId]);
+
+  // Folders inside target space (from targetSpace.fileShareItems)
+  const targetSpaceFolders = useMemo<FolderOption[]>(() => {
+    if (!targetSpace || !Array.isArray(targetSpace.fileShareItems)) return [];
+    return targetSpace.fileShareItems
+      .filter((i: any) => i && i.type === 'folder' && !i.deletedAt)
+      .map((f: any) => ({
+        id: String(f.id),
+        name: f.name || 'תיקייה',
+        parentId: f.parentId ? String(f.parentId) : null,
+      }));
+  }, [targetSpace]);
+
+  const visibleFolders = useMemo(() => {
+    return targetSpaceFolders.filter(f => (f.parentId || null) === currentFolderId);
+  }, [targetSpaceFolders, currentFolderId]);
 
   if (!isOpen || !file) return null;
 
-  const visibleFolders = folders.filter((f) => (f.parentId || null) === currentFolderId);
-
   const handleCreateFolder = async () => {
     const trimmed = newFolderName.trim();
-    if (!trimmed || !selectedSpaceId || !user?.uid) return;
+    if (!trimmed || !selectedSpaceId || !targetSpace) return;
     try {
-      const docRef = await addDoc(collection(db, 'file_share_folders'), {
+      const newFolderId = `folder_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      const newFolderItem: FileShareItem = {
+        id: newFolderId,
         spaceId: selectedSpaceId,
         name: trimmed,
+        type: 'folder',
         parentId: currentFolderId,
         createdAt: Date.now(),
-        createdBy: user.uid,
-        isPublicToSpace: true,
-      });
-      const created: FolderOption = { id: docRef.id, name: trimmed, parentId: currentFolderId };
-      setFolders((prev) => [...prev, created]);
-      setCurrentFolderId(docRef.id);
-      setFolderPath((prev) => [...prev, { id: docRef.id, name: trimmed }]);
+        createdBy: user?.id || 'user',
+        creatorName: user?.realName || user?.nickname || 'שותף',
+        allowedPartners: [],
+      };
+
+      const existingItems: FileShareItem[] = Array.isArray(targetSpace.fileShareItems)
+        ? [...targetSpace.fileShareItems]
+        : [];
+      const updatedItems = [...existingItems, newFolderItem];
+
+      await updateFileShareItems(selectedSpaceId, updatedItems);
+
+      // Navigate immediately into the newly created folder
+      setCurrentFolderId(newFolderId);
+      setFolderPath((prev) => [...prev, { id: newFolderId, name: trimmed }]);
       setNewFolderName('');
       setIsCreatingFolder(false);
     } catch (err) {
       console.error('Failed creating folder:', err);
-      setErrorMsg('שגיאה ביצירת תיקייה');
+      setErrorMsg('שגיאה ביצירת התיקייה');
     }
   };
 
   const handleConfirm = async () => {
-    if (!selectedSpaceId || !user?.uid || !file) return;
+    if (!selectedSpaceId || !targetSpace || !file) return;
     setIsSaving(true);
     setErrorMsg('');
     try {
       if (targetKind === 'document') {
-        await addDoc(collection(db, 'file_share_items'), {
+        const newFileItem: FileShareItem = {
+          id: `file_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
           spaceId: selectedSpaceId,
-          folderId: currentFolderId,
           name: file.name,
+          type: 'file',
           url: file.url,
           size: file.size || 0,
-          type: file.type || 'application/octet-stream',
-          thumbnailUrl: file.thumbnailUrl || null,
+          fileType: (file.type === 'pdf' || (file.url && file.url.toLowerCase().includes('.pdf'))) ? 'pdf' : 'image',
+          thumbnailUrl: file.thumbnailUrl || (file.type !== 'pdf' ? file.url : undefined),
+          parentId: currentFolderId,
           createdAt: Date.now(),
-          createdBy: user.uid,
-          creatorName: user.displayName || user.email || 'משתמש',
-          isPublicToSpace: true,
-        });
+          createdBy: user?.id || 'user',
+          creatorName: user?.realName || user?.nickname || 'שותף',
+          allowedPartners: [],
+        };
+
+        const existingItems: FileShareItem[] = Array.isArray(targetSpace.fileShareItems)
+          ? [...targetSpace.fileShareItems]
+          : [];
+        const updatedItems = [...existingItems, newFileItem];
+
+        await updateFileShareItems(selectedSpaceId, updatedItems);
       } else {
-        await addDoc(collection(db, 'expenses'), {
-          spaceId: selectedSpaceId,
-          description: file.name,
+        // Save as Invoice / Expense in target space
+        addInvoice(selectedSpaceId, {
+          title: file.name,
+          vendor: file.name,
           amount: 0,
           date: new Date().toISOString().split('T')[0],
           category: 'כללי',
-          receiptUrl: file.url,
-          createdAt: Date.now(),
-          createdBy: user.uid,
+          files: file.url ? [{
+            id: `inv_file_${Date.now()}`,
+            name: file.name,
+            url: file.url,
+            type: file.type || 'application/pdf',
+            size: file.size || 0,
+          }] : [],
           status: 'pending',
-        });
+          paymentStatus: 'unpaid',
+          notes: 'הועבר ממרחב אחר',
+          createdAt: new Date().toISOString(),
+          addedBy: user?.id || 'user',
+          uploaderName: user?.realName || user?.nickname || 'משתמש',
+        } as any);
       }
-      const spaceName = spaces.find((s) => s.id === selectedSpaceId)?.name || 'המרחב';
-      onSuccess?.(spaceName);
+
+      const targetTitle = targetSpace.title || 'המרחב';
+      onSuccess?.(targetTitle);
       onClose();
     } catch (err) {
       console.error('Failed exporting file to space:', err);
@@ -223,10 +254,10 @@ export const ExportToSpaceModal: React.FC<ExportToSpaceModalProps> = ({
       <div
         style={{
           background: '#fff',
-          borderRadius: '18px',
+          borderRadius: '20px',
           width: '100%',
           maxWidth: '430px',
-          maxHeight: '86vh',
+          maxHeight: '88vh',
           overflowY: 'auto',
           padding: '20px',
           boxShadow: '0 20px 50px rgba(0,0,0,0.35)',
@@ -235,52 +266,56 @@ export const ExportToSpaceModal: React.FC<ExportToSpaceModalProps> = ({
         onClick={(e) => e.stopPropagation()}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-          <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800 }}>
-            🗂️ העברה למרחב אחר
+          <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span>🗂️</span>
+            <span>העברה למרחב אחר</span>
           </h3>
           <button
             type="button"
             onClick={onClose}
-            style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '30px', height: '30px', cursor: 'pointer', fontWeight: 700 }}
+            style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', fontWeight: 700, fontSize: '0.9rem' }}
           >
             ✕
           </button>
         </div>
 
-        <div style={{ fontSize: '0.8rem', color: '#475569', background: '#f8fafc', padding: '8px 10px', borderRadius: '8px', marginBottom: '14px', wordBreak: 'break-word' }}>
-          קובץ: <strong>{file.name}</strong>
+        <div style={{ fontSize: '0.8rem', color: '#475569', background: '#f8fafc', padding: '9px 12px', borderRadius: '10px', marginBottom: '14px', wordBreak: 'break-word', border: '1px solid #f1f5f9' }}>
+          קובץ: <strong style={{ color: '#0f172a' }}>{file.name}</strong>
         </div>
 
         {/* 1. Target Space */}
-        <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '6px' }}>
+        <label style={{ display: 'block', fontSize: '0.84rem', fontWeight: 700, marginBottom: '6px' }}>
           1. בחר מרחב יעד:
         </label>
-        {isLoadingSpaces ? (
-          <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '12px' }}>טוען מרחבים...</div>
+        {availableSpaces.length === 0 ? (
+          <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '14px' }}>לא נמצאו מרחבים זמינים</div>
         ) : (
           <select
             value={selectedSpaceId}
             onChange={(e) => setSelectedSpaceId(e.target.value)}
             style={{
               width: '100%',
-              padding: '9px 10px',
-              borderRadius: '10px',
-              border: '1px solid #cbd5e1',
+              padding: '10px 12px',
+              borderRadius: '12px',
+              border: '1.5px solid #cbd5e1',
               marginBottom: '14px',
-              fontSize: '0.88rem',
+              fontSize: '0.9rem',
+              fontWeight: 600,
               background: '#fff',
+              outline: 'none',
+              cursor: 'pointer',
             }}
           >
-            {spaces.map((s) => (
+            {availableSpaces.map((s) => (
               <option key={s.id} value={s.id}>
-                {s.icon} {s.name}
+                {s.icon || '📁'} {s.title || 'מרחב ללא שם'} {s.id === currentSpaceId ? '(המרחב הנוכחי)' : ''}
               </option>
             ))}
           </select>
         )}
 
         {/* 2. Document vs Invoice */}
-        <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '6px' }}>
+        <label style={{ display: 'block', fontSize: '0.84rem', fontWeight: 700, marginBottom: '6px' }}>
           2. שמור בתור:
         </label>
         <div style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
@@ -289,14 +324,15 @@ export const ExportToSpaceModal: React.FC<ExportToSpaceModalProps> = ({
             onClick={() => setTargetKind('document')}
             style={{
               flex: 1,
-              padding: '8px',
-              borderRadius: '10px',
+              padding: '9px',
+              borderRadius: '12px',
               border: targetKind === 'document' ? '2px solid #2563eb' : '1px solid #cbd5e1',
               background: targetKind === 'document' ? '#eff6ff' : '#fff',
               color: targetKind === 'document' ? '#1d4ed8' : '#334155',
               fontWeight: 700,
               cursor: 'pointer',
-              fontSize: '0.82rem',
+              fontSize: '0.84rem',
+              transition: 'all 0.15s ease',
             }}
           >
             📄 מסמך / קובץ
@@ -306,14 +342,15 @@ export const ExportToSpaceModal: React.FC<ExportToSpaceModalProps> = ({
             onClick={() => setTargetKind('invoice')}
             style={{
               flex: 1,
-              padding: '8px',
-              borderRadius: '10px',
+              padding: '9px',
+              borderRadius: '12px',
               border: targetKind === 'invoice' ? '2px solid #059669' : '1px solid #cbd5e1',
               background: targetKind === 'invoice' ? '#ecfdf5' : '#fff',
               color: targetKind === 'invoice' ? '#047857' : '#334155',
               fontWeight: 700,
               cursor: 'pointer',
-              fontSize: '0.82rem',
+              fontSize: '0.84rem',
+              transition: 'all 0.15s ease',
             }}
           >
             🧾 חשבונית / הוצאה
@@ -323,28 +360,28 @@ export const ExportToSpaceModal: React.FC<ExportToSpaceModalProps> = ({
         {/* 3. Folder Navigation + New Folder */}
         {targetKind === 'document' && (
           <div style={{ marginBottom: '16px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-              <label style={{ fontSize: '0.82rem', fontWeight: 700 }}>3. תיקיית יעד:</label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <label style={{ fontSize: '0.84rem', fontWeight: 700 }}>3. תיקיית יעד:</label>
               <button
                 type="button"
                 onClick={() => setIsCreatingFolder((v) => !v)}
                 style={{
-                  background: '#eff6ff',
-                  color: '#2563eb',
-                  border: '1px solid #bfdbfe',
+                  background: isCreatingFolder ? '#fee2e2' : '#eff6ff',
+                  color: isCreatingFolder ? '#dc2626' : '#2563eb',
+                  border: isCreatingFolder ? '1px solid #fca5a5' : '1px solid #bfdbfe',
                   borderRadius: '8px',
-                  padding: '3px 8px',
-                  fontSize: '0.75rem',
+                  padding: '4px 10px',
+                  fontSize: '0.78rem',
                   fontWeight: 700,
                   cursor: 'pointer',
                 }}
               >
-                ➕ תיקייה חדשה
+                {isCreatingFolder ? '✕ ביטול' : '➕ תיקייה חדשה'}
               </button>
             </div>
 
             {/* Breadcrumbs */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', fontSize: '0.75rem', marginBottom: '8px' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', fontSize: '0.78rem', marginBottom: '8px' }}>
               {folderPath.map((crumb, idx) => (
                 <button
                   key={crumb.id || 'root'}
@@ -354,10 +391,11 @@ export const ExportToSpaceModal: React.FC<ExportToSpaceModalProps> = ({
                     setFolderPath((prev) => prev.slice(0, idx + 1));
                   }}
                   style={{
-                    background: '#f1f5f9',
+                    background: idx === folderPath.length - 1 ? '#2563eb' : '#f1f5f9',
+                    color: idx === folderPath.length - 1 ? '#fff' : '#334155',
                     border: 'none',
-                    borderRadius: '6px',
-                    padding: '2px 7px',
+                    borderRadius: '7px',
+                    padding: '3px 8px',
                     cursor: 'pointer',
                     fontWeight: idx === folderPath.length - 1 ? 800 : 500,
                   }}
@@ -373,27 +411,36 @@ export const ExportToSpaceModal: React.FC<ExportToSpaceModalProps> = ({
                   type="text"
                   value={newFolderName}
                   onChange={(e) => setNewFolderName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleCreateFolder();
+                    }
+                  }}
                   placeholder="שם תיקייה חדשה..."
+                  autoFocus
                   style={{
                     flex: 1,
-                    padding: '7px 10px',
-                    borderRadius: '8px',
-                    border: '1px solid #93c5fd',
-                    fontSize: '0.82rem',
+                    padding: '8px 12px',
+                    borderRadius: '10px',
+                    border: '1.5px solid #3b82f6',
+                    fontSize: '0.84rem',
+                    outline: 'none',
                   }}
                 />
                 <button
                   type="button"
                   onClick={handleCreateFolder}
+                  disabled={!newFolderName.trim()}
                   style={{
-                    background: '#2563eb',
+                    background: newFolderName.trim() ? '#2563eb' : '#94a3b8',
                     color: '#fff',
                     border: 'none',
-                    borderRadius: '8px',
-                    padding: '0 12px',
+                    borderRadius: '10px',
+                    padding: '0 14px',
                     fontWeight: 700,
-                    cursor: 'pointer',
-                    fontSize: '0.8rem',
+                    cursor: newFolderName.trim() ? 'pointer' : 'not-allowed',
+                    fontSize: '0.84rem',
                   }}
                 >
                   צור
@@ -401,10 +448,10 @@ export const ExportToSpaceModal: React.FC<ExportToSpaceModalProps> = ({
               </div>
             )}
 
-            <div style={{ maxHeight: '140px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '4px' }}>
+            <div style={{ maxHeight: '160px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '4px', background: '#f8fafc' }}>
               {visibleFolders.length === 0 ? (
-                <div style={{ padding: '10px', textAlign: 'center', fontSize: '0.78rem', color: '#94a3b8' }}>
-                  יישמר בתיקייה הנוכחית ({folderPath[folderPath.length - 1]?.name})
+                <div style={{ padding: '12px', textAlign: 'center', fontSize: '0.8rem', color: '#64748b' }}>
+                  יישמר בתיקייה: <strong>{folderPath[folderPath.length - 1]?.name}</strong>
                 </div>
               ) : (
                 visibleFolders.map((f) => (
@@ -418,19 +465,22 @@ export const ExportToSpaceModal: React.FC<ExportToSpaceModalProps> = ({
                     style={{
                       width: '100%',
                       textAlign: 'right',
-                      padding: '7px 10px',
-                      background: 'transparent',
-                      border: 'none',
-                      borderBottom: '1px solid #f1f5f9',
+                      padding: '8px 12px',
+                      background: '#fff',
+                      borderRadius: '8px',
+                      marginBottom: '3px',
+                      border: '1px solid #e2e8f0',
                       cursor: 'pointer',
-                      fontSize: '0.82rem',
+                      fontSize: '0.84rem',
                       fontWeight: 600,
                       display: 'flex',
+                      alignItems: 'center',
                       justifyContent: 'space-between',
+                      color: '#1e293b',
                     }}
                   >
                     <span>📁 {f.name}</span>
-                    <span style={{ color: '#94a3b8' }}>‹</span>
+                    <span style={{ color: '#94a3b8', fontSize: '0.9rem' }}>‹</span>
                   </button>
                 ))
               )}
@@ -439,7 +489,7 @@ export const ExportToSpaceModal: React.FC<ExportToSpaceModalProps> = ({
         )}
 
         {errorMsg && (
-          <div style={{ color: '#dc2626', fontSize: '0.8rem', marginBottom: '10px', fontWeight: 600 }}>
+          <div style={{ color: '#dc2626', fontSize: '0.82rem', marginBottom: '10px', fontWeight: 600, background: '#fef2f2', padding: '6px 10px', borderRadius: '8px', border: '1px solid #fecaca' }}>
             {errorMsg}
           </div>
         )}
@@ -450,14 +500,15 @@ export const ExportToSpaceModal: React.FC<ExportToSpaceModalProps> = ({
           onClick={handleConfirm}
           style={{
             width: '100%',
-            padding: '11px',
-            borderRadius: '12px',
+            padding: '12px',
+            borderRadius: '14px',
             border: 'none',
             background: isSaving ? '#94a3b8' : '#2563eb',
             color: '#fff',
             fontWeight: 800,
-            fontSize: '0.92rem',
+            fontSize: '0.94rem',
             cursor: isSaving ? 'not-allowed' : 'pointer',
+            boxShadow: isSaving ? 'none' : '0 4px 12px rgba(37, 99, 235, 0.25)',
           }}
         >
           {isSaving ? 'מעביר...' : '🗂️ העבר למרחב הנבחר'}
