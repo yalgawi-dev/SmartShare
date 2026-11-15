@@ -3461,6 +3461,8 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                         </button>
                                         <button
                                           type="button"
+                                          onPointerDown={(e) => e.stopPropagation()}
+                                          onTouchStart={(e) => e.stopPropagation()}
                                           onClick={(e) => {
                                             e.stopPropagation();
                                             setExportToSpaceFile({
@@ -3482,6 +3484,8 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                       <div data-doc-menu-container="true" style={{ position: 'relative' }}>
                                         <button
                                           type="button"
+                                          onPointerDown={(e) => e.stopPropagation()}
+                                          onTouchStart={(e) => e.stopPropagation()}
                                           onClick={(e) => {
                                             e.stopPropagation();
                                             setActiveDocMenuId(activeDocMenuId === doc.id ? null : doc.id);
