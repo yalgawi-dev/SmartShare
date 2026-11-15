@@ -238,10 +238,10 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
           setIsLoading(false); // First page ready! User sees document instantly!
         }
 
-        // 2. Stream up to 5 pages in background (prevents freezing/jumping on 50+ page PDFs)
+        // 2. Render only Page 2 in background so multi-page PDFs open in <1s without freezing
         if (numPages > 1) {
           const allUrls = [page1];
-          const maxAutoPages = Math.min(numPages, 5);
+          const maxAutoPages = Math.min(numPages, 2);
           for (let p = 2; p <= maxAutoPages; p++) {
             if (!isMounted) return;
             const nextPage = await renderPageCanvas(p);
