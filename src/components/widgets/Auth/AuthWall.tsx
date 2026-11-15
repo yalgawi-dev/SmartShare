@@ -44,19 +44,12 @@ export default function AuthWall() {
         }).then((otpCredential: any) => {
           if (otpCredential && otpCredential.code) {
             const extractedCode = otpCredential.code.trim();
-            if (/^\d{6}$/.test(extractedCode)) {
-              const digits = extractedCode.split('');
+            const digitsOnly = extractedCode.replace(/\D/g, '');
+            if (digitsOnly.length === 6) {
+              const digits = digitsOnly.split('');
               setOtp(digits);
-              // Auto verify with the received code
-              if (confirmationResult) {
-                setIsSubmitting(true);
-                confirmationResult.confirm(extractedCode).then(() => {
-                  setIsSubmitting(false);
-                }).catch((err: any) => {
-                  console.error('Auto OTP verify error:', err);
-                  setIsSubmitting(false);
-                });
-              }
+              handleOtpChange(0, digitsOnly);
+              handleVerify(digitsOnly);
             }
           }
         }).catch((err: any) => {
@@ -558,7 +551,7 @@ export default function AuthWall() {
                   id={`otp-${i}`}
                   type="text"
                   inputMode="numeric"
-                  autoComplete="one-time-code"
+                  autoComplete={i === 0 ? "one-time-code" : "off"}
                   maxLength={6}
                   className="otp-input"
                   value={digit}
