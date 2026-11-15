@@ -748,9 +748,11 @@ export default function UniversalViewerModal({
                   initialScale={1}
                   minScale={0.8}
                   maxScale={30}
-                  centerOnInit={true}
-                  centerZoomedOut={true}
-                  limitToBounds={true}
+                  centerOnInit={false}
+                  centerZoomedOut={false}
+                  initialPositionX={0}
+                  initialPositionY={0}
+                  limitToBounds={false}
                   panning={{ velocityDisabled: true }}
                   trackPadPanning={{ velocityDisabled: true }}
                   doubleClick={{ mode: 'zoomIn', step: 2.5 }}
@@ -770,11 +772,11 @@ export default function UniversalViewerModal({
                         }}
                         contentStyle={{
                           width: '100%',
-                          height: '100%',
+                          minHeight: '100%',
                           display: 'flex',
                           flexDirection: 'column',
                           alignItems: 'center',
-                          justifyContent: 'center'
+                          justifyContent: 'flex-start'
                         }}
                       >
                         <div
@@ -782,10 +784,12 @@ export default function UniversalViewerModal({
                             display: 'flex',
                             flexDirection: 'column',
                             alignItems: 'center',
+                            justifyContent: 'flex-start',
                             gap: '16px',
                             padding: '1rem 0.5rem 6rem 0.5rem',
                             maxWidth: '900px',
-                            width: '100%'
+                            width: '100%',
+                            minHeight: '100%'
                           }}
                         >
                           {validImagePages.map((pageUrl: string, pageIdx: number) => (

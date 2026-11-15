@@ -3508,6 +3508,18 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                                 onClick={() => {
                                                   setActiveDocMenuId(null);
                                                   if (typeof window !== 'undefined') {
+                                                    window.dispatchEvent(new CustomEvent('smartshare:open_scanner_for_doc', { detail: { doc, defaultStep: 'scanning' } }));
+                                                  }
+                                                }}
+                                                style={{ background: 'transparent', border: 'none', padding: '0.35rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#2563eb', display: 'flex', alignItems: 'center', gap: '0.45rem', fontWeight: 700 }}
+                                              >
+                                                📷 הוסף עמוד (מצלמה)
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  setActiveDocMenuId(null);
+                                                  if (typeof window !== 'undefined') {
                                                     window.dispatchEvent(new CustomEvent('smartshare:open_scanner_for_doc', { detail: { doc } }));
                                                   }
                                                 }}

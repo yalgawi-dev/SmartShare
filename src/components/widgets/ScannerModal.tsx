@@ -10,6 +10,7 @@ import { convertImagesToPdfBlob } from '@/utils/documentUtils';
 import SortableTray from './SortableTray';
 import type { TrayItem } from './SortableTray';
 import VersionBadge from '@/components/common/VersionBadge';
+import { APP_VERSION } from '@/constants/version';
 
 
 
@@ -46,9 +47,10 @@ interface ScannerModalProps {
   editingDocId?: string;
   editingDocTitle?: string;
   isMultiDocMerge?: boolean;
+  initialStep?: 'scanning' | 'cropping' | 'review';
 }
 
-export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance, standalone = false, maxBytes, defaultMode = 'camera', defaultCategory = 'receipt', initialPages, editingDocId, editingDocTitle, isMultiDocMerge }: ScannerModalProps) {
+export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance, standalone = false, maxBytes, defaultMode = 'camera', defaultCategory = 'receipt', initialPages, editingDocId, editingDocTitle, isMultiDocMerge, initialStep }: ScannerModalProps) {
   
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const isClosingRef = useRef(false);
@@ -105,6 +107,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   const [selectedCategory, setSelectedCategory] = useState<'receipt' | 'document' | 'image' | 'advanced'>(defaultCategory);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [step, setStep] = useState<'scanning' | 'cropping' | 'review'>(() => {
+    if (initialStep) return initialStep;
     if (initialPages && initialPages.length > 0) {
       try {
         const saved = localStorage.getItem('smartshare_scanner_auto_engine');
@@ -1290,7 +1293,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
             {(activeSource === 'upload' || scannerMode === 'upload') ? 'ייבוא מסמכים' : 'סורק מסמכים'}
           </h2>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.62rem', color: '#64748b', lineHeight: 1 }}>
-            <span>v3.5.17</span>
+            <span>{APP_VERSION}</span>
             {editingDocTitle && (
               <span style={{ color: '#fbbf24', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 • {isMultiDocMerge ? 'מגילה' : editingDocTitle} ({sortedTrayItems.length})

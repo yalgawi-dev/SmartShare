@@ -164,7 +164,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   }, [activeChatId, space?.features]);
 
   const [pendingEventScan, setPendingEventScan] = useState<{ eventId: string; shelfId?: string } | null>(null);
-  const [editingDocumentInfo, setEditingDocumentInfo] = useState<{ docId: string; title: string; pages: string[]; sourceDocIds?: string[]; itemType?: 'vault' | 'fileshare' } | null>(null);
+  const [editingDocumentInfo, setEditingDocumentInfo] = useState<{ docId: string; title: string; pages: string[]; sourceDocIds?: string[]; itemType?: 'vault' | 'fileshare'; initialStep?: 'scanning' | 'cropping' | 'review' } | null>(null);
   const [isScannerBannerDismissed, setIsScannerBannerDismissed] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('hide_scanner_banner_' + id) === '1';
@@ -215,7 +215,8 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
           docId: doc.id,
           title: doc.title || doc.name || 'מסמך',
           pages: docPages,
-          itemType: e.detail?.itemType || 'vault'
+          itemType: e.detail?.itemType || 'vault',
+          initialStep: e.detail?.defaultStep
         });
         setPendingEventScan(null);
         setScannerMode('camera');
@@ -1379,6 +1380,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
             editingDocId={editingDocumentInfo?.docId}
             editingDocTitle={editingDocumentInfo?.title}
             isMultiDocMerge={Boolean(editingDocumentInfo?.sourceDocIds && editingDocumentInfo.sourceDocIds.length > 1)}
+            initialStep={editingDocumentInfo?.initialStep}
             onComplete={async (url, _, allPages, routingType) => { 
                 setIsScannerOpen(false); 
                 if (editingDocumentInfo) {
