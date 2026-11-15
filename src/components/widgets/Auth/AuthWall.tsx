@@ -144,9 +144,9 @@ export default function AuthWall() {
       }
     }
     
-    // Master Admin / Test mock bypass
-    const isMasterBypass = cleanPhone === '500000000' || cleanPhone === '509666008';
-    if (isMasterBypass) {
+    // Admin mock bypass for test accounts
+    const isMockBypass = cleanPhone === '500000000';
+    if (isMockBypass) {
       setStep(2);
       return;
     }
@@ -283,8 +283,8 @@ export default function AuthWall() {
       const rawDigits = phone.replace(/\D/g, '');
       const cleanPhone = countryCode === '+972' && rawDigits.startsWith('0') ? rawDigits.slice(1) : rawDigits;
       
-      const isMasterBypass = cleanPhone === '500000000' || cleanPhone === '509666008';
-      if (isMasterBypass) {
+      const isMockBypass = cleanPhone === '500000000';
+      if (isMockBypass) {
         if (code !== '123456') { 
           setErrorMsg('קוד שגוי.');
           setIsSubmitting(false);
@@ -292,7 +292,7 @@ export default function AuthWall() {
         }
       }
       
-      if (!confirmationResult && !isMasterBypass) {
+      if (!confirmationResult && !isMockBypass) {
         throw new Error('חסר אישור. אנא חזור לאחור.');
       }
       
