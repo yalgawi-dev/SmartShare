@@ -383,7 +383,7 @@ export default function AuthWall() {
         </div>
         <h2 className="auth-title">MySpace</h2>
         <p className="auth-subtitle">התחברות מאובטחת למרחב האישי שלך</p>
-        <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 500, marginTop: '2px', display: 'inline-block' }}>v3.5.130</span>
+        <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 500, marginTop: '2px', display: 'inline-block' }}>v3.5.131</span>
       </div>
 
       <div className="auth-card">
@@ -579,23 +579,28 @@ export default function AuthWall() {
               dir="ltr"
               onClick={() => masterOtpInputRef.current?.focus()}
             >
-              {/* Invisible Master Input: Captures Android SMS Autofill, iOS SMS QuickType, and physical keyboards reliably */}
+              {/* Master Input: Full opacity 1 with transparent text color so Chrome & Android Autofill treat it as a 100% visible, fully interactable input */}
               <input
                 ref={masterOtpInputRef}
                 id="otp-master-input"
-                type="tel"
+                name="one-time-code"
+                type="text"
                 inputMode="numeric"
                 pattern="[0-9]*"
                 autoComplete="one-time-code"
                 maxLength={6}
                 value={otp.join('')}
                 onChange={e => handleMasterOtpChange(e.target.value)}
+                onInput={e => {
+                  const target = e.target as HTMLInputElement;
+                  if (target.value) handleMasterOtpChange(target.value);
+                }}
                 onPaste={e => {
                   e.preventDefault();
                   const pastedData = e.clipboardData.getData('text');
                   handleMasterOtpChange(pastedData);
                 }}
-                className="otp-master-hidden-input"
+                className="otp-master-real-input"
                 aria-label="קוד אימות 6 ספרות"
               />
 
@@ -886,16 +891,38 @@ export default function AuthWall() {
           cursor: text;
         }
 
-        .otp-master-hidden-input {
+        /* Real overlay input with opacity: 1, transparent text & caret, preventing Chrome Autofill discard */
+        .otp-master-real-input {
           position: absolute;
-          top: 0;
-          left: 0;
+          inset: 0;
           width: 100%;
           height: 100%;
-          opacity: 0;
+          opacity: 1;
+          color: transparent !important;
+          -webkit-text-fill-color: transparent !important;
+          caret-color: transparent;
+          background: transparent !important;
+          border: none !important;
+          outline: none !important;
           cursor: text;
           z-index: 5;
-          font-size: 1px;
+          font-size: 24px;
+          letter-spacing: 20px;
+          text-indent: 15px;
+          box-shadow: none !important;
+        }
+
+        .otp-master-real-input:-webkit-autofill,
+        .otp-master-real-input:-webkit-autofill:hover,
+        .otp-master-real-input:-webkit-autofill:focus {
+          -webkit-text-fill-color: transparent !important;
+          caret-color: transparent !important;
+          transition: background-color 50000s ease-in-out 0s;
+        }
+
+        .otp-master-real-input::selection {
+          background: transparent !important;
+          color: transparent !important;
         }
 
         .otp-inputs {
@@ -904,6 +931,7 @@ export default function AuthWall() {
           gap: 12px;
           position: relative;
           z-index: 1;
+          pointer-events: none; /* Touches pass directly to .otp-master-real-input */
         }
 
         .otp-box {
