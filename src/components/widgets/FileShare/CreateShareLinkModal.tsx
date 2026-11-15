@@ -9,6 +9,7 @@ import { useChat } from '@/app/context/ChatContext';
 import { getSharedContactsForUser } from '@/utils/partnerUtils';
 import { FileShareItem, ShareLinkConfig, RecipientShareLink, RecipientRole, createOrUpdatePublicShare, revokePublicShare, generateShareToken, sanitizeFirestoreData } from '@/utils/fileShareUtils';
 import { RegisteredMemberPickerModal, SelectableMember } from './RegisteredMemberPickerModal';
+import { APP_VERSION } from '@/constants/version';
 
 interface CreateShareLinkModalProps {
   isOpen: boolean;
@@ -610,7 +611,7 @@ ${slogan}${phoneText}${portfolioText}`);
                   קישור שיתוף חיצוני מאובטח
                 </h3>
                 <span style={{ fontSize: '0.65rem', background: '#dbeafe', color: '#1e40af', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>
-                  v3.5.55
+                  {APP_VERSION}
                 </span>
               </div>
               <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
@@ -714,6 +715,63 @@ ${slogan}${phoneText}${portfolioText}`);
             maxHeight: 'calc(92vh - 210px)',
             boxSizing: 'border-box'
           }}>
+
+            {/* Smart Audit & Visibility Card (Rule: Complete Transparency) */}
+            <div style={{
+              background: item.type === 'folder' ? '#f0fdf4' : '#eff6ff',
+              border: item.type === 'folder' ? '1px solid #bbf7d0' : '1px solid #bfdbfe',
+              borderRadius: '12px',
+              padding: '0.7rem 0.85rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.35rem'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: '0.82rem', fontWeight: 800, color: item.type === 'folder' ? '#166534' : '#1e40af', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <span>{item.type === 'folder' ? '📁' : '📄'}</span>
+                  <span>למה מקבל הקישור ייחשף?</span>
+                </span>
+                {shareUrl && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (token) await ensurePersisted(token);
+                      window.open(shareUrl, '_blank');
+                    }}
+                    style={{
+                      background: '#ffffff',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: '8px',
+                      padding: '2px 8px',
+                      fontSize: '0.72rem',
+                      fontWeight: 800,
+                      color: '#334155',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                    }}
+                    title="פתח וצפה כפי שהאורח רואה"
+                  >
+                    <span>👁️</span> תצוגה מקדימה כפי שיראה המוזמן
+                  </button>
+                )}
+              </div>
+              <p style={{ margin: 0, fontSize: '0.76rem', color: '#334155', lineHeight: 1.45 }}>
+                {item.type === 'folder' ? (
+                  <>
+                    הקישור חושף אך ורק את <strong>הקבצים הישירים שבתוך תיקייה זו</strong> (סה״כ {folderFiles ? folderFiles.length : 0} קבצים).
+                    <br />
+                    🔒 <strong>תתי-תיקיות פנימיות אינן נגישות לאורח חיצוני</strong> דרך קישור זה (רק שותפים מורשים שנכנסים כחברים במרחב רואים את עץ התיקיות).
+                  </>
+                ) : (
+                  <>
+                    הקישור חושף אך ורק את <strong>הקובץ הספציפי שנבחר ({item.name})</strong>. שאר הקבצים והתיקיות במרחב נשארים חסויים לחלוטין.
+                  </>
+                )}
+              </p>
+            </div>
             
             {/* PIN Protection */}
             <div>

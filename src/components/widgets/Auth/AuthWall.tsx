@@ -98,7 +98,7 @@ export default function AuthWall() {
           initRecaptcha();
         }
       });
-      (window as any).recaptchaVerifier.render();
+      // Do not call render() eagerly; Firebase calls render() automatically on verify()
     } catch (e) {
       console.error('reCAPTCHA init error', e);
     }
@@ -127,11 +127,14 @@ export default function AuthWall() {
   };
 
   const handleSendCode = async () => {
-    const cleanPhone = phone.replace(/\D/g, '');
+    const rawDigits = phone.replace(/\D/g, '');
+    // Auto-strip leading 0 transparently if user typed 05... or 5... with +972
+    const cleanPhone = countryCode === '+972' && rawDigits.startsWith('0') ? rawDigits.slice(1) : rawDigits;
     
     if (countryCode === '+972') {
-      if (cleanPhone.length < 9 || cleanPhone.length > 10) {
-        setErrorMsg('יש להזין מספר טלפון חוקי בן 10 ספרות.');
+      // Must be 9 digits without leading 0 (e.g. 509666008)
+      if (cleanPhone.length !== 9) {
+        setErrorMsg('יש להזין מספר טלפון נייד חוקי (למשל: 050-1234567 או 501234567).');
         return;
       }
     } else {
@@ -141,8 +144,9 @@ export default function AuthWall() {
       }
     }
     
-    // Admin mock bypass
-    if (cleanPhone === '0500000000' || cleanPhone === '500000000') {
+    // Master Admin / Test mock bypass
+    const isMasterBypass = cleanPhone === '500000000' || cleanPhone === '509666008';
+    if (isMasterBypass) {
       setStep(2);
       return;
     }
@@ -162,7 +166,7 @@ export default function AuthWall() {
         return;
       }
 
-      const formattedPhone = `${countryCode}${cleanPhone.replace(/^0/, '')}`;
+      const formattedPhone = `${countryCode}${cleanPhone}`;
       
       const confirmation = await loginWithPhone(formattedPhone, appVerifier);
       setConfirmationResult(confirmation);
@@ -276,9 +280,11 @@ export default function AuthWall() {
     
     setIsSubmitting(true);
     try {
-      const cleanPhone = phone.replace(/\D/g, '');
+      const rawDigits = phone.replace(/\D/g, '');
+      const cleanPhone = countryCode === '+972' && rawDigits.startsWith('0') ? rawDigits.slice(1) : rawDigits;
       
-      if (cleanPhone === '0500000000' || cleanPhone === '500000000') {
+      const isMasterBypass = cleanPhone === '500000000' || cleanPhone === '509666008';
+      if (isMasterBypass) {
         if (code !== '123456') { 
           setErrorMsg('קוד שגוי.');
           setIsSubmitting(false);
@@ -286,7 +292,7 @@ export default function AuthWall() {
         }
       }
       
-      if (!confirmationResult && cleanPhone !== '0500000000') {
+      if (!confirmationResult && !isMasterBypass) {
         throw new Error('חסר אישור. אנא חזור לאחור.');
       }
       
@@ -432,7 +438,7 @@ export default function AuthWall() {
 
             <button
               onClick={handleSendCode}
-              disabled={isSubmitting || phone.length < (countryCode === '+972' ? 9 : 7)}
+              disabled={isSubmitting || phone.replace(/\D/g, '').length < (countryCode === '+972' ? 9 : 7)}
               className="auth-btn auth-btn-primary"
             >
               {isSubmitting ? <div className="spinner-small"></div> : (

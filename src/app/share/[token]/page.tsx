@@ -1,10 +1,12 @@
 'use client';
 
-import React, { use, useState, useEffect, useRef } from 'react';
+import React, { use, useState, useEffect, useRef, useMemo } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
+import { useAuth } from '@/app/context/AuthContext';
 import { getPublicShare, recordPublicShareView, recordShareHeartbeat, isShareExpired, PublicSharedData, formatFileSize, uploadRecipientSubmission } from '@/utils/fileShareUtils';
 import { saveSharedLink } from '@/utils/savedSharedLinksUtils';
 import { uploadBlobToStorage } from '@/lib/firebase';
@@ -20,10 +22,41 @@ interface SharePageProps {
 
 export default function PublicSharePage({ params }: SharePageProps) {
   const { token } = use(params);
+  const router = useRouter();
+  const { user } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [shareData, setShareData] = useState<PublicSharedData | null>(null);
   const [errorState, setErrorState] = useState<'not_found' | 'expired' | null>(null);
+
+  // Guest Direct Chat state & Live Space Subscription
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [liveSpace, setLiveSpace] = useState<any>(null);
+
+  // Check if current logged-in user is an authorized member of this space
+  const memberStatusInSpace = useMemo(() => {
+    if (!user?.id || !liveSpace) return null;
+    if (liveSpace.creatorId === user.id) return { isMember: true, role: 'creator', label: 'יוצר המרחב 👑' };
+    if (user.spaceKeys?.[liveSpace.id]?.role === 'creator') return { isMember: true, role: 'creator', label: 'יוצר המרחב 👑' };
+
+    // Check members list
+    if (Array.isArray(liveSpace.members)) {
+      const m = liveSpace.members.find((mem: any) => mem && (mem.userId === user.id || (user.phone && mem.phone === user.phone)));
+      if (m && m.status !== 'removed' && m.isActive !== false) {
+        const isMgr = m.role === 'admin' || m.role === 'creator';
+        return { isMember: true, role: m.role || 'partner', label: isMgr ? 'מנהל מרחב 🛡️' : 'שותף במרחב 🤝' };
+      }
+    }
+
+    // Check authenticated partner key
+    const partnerKey = user.spaceKeys?.[liveSpace.id];
+    if (partnerKey) {
+      const isMgr = (partnerKey.role as string) === 'admin' || partnerKey.role === 'creator';
+      return { isMember: true, role: partnerKey.role, label: isMgr ? 'מנהל מרחב 🛡️' : 'שותף במרחב 🤝' };
+    }
+
+    return null;
+  }, [user, liveSpace]);
 
   // PIN challenge state
   const [isUnlocked, setIsUnlocked] = useState(false);
@@ -44,10 +77,6 @@ export default function PublicSharePage({ params }: SharePageProps) {
   const [submissionNote, setSubmissionNote] = useState('');
   const [submissionPhone, setSubmissionPhone] = useState('');
   const [uploadedFilesList, setUploadedFilesList] = useState<string[]>([]);
-
-  // Guest Direct Chat state & Live Space Subscription
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  const [liveSpace, setLiveSpace] = useState<any>(null);
 
   useEffect(() => {
     if (isUnlocked && token) {
@@ -524,6 +553,55 @@ export default function PublicSharePage({ params }: SharePageProps) {
         {/* Main Content Area */}
         <main style={{ flex: 1, maxWidth: '900px', width: '100%', margin: '0 auto', padding: '1.25rem' }}>
           
+          {/* Member of Space Banner (If current user is partner/manager in this space) */}
+          {memberStatusInSpace && shareData.spaceId && (
+            <div style={{
+              margin: '0 0 1rem 0',
+              padding: '0.85rem 1.1rem',
+              borderRadius: '16px',
+              background: 'linear-gradient(135deg, #eff6ff 0%, #e0e7ff 100%)',
+              border: '1.5px solid #93c5fd',
+              boxShadow: '0 4px 12px rgba(59, 130, 246, 0.15)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '0.75rem',
+              flexWrap: 'wrap'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                <span style={{ fontSize: '1.5rem' }}>👑</span>
+                <div>
+                  <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#1e40af' }}>
+                    שלום {user?.realName || user?.nickname || 'שותף'} 👋 אתה רשום כ{memberStatusInSpace.label}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#3b82f6' }}>
+                    קיימת לך גישה מלאה ישירות לתוך המרחב עצמו לפי כל הרשאותיך.
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => router.push(`/space/${shareData.spaceId}`)}
+                style={{
+                  background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '12px',
+                  padding: '0.55rem 1rem',
+                  fontSize: '0.82rem',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  boxShadow: '0 2px 8px rgba(37, 99, 235, 0.35)'
+                }}
+              >
+                <span>🚀</span> פתח במרחב המלא
+              </button>
+            </div>
+          )}
+
           {/* Sender Hero Digital Business Card & Portfolio */}
           <SenderBusinessCardBanner shareData={shareData} />
 
