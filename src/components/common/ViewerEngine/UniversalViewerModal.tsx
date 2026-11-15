@@ -8,6 +8,7 @@ import DynamicPdfScrollPreview from '@/components/widgets/Vault/DynamicPdfScroll
 import { extractPdfPages } from '@/utils/imageOptimizer';
 import { APP_VERSION } from '@/constants/version';
 import MetricsPanel from '@/components/common/ViewerEngine/MetricsPanel';
+import { ExportToSpaceModal } from '@/components/common/ExportToSpaceModal';
 
 export interface ViewerDocument {
   id?: string;
@@ -71,6 +72,7 @@ export default function UniversalViewerModal({
   const [webpSlice, setWebpSlice] = useState<{ dataUrl: string; scale: number; rect: { left: number; top: number; width: number; height: number } } | null>(null);
   const webpAutoFocusTimeoutRef = useRef<any>(null);
   const [showMetrics, setShowMetrics] = useState<boolean>(false);
+  const [showExportToSpace, setShowExportToSpace] = useState<boolean>(false);
 
   useEffect(() => {
     if (onIndexChange) onIndexChange(currentIndex);
@@ -1403,6 +1405,28 @@ export default function UniversalViewerModal({
         <div style={{ width: '1px', height: '18px', background: 'rgba(255,255,255,0.2)' }} />
 
         <button
+          onClick={() => setShowExportToSpace(true)}
+          title="העברה פנימית למרחב אחר"
+          style={{
+            background: 'rgba(139, 92, 246, 0.25)',
+            color: '#ddd6fe',
+            border: '1px solid rgba(139, 92, 246, 0.5)',
+            padding: '0.4rem 0.75rem',
+            borderRadius: '20px',
+            fontWeight: 700,
+            fontSize: '0.82rem',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.3rem',
+          }}
+        >
+          <span>🗂️ למרחב</span>
+        </button>
+
+        <div style={{ width: '1px', height: '18px', background: 'rgba(255,255,255,0.2)' }} />
+
+        <button
           onClick={() => {
             if (typeof window !== 'undefined') {
               window.dispatchEvent(new CustomEvent('smartshare:open_scanner_for_doc', {
@@ -1458,6 +1482,16 @@ export default function UniversalViewerModal({
       <MetricsPanel
         isOpen={showMetrics}
         onClose={() => setShowMetrics(false)}
+      />
+      <ExportToSpaceModal
+        isOpen={showExportToSpace}
+        onClose={() => setShowExportToSpace(false)}
+        file={currentDoc ? {
+          name: currentDoc.title || currentDoc.name || 'קובץ',
+          url: currentDoc.url,
+          size: currentDoc.size,
+          type: currentDoc.type,
+        } : null}
       />
     </div>,
     document.body
