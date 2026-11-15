@@ -3459,6 +3459,23 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                         >
                                           📁
                                         </button>
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setExportToSpaceFile({
+                                              name: doc.title || doc.name || 'מסמך',
+                                              url: doc.url || doc.fileUrl || (doc.pages && doc.pages[0]) || '',
+                                              size: doc.size,
+                                              type: doc.type,
+                                              thumbnailUrl: doc.thumbnailUrl,
+                                            });
+                                          }}
+                                          style={{ background: '#f5f3ff', color: '#6d28d9', border: '1px solid #ddd6fe', padding: '2px 5px', borderRadius: '5px', fontSize: '0.68rem', fontWeight: 'bold', cursor: 'pointer' }}
+                                          title="העבר למרחב אחר"
+                                        >
+                                          🗂️
+                                        </button>
                                       </div>
 
                                       {/* Dots Menu */}
