@@ -19,7 +19,7 @@ export default function AuthWall() {
   const [errorMsg, setErrorMsg] = useState('');
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
 
-  // Hidden master input ref for robust OS autofill & focus
+  // Ref for OTPInput so it auto-focuses on step 2 (triggers keyboard & native OTP autofill)
   const masterOtpInputRef = React.useRef<HTMLInputElement | null>(null);
 
   // Auto-focus master input on entering step 2
@@ -41,45 +41,6 @@ export default function AuthWall() {
       setIsSubmitting(false);
     }
   }, [user]);
-
-  // Web OTP API: Auto-read SMS code on mobile devices
-  useEffect(() => {
-    if (step !== 2) return;
-    if (typeof window === 'undefined') return;
-
-    let abortController: AbortController | null = null;
-    if ('OTPCredential' in window || (navigator as any).credentials) {
-      try {
-        abortController = new AbortController();
-        (navigator as any).credentials.get({
-          otp: { transport: ['sms'] },
-          signal: abortController.signal
-        }).then((otpCredential: any) => {
-          if (otpCredential && otpCredential.code) {
-            const extractedCode = otpCredential.code.trim();
-            const digitsOnly = extractedCode.replace(/\D/g, '');
-            if (digitsOnly.length === 6) {
-              setOtpValue(digitsOnly);
-              handleVerify(digitsOnly);
-            }
-          }
-        }).catch((err: any) => {
-          // Abort or unsupported - silent fallback to manual typing
-          if (err.name !== 'AbortError') {
-            console.log('WebOTP auto-read skipped:', err);
-          }
-        });
-      } catch (e) {
-        // Fallback silently
-      }
-    }
-
-    return () => {
-      if (abortController) {
-        abortController.abort();
-      }
-    };
-  }, [step]);
 
 
   const initRecaptcha = () => {
@@ -351,7 +312,7 @@ export default function AuthWall() {
         </div>
         <h2 className="auth-title">MySpace</h2>
         <p className="auth-subtitle">התחברות מאובטחת למרחב האישי שלך</p>
-        <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 500, marginTop: '2px', display: 'inline-block' }}>v3.5.132</span>
+        <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 500, marginTop: '2px', display: 'inline-block' }}>v3.5.133</span>
       </div>
 
       <div className="auth-card">
@@ -544,9 +505,14 @@ export default function AuthWall() {
             
             <div className="otp-container-relative" dir="ltr">
               <OTPInput
+                ref={masterOtpInputRef}
                 maxLength={6}
                 value={otpValue}
                 onChange={handleOtpChange}
+                autoFocus
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                pasteTransformer={(pasted) => pasted.replace(/\D/g, '').slice(0, 6)}
                 containerClassName="otp-inputs"
                 render={({ slots }) => (
                   <>
@@ -935,7 +901,7 @@ export default function AuthWall() {
           .otp-inputs {
             gap: 8px;
           }
-          .otp-input {
+          .otp-box {
             width: 44px;
             height: 54px;
             font-size: 20px;
