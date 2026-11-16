@@ -1389,6 +1389,13 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
                   let updatedPages = allPages && allPages.length > 0 ? allPages : [url];
                   const isMerge = Array.isArray(currentEditing.sourceDocIds) && currentEditing.sourceDocIds.length > 1;
 
+                  let totalWebpBytes = 0;
+                  for (const pageUrl of updatedPages) {
+                    if (pageUrl.startsWith('data:')) {
+                      totalWebpBytes += Math.round((pageUrl.length * 3) / 4);
+                    }
+                  }
+
                   // Upload any raw data: URLs to storage first so Firestore 1MB document limit is never exceeded
                   try {
                     updatedPages = await Promise.all(
@@ -1405,10 +1412,23 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
                     console.error('Failed to upload pages to storage during document save/merge:', uploadErr);
                   }
 
-                  const primaryUpdates = {
+                  // If some pages were existing HTTP URLs, estimate or measure total size so old 3.7MB PDF size is replaced
+                  if (totalWebpBytes === 0 && updatedPages.length > 0) {
+                    try {
+                      const sizes = await Promise.all(
+                        updatedPages.map(u => fetch(u).then(r => r.blob()).then(b => b.size).catch(() => 0))
+                      );
+                      totalWebpBytes = sizes.reduce((a, b) => a + b, 0);
+                    } catch (_) {}
+                  }
+
+                  const primaryUpdates: any = {
                     pages: updatedPages,
                     url: updatedPages[0],
                     thumbnailUrl: updatedPages[0],
+                    rawPdfUrl: '',
+                    type: 'document',
+                    ...(totalWebpBytes > 0 ? { fileSize: totalWebpBytes } : {}),
                     ...(isMerge ? { title: `מסמך מאוחד (${updatedPages.length} עמודים)` } : {})
                   };
 
@@ -1418,13 +1438,15 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
                     const secSet = isMerge ? new Set(currentEditing.sourceDocIds!.filter(id => id !== currentEditing.docId)) : new Set<string>();
                     const updatedItems = existingItems.map((it: any) => {
                       if (it.id === currentEditing.docId) {
+                        const cleanBaseName = (it.name || 'מסמך').replace(/\.(pdf|webp|jpg|jpeg|png)$/i, '');
                         return {
                           ...it,
                           pages: updatedPages,
                           url: updatedPages[0],
                           thumbnailUrl: updatedPages[0],
-                          fileType: 'pdf',
-                          ...(isMerge ? { name: `מסמך מאוחד (${updatedPages.length} עמודים)` } : {})
+                          fileType: 'image',
+                          ...(totalWebpBytes > 0 ? { size: totalWebpBytes } : {}),
+                          name: isMerge ? `מסמך מאוחד (${updatedPages.length} עמודים).webp` : `${cleanBaseName}.webp`
                         };
                       }
                       if (secSet.has(it.id)) {

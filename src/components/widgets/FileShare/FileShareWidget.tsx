@@ -5,7 +5,7 @@ import { db, uploadBlobToStorage, uploadImageToStorage } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '@/app/context/AuthContext';
 import { useSpaces } from '@/app/context/SpacesContext';
-import { compressImage, analyzePdfStructure, isTrueOriginalPdf, convertPdfToOptimizedImage, generatePdfFirstPageThumbnail } from '@/utils/imageOptimizer';
+import { compressImage, analyzePdfStructure, isTrueOriginalPdf, convertPdfToOptimizedImage, generatePdfFirstPageThumbnail, extractPdfPages, dataUrlBytes } from '@/utils/imageOptimizer';
 import { FileShareItem, formatFileSize, ShareLinkConfig, revokePublicShare, FolderPartnerPermission, sanitizeFirestoreData, syncPublicFolderShares } from '@/utils/fileShareUtils';
 import { FileShareItemCard } from './FileShareItemCard';
 import { CreateShareLinkModal } from './CreateShareLinkModal';
@@ -448,17 +448,22 @@ export function FileShareWidget({
             newUploadedItems.push(newItem);
           } else {
             // 2. Wrapped Raster Scan (Heavy photos/scans wrapped as PDF without signatures):
-            // ADR rule: Compress to optimized WebP pages for massive 80%+ savings and instant 60fps viewing
+            // ADR rule: Compress all pages to optimized WebP pages for massive 80%+ savings and instant 60fps viewing
             const baseName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
             const webpFileName = `${baseName}.webp`;
 
-            const blobUrl = URL.createObjectURL(file);
-            const webpDataUrl = await convertPdfToOptimizedImage(blobUrl, 1800, 0.85);
-            URL.revokeObjectURL(blobUrl);
+            const webpPages = await extractPdfPages(file, 2400, 0.90);
+            const approxSize = webpPages.reduce((acc, p) => acc + dataUrlBytes(p), 0);
 
-            const storagePath = `spaces/${space.id}/fileshare/${Date.now()}_${webpFileName.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-            const downloadUrl = await uploadImageToStorage(webpDataUrl, storagePath);
-            const approxSize = Math.round((webpDataUrl.length * 3) / 4);
+            const uploadedPages = await Promise.all(
+              webpPages.map((pageUri, p) =>
+                uploadImageToStorage(
+                  pageUri,
+                  `spaces/${space.id}/fileshare/${Date.now()}_p${p}_${webpFileName.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+                )
+              )
+            );
+            const downloadUrl = uploadedPages[0] || '';
 
             const newItem: FileShareItem = {
               id: `file_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
@@ -468,7 +473,7 @@ export function FileShareWidget({
               parentId: currentFolderId,
               url: downloadUrl,
               thumbnailUrl: downloadUrl,
-              pages: [downloadUrl],
+              pages: uploadedPages,
               fileType: 'image',
               size: approxSize,
               createdAt: Date.now(),

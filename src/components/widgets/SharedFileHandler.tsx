@@ -736,6 +736,7 @@ export default function SharedFileHandler() {
           let thumbUrl: string | undefined = undefined;
           let pagesArr: string[] | undefined = undefined;
           let calculatedSize = 0;
+          let savedAsRawPdf = false;
 
           if (isPdf) {
             const blobToUpload = (correspondingBlob?.blob instanceof Blob)
@@ -743,30 +744,56 @@ export default function SharedFileHandler() {
               : await fetch(cleanUri).then(r => r.blob()).catch(() => null);
 
             if (blobToUpload) {
-              calculatedSize = blobToUpload.size;
               const buffer = await blobToUpload.arrayBuffer();
               const analysis = await analyzePdfStructure(buffer);
               const isOriginalSignedOrVector = isTrueOriginalPdf(analysis, blobToUpload.size);
+              const isSinglePageBlueprint = (analysis.pageCount === 1 && blobToUpload.size > 2 * 1024 * 1024);
+              const shouldRetainRawPdf = isOriginalSignedOrVector || isSinglePageBlueprint;
 
-              // Upload original PDF
-              const rawUrl = await uploadBlobToStorage(
-                blobToUpload,
-                `fileshare/${selectedSpaceId}/${Date.now()}-${currentIdx}-${Math.random().toString(36).substring(7)}.pdf`
-              );
-              fileUrl = rawUrl;
+              if (shouldRetainRawPdf) {
+                savedAsRawPdf = true;
+                calculatedSize = blobToUpload.size;
+                const rawUrl = await uploadBlobToStorage(
+                  blobToUpload,
+                  `fileshare/${selectedSpaceId}/${Date.now()}-${currentIdx}-${Math.random().toString(36).substring(7)}.pdf`
+                );
+                fileUrl = rawUrl;
 
-              // Generate preview thumbnail
-              try {
-                const extracted = await extractPdfPages(blobToUpload, 1200, 0.85);
-                if (extracted && extracted.length > 0) {
-                  thumbUrl = await uploadImageToStorage(
-                    extracted[0],
-                    `fileshare/${selectedSpaceId}/thumb_${Date.now()}-${currentIdx}.webp`
-                  );
-                  pagesArr = extracted;
+                // Generate lightweight preview thumbnail for page 1
+                try {
+                  const extracted = await extractPdfPages(blobToUpload, 1200, 0.80);
+                  if (extracted && extracted.length > 0) {
+                    thumbUrl = await uploadImageToStorage(
+                      extracted[0],
+                      `fileshare/${selectedSpaceId}/thumb_${Date.now()}-${currentIdx}.webp`
+                    );
+                  }
+                } catch (pdfThumbErr) {
+                  console.warn('Failed generating PDF thumbnail for fileshare item:', pdfThumbErr);
                 }
-              } catch (pdfThumbErr) {
-                console.warn('Failed generating PDF thumbnail for fileshare item:', pdfThumbErr);
+              } else {
+                // Wrapped Raster Scan: Convert all pages to optimized WebP!
+                savedAsRawPdf = false;
+                const webpPages = await extractPdfPages(blobToUpload, 2400, 0.90);
+                if (webpPages && webpPages.length > 0) {
+                  calculatedSize = webpPages.reduce((acc, p) => acc + dataUrlBytes(p), 0);
+                  const uploadedPages = await Promise.all(
+                    webpPages.map((pageUri, p) => uploadImageToStorage(
+                      pageUri,
+                      `fileshare/${selectedSpaceId}/${Date.now()}-${currentIdx}-p${p}-${Math.random().toString(36).substring(7)}.webp`
+                    ))
+                  );
+                  fileUrl = uploadedPages[0];
+                  thumbUrl = uploadedPages[0];
+                  pagesArr = uploadedPages;
+                } else {
+                  savedAsRawPdf = true;
+                  calculatedSize = blobToUpload.size;
+                  fileUrl = await uploadBlobToStorage(
+                    blobToUpload,
+                    `fileshare/${selectedSpaceId}/${Date.now()}-${currentIdx}-${Math.random().toString(36).substring(7)}.pdf`
+                  );
+                }
               }
             } else {
               fileUrl = cleanUri;
@@ -779,7 +806,7 @@ export default function SharedFileHandler() {
             } catch (err) {
               console.error('Downscale failed', err);
             }
-            calculatedSize = cleanUri.startsWith('data:') ? Math.round((cleanUri.length * 3) / 4) : 0;
+            calculatedSize = compressedUri.startsWith('data:') ? Math.round((compressedUri.length * 3) / 4) : 0;
             const ext = compressedUri.startsWith('data:image/webp') ? 'webp' : 'jpg';
             fileUrl = await uploadImageToStorage(
               compressedUri,
@@ -788,17 +815,21 @@ export default function SharedFileHandler() {
             thumbUrl = fileUrl;
           }
 
-          const originalName = correspondingBlob?.name || correspondingBlob?.blob?.name || (isPdf ? `מסמך ששותף ${currentIdx}.pdf` : `תמונה ששותפה ${currentIdx}.webp`);
+          const rawName = correspondingBlob?.name || correspondingBlob?.blob?.name || (isPdf ? `מסמך ששותף ${currentIdx}` : `תמונה ששותפה ${currentIdx}`);
+          const baseName = rawName.replace(/\.(pdf|webp|jpg|jpeg|png)$/i, '');
+          const finalFileName = isPdf
+            ? (savedAsRawPdf ? `${baseName}.pdf` : `${baseName}.webp`)
+            : `${baseName}.webp`;
 
           newFileItems.push({
             id: `file_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
             spaceId: selectedSpaceId,
-            name: originalName,
+            name: finalFileName,
             type: 'file',
             url: fileUrl,
             thumbnailUrl: thumbUrl,
             pages: pagesArr,
-            fileType: isPdf ? 'pdf' : 'image',
+            fileType: savedAsRawPdf ? 'pdf' : 'image',
             size: calculatedSize,
             parentId: selectedFolderId || null,
             createdAt: Date.now(),
