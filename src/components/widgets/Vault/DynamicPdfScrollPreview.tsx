@@ -28,9 +28,6 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
   const [totalPageCount, setTotalPageCount] = useState<number>(1);
   const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
   const [pdfScale, setPdfScale] = useState<number>(1);
-  const [isHdRendering, setIsHdRendering] = useState<boolean>(false);
-  const [isHdActive, setIsHdActive] = useState<boolean>(false);
-  const [isPlanDetected, setIsPlanDetected] = useState<boolean>(false);
   const [bgUpgrading, setBgUpgrading] = useState(false);
   const [bgUpgradeDone, setBgUpgradeDone] = useState(false);
   const isWideBlueprintRef = React.useRef<boolean>(false);
@@ -46,7 +43,6 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
   const imgRef = React.useRef<HTMLImageElement | null>(null);
   const transformStateRef = React.useRef<{ scale: number; positionX: number; positionY: number }>({ scale: 1, positionX: 0, positionY: 0 });
   const autoFocusTimeoutRef = React.useRef<any>(null);
-  const renderPageCanvasRef = React.useRef<((pageNum: number) => Promise<string>) | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -120,15 +116,6 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
 
         const numPages = pdf.numPages || 1;
         setTotalPageCount(numPages);
-
-        // Check if page 1 dimensions resemble architectural plan / blueprint (large format A3/A2/A1/A0 or width > 1000pt)
-        try {
-          const firstPage = await pdf.getPage(1);
-          const vp = firstPage.getViewport({ scale: 1.0 });
-          if (vp.width > 900 || vp.height > 900 || (vp.width / vp.height > 1.3 && vp.width > 800)) {
-            setIsPlanDetected(true);
-          }
-        } catch (_) {}
 
         // If we already had cached pages and it covers all pages, we're done loading!
         if (cachedPages && cachedPages.length >= numPages) {
@@ -233,8 +220,6 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
           return '';
         };
 
-        renderPageCanvasRef.current = renderPageCanvas;
-
         // 1. Render Page 1 IMMEDIATELY! (< 150ms)
         const page1 = await renderPageCanvas(1);
         if (!isMounted) return;
@@ -289,65 +274,6 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
       isMounted = false;
     };
   }, [url]);
-
-  // On-demand Ultra-HD re-rendering for architectural plans / deep reading of tiny dimensions
-  const handleToggleUltraHd = async () => {
-    if (!pdfDocRef.current || isHdRendering) return;
-
-    if (isHdActive) {
-      // Revert to fast preview by triggering re-mount or re-render
-      setIsHdActive(false);
-      return;
-    }
-
-    setIsHdRendering(true);
-    try {
-      const pdf = pdfDocRef.current;
-      const numPages = pdf.numPages || 1;
-      const hdUrls: string[] = [];
-
-      for (let p = 1; p <= numPages; p++) {
-        const page = await pdf.getPage(p);
-        const unscaledViewport = page.getViewport({ scale: 1.0 });
-        const currentMax = Math.max(unscaledViewport.width, unscaledViewport.height);
-        const currentMin = Math.min(unscaledViewport.width, unscaledViewport.height);
-        const aspectRatio = currentMax / Math.max(1, currentMin);
-
-        // Safe budget-aware HD scale calculation:
-        // Do not exceed browser canvas memory limits (32MP) while guaranteeing high detail!
-        let scale: number;
-        if (aspectRatio >= 2.5) {
-          const targetByMin = 2400 / currentMin;
-          const maxBudget = Math.sqrt(30000000 / (unscaledViewport.width * unscaledViewport.height));
-          scale = Math.min(1.0, Math.min(targetByMin, maxBudget));
-        } else {
-          scale = Math.min(2.5, Math.max(1.0, 3200 / currentMax));
-        }
-
-        const viewport = page.getViewport({ scale });
-        const canvas = document.createElement('canvas');
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-          await page.render({ canvasContext: ctx, viewport }).promise;
-          hdUrls.push(compressCanvasWebP(canvas, 0.90));
-        }
-      }
-
-      if (hdUrls.length > 0) {
-        setPages(hdUrls);
-        setIsHdActive(true);
-      }
-    } catch (err) {
-      console.warn('Failed to render Ultra-HD PDF pages:', err);
-      alert('לא ניתן היה לרנדר ברזולוציית HD עבור קובץ זה.');
-    } finally {
-      setIsHdRendering(false);
-    }
-  };
 
   // High-Resolution Local Viewport Slicing:
   // Renders ONLY the currently visible on-screen rectangle at razor-sharp vector scale!
