@@ -33,8 +33,6 @@ export interface UniversalViewerModalProps {
   onDownload?: (url: string, title?: string) => void;
   /** Optional handler to normalize legacy document to pages array in storage */
   onNormalizeDoc?: (docId: string, pages: string[]) => void;
-  /** Optional handler to toggle document favorite / relevant status */
-  onToggleFavorite?: (docId: string, currentVal: boolean) => void;
   /** Optional handler when current document index changes */
   onIndexChange?: (newIndex: number) => void;
 }
@@ -56,7 +54,6 @@ export default function UniversalViewerModal({
   onShare,
   onDownload,
   onNormalizeDoc,
-  onToggleFavorite,
   onIndexChange
 }: UniversalViewerModalProps) {
   const [currentIndex, setCurrentIndex] = useState<number>(initialIndex);
@@ -65,12 +62,6 @@ export default function UniversalViewerModal({
   const [isHdRendering, setIsHdRendering] = useState<boolean>(false);
   const [hdActiveDocIds, setHdActiveDocIds] = useState<Record<string, boolean>>({});
   const [hdPagesMap, setHdPagesMap] = useState<Record<string, string[]>>({});
-  const [webpFocusActive, setWebpFocusActive] = useState<boolean>(false);
-  const [isWebpSlicing, setIsWebpSlicing] = useState<boolean>(false);
-  const singleImageRef = useRef<HTMLImageElement | null>(null);
-  const singleWrapperRef = useRef<HTMLDivElement | null>(null);
-  const [webpSlice, setWebpSlice] = useState<{ dataUrl: string; scale: number; rect: { left: number; top: number; width: number; height: number } } | null>(null);
-  const webpAutoFocusTimeoutRef = useRef<any>(null);
   const [showMetrics, setShowMetrics] = useState<boolean>(false);
   const [showExportToSpace, setShowExportToSpace] = useState<boolean>(false);
 
@@ -195,123 +186,6 @@ export default function UniversalViewerModal({
       console.warn('Failed to render Ultra-HD PDF pages:', err);
     } finally {
       setIsHdRendering(false);
-    }
-  };
-
-  // High-Resolution Local Viewport Slicing for WebP / Raster Images:
-  // Samples directly from natural-resolution image element and applies unsharp mask kernel!
-  const handleRenderWebpFocusRegion = async () => {
-    if (isWebpSlicing) return;
-    const wrapper = singleWrapperRef.current;
-    const img = singleImageRef.current;
-    if (!wrapper || !img) return;
-
-    setIsWebpSlicing(true);
-    try {
-      const wrapperRect = wrapper.getBoundingClientRect();
-      const imgRect = img.getBoundingClientRect();
-
-      const visibleLeft = Math.max(wrapperRect.left, imgRect.left);
-      const visibleTop = Math.max(wrapperRect.top, imgRect.top);
-      const visibleRight = Math.min(wrapperRect.right, imgRect.right);
-      const visibleBottom = Math.min(wrapperRect.bottom, imgRect.bottom);
-
-      const visibleWidth = visibleRight - visibleLeft;
-      const visibleHeight = visibleBottom - visibleTop;
-
-      if (visibleWidth <= 20 || visibleHeight <= 20) {
-        setIsWebpSlicing(false);
-        return;
-      }
-
-      // Normalized coordinates within on-screen bounding box (0.0 to 1.0)
-      const normX = (visibleLeft - imgRect.left) / imgRect.width;
-      const normY = (visibleTop - imgRect.top) / imgRect.height;
-      const normW = visibleWidth / imgRect.width;
-      const normH = visibleHeight / imgRect.height;
-
-      // Map to natural dimensions of the source image (e.g. 4000x3000 px)
-      const natW = img.naturalWidth || imgRect.width;
-      const natH = img.naturalHeight || imgRect.height;
-
-      const srcX = Math.round(normX * natW);
-      const srcY = Math.round(normY * natH);
-      const srcW = Math.max(1, Math.round(normW * natW));
-      const srcH = Math.max(1, Math.round(normH * natH));
-
-      // Device Pixel Ratio for crystal clarity on high-DPI screens
-      const dpr = Math.min(3, typeof window !== 'undefined' ? (window.devicePixelRatio || 2) : 2);
-      const canvasW = Math.round(visibleWidth * dpr);
-      const canvasH = Math.round(visibleHeight * dpr);
-
-      const canvas = document.createElement('canvas');
-      canvas.width = canvasW;
-      canvas.height = canvasH;
-      const ctx = canvas.getContext('2d', { willReadFrequently: true });
-      if (!ctx) {
-        setIsWebpSlicing(false);
-        return;
-      }
-
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
-      ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, canvasW, canvasH);
-
-      // Apply true 3x3 Sharpening Convolution Kernel (Unsharp Mask) on pixel buffer
-      try {
-        const imgData = ctx.getImageData(0, 0, canvasW, canvasH);
-        const data = imgData.data;
-        const copy = new Uint8ClampedArray(data);
-        const w = canvasW;
-        const h = canvasH;
-
-        // Kernel:
-        // [  0, -0.6,   0 ]
-        // [ -0.6, 3.4, -0.6 ]
-        // [  0, -0.6,   0 ]
-        const weightCenter = 3.4;
-        const weightNeighbor = -0.6;
-
-        for (let y = 1; y < h - 1; y++) {
-          const rowOffset = y * w * 4;
-          const upOffset = (y - 1) * w * 4;
-          const downOffset = (y + 1) * w * 4;
-
-          for (let x = 1; x < w - 1; x++) {
-            const idx = rowOffset + (x * 4);
-            const up = upOffset + (x * 4);
-            const down = downOffset + (x * 4);
-            const left = rowOffset + ((x - 1) * 4);
-            const right = rowOffset + ((x + 1) * 4);
-
-            for (let c = 0; c < 3; c++) {
-              const val = (copy[idx + c] * weightCenter) +
-                ((copy[up + c] + copy[down + c] + copy[left + c] + copy[right + c]) * weightNeighbor);
-              data[idx + c] = Math.min(255, Math.max(0, val));
-            }
-          }
-        }
-        ctx.putImageData(imgData, 0, 0);
-      } catch (convErr) {
-        console.warn('Canvas pixel manipulation skipped (CORS fallback):', convErr);
-      }
-
-      const sliceUrl = canvas.toDataURL('image/webp', 0.95);
-      setWebpSlice({
-        dataUrl: sliceUrl,
-        scale: currentScale,
-        rect: {
-          left: normX * 100,
-          top: normY * 100,
-          width: normW * 100,
-          height: normH * 100
-        }
-      });
-      setWebpFocusActive(true);
-    } catch (err) {
-      console.error('Failed to generate WebP focus slice:', err);
-    } finally {
-      setIsWebpSlicing(false);
     }
   };
 
@@ -468,32 +342,6 @@ export default function UniversalViewerModal({
           >
             #{currentIndex + 1} • {currentDoc.title || 'מסמך'}
           </span>
-          {/* Favorite Toggle Button */}
-          {onToggleFavorite && currentDoc.id && (
-            <button
-              type="button"
-              onClick={() => onToggleFavorite(currentDoc.id!, Boolean(currentDoc.isFavorite))}
-              style={{
-                background: currentDoc.isFavorite ? '#fef3c7' : 'rgba(255, 255, 255, 0.15)',
-                border: currentDoc.isFavorite ? '1.5px solid #f59e0b' : '1px solid rgba(255, 255, 255, 0.25)',
-                color: currentDoc.isFavorite ? '#b45309' : '#f8fafc',
-                padding: '2px 8px',
-                borderRadius: '8px',
-                fontSize: '0.75rem',
-                fontWeight: 700,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                flexShrink: 0,
-                transition: 'all 0.15s ease'
-              }}
-              title={currentDoc.isFavorite ? 'הסר ממועדפים' : 'סמן כהצעה מועדפת / רלוונטית'}
-            >
-              <span>{currentDoc.isFavorite ? '⭐' : '☆'}</span>
-              <span>{currentDoc.isFavorite ? 'מועדף' : 'סמן'}</span>
-            </button>
-          )}
           {/* Storage Target Badge */}
           <span
             style={{
@@ -600,6 +448,36 @@ export default function UniversalViewerModal({
           </button>
         </div>
       </div>
+
+      {/* Floating Zoom Percentage HUD Badge (PDF style) */}
+      {Math.abs(currentScale - 1) > 0.05 && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '64px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 200020,
+            background: 'rgba(15, 23, 42, 0.88)',
+            backdropFilter: 'blur(8px)',
+            border: '1.5px solid rgba(255, 255, 255, 0.25)',
+            borderRadius: '20px',
+            padding: '4px 14px',
+            color: '#ffffff',
+            fontSize: '0.82rem',
+            fontWeight: 800,
+            boxShadow: '0 4px 15px rgba(0,0,0,0.45)',
+            pointerEvents: 'none',
+            letterSpacing: '0.02em',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '5px'
+          }}
+        >
+          <span>🔍</span>
+          <span>{Math.round(currentScale * 100)}%</span>
+        </div>
+      )}
 
       {/* Navigation Arrow: Previous Document */}
       {currentIndex > 0 && (
@@ -858,6 +736,31 @@ export default function UniversalViewerModal({
                         </button>
                         <button
                           type="button"
+                          onClick={() => resetTransform()}
+                          title="אחוז הגדלה (לחץ לאיפוס ל-100%)"
+                          style={{
+                            minWidth: '42px',
+                            padding: '4px 6px',
+                            borderRadius: '12px',
+                            background: 'rgba(15, 23, 42, 0.85)',
+                            backdropFilter: 'blur(8px)',
+                            border: '1.5px solid rgba(255, 255, 255, 0.25)',
+                            color: '#ffffff',
+                            fontSize: '0.72rem',
+                            fontWeight: 800,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+                            transition: 'all 0.15s ease',
+                            userSelect: 'none'
+                          }}
+                        >
+                          {Math.round(currentScale * 100)}%
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => zoomOut(0.35)}
                           title="הקטן זום"
                           style={{
@@ -979,7 +882,6 @@ export default function UniversalViewerModal({
           }
           return (
             <div
-              ref={singleWrapperRef}
               style={{
                 width: '100%',
                 height: '100%',
@@ -1001,41 +903,7 @@ export default function UniversalViewerModal({
                 wheel={{ step: 0.2 }}
                 pinch={{ step: 5 }}
                 onTransform={(ref: any) => {
-                  const newScale = ref.state.scale;
-                  setCurrentScale(newScale);
-                  if (webpAutoFocusTimeoutRef.current) {
-                    clearTimeout(webpAutoFocusTimeoutRef.current);
-                  }
-                  const imgEl = singleImageRef.current;
-                  const isWidePlanImg = imgEl ? (Math.max(imgEl.naturalWidth || 1, imgEl.naturalHeight || 1) / Math.max(1, Math.min(imgEl.naturalWidth || 1, imgEl.naturalHeight || 1)) >= 2.2) : false;
-                  if (newScale > 1.3 && isWidePlanImg) {
-                    webpAutoFocusTimeoutRef.current = setTimeout(() => {
-                      handleRenderWebpFocusRegion();
-                    }, 400);
-                  } else if (newScale <= 1.1 && webpSlice) {
-                    setWebpSlice(null);
-                    setWebpFocusActive(false);
-                  }
-                }}
-                onPanningStop={() => {
-                  if (webpAutoFocusTimeoutRef.current) clearTimeout(webpAutoFocusTimeoutRef.current);
-                  const imgEl = singleImageRef.current;
-                  const isWidePlanImg = imgEl ? (Math.max(imgEl.naturalWidth || 1, imgEl.naturalHeight || 1) / Math.max(1, Math.min(imgEl.naturalWidth || 1, imgEl.naturalHeight || 1)) >= 2.2) : false;
-                  if (currentScale > 1.3 && isWidePlanImg) {
-                    webpAutoFocusTimeoutRef.current = setTimeout(() => {
-                      handleRenderWebpFocusRegion();
-                    }, 300);
-                  }
-                }}
-                onPinchStop={() => {
-                  if (webpAutoFocusTimeoutRef.current) clearTimeout(webpAutoFocusTimeoutRef.current);
-                  const imgEl = singleImageRef.current;
-                  const isWidePlanImg = imgEl ? (Math.max(imgEl.naturalWidth || 1, imgEl.naturalHeight || 1) / Math.max(1, Math.min(imgEl.naturalWidth || 1, imgEl.naturalHeight || 1)) >= 2.2) : false;
-                  if (currentScale > 1.3 && isWidePlanImg) {
-                    webpAutoFocusTimeoutRef.current = setTimeout(() => {
-                      handleRenderWebpFocusRegion();
-                    }, 300);
-                  }
+                  setCurrentScale(ref.state.scale);
                 }}
               >
                 {({ zoomIn, zoomOut, resetTransform }: any) => (
@@ -1082,7 +950,6 @@ export default function UniversalViewerModal({
                           />
                         )}
                         <img
-                          ref={singleImageRef}
                           src={fullUrl || validThumb}
                           alt={currentDoc.title || 'מסמך'}
                           loading="eager"
@@ -1113,99 +980,8 @@ export default function UniversalViewerModal({
                             zIndex: 2
                           }}
                         />
-
-                        {/* High-Resolution Focus Overlay Slice for WebP with Edge Sharpening */}
-                        {webpSlice && (
-                          <div
-                            style={{
-                              position: 'absolute',
-                              left: `${webpSlice.rect.left}%`,
-                              top: `${webpSlice.rect.top}%`,
-                              width: `${webpSlice.rect.width}%`,
-                              height: `${webpSlice.rect.height}%`,
-                              pointerEvents: 'none',
-                              zIndex: 15,
-                              overflow: 'hidden'
-                            }}
-                          >
-                            <img
-                              src={webpSlice.dataUrl}
-                              alt=""
-                              style={{
-                                width: '100%',
-                                height: '100%',
-                                objectFit: 'fill',
-                                display: 'block'
-                              }}
-                            />
-                          </div>
-                        )}
                       </div>
                     </TransformComponent>
-
-                    {/* Top Focus Button for WebP (Only shown on wide plans/blueprints or when slice active, never on A4) */}
-                    {webpSlice && (
-                    <div
-                      onClick={(e) => e.stopPropagation()}
-                      style={{
-                        position: 'absolute',
-                        top: '12px',
-                        left: '12px',
-                        zIndex: 200025,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                      }}
-                    >
-                      <button
-                        type="button"
-                        onClick={handleRenderWebpFocusRegion}
-                        disabled={isWebpSlicing}
-                        style={{
-                          background: webpSlice ? 'rgba(5, 150, 105, 0.9)' : 'rgba(37, 99, 235, 0.88)',
-                          backdropFilter: 'blur(8px)',
-                          border: webpSlice ? '1px solid #34d399' : '1px solid rgba(96, 165, 250, 0.6)',
-                          color: '#ffffff',
-                          padding: '5px 11px',
-                          borderRadius: '20px',
-                          fontSize: '0.74rem',
-                          fontWeight: 700,
-                          cursor: isWebpSlicing ? 'wait' : 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '5px',
-                          boxShadow: '0 2px 10px rgba(0,0,0,0.3)',
-                          transition: 'all 0.2s ease'
-                        }}
-                        title="חידוד אזור WebP מוצג במסך ברזולוציה מקסימלית"
-                      >
-                        <span>{isWebpSlicing ? '⏳' : (webpSlice ? '✓' : '🎯')}</span>
-                        <span>{isWebpSlicing ? 'מחדד...' : (webpSlice ? 'אזור חד ✓' : 'חדד אזור (Focus)')}</span>
-                      </button>
-
-                      {webpSlice && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setWebpSlice(null);
-                            setWebpFocusActive(false);
-                          }}
-                          style={{
-                            background: 'rgba(15, 23, 42, 0.78)',
-                            border: '1px solid rgba(255, 255, 255, 0.2)',
-                            color: '#cbd5e1',
-                            padding: '4px 9px',
-                            borderRadius: '14px',
-                            fontSize: '0.7rem',
-                            cursor: 'pointer'
-                          }}
-                          title="בטל חידוד"
-                        >
-                          בטל
-                        </button>
-                      )}
-                    </div>
-                    )}
 
                     {/* Floating Quick-Zoom Action Controls */}
                     <div
@@ -1241,6 +1017,31 @@ export default function UniversalViewerModal({
                         }}
                       >
                         +
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => resetTransform()}
+                        title="אחוז הגדלה (לחץ לאיפוס ל-100%)"
+                        style={{
+                          minWidth: '42px',
+                          padding: '4px 6px',
+                          borderRadius: '12px',
+                          background: 'rgba(15, 23, 42, 0.85)',
+                          backdropFilter: 'blur(8px)',
+                          border: '1.5px solid rgba(255, 255, 255, 0.25)',
+                          color: '#ffffff',
+                          fontSize: '0.72rem',
+                          fontWeight: 800,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+                          transition: 'all 0.15s ease',
+                          userSelect: 'none'
+                        }}
+                      >
+                        {Math.round(currentScale * 100)}%
                       </button>
                       <button
                         type="button"

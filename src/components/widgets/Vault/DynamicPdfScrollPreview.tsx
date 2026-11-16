@@ -535,6 +535,36 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
           touchAction: isNativeScrollMode ? 'pan-y pinch-zoom' : 'none'
         }}
       >
+        {/* Floating Zoom Percentage HUD Badge (PDF style) */}
+        {Math.abs(pdfScale - 1) > 0.05 && (
+          <div
+            style={{
+              position: 'absolute',
+              top: '16px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 200030,
+              background: 'rgba(15, 23, 42, 0.88)',
+              backdropFilter: 'blur(8px)',
+              border: '1.5px solid rgba(255, 255, 255, 0.25)',
+              borderRadius: '20px',
+              padding: '4px 14px',
+              color: '#ffffff',
+              fontSize: '0.82rem',
+              fontWeight: 800,
+              boxShadow: '0 4px 15px rgba(0,0,0,0.45)',
+              pointerEvents: 'none',
+              letterSpacing: '0.02em',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px'
+            }}
+          >
+            <span>🔍</span>
+            <span>{Math.round(pdfScale * 100)}%</span>
+          </div>
+        )}
+
         <TransformWrapper
           key={`pdf-${pages.length > 1 ? 'multi' : 'single'}`}
           initialScale={1}
@@ -701,68 +731,7 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
                 </div>
               </TransformComponent>
 
-              {/* Action Buttons Header: Focused Region Sharpener (ONLY on wide architectural blueprints / CAD plans, never on A4) */}
-              {pdfDocRef.current && (isWideBlueprintRef.current || regionSlice) && (
-                <div
-                  onClick={(e) => e.stopPropagation()}
-                  style={{
-                    position: 'absolute',
-                    top: '12px',
-                    left: '12px',
-                    zIndex: 200025,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px'
-                  }}
-                >
-                  <button
-                    type="button"
-                    onClick={handleRenderFocusedRegion}
-                    disabled={isSlicing}
-                    style={{
-                      background: regionSlice ? 'rgba(5, 150, 105, 0.9)' : 'rgba(37, 99, 235, 0.88)',
-                      backdropFilter: 'blur(8px)',
-                      border: regionSlice ? '1px solid #34d399' : '1px solid rgba(96, 165, 250, 0.6)',
-                      color: '#ffffff',
-                      padding: '5px 11px',
-                      borderRadius: '20px',
-                      fontSize: '0.74rem',
-                      fontWeight: 700,
-                      cursor: isSlicing ? 'wait' : 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '5px',
-                      boxShadow: '0 2px 10px rgba(0,0,0,0.3)',
-                      transition: 'all 0.2s ease'
-                    }}
-                    title="מרנדר ומחדד אך ורק את החלון שאתה מגדיל כרגע על המסך באיכות וקטורית מקסימלית"
-                  >
-                    <span>{isSlicing ? '⏳' : (regionSlice ? '✓' : '🎯')}</span>
-                    <span>{isSlicing ? 'מחדד...' : (regionSlice ? 'אזור חד 200% ✓' : 'חדד אזור (Focus)')}</span>
-                  </button>
-
-                  {regionSlice && (
-                    <button
-                      type="button"
-                      onClick={() => setRegionSlice(null)}
-                      style={{
-                        background: 'rgba(15, 23, 42, 0.78)',
-                        border: '1px solid rgba(255, 255, 255, 0.2)',
-                        color: '#cbd5e1',
-                        padding: '4px 9px',
-                        borderRadius: '14px',
-                        fontSize: '0.7rem',
-                        cursor: 'pointer'
-                      }}
-                      title="הסר חידוד אזור"
-                    >
-                      בטל
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {/* Bottom-Left Floating Zoom Buttons (+, -, 1:1) */}
+              {/* Bottom-Left Floating Zoom Buttons (+, %, -, 1:1) */}
               <div
                 onClick={(e) => e.stopPropagation()}
                 style={{
@@ -796,6 +765,31 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
                   }}
                 >
                   +
+                </button>
+                <button
+                  type="button"
+                  onClick={() => resetTransform()}
+                  title="אחוז הגדלה (לחץ לאיפוס ל-100%)"
+                  style={{
+                    minWidth: '42px',
+                    padding: '4px 6px',
+                    borderRadius: '12px',
+                    background: 'rgba(15, 23, 42, 0.85)',
+                    backdropFilter: 'blur(8px)',
+                    border: '1.5px solid rgba(255, 255, 255, 0.25)',
+                    color: '#ffffff',
+                    fontSize: '0.72rem',
+                    fontWeight: 800,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+                    transition: 'all 0.15s ease',
+                    userSelect: 'none'
+                  }}
+                >
+                  {Math.round(pdfScale * 100)}%
                 </button>
                 <button
                   type="button"

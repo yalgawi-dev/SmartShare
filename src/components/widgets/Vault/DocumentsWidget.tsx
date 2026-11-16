@@ -15,12 +15,10 @@ import BatchActionToolbar, { BatchToolbarAction } from '../../common/BatchAction
 import GlobalMoveModal from '../../common/GlobalMoveModal';
 import GlobalRecycleBinModal, { TrashItem } from '../../common/GlobalRecycleBinModal';
 import { downloadDocument, shareDocument, getDocumentPreviewUrl, formatFileSize } from '../../../utils/documentUtils';
-import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { mergeImagesCleanly } from '../../../utils/imageOptimizer';
 import ShareChoiceModal, { ShareChoiceDoc } from './ShareChoiceModal';
 import DynamicPdfScrollPreview from './DynamicPdfScrollPreview';
 import { saveLocalDeviceFile } from '../../../utils/localDeviceStorage';
-import MultiPageViewer from './MultiPageViewer';
 import DocNoteModal from './DocNoteModal';
 import { LinkDocumentsModal, LinkedDocsPreviewModal } from './DocumentLinkModals';
 import { APP_VERSION } from '@/constants/version';
@@ -1486,6 +1484,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
               <h2 onClick={() => handleRenameShelf(activeShelf.id, activeShelf.name)} style={{ margin: 0, color: '#1e293b', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
                 {activeShelf.icon || '🗂️'} {activeShelf.name}
                 <span style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>✏️</span>
+                <span style={{ fontSize: '0.62rem', color: '#3b82f6', background: '#eff6ff', border: '1px solid #bfdbfe', padding: '1px 5px', borderRadius: '4px', fontWeight: 800 }}>{APP_VERSION}</span>
               </h2>
               {(() => {
                 const shelfPrivacy = getPrivacyInfo(activeShelf.allowedPartners);
@@ -1664,223 +1663,21 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             }}
           />
         ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '0 1rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', padding: '0 1rem' }}>
           {(showTimeline || shelfDocs.length > 0) && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: '0.25rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-                {/* Clean Sort & Filter Button (Only in Vault where relevant) */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                  <button
-                    type="button"
-                    onClick={() => setShowSortFilterModal(true)}
-                    style={{
-                      background: (((filterLinked !== 'all') || (warehouseStationFilter !== 'all') || (warehouseSortBy !== 'date_desc'))) ? '#eff6ff' : '#f8fafc',
-                      border: (((filterLinked !== 'all') || (warehouseStationFilter !== 'all') || (warehouseSortBy !== 'date_desc'))) ? '1.5px solid #3b82f6' : '1px solid #cbd5e1',
-                      color: (((filterLinked !== 'all') || (warehouseStationFilter !== 'all') || (warehouseSortBy !== 'date_desc'))) ? '#1d4ed8' : '#334155',
-                      padding: '6px 14px',
-                      borderRadius: '12px',
-                      fontSize: '0.82rem',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.45rem',
-                      boxShadow: (((filterLinked !== 'all') || (warehouseStationFilter !== 'all') || (warehouseSortBy !== 'date_desc'))) ? '0 2px 6px rgba(59,130,246,0.15)' : 'none',
-                      transition: 'all 0.15s ease'
-                    }}
-                    title="סינון לפי תחנות ומיון מסמכים"
-                  >
-                    <span style={{ fontSize: '1rem' }}>⇅</span>
-                    <span>סינון ומיון</span>
-                    {(((filterLinked !== 'all') || (warehouseStationFilter !== 'all') || (warehouseSortBy !== 'date_desc'))) && (
-                      <span style={{
-                        background: '#3b82f6',
-                        color: 'white',
-                        borderRadius: '999px',
-                        padding: '1px 6px',
-                        fontSize: '0.68rem',
-                        fontWeight: 800
-                      }}>פעיל</span>
-                    )}
-                  </button>
-
-                  {/* Favorite / Relevant Filter Button */}
-                  <button
-                    type="button"
-                    onClick={() => setShowFavoritesOnly(prev => !prev)}
-                    style={{
-                      background: showFavoritesOnly ? '#fef3c7' : '#f8fafc',
-                      border: showFavoritesOnly ? '1.5px solid #f59e0b' : '1px solid #cbd5e1',
-                      color: showFavoritesOnly ? '#b45309' : '#475569',
-                      padding: '6px 12px',
-                      borderRadius: '12px',
-                      fontSize: '0.82rem',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.35rem',
-                      boxShadow: showFavoritesOnly ? '0 2px 6px rgba(245,158,11,0.2)' : 'none',
-                      transition: 'all 0.15s ease'
-                    }}
-                    title="הצג רק הצעות מחיר ומסמכים מועדפים / רלוונטיים"
-                  >
-                    <span>{showFavoritesOnly ? '⭐' : '☆'}</span>
-                    <span>{showFavoritesOnly ? 'מועדפים בלבד' : 'מועדפים'}</span>
-                  </button>
-
-                  {/* Explorer View Mode Dropdown Button (Compact, Space-Saving) */}
-                  <div ref={vaultViewDropdownRef} style={{ position: 'relative' }}>
-                    <button
-                      type="button"
-                      onClick={() => setShowVaultViewDropdown(prev => !prev)}
-                      title="שינוי תצוגת מסמכים (רשימה / בינוני / גדול)"
-                      style={{
-                        background: showVaultViewDropdown ? '#eff6ff' : '#f8fafc',
-                        border: showVaultViewDropdown ? '1.5px solid #3b82f6' : '1px solid #cbd5e1',
-                        color: showVaultViewDropdown ? '#1d4ed8' : '#334155',
-                        padding: '6px 12px',
-                        borderRadius: '12px',
-                        fontSize: '0.82rem',
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.4rem',
-                        boxShadow: showVaultViewDropdown ? '0 2px 6px rgba(59,130,246,0.15)' : 'none',
-                        transition: 'all 0.15s ease'
-                      }}
-                    >
-                      <span style={{ fontSize: '0.95rem' }}>
-                        {vaultViewMode === 'list' ? '☰' : vaultViewMode === 'grid_large' ? '☷' : '▦'}
-                      </span>
-                      <span>
-                        {vaultViewMode === 'list' ? 'רשימה' : vaultViewMode === 'grid_large' ? 'גדול' : 'בינוני'}
-                      </span>
-                      <span style={{ fontSize: '0.65rem', opacity: 0.65 }}>▾</span>
-                    </button>
-
-                    {showVaultViewDropdown && (
-                      <div style={{
-                        position: 'absolute',
-                        top: 'calc(100% + 4px)',
-                        left: 0,
-                        background: '#ffffff',
-                        border: '1px solid #cbd5e1',
-                        borderRadius: '12px',
-                        boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
-                        padding: '4px',
-                        zIndex: 9999,
-                        minWidth: '120px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '2px',
-                        animation: 'fadeIn 0.15s ease-out'
-                      }}>
-                        <button
-                          type="button"
-                          onClick={() => handleSetVaultViewMode('list')}
-                          style={{
-                            border: 'none',
-                            background: vaultViewMode === 'list' ? '#eff6ff' : 'transparent',
-                            color: vaultViewMode === 'list' ? '#1d4ed8' : '#334155',
-                            fontWeight: vaultViewMode === 'list' ? 800 : 500,
-                            borderRadius: '8px',
-                            padding: '6px 10px',
-                            fontSize: '0.8rem',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            textAlign: 'right',
-                            width: '100%'
-                          }}
-                        >
-                          <span style={{ fontSize: '0.95rem' }}>☰</span>
-                          <span>רשימה</span>
-                          {vaultViewMode === 'list' && <span style={{ marginRight: 'auto', color: '#3b82f6', fontWeight: 900 }}>✓</span>}
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => handleSetVaultViewMode('grid_medium')}
-                          style={{
-                            border: 'none',
-                            background: vaultViewMode === 'grid_medium' ? '#eff6ff' : 'transparent',
-                            color: vaultViewMode === 'grid_medium' ? '#1d4ed8' : '#334155',
-                            fontWeight: vaultViewMode === 'grid_medium' ? 800 : 500,
-                            borderRadius: '8px',
-                            padding: '6px 10px',
-                            fontSize: '0.8rem',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            textAlign: 'right',
-                            width: '100%'
-                          }}
-                        >
-                          <span style={{ fontSize: '0.95rem' }}>▦</span>
-                          <span>בינוני</span>
-                          {vaultViewMode === 'grid_medium' && <span style={{ marginRight: 'auto', color: '#3b82f6', fontWeight: 900 }}>✓</span>}
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => handleSetVaultViewMode('grid_large')}
-                          style={{
-                            border: 'none',
-                            background: vaultViewMode === 'grid_large' ? '#eff6ff' : 'transparent',
-                            color: vaultViewMode === 'grid_large' ? '#1d4ed8' : '#334155',
-                            fontWeight: vaultViewMode === 'grid_large' ? 800 : 500,
-                            borderRadius: '8px',
-                            padding: '6px 10px',
-                            fontSize: '0.8rem',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            textAlign: 'right',
-                            width: '100%'
-                          }}
-                        >
-                          <span style={{ fontSize: '0.95rem' }}>☷</span>
-                          <span>גדול</span>
-                          {vaultViewMode === 'grid_large' && <span style={{ marginRight: 'auto', color: '#3b82f6', fontWeight: 900 }}>✓</span>}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginRight: 'auto' }}>
-                  {shelfDocs.length > 1 && !isMultiSelect && (
-                    <button 
-                      onClick={() => {
-                        setIsMultiSelect(true);
-                        setSelectedDocIds([]);
-                      }}
-                      style={{
-                        background: '#ffffff',
-                        border: '1px solid #cbd5e1',
-                        color: '#475569',
-                        padding: '6px 14px',
-                        borderRadius: '12px',
-                        fontSize: '0.82rem',
-                        fontWeight: 'bold',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.35rem'
-                      }}
-                    >
-                      <span>☑️ בחירה מרובה</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Windows Explorer Style Breadcrumbs Navigation */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '0.5rem',
+              background: '#f8fafc',
+              border: '1px solid #e2e8f0',
+              borderRadius: '12px',
+              padding: '4px 8px',
+              minHeight: '40px',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+            }}>
+              {/* Right side (RTL): Breadcrumbs Trail */}
               {(() => {
                 const allFolders: DocumentFolder[] = (space.documentFolders || []).filter(f => !f.deletedAt && f.shelfId === activeShelf.id);
                 const breadcrumbTrail: DocumentFolder[] = [];
@@ -1899,102 +1696,323 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                   <div style={{
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'space-between',
-                    flexWrap: 'wrap',
-                    gap: '0.5rem',
-                    background: '#f8fafc',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '12px',
-                    padding: '6px 12px',
-                    fontSize: '0.82rem'
+                    gap: '0.25rem',
+                    overflowX: 'auto',
+                    whiteSpace: 'nowrap',
+                    scrollbarWidth: 'none',
+                    msOverflowStyle: 'none',
+                    flex: 1,
+                    minWidth: 0,
+                    padding: '2px 0'
                   }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
-                      <span style={{ color: '#64748b', fontWeight: 600 }}>מיקום:</span>
-                      <button
-                        type="button"
-                        onClick={() => setCurrentFolderId(null)}
-                        style={{
-                          background: !currentFolderId ? '#dbeafe' : 'transparent',
-                          color: !currentFolderId ? '#1d4ed8' : '#475569',
-                          border: 'none',
-                          padding: '3px 8px',
-                          borderRadius: '6px',
-                          fontWeight: !currentFolderId ? 800 : 600,
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.25rem'
-                        }}
-                      >
-                        <span>🏠</span> {activeShelf?.name || 'ראשי'}
-                      </button>
+                    <span style={{ color: '#64748b', fontWeight: 600, fontSize: '0.78rem', flexShrink: 0 }}>מיקום:</span>
+                    <button
+                      type="button"
+                      onClick={() => setCurrentFolderId(null)}
+                      style={{
+                        background: !currentFolderId ? '#dbeafe' : 'transparent',
+                        color: !currentFolderId ? '#1d4ed8' : '#475569',
+                        border: 'none',
+                        padding: '3px 6px',
+                        borderRadius: '6px',
+                        fontWeight: !currentFolderId ? 800 : 600,
+                        fontSize: '0.8rem',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.2rem',
+                        flexShrink: 0
+                      }}
+                      title="חזרה לתיקייה הראשית במדף"
+                    >
+                      <span>🏠</span>
+                      <span>{activeShelf?.name || 'ראשי'}</span>
+                    </button>
 
-                      {breadcrumbTrail.map((crumb, idx) => {
-                        const isLast = idx === breadcrumbTrail.length - 1;
-                        const folderPrivacy = getPrivacyInfo(crumb.allowedPartners);
-                        return (
-                          <React.Fragment key={crumb.id}>
-                            <span style={{ color: '#94a3b8' }}>/</span>
-                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                    {breadcrumbTrail.map((crumb, idx) => {
+                      const isLast = idx === breadcrumbTrail.length - 1;
+                      const folderPrivacy = getPrivacyInfo(crumb.allowedPartners);
+                      return (
+                        <React.Fragment key={crumb.id}>
+                          <span style={{ color: '#94a3b8', fontSize: '0.75rem', flexShrink: 0 }}>/</span>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
+                            <button
+                              type="button"
+                              onClick={() => setCurrentFolderId(crumb.id)}
+                              style={{
+                                background: isLast ? '#dbeafe' : 'transparent',
+                                color: isLast ? '#1d4ed8' : '#475569',
+                                border: 'none',
+                                padding: '3px 6px',
+                                borderRadius: '6px',
+                                fontWeight: isLast ? 800 : 600,
+                                fontSize: '0.8rem',
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.2rem'
+                              }}
+                            >
+                              <span>📁</span>
+                              <span>{crumb.name}</span>
+                            </button>
+                            {isLast && (
                               <button
                                 type="button"
-                                onClick={() => setCurrentFolderId(crumb.id)}
-                                style={{
-                                  background: isLast ? '#dbeafe' : 'transparent',
-                                  color: isLast ? '#1d4ed8' : '#475569',
-                                  border: 'none',
-                                  padding: '3px 8px',
-                                  borderRadius: '6px',
-                                  fontWeight: isLast ? 800 : 600,
-                                  cursor: 'pointer',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '0.25rem'
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setPrivacyTarget({
+                                    type: 'folder',
+                                    id: crumb.id,
+                                    name: crumb.name,
+                                    allowedPartners: crumb.allowedPartners || [],
+                                    ownerId: crumb.ownerId
+                                  });
                                 }}
+                                style={{
+                                  background: folderPrivacy.bg,
+                                  border: `1px solid ${folderPrivacy.border}`,
+                                  color: folderPrivacy.color,
+                                  fontSize: '0.65rem',
+                                  padding: '1px 5px',
+                                  borderRadius: '6px',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '2px'
+                                }}
+                                title={`הרשאות תיקייה: ${folderPrivacy.text}`}
                               >
-                                <span>📁</span> {crumb.name}
+                                <span>{folderPrivacy.icon}</span>
                               </button>
-                              {isLast && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setPrivacyTarget({
-                                      type: 'folder',
-                                      id: crumb.id,
-                                      name: crumb.name,
-                                      allowedPartners: crumb.allowedPartners || [],
-                                      ownerId: crumb.ownerId
-                                    });
-                                  }}
-                                  style={{
-                                    background: folderPrivacy.bg,
-                                    border: `1px solid ${folderPrivacy.border}`,
-                                    color: folderPrivacy.color,
-                                    fontSize: '0.68rem',
-                                    padding: '1px 6px',
-                                    borderRadius: '8px',
-                                    fontWeight: 700,
-                                    cursor: 'pointer',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '2px',
-                                    marginRight: '2px'
-                                  }}
-                                  title={`הרשאות תיקייה זו: ${folderPrivacy.text} (לחץ לעריכה)`}
-                                >
-                                  <span>{folderPrivacy.icon}</span>
-                                  <span>{folderPrivacy.text}</span>
-                                </button>
-                              )}
-                            </div>
-                          </React.Fragment>
-                        );
-                      })}
-                    </div>
+                            )}
+                          </div>
+                        </React.Fragment>
+                      );
+                    })}
                   </div>
                 );
               })()}
+
+              {/* Left side (RTL): Compact Icon Actions Toolbar */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                {/* 1. Sort & Filter Icon Button */}
+                {(() => {
+                  const isFilterActive = (filterLinked !== 'all') || (warehouseStationFilter !== 'all') || (warehouseSortBy !== 'date_desc');
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => setShowSortFilterModal(true)}
+                      style={{
+                        position: 'relative',
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '8px',
+                        background: isFilterActive ? '#eff6ff' : '#ffffff',
+                        border: isFilterActive ? '1.5px solid #3b82f6' : '1px solid #cbd5e1',
+                        color: isFilterActive ? '#1d4ed8' : '#475569',
+                        fontSize: '1rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: isFilterActive ? '0 2px 6px rgba(59,130,246,0.2)' : 'none',
+                        transition: 'all 0.15s ease'
+                      }}
+                      title={isFilterActive ? 'סינון ומיון מסמכים (פעיל)' : 'סינון ומיון מסמכים'}
+                    >
+                      <span>⇅</span>
+                      {isFilterActive && (
+                        <span style={{
+                          position: 'absolute',
+                          top: '2px',
+                          right: '2px',
+                          width: '7px',
+                          height: '7px',
+                          borderRadius: '50%',
+                          background: '#3b82f6',
+                          border: '1.5px solid #ffffff'
+                        }} />
+                      )}
+                    </button>
+                  );
+                })()}
+
+                {/* 2. Favorites Toggle Icon Button */}
+                <button
+                  type="button"
+                  onClick={() => setShowFavoritesOnly(prev => !prev)}
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '8px',
+                    background: showFavoritesOnly ? '#fef3c7' : '#ffffff',
+                    border: showFavoritesOnly ? '1.5px solid #f59e0b' : '1px solid #cbd5e1',
+                    color: showFavoritesOnly ? '#b45309' : '#94a3b8',
+                    fontSize: '0.95rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: showFavoritesOnly ? '0 2px 6px rgba(245,158,11,0.25)' : 'none',
+                    transition: 'all 0.15s ease'
+                  }}
+                  title={showFavoritesOnly ? 'הצג את כל המסמכים' : 'הצג מועדפים בלבד (⭐)'}
+                >
+                  <span>{showFavoritesOnly ? '⭐' : '☆'}</span>
+                </button>
+
+                {/* 3. View Mode Dropdown Button */}
+                <div ref={vaultViewDropdownRef} style={{ position: 'relative' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowVaultViewDropdown(prev => !prev)}
+                    title={`שינוי תצוגה (${vaultViewMode === 'list' ? 'רשימה' : vaultViewMode === 'grid_large' ? 'גדול' : 'בינוני'})`}
+                    style={{
+                      height: '32px',
+                      padding: '0 6px',
+                      borderRadius: '8px',
+                      background: showVaultViewDropdown ? '#eff6ff' : '#ffffff',
+                      border: showVaultViewDropdown ? '1.5px solid #3b82f6' : '1px solid #cbd5e1',
+                      color: showVaultViewDropdown ? '#1d4ed8' : '#334155',
+                      fontSize: '0.85rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '2px',
+                      boxShadow: showVaultViewDropdown ? '0 2px 6px rgba(59,130,246,0.15)' : 'none',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    <span>
+                      {vaultViewMode === 'list' ? '☰' : vaultViewMode === 'grid_large' ? '☷' : '▦'}
+                    </span>
+                    <span style={{ fontSize: '0.6rem', opacity: 0.65 }}>▾</span>
+                  </button>
+
+                  {showVaultViewDropdown && (
+                    <div style={{
+                      position: 'absolute',
+                      top: 'calc(100% + 4px)',
+                      left: 0,
+                      background: '#ffffff',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: '10px',
+                      boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+                      padding: '4px',
+                      zIndex: 9999,
+                      minWidth: '110px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '2px',
+                      animation: 'fadeIn 0.15s ease-out'
+                    }}>
+                      <button
+                        type="button"
+                        onClick={() => handleSetVaultViewMode('list')}
+                        style={{
+                          border: 'none',
+                          background: vaultViewMode === 'list' ? '#eff6ff' : 'transparent',
+                          color: vaultViewMode === 'list' ? '#1d4ed8' : '#334155',
+                          fontWeight: vaultViewMode === 'list' ? 800 : 500,
+                          borderRadius: '6px',
+                          padding: '6px 8px',
+                          fontSize: '0.78rem',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          textAlign: 'right',
+                          width: '100%'
+                        }}
+                      >
+                        <span>☰</span>
+                        <span>רשימה</span>
+                        {vaultViewMode === 'list' && <span style={{ marginRight: 'auto', color: '#3b82f6', fontWeight: 900 }}>✓</span>}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleSetVaultViewMode('grid_medium')}
+                        style={{
+                          border: 'none',
+                          background: vaultViewMode === 'grid_medium' ? '#eff6ff' : 'transparent',
+                          color: vaultViewMode === 'grid_medium' ? '#1d4ed8' : '#334155',
+                          fontWeight: vaultViewMode === 'grid_medium' ? 800 : 500,
+                          borderRadius: '6px',
+                          padding: '6px 8px',
+                          fontSize: '0.78rem',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          textAlign: 'right',
+                          width: '100%'
+                        }}
+                      >
+                        <span>▦</span>
+                        <span>בינוני</span>
+                        {vaultViewMode === 'grid_medium' && <span style={{ marginRight: 'auto', color: '#3b82f6', fontWeight: 900 }}>✓</span>}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleSetVaultViewMode('grid_large')}
+                        style={{
+                          border: 'none',
+                          background: vaultViewMode === 'grid_large' ? '#eff6ff' : 'transparent',
+                          color: vaultViewMode === 'grid_large' ? '#1d4ed8' : '#334155',
+                          fontWeight: vaultViewMode === 'grid_large' ? 800 : 500,
+                          borderRadius: '6px',
+                          padding: '6px 8px',
+                          fontSize: '0.78rem',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          textAlign: 'right',
+                          width: '100%'
+                        }}
+                      >
+                        <span>☷</span>
+                        <span>גדול</span>
+                        {vaultViewMode === 'grid_large' && <span style={{ marginRight: 'auto', color: '#3b82f6', fontWeight: 900 }}>✓</span>}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* 4. Multi-Select Icon Button */}
+                {shelfDocs.length > 1 && !isMultiSelect && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsMultiSelect(true);
+                      setSelectedDocIds([]);
+                    }}
+                    style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '8px',
+                      background: '#ffffff',
+                      border: '1px solid #cbd5e1',
+                      color: '#475569',
+                      fontSize: '0.85rem',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'all 0.15s ease'
+                    }}
+                    title="בחירה מרובה של מסמכים"
+                  >
+                    <span>☑️</span>
+                  </button>
+                )}
+              </div>
             </div>
           )}
 
@@ -4032,11 +4050,6 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           onNormalizeDoc={(docId, pages) => {
             if (typeof updateDocument === 'function') {
               updateDocument(space.id, docId, { pages });
-            }
-          }}
-          onToggleFavorite={(docId, currentVal) => {
-            if (typeof updateDocument === 'function') {
-              updateDocument(space.id, docId, { isFavorite: !currentVal });
             }
           }}
           onIndexChange={(newIndex) => {
