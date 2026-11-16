@@ -401,6 +401,37 @@ export default function UniversalViewerModal({
 
         {/* Top Controls: Ultra-HD Button & Close */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+          {/* Direct Native PDF Open button (like Gmail / Drive) */}
+          {(isDocPdf || currentDoc.rawPdfUrl) && (
+            <button
+              type="button"
+              onClick={() => {
+                const targetPdfUrl = currentDoc.rawPdfUrl || currentDoc.url;
+                if (targetPdfUrl) {
+                  window.open(targetPdfUrl, '_blank');
+                }
+              }}
+              style={{
+                background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                color: '#ffffff',
+                padding: '5px 10px',
+                borderRadius: '16px',
+                fontSize: '0.78rem',
+                fontWeight: 800,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                boxShadow: '0 2px 8px rgba(37, 99, 235, 0.4)'
+              }}
+              title="פתח במציג ה-PDF המקורי של המכשיר (Gmail style)"
+            >
+              <span>📑</span>
+              <span>פתיחה מקורית</span>
+            </button>
+          )}
+
           {/* Performance Profiler Metrics Toggle Button */}
           <button
             type="button"
