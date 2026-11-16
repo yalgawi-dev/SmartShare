@@ -1,6 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import { useSpaces } from '@/app/context/SpacesContext';
+import { useAuth } from '@/app/context/AuthContext';
 
 export interface FolderTargetItem {
   id: string;
@@ -22,9 +24,11 @@ export interface GlobalMoveModalProps {
   itemCount: number;
   currentFolderId?: string | null;
   currentShelfId?: string | null;
+  currentSpaceId?: string;
   shelves?: ShelfTargetItem[];
   folders: FolderTargetItem[];
   onConfirmMove: (targetFolderId: string | null, targetShelfId?: string) => void;
+  onConfirmCrossSpace?: (targetSpaceId: string, targetShelfId: string | null, targetFolderId: string | null, actionType: 'copy' | 'move') => Promise<void> | void;
   rootLabel?: string;
   rootDescription?: string;
 }
@@ -37,12 +41,83 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
   itemCount,
   currentFolderId,
   currentShelfId,
+  currentSpaceId,
   shelves,
   folders,
   onConfirmMove,
+  onConfirmCrossSpace,
   rootLabel = 'תיקייה ראשית (ללא תיקייה)',
   rootDescription = 'שכבת הבסיס הראשית'
 }) => {
+  const { spaces } = useSpaces();
+  const { user } = useAuth();
+
+  const [destinationMode, setDestinationMode] = useState<'current' | 'other'>('current');
+  const [crossActionType, setCrossActionType] = useState<'copy' | 'move'>('copy');
+  const [targetSpaceId, setTargetSpaceId] = useState<string>('');
+  const [targetSpaceShelfId, setTargetSpaceShelfId] = useState<string>('');
+  const [targetSpaceFolderId, setTargetSpaceFolderId] = useState<string | null>(null);
+  const [isCrossSaving, setIsCrossSaving] = useState(false);
+  const [crossError, setCrossError] = useState('');
+
+  // Authorized spaces calculation
+  const isAuthorizedMemberOfSpace = useMemo(() => {
+    return (s: any): boolean => {
+      if (!s || s.status === 'pending_deletion' || s.id === '__global_announcement__') return false;
+      if (!user?.id) return false;
+      if (s.creatorId && user.id === s.creatorId) return true;
+      if (user.spaceKeys?.[s.id]?.role === 'creator') return true;
+      if (Array.isArray(s.members) && s.members.length > 0) {
+        const m = s.members.find((mem: any) => mem && (mem.userId === user.id || (mem.userId && user.spaceKeys?.[s.id]?.token === mem.userId)));
+        if (m && m.status !== 'removed' && m.isActive !== false) return true;
+      }
+      const partnerKey = user.spaceKeys?.[s.id];
+      if (partnerKey && (partnerKey.role === 'creator' || partnerKey.role === 'partner' || partnerKey.role === 'admin')) {
+        return true;
+      }
+      return false;
+    };
+  }, [user?.id, user?.spaceKeys]);
+
+  const otherAvailableSpaces = useMemo(() => {
+    if (!Array.isArray(spaces)) return [];
+    return spaces.filter(s => isAuthorizedMemberOfSpace(s) && s.id !== currentSpaceId);
+  }, [spaces, currentSpaceId, isAuthorizedMemberOfSpace]);
+
+  // Set default target space when switching to 'other'
+  React.useEffect(() => {
+    if (destinationMode === 'other' && otherAvailableSpaces.length > 0 && !targetSpaceId) {
+      setTargetSpaceId(otherAvailableSpaces[0].id);
+    }
+  }, [destinationMode, otherAvailableSpaces, targetSpaceId]);
+
+  const selectedTargetSpace = useMemo(() => {
+    return otherAvailableSpaces.find(s => s.id === targetSpaceId) || null;
+  }, [otherAvailableSpaces, targetSpaceId]);
+
+  const targetSpaceShelves = useMemo(() => {
+    return selectedTargetSpace?.shelves || [];
+  }, [selectedTargetSpace]);
+
+  // Set default target shelf when space changes
+  React.useEffect(() => {
+    if (targetSpaceShelves.length > 0) {
+      setTargetSpaceShelfId(targetSpaceShelves[0].id);
+    } else {
+      setTargetSpaceShelfId('');
+    }
+    setTargetSpaceFolderId(null);
+  }, [targetSpaceId, targetSpaceShelves]);
+
+  const targetSpaceFolders = useMemo(() => {
+    if (!selectedTargetSpace) return [];
+    const docFolders = (selectedTargetSpace.documentFolders || []).filter((f: any) => !f.deletedAt);
+    if (targetSpaceShelfId) {
+      return docFolders.filter((f: any) => !f.shelfId || f.shelfId === targetSpaceShelfId);
+    }
+    return docFolders;
+  }, [selectedTargetSpace, targetSpaceShelfId]);
+
   if (!isOpen) return null;
 
   const hasShelves = Array.isArray(shelves) && shelves.length > 0;
@@ -83,6 +158,21 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
     onConfirmMove(targetFolderId, hasShelves ? selectedShelfId : undefined);
   };
 
+  const handleCrossSpaceSubmit = async () => {
+    if (!targetSpaceId || !onConfirmCrossSpace) return;
+    setIsCrossSaving(true);
+    setCrossError('');
+    try {
+      await onConfirmCrossSpace(targetSpaceId, targetSpaceShelfId || null, targetSpaceFolderId, crossActionType);
+      onClose();
+    } catch (err: any) {
+      console.error('Cross-space folder transfer failed:', err);
+      setCrossError(err?.message || 'שגיאה בהעברה למרחב אחר');
+    } finally {
+      setIsCrossSaving(false);
+    }
+  };
+
   return (
     <div
       style={{
@@ -119,7 +209,7 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
           <div>
             <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#1e293b' }}>
-              {modalTitle}
+              {destinationMode === 'other' ? (crossActionType === 'copy' ? 'שכפול תיקייה למרחב אחר' : 'העברת תיקייה למרחב אחר') : modalTitle}
             </h3>
             {subtitle && (
               <div style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '2px', maxWidth: '320px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -141,8 +231,221 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
           </button>
         </div>
 
-        {/* Shelves Selector (if applicable) */}
-        {hasShelves && (
+        {/* Destination Mode Selector: In Current Space vs In Other Space */}
+        {Boolean(onConfirmCrossSpace) && otherAvailableSpaces.length > 0 && (
+          <div style={{ display: 'flex', background: '#f1f5f9', padding: '4px', borderRadius: '12px', marginBottom: '1rem', gap: '4px' }}>
+            <button
+              type="button"
+              onClick={() => setDestinationMode('current')}
+              style={{
+                flex: 1,
+                padding: '8px 10px',
+                borderRadius: '9px',
+                border: 'none',
+                background: destinationMode === 'current' ? '#ffffff' : 'transparent',
+                color: destinationMode === 'current' ? '#1d4ed8' : '#64748b',
+                fontWeight: 800,
+                fontSize: '0.82rem',
+                cursor: 'pointer',
+                boxShadow: destinationMode === 'current' ? '0 2px 6px rgba(0,0,0,0.08)' : 'none',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              📍 בתוך מרחב זה
+            </button>
+            <button
+              type="button"
+              onClick={() => setDestinationMode('other')}
+              style={{
+                flex: 1,
+                padding: '8px 10px',
+                borderRadius: '9px',
+                border: 'none',
+                background: destinationMode === 'other' ? '#ffffff' : 'transparent',
+                color: destinationMode === 'other' ? '#7c3aed' : '#64748b',
+                fontWeight: 800,
+                fontSize: '0.82rem',
+                cursor: 'pointer',
+                boxShadow: destinationMode === 'other' ? '0 2px 6px rgba(0,0,0,0.08)' : 'none',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              🗂️ למרחב אחר...
+            </button>
+          </div>
+        )}
+
+        {/* MODE B: Cross Space Transfer */}
+        {destinationMode === 'other' ? (
+          <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+            {/* Action Type Toggle: Copy vs Move */}
+            <div style={{ display: 'flex', background: '#f8fafc', padding: '4px', borderRadius: '12px', border: '1px solid #e2e8f0', gap: '4px' }}>
+              <button
+                type="button"
+                onClick={() => setCrossActionType('copy')}
+                style={{
+                  flex: 1,
+                  padding: '7px 8px',
+                  borderRadius: '9px',
+                  border: 'none',
+                  background: crossActionType === 'copy' ? '#ffffff' : 'transparent',
+                  color: crossActionType === 'copy' ? '#2563eb' : '#64748b',
+                  fontWeight: 800,
+                  fontSize: '0.8rem',
+                  cursor: 'pointer',
+                  boxShadow: crossActionType === 'copy' ? '0 2px 6px rgba(0,0,0,0.08)' : 'none',
+                }}
+              >
+                📋 יצירת עותק (שמור כאן)
+              </button>
+              <button
+                type="button"
+                onClick={() => setCrossActionType('move')}
+                style={{
+                  flex: 1,
+                  padding: '7px 8px',
+                  borderRadius: '9px',
+                  border: 'none',
+                  background: crossActionType === 'move' ? '#ffffff' : 'transparent',
+                  color: crossActionType === 'move' ? '#7c3aed' : '#64748b',
+                  fontWeight: 800,
+                  fontSize: '0.8rem',
+                  cursor: 'pointer',
+                  boxShadow: crossActionType === 'move' ? '0 2px 6px rgba(0,0,0,0.08)' : 'none',
+                }}
+              >
+                🗂️ העברה מלאה (מחק מכאן)
+              </button>
+            </div>
+
+            {/* 1. Target Space Selection */}
+            <div>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>
+                1. בחר מרחב יעד:
+              </label>
+              <select
+                value={targetSpaceId}
+                onChange={(e) => setTargetSpaceId(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  borderRadius: '12px',
+                  border: '1.5px solid #cbd5e1',
+                  fontSize: '0.88rem',
+                  fontWeight: 600,
+                  background: '#fff',
+                  outline: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                {otherAvailableSpaces.map(s => (
+                  <option key={s.id} value={s.id}>
+                    {s.icon || '📁'} {s.title || 'מרחב ללא שם'}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* 2. Target Shelf Selection (if space has shelves) */}
+            {targetSpaceShelves.length > 0 && (
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>
+                  2. בחר מדף יעד במרחב:
+                </label>
+                <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.2rem' }}>
+                  {targetSpaceShelves.map((sh: any) => {
+                    const isSelected = sh.id === targetSpaceShelfId;
+                    return (
+                      <button
+                        key={sh.id}
+                        type="button"
+                        onClick={() => setTargetSpaceShelfId(sh.id)}
+                        style={{
+                          padding: '0.45rem 0.75rem',
+                          borderRadius: '10px',
+                          border: isSelected ? '2px solid #7c3aed' : '1px solid #e2e8f0',
+                          background: isSelected ? '#f5f3ff' : '#ffffff',
+                          color: isSelected ? '#6d28d9' : '#475569',
+                          fontWeight: isSelected ? 800 : 600,
+                          fontSize: '0.8rem',
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        🗄️ {sh.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* 3. Target Parent Folder inside target space */}
+            <div>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>
+                3. מיקום בתוך המרחב:
+              </label>
+              <select
+                value={targetSpaceFolderId || ''}
+                onChange={(e) => setTargetSpaceFolderId(e.target.value || null)}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  borderRadius: '12px',
+                  border: '1.5px solid #cbd5e1',
+                  fontSize: '0.88rem',
+                  fontWeight: 600,
+                  background: '#fff',
+                  outline: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="">📁 רמה ראשית (ללא תיקיית אב)</option>
+                {targetSpaceFolders.map((f: any) => (
+                  <option key={f.id} value={f.id}>
+                    📁 בתוך תיקיית: {f.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {crossError && (
+              <div style={{ color: '#dc2626', fontSize: '0.82rem', background: '#fef2f2', padding: '8px 10px', borderRadius: '10px', border: '1px solid #fecaca', fontWeight: 600 }}>
+                {crossError}
+              </div>
+            )}
+
+            <button
+              type="button"
+              disabled={isCrossSaving || !targetSpaceId}
+              onClick={handleCrossSpaceSubmit}
+              style={{
+                width: '100%',
+                padding: '12px',
+                borderRadius: '14px',
+                border: 'none',
+                background: isCrossSaving 
+                  ? '#94a3b8' 
+                  : crossActionType === 'copy'
+                    ? 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)'
+                    : 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)',
+                color: '#fff',
+                fontWeight: 800,
+                fontSize: '0.94rem',
+                cursor: isCrossSaving ? 'not-allowed' : 'pointer',
+                boxShadow: isCrossSaving ? 'none' : '0 4px 12px rgba(124, 58, 237, 0.25)',
+                marginTop: '0.5rem'
+              }}
+            >
+              {isCrossSaving 
+                ? (crossActionType === 'copy' ? 'משכפל תיקייה ומסמכים...' : 'מעביר תיקייה ומסמכים...')
+                : (crossActionType === 'copy' ? '📋 צור עותק של התיקייה במרחב הנבחר' : '🗂️ העבר את התיקייה למרחב הנבחר')}
+            </button>
+          </div>
+        ) : (
+          <>
+            {/* Shelves Selector (if applicable) */}
+            {hasShelves && (
           <div style={{ marginBottom: '1rem' }}>
             <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '0.4rem' }}>
               בחר מדף יעד:
@@ -339,6 +642,8 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
             </div>
           )}
         </div>
+        </>
+      )}
 
         <button
           onClick={onClose}

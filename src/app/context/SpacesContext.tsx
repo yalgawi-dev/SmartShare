@@ -417,6 +417,14 @@ interface SpacesContextType {
   restoreDocumentFolder: (spaceId: string, folderId: string) => void;
   permanentlyDeleteDocumentFolder: (spaceId: string, folderId: string) => void;
   moveDocumentFolder: (spaceId: string, folderId: string, targetShelfId: string, targetParentFolderId?: string | null) => void;
+  exportDocumentFolderToSpace: (
+    sourceSpaceId: string,
+    folderId: string,
+    targetSpaceId: string,
+    targetShelfId?: string | null,
+    targetParentFolderId?: string | null,
+    actionType?: 'copy' | 'move'
+  ) => Promise<void>;
   addShelf: (spaceId: string, shelf: Omit<DocumentShelf, 'id' | 'createdAt'>) => string;
   updateShelf: (spaceId: string, shelfId: string, updates: Partial<DocumentShelf>) => void;
   removeShelf: (spaceId: string, shelfId: string) => void;
@@ -2619,6 +2627,105 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
     });
   };
 
+  /**
+   * Recursively exports (copies or moves) an entire folder tree and all its documents
+   * from a source space to a target space (Single Source of Truth across Spaces).
+   */
+  const exportDocumentFolderToSpace = async (
+    sourceSpaceId: string,
+    folderId: string,
+    targetSpaceId: string,
+    targetShelfId?: string | null,
+    targetParentFolderId?: string | null,
+    actionType: 'copy' | 'move' = 'copy'
+  ): Promise<void> => {
+    const sourceSpace = spaces.find(s => s.id === sourceSpaceId);
+    const targetSpace = spaces.find(s => s.id === targetSpaceId);
+    if (!sourceSpace || !targetSpace) {
+      throw new Error('מרחב מקור או יעד אינו קיים');
+    }
+
+    const sourceFolders = sourceSpace.documentFolders || [];
+    const rootFolder = sourceFolders.find(f => f.id === folderId);
+    if (!rootFolder) {
+      throw new Error('תיקיית המקור לא נמצאה');
+    }
+
+    // Determine target shelf in destination space
+    const targetShelves = targetSpace.shelves || [];
+    let effectiveTargetShelfId = targetShelfId;
+    if (!effectiveTargetShelfId || effectiveTargetShelfId === '') {
+      effectiveTargetShelfId = targetShelves.length > 0 ? targetShelves[0].id : 'general';
+    }
+
+    // 1. Gather all descendant subfolder objects recursively
+    const getDescendants = (parentId: string): DocumentFolder[] => {
+      const children = sourceFolders.filter(f => f.parentId === parentId && !f.deletedAt);
+      let res = [...children];
+      children.forEach(c => {
+        res = [...res, ...getDescendants(c.id)];
+      });
+      return res;
+    };
+    const allSourceFolderList = [rootFolder, ...getDescendants(folderId)];
+    const allSourceFolderIds = allSourceFolderList.map(f => f.id);
+
+    // 2. Map old folder IDs to new folder IDs in target space
+    const idMap: Record<string, string> = {};
+    const newTargetFolders: DocumentFolder[] = [];
+
+    allSourceFolderList.forEach((sf, idx) => {
+      const newFId = `folder_${Date.now()}_${idx}_${Math.random().toString(36).substring(2, 7)}`;
+      idMap[sf.id] = newFId;
+    });
+
+    allSourceFolderList.forEach(sf => {
+      const isRoot = sf.id === folderId;
+      const mappedParentId = isRoot
+        ? (targetParentFolderId !== undefined ? targetParentFolderId : null)
+        : (sf.parentId && idMap[sf.parentId] ? idMap[sf.parentId] : null);
+
+      newTargetFolders.push({
+        id: idMap[sf.id],
+        name: sf.name,
+        shelfId: effectiveTargetShelfId!,
+        parentId: mappedParentId,
+        stationId: sf.stationId || null,
+        allowedPartners: [],
+        createdAt: new Date().toISOString(),
+      });
+    });
+
+    // 3. Gather and clone all documents belonging to these folders
+    const sourceDocs = (sourceSpace.documents || []).filter(
+      d => !d.deletedAt && d.folderId && allSourceFolderIds.includes(d.folderId)
+    );
+    const newTargetDocs: SpaceDocument[] = sourceDocs.map((doc, dIdx) => ({
+      ...doc,
+      id: `doc_${Date.now()}_${dIdx}_${Math.random().toString(36).substring(2, 7)}`,
+      shelfId: effectiveTargetShelfId!,
+      folderId: idMap[doc.folderId!] || null,
+      allowedPartners: [],
+      createdAt: new Date().toISOString(),
+    }));
+
+    // 4. Save updates into target space
+    saveSpaceUpdate(targetSpaceId, sp => ({
+      ...sp,
+      documentFolders: [...(sp.documentFolders || []), ...newTargetFolders],
+      documents: [...(sp.documents || []), ...newTargetDocs]
+    }));
+
+    // 5. If action is 'move', delete the original folders & documents from source space
+    if (actionType === 'move') {
+      saveSpaceUpdate(sourceSpaceId, sp => ({
+        ...sp,
+        documentFolders: (sp.documentFolders || []).filter(f => !allSourceFolderIds.includes(f.id)),
+        documents: (sp.documents || []).filter(d => !d.folderId || !allSourceFolderIds.includes(d.folderId))
+      }));
+    }
+  };
+
   const addShelf = (spaceId: string, shelf: Omit<DocumentShelf, 'id' | 'createdAt'>) => {
     const shelfId = `shelf-${Date.now()}`;
     const cleanAllowed = Array.isArray(shelf.allowedPartners) ? shelf.allowedPartners : [];
@@ -2907,7 +3014,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
   };
 
   return (
-    <SpacesContext.Provider value={{ spaces, getRoleForSpace, getTokenForSpace, addSpace, deleteSpace, permanentlyDeleteSpace, restoreSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceLogo, updateSpaceIcon, toggleFeature, updateSpaceSettings, updateFileShareItems, updateInvoice, attachFileToInvoice, addInvoice, approveAndRouteInvoice, addInboxItems, updateInboxItem, removeInboxItem, addMediaItem, updateMediaItem, removeMediaItem, addDocument, addDocumentAndLinkToEvent, updateDocument, mergeDocuments, removeDocument, restoreDocument, permanentlyDeleteDocument, addDocumentFolder, updateDocumentFolder, removeDocumentFolder, restoreDocumentFolder, permanentlyDeleteDocumentFolder, moveDocumentFolder, addShelf, updateShelf, removeShelf, restoreShelf, permanentlyDeleteShelf, addShelfEvent, updateShelfEvent, removeShelfEvent, addShelfEventComment, removeShelfEventComment, likeMediaItem, joinSpace, finalizeGuestJoin, declinePendingInvite, createPendingInvite, migrateGuestToRealUser,
+    <SpacesContext.Provider value={{ spaces, getRoleForSpace, getTokenForSpace, addSpace, deleteSpace, permanentlyDeleteSpace, restoreSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceLogo, updateSpaceIcon, toggleFeature, updateSpaceSettings, updateFileShareItems, updateInvoice, attachFileToInvoice, addInvoice, approveAndRouteInvoice, addInboxItems, updateInboxItem, removeInboxItem, addMediaItem, updateMediaItem, removeMediaItem, addDocument, addDocumentAndLinkToEvent, updateDocument, mergeDocuments, removeDocument, restoreDocument, permanentlyDeleteDocument, addDocumentFolder, updateDocumentFolder, removeDocumentFolder, restoreDocumentFolder, permanentlyDeleteDocumentFolder, moveDocumentFolder, exportDocumentFolderToSpace, addShelf, updateShelf, removeShelf, restoreShelf, permanentlyDeleteShelf, addShelfEvent, updateShelfEvent, removeShelfEvent, addShelfEventComment, removeShelfEventComment, likeMediaItem, joinSpace, finalizeGuestJoin, declinePendingInvite, createPendingInvite, migrateGuestToRealUser,
       requestGroupJoin,
       approveGroupMember,
       rejectGroupMember,

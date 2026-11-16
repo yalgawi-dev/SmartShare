@@ -59,6 +59,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
     addShelf, updateShelf, removeShelf, restoreShelf, permanentlyDeleteShelf, 
     addDocument, addDocumentAndLinkToEvent, updateDocument, removeDocument, restoreDocument, permanentlyDeleteDocument, 
     addDocumentFolder, updateDocumentFolder, removeDocumentFolder, restoreDocumentFolder, permanentlyDeleteDocumentFolder, moveDocumentFolder,
+    exportDocumentFolderToSpace,
     addShelfEvent, updateShelfEvent, removeShelfEvent, addShelfEventComment, removeShelfEventComment 
   } = useSpaces() as any;
   
@@ -3995,6 +3996,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             title="העברת תיקייה שלמה"
             subtitle={`התיקייה "${folderToMove.name}" על כל מסמכיה`}
             itemCount={1}
+            currentSpaceId={space.id}
             currentFolderId={folderToMove.parentId || null}
             currentShelfId={folderToMove.shelfId}
             shelves={space.shelves || []}
@@ -4015,6 +4017,26 @@ const handleDeleteDocument = (docId: string, title?: string) => {
               setCurrentFolderId(targetFolderId || null);
               setFolderToMove(null);
               showFeedbackToast(`התיקייה "${folderToMove.name}" וכל מסמכיה הועברו בהצלחה ${targetShelf ? 'למדף "' + targetShelf.name + '"' : ''}!`);
+            }}
+            onConfirmCrossSpace={async (targetSpaceId, targetShelfId, targetFolderId, actionType) => {
+              if (!exportDocumentFolderToSpace) return;
+              await exportDocumentFolderToSpace(
+                space.id,
+                folderToMove.id,
+                targetSpaceId,
+                targetShelfId,
+                targetFolderId,
+                actionType
+              );
+              if (actionType === 'move' && currentFolderId === folderToMove.id) {
+                setCurrentFolderId(null);
+              }
+              setFolderToMove(null);
+              showFeedbackToast(
+                actionType === 'copy'
+                  ? `התיקייה "${folderToMove.name}" שוכפלה בהצלחה למרחב הנבחר!`
+                  : `התיקייה "${folderToMove.name}" הועברה בהצלחה למרחב הנבחר ומולאה במקומה החדש!`
+              );
             }}
             rootLabel="רמה ראשית של המדף (ללא תיקיית אב)"
             rootDescription="שכבת הבסיס הראשית של המדף הנבחר"
