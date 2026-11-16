@@ -516,18 +516,22 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
   }
 
   if (pages.length > 0) {
+    const isMultiPage = pages.length > 1 || totalPageCount > 1;
     return (
       <div 
         ref={wrapperRef}
         style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}
       >
         <TransformWrapper
+          key={`pdf-${pages.length > 1 ? 'multi' : 'single'}`}
           initialScale={1}
           minScale={0.8}
           maxScale={50}
-          centerOnInit={true}
-          centerZoomedOut={true}
-          limitToBounds={true}
+          centerOnInit={!isMultiPage}
+          centerZoomedOut={!isMultiPage}
+          initialPositionX={0}
+          initialPositionY={0}
+          limitToBounds={!isMultiPage}
           panning={{ velocityDisabled: true }}
           trackPadPanning={{ velocityDisabled: true }}
           doubleClick={{ mode: 'zoomIn', step: 2.5 }}
@@ -544,7 +548,7 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
             if (autoFocusTimeoutRef.current) {
               clearTimeout(autoFocusTimeoutRef.current);
             }
-            if (currentScale > 1.3 && pdfDocRef.current) {
+            if (currentScale > 1.3 && pdfDocRef.current && isWideBlueprintRef.current) {
               autoFocusTimeoutRef.current = setTimeout(() => {
                 handleRenderFocusedRegion();
               }, 400);
@@ -554,7 +558,7 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
           }}
           onPanningStop={() => {
             if (autoFocusTimeoutRef.current) clearTimeout(autoFocusTimeoutRef.current);
-            if (transformStateRef.current.scale > 1.3 && pdfDocRef.current) {
+            if (transformStateRef.current.scale > 1.3 && pdfDocRef.current && isWideBlueprintRef.current) {
               autoFocusTimeoutRef.current = setTimeout(() => {
                 handleRenderFocusedRegion();
               }, 300);
@@ -562,7 +566,7 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
           }}
           onPinchStop={() => {
             if (autoFocusTimeoutRef.current) clearTimeout(autoFocusTimeoutRef.current);
-            if (transformStateRef.current.scale > 1.3 && pdfDocRef.current) {
+            if (transformStateRef.current.scale > 1.3 && pdfDocRef.current && isWideBlueprintRef.current) {
               autoFocusTimeoutRef.current = setTimeout(() => {
                 handleRenderFocusedRegion();
               }, 300);
@@ -576,16 +580,16 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
                   width: '100%',
                   height: '100%',
                   display: 'flex',
-                  alignItems: 'center',
+                  alignItems: isMultiPage ? 'flex-start' : 'center',
                   justifyContent: 'center'
                 }}
                 contentStyle={{
                   width: '100%',
-                  height: '100%',
+                  minHeight: '100%',
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
-                  justifyContent: 'center'
+                  justifyContent: isMultiPage ? 'flex-start' : 'center'
                 }}
               >
                 <div
@@ -593,9 +597,9 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
-                    justifyContent: 'center',
+                    justifyContent: isMultiPage ? 'flex-start' : 'center',
                     gap: '16px',
-                    padding: '0.5rem',
+                    padding: isMultiPage ? '1rem 0.5rem 5rem 0.5rem' : '0.5rem',
                     maxWidth: '1200px',
                     width: '100%'
                   }}

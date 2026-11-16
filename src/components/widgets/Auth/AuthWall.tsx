@@ -6,6 +6,7 @@ import { RecaptchaVerifier, ConfirmationResult } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { COUNTRIES } from '@/utils/countries';
 import { OTPInput } from 'input-otp';
+import { APP_VERSION } from '@/constants/version';
 
 export default function AuthWall() {
   const { loginWithPhone, loginWithGoogle, loginWithApple, isLoaded, user, updateProfile } = useAuth();
@@ -312,7 +313,7 @@ export default function AuthWall() {
         </div>
         <h2 className="auth-title">MySpace</h2>
         <p className="auth-subtitle">התחברות מאובטחת למרחב האישי שלך</p>
-        <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 500, marginTop: '2px', display: 'inline-block' }}>v3.5.133</span>
+        <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 500, marginTop: '2px', display: 'inline-block' }}>{APP_VERSION}</span>
       </div>
 
       <div className="auth-card">
