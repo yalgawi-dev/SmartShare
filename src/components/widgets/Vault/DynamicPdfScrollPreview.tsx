@@ -48,65 +48,6 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
   const autoFocusTimeoutRef = React.useRef<any>(null);
   const renderPageCanvasRef = React.useRef<((pageNum: number) => Promise<string>) | null>(null);
 
-  // Load more pages on-demand in batches of 5
-  const handleLoadMorePages = async (count = 5) => {
-    if (!renderPageCanvasRef.current || isLoadingMore || pages.length >= totalPageCount) return;
-    setIsLoadingMore(true);
-    try {
-      const currentLoaded = pages.length;
-      const targetCount = Math.min(totalPageCount, currentLoaded + count);
-      const newUrls = [...pages];
-
-      for (let p = currentLoaded + 1; p <= targetCount; p++) {
-        const nextUrl = await renderPageCanvasRef.current(p);
-        if (nextUrl) {
-          newUrls.push(nextUrl);
-          setPages([...newUrls]);
-        }
-        await new Promise((r) => setTimeout(r, 60));
-      }
-
-      if (newUrls.length >= totalPageCount) {
-        setCachedPdfPages(url, newUrls).catch(() => {});
-      }
-      if (onPagesLoaded) {
-        onPagesLoaded(newUrls);
-      }
-    } catch (err) {
-      console.warn('Failed loading more pages:', err);
-    } finally {
-      setIsLoadingMore(false);
-    }
-  };
-
-  // Load all remaining pages
-  const handleLoadAllPages = async () => {
-    if (!renderPageCanvasRef.current || isLoadingMore || pages.length >= totalPageCount) return;
-    setIsLoadingMore(true);
-    try {
-      const currentLoaded = pages.length;
-      const newUrls = [...pages];
-
-      for (let p = currentLoaded + 1; p <= totalPageCount; p++) {
-        const nextUrl = await renderPageCanvasRef.current(p);
-        if (nextUrl) {
-          newUrls.push(nextUrl);
-          setPages([...newUrls]);
-        }
-        await new Promise((r) => setTimeout(r, 60));
-      }
-
-      setCachedPdfPages(url, newUrls).catch(() => {});
-      if (onPagesLoaded) {
-        onPagesLoaded(newUrls);
-      }
-    } catch (err) {
-      console.warn('Failed loading all pages:', err);
-    } finally {
-      setIsLoadingMore(false);
-    }
-  };
-
   useEffect(() => {
     let isMounted = true;
     import('@/utils/pdfiumSliceRenderer').then(({ prewarmPdfium }) => prewarmPdfium()).catch(() => {});
@@ -303,20 +244,27 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
           setIsLoading(false); // First page ready! User sees document instantly!
         }
 
-        // 2. Render only Page 2 in background so multi-page PDFs open in <1s without freezing
+        // 2. Stream ALL remaining pages automatically in background with micro-yields!
+        // No user action or button clicking needed - seamless continuous stream!
         if (numPages > 1) {
           const allUrls = [page1];
-          const maxAutoPages = Math.min(numPages, 2);
-          for (let p = 2; p <= maxAutoPages; p++) {
-            if (!isMounted) return;
-            const nextPage = await renderPageCanvas(p);
-            if (nextPage) {
-              allUrls.push(nextPage);
-              setPages(prev => [...prev, nextPage]);
+          setIsLoadingMore(true);
+          try {
+            for (let p = 2; p <= numPages; p++) {
+              if (!isMounted) return;
+              const nextPage = await renderPageCanvas(p);
+              if (nextPage) {
+                allUrls.push(nextPage);
+                setPages(prev => [...prev, nextPage]);
+              }
+              // Yield to browser UI thread so scrolling and pinch-zoom stay 100% fluid
+              await new Promise((r) => setTimeout(r, 40));
             }
-            // Yield to UI thread so scrolling/touch stays 100% responsive on 50+ page PDFs
-            await new Promise((r) => setTimeout(r, 80));
+          } finally {
+            if (isMounted) setIsLoadingMore(false);
           }
+
+          setCachedPdfPages(url, allUrls).catch(() => {});
           if (onPagesLoaded && isMounted) {
             onPagesLoaded(allUrls);
           }
@@ -792,73 +740,28 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
                     </div>
                   ))}
 
-                  {/* Progressive Page Loader Footer for multi-page PDFs */}
-                  {totalPageCount > pages.length && (
+                  {/* Subtle stream status badge while remaining pages are loading in background */}
+                  {isLoadingMore && totalPageCount > pages.length && (
                     <div
                       style={{
-                        width: '100%',
-                        maxWidth: '480px',
-                        margin: '12px auto 24px',
+                        margin: '10px auto 20px',
+                        padding: '6px 16px',
+                        background: 'rgba(15, 23, 42, 0.85)',
+                        backdropFilter: 'blur(8px)',
+                        borderRadius: '20px',
+                        border: '1px solid rgba(56, 189, 248, 0.3)',
+                        color: '#38bdf8',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
                         display: 'flex',
-                        flexDirection: 'column',
                         alignItems: 'center',
-                        gap: '8px',
-                        padding: '12px',
-                        background: 'rgba(15, 23, 42, 0.75)',
-                        backdropFilter: 'blur(10px)',
-                        borderRadius: '14px',
-                        border: '1px solid rgba(255, 255, 255, 0.15)',
-                        boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+                        gap: '6px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.35)',
                         zIndex: 20
                       }}
                     >
-                      <div style={{ color: '#94a3b8', fontSize: '0.8rem', fontWeight: 600 }}>
-                        מוצגים {pages.length} מתוך {totalPageCount} עמודים
-                      </div>
-
-                      {isLoadingMore ? (
-                        <div style={{ color: '#38bdf8', fontSize: '0.85rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span style={{ display: 'inline-block', animation: 'spin 1s linear infinite' }}>⏳</span>
-                          טוען עמודים נוספים ברקע...
-                        </div>
-                      ) : (
-                        <div style={{ display: 'flex', gap: '8px', width: '100%', justifyContent: 'center' }}>
-                          <button
-                            type="button"
-                            onClick={() => handleLoadMorePages(5)}
-                            style={{
-                              flex: 1,
-                              padding: '8px 12px',
-                              borderRadius: '10px',
-                              border: '1px solid rgba(56, 189, 248, 0.4)',
-                              background: 'rgba(14, 165, 233, 0.2)',
-                              color: '#38bdf8',
-                              fontWeight: 700,
-                              fontSize: '0.82rem',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            ➕ טען עוד 5 עמודים
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleLoadAllPages}
-                            style={{
-                              flex: 1,
-                              padding: '8px 12px',
-                              borderRadius: '10px',
-                              border: '1px solid rgba(255, 255, 255, 0.2)',
-                              background: 'rgba(255, 255, 255, 0.1)',
-                              color: '#ffffff',
-                              fontWeight: 700,
-                              fontSize: '0.82rem',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            📖 טען את כל {totalPageCount} העמודים
-                          </button>
-                        </div>
-                      )}
+                      <span style={{ display: 'inline-block', animation: 'spin 1s linear infinite' }}>⏳</span>
+                      <span>טוען ברקע: עמוד {pages.length} מתוך {totalPageCount}...</span>
                     </div>
                   )}
                 </div>
