@@ -36,6 +36,7 @@ export async function ensurePdfJsLoaded(): Promise<any> {
 export interface PdfAnalysisResult {
   hasDigitalSignature: boolean;
   hasTextLayer: boolean;
+  hasVectorPaths?: boolean;
   isWrappedRasterScan: boolean;
   hasFullPageImage: boolean;
   pageCount: number;
@@ -43,21 +44,18 @@ export interface PdfAnalysisResult {
 }
 
 /**
- * Analyzes a PDF buffer to detect digital signatures, vector text layers, and wrapped raster scans
- * (100% Dual Check with page density and operator list inspection - 95%+ certainty)
+ * Analyzes a PDF buffer to detect digital signatures, vector text layers, vector CAD paths, and wrapped raster scans
+ * Powered by C++ PDFium WASM (< 5ms) with PDF.js / binary fallback (ADR-001, ADR-006).
  */
 export async function analyzePdfStructure(arrayBuffer: ArrayBuffer): Promise<PdfAnalysisResult> {
   const bytes = new Uint8Array(arrayBuffer);
   const fileSize = arrayBuffer.byteLength;
 
-  // 1. Full binary inspection of markers across the buffer
+  // 1. Fast binary inspection of signature & object markers
   const decoder = new TextDecoder('latin1');
-  const headChunk = decoder.decode(bytes.subarray(0, Math.min(bytes.length, 500000))); // Check first 500KB
-  const tailChunk = decoder.decode(bytes.subarray(Math.max(0, bytes.length - 100000))); // Check tail
+  const headChunk = decoder.decode(bytes.subarray(0, Math.min(bytes.length, 500000)));
+  const tailChunk = decoder.decode(bytes.subarray(Math.max(0, bytes.length - 100000)));
 
-  // 1. Strict Cryptographic Signature Check:
-  // Must have both a signature dictionary (/Type /Sig or pkcs7/CAdES) AND a /ByteRange array.
-  // A lone /ByteRange or stray string without both is often a flattened/printed remnant.
   const hasSigDict =
     headChunk.includes('/Type/Sig') ||
     headChunk.includes('/Type /Sig') ||
@@ -67,9 +65,8 @@ export async function analyzePdfStructure(arrayBuffer: ArrayBuffer): Promise<Pdf
     tailChunk.includes('/Type /Sig') ||
     tailChunk.includes('/adbe.pkcs7');
   const hasByteRange = headChunk.includes('/ByteRange') || tailChunk.includes('/ByteRange');
-  const hasDigitalSignature = hasSigDict && hasByteRange;
+  let hasDigitalSignature = hasSigDict && hasByteRange;
 
-  // Search across the buffer in chunks to reliably find images or fonts in large files (e.g. 20MB)
   let hasBinaryFontMarkers = false;
   let hasBinaryImageMarkers = false;
   const chunkSize = 2 * 1024 * 1024;
@@ -81,7 +78,6 @@ export async function analyzePdfStructure(arrayBuffer: ArrayBuffer): Promise<Pdf
       }
     }
     if (!hasBinaryFontMarkers) {
-      // Never match raw '/BT' because random binary bytes in a 3.7MB JPEG stream frequently contain the 3-byte sequence '/BT'!
       if (chunk.includes('/Type/Font') || chunk.includes('/Type /Font') || chunk.includes('/FontDescriptor')) {
         hasBinaryFontMarkers = true;
       }
@@ -91,53 +87,77 @@ export async function analyzePdfStructure(arrayBuffer: ArrayBuffer): Promise<Pdf
 
   let pageCount = 1;
   let hasTextItems = false;
-  let totalTextChars = 0;
+  let hasVectorPaths = false;
   let hasFullPageImage = false;
+  let inspectedByPdfium = false;
 
-  try {
-    const pdfjs = await ensurePdfJsLoaded();
-    if (pdfjs) {
-      const task = pdfjs.getDocument({ data: bytes.slice(), disableFontFace: true });
-      const pdf = await task.promise;
-      pageCount = pdf.numPages || 1;
+  // 2. Primary Engine: C++ PDFium WASM structure inspection (ADR-006)
+  if (typeof window !== 'undefined') {
+    try {
+      const { inspectPdfStructureWithPdfium } = await import('./pdfiumSliceRenderer');
+      const info = await inspectPdfStructureWithPdfium(bytes, `analyze_${fileSize}_${bytes[0]}_${bytes[bytes.length - 1]}`);
+      inspectedByPdfium = true;
+      pageCount = info.pageCount;
+      if (info.signatureCount > 0) {
+        hasDigitalSignature = true;
+      }
+      hasTextItems = info.textCharCount >= 10 || info.hasTextObjects;
+      hasVectorPaths = info.hasVectorPaths;
+      hasFullPageImage = info.hasImageObjects;
+    } catch (pdfiumErr) {
+      console.warn('PDFium structure inspection fallback to PDF.js:', pdfiumErr);
+    }
+  }
 
-      // Inspect page 1 for raster images and real selectable text items
-      if (pageCount > 0) {
-        const page1 = await pdf.getPage(1);
-        const textData = await page1.getTextContent();
-        if (Array.isArray(textData.items)) {
-          totalTextChars = textData.items.reduce((sum: number, item: any) => sum + (typeof item?.str === 'string' ? item.str.trim().length : 0), 0);
-          hasTextItems = totalTextChars >= 10;
-        }
+  // 3. Fallback to PDF.js only if PDFium WASM wasn't available
+  if (!inspectedByPdfium) {
+    try {
+      const pdfjs = await ensurePdfJsLoaded();
+      if (pdfjs) {
+        const task = pdfjs.getDocument({ data: bytes.slice(), disableFontFace: true });
+        const pdf = await task.promise;
+        pageCount = pdf.numPages || 1;
 
-        // Inspect operator list on page 1
-        const opList = await page1.getOperatorList();
-        if (opList && opList.fnArray) {
-          const OPS = pdfjs.OPS || {};
-          const paintImageCode = OPS.paintImageXObject ?? 85;
-          const paintInlineCode = OPS.paintInlineImageXObject ?? 86;
-          hasFullPageImage = opList.fnArray.some((fn: number) => fn === paintImageCode || fn === paintInlineCode);
+        if (pageCount > 0) {
+          const page1 = await pdf.getPage(1);
+          const textData = await page1.getTextContent();
+          if (Array.isArray(textData.items)) {
+            const totalTextChars = textData.items.reduce((sum: number, item: any) => sum + (typeof item?.str === 'string' ? item.str.trim().length : 0), 0);
+            hasTextItems = totalTextChars >= 10;
+          }
+
+          const opList = await page1.getOperatorList();
+          if (opList && opList.fnArray) {
+            const OPS = pdfjs.OPS || {};
+            const paintImageCode = OPS.paintImageXObject ?? 85;
+            const paintInlineCode = OPS.paintInlineImageXObject ?? 86;
+            hasFullPageImage = opList.fnArray.some((fn: number) => fn === paintImageCode || fn === paintInlineCode);
+          }
         }
       }
+    } catch (err) {
+      console.warn('PDF.js structure deep inspection fallback:', err);
     }
-  } catch (err) {
-    console.warn('PDF.js structure deep inspection fallback:', err);
   }
 
   const avgBytesPerPage = Math.round(fileSize / Math.max(1, pageCount));
-  // Only count as a real text layer if PDF.js extracted real text characters (or fallback if PDF.js wasn't available)
   const hasTextLayer = hasTextItems || (!hasFullPageImage && hasBinaryFontMarkers);
 
-  // A document is a "Wrapped Raster Scan" (קובץ סרוק עטוף ב-PDF) if:
-  // 1. It has no real selectable text layer (pure camera/scanner images wrapped in PDF, even if signed by scanner app)
-  // 2. OR it contains raster images and average page weight exceeds 500KB/page (e.g., 2 pages = 3.7MB -> 1.85MB/page!)
-  //    True digital-born vector A4 PDFs (Word/Excel/Invoice) weigh 30KB - 350KB per page.
-  const isHeavyImageEnvelope = (hasFullPageImage || hasBinaryImageMarkers) && avgBytesPerPage > 500 * 1024;
-  const isWrappedRasterScan = (!hasTextLayer) || isHeavyImageEnvelope;
+  // ADR Rule 1 & 6: A document is a "Wrapped Raster Scan" (קובץ סרוק עטוף) if:
+  // - It has NO digital signature AND
+  // - Either:
+  //   1. It has NO selectable text layer and NO vector drawing paths (pure camera/scanner images wrapped in PDF)
+  //   2. OR it contains embedded raster images and average page weight exceeds 700KB/page (e.g. 2 pages = 3.7MB -> 1.85MB/page!)
+  const isHeavyImageEnvelope = (hasFullPageImage || hasBinaryImageMarkers) && avgBytesPerPage > 700 * 1024;
+  const isWrappedRasterScan = !hasDigitalSignature && (
+    (!hasTextLayer && !hasVectorPaths) ||
+    isHeavyImageEnvelope
+  );
 
   return {
     hasDigitalSignature,
     hasTextLayer,
+    hasVectorPaths,
     isWrappedRasterScan,
     hasFullPageImage: hasFullPageImage || hasBinaryImageMarkers,
     pageCount,
@@ -146,32 +166,26 @@ export async function analyzePdfStructure(arrayBuffer: ArrayBuffer): Promise<Pdf
 }
 
 /**
+ * ADR Rule 1 & 6 (OR-based Dual-Check):
  * Determines whether a PDF should be retained as an intact raw PDF file.
- * Returns true ONLY for:
- * 1. True digital-born vector PDFs (Word/Excel/ERP exported documents with lightweight vector pages <= 500KB/page).
- * 2. Cryptographically signed digital documents that are NOT heavy multi-megabyte camera scans.
- * Wrapped raster scans (e.g. 3.7MB for 2 pages or 20MB photos) return false and MUST be converted to WebP!
+ * Returns true if ANY ("OR") of the following holds:
+ * 1. OR: Cryptographically signed PDF (`hasDigitalSignature`) -> retain legal validity.
+ * 2. OR: True digital-born vector/text PDF (`hasTextLayer` or `hasVectorPaths`) with lightweight page density (<= 700KB/page) -> retain original PDF even without a signature!
+ * Returns false ONLY for Wrapped Raster Scans (e.g., 3.7MB for 2 pages of scanned photos without a signature), which MUST be converted to WebP!
  */
 export function isTrueOriginalPdf(analysis: PdfAnalysisResult, fileSize: number): boolean {
-  // 1. Wrapped Raster Scan:
-  // Any PDF that is a camera/scanner image wrapper (>500KB/page with embedded images, or 0 text layer)
-  // MUST be converted to WebP! Even if a scanner app attached a dummy signature dictionary, a 3.7MB 2-page scan is a wrapped image.
-  if (analysis.isWrappedRasterScan) {
-    // Exception: Only if it has a cryptographic signature AND has real vector text AND is reasonably sized (< 600KB/page)
-    if (analysis.hasDigitalSignature && analysis.hasTextLayer && analysis.avgBytesPerPage <= 600 * 1024) {
-      return true;
-    }
-    return false;
-  }
-
-  // 2. Digital signature on a genuine text document
+  // Condition 1 (OR): Cryptographic digital signature -> MUST retain intact PDF
   if (analysis.hasDigitalSignature) {
     return true;
   }
 
-  // 3. True Digital-Born Vector PDF:
-  // Has verified vector text layer and average page size is lightweight (<= 500KB per page).
-  if (analysis.hasTextLayer && analysis.avgBytesPerPage <= 500 * 1024) {
+  // Guard: Wrapped Raster Scan (no signature, heavy image pages > 700KB/page or zero text/vectors) -> Convert to WebP!
+  if (analysis.isWrappedRasterScan) {
+    return false;
+  }
+
+  // Condition 2 (OR): Digital-born PDF with live text layer OR vector drawing paths (<= 700KB/page) -> Retain intact PDF
+  if ((analysis.hasTextLayer || analysis.hasVectorPaths) && analysis.avgBytesPerPage <= 700 * 1024) {
     return true;
   }
 
@@ -634,8 +648,6 @@ export async function extractPdfPages(pdfSource: Blob | string, maxDim = 1200, q
   }
 
   try {
-    await ensurePdfJsLoaded();
-
     let bytes: Uint8Array;
     if (pdfSource instanceof Blob) {
       const arrayBuffer = await pdfSource.arrayBuffer();
@@ -666,7 +678,24 @@ export async function extractPdfPages(pdfSource: Blob | string, maxDim = 1200, q
       return [];
     }
 
-    const loadingTask = window.pdfjsLib.getDocument({ data: bytes, disableFontFace: true });
+    // 1. Primary Engine: C++ PDFium WASM (ADR-006 - 10x faster than PDF.js)
+    try {
+      const { extractAllPagesWithPdfium } = await import('./pdfiumSliceRenderer');
+      const docKey = cacheKey || `blob_${bytes.byteLength}_${bytes[0] || 0}`;
+      const pdfiumPages = await extractAllPagesWithPdfium(bytes, docKey, maxDim);
+      if (pdfiumPages && pdfiumPages.length > 0) {
+        if (cacheKey) {
+          setCachedPdfPages(cacheKey, pdfiumPages).catch(() => {});
+        }
+        return pdfiumPages;
+      }
+    } catch (pdfiumErr) {
+      console.warn('PDFium page extraction fallback to PDF.js:', pdfiumErr);
+    }
+
+    // 2. Fallback to PDF.js only if PDFium WASM failed
+    await ensurePdfJsLoaded();
+    const loadingTask = window.pdfjsLib.getDocument({ data: bytes.slice(), disableFontFace: true });
     const pdf = await loadingTask.promise;
     const numPages = pdf.numPages || 1;
     const pageUrls: string[] = [];
@@ -678,10 +707,6 @@ export async function extractPdfPages(pdfSource: Blob | string, maxDim = 1200, q
       const currentMin = Math.min(unscaledViewport.width, unscaledViewport.height);
       const aspectRatio = currentMax / Math.max(1, currentMin);
 
-      // Intelligent Resolution Budget:
-      // For standard documents (A4/Letter ~1.4 aspect ratio): scale to maxDim (1200-1600px).
-      // For blueprints / megilot / CAD (aspect ratio >= 2.5): do NOT crush short axis!
-      // When maxDim is requested at high resolution (e.g. 3200 for HD), utilize safe budget up to 30MP!
       let scale: number;
       if (aspectRatio >= 2.5) {
         const isHighResRequest = maxDim >= 3000;
@@ -691,7 +716,7 @@ export async function extractPdfPages(pdfSource: Blob | string, maxDim = 1200, q
         const maxBudgetScale = Math.sqrt(maxPixels / (unscaledViewport.width * unscaledViewport.height));
         scale = Math.min(1.0, Math.min(targetScaleByMin, maxBudgetScale));
       } else {
-        scale = Math.min(1.8, Math.max(0.2, maxDim / currentMax));
+        scale = Math.min(3.2, Math.max(0.5, maxDim / currentMax));
       }
 
       const viewport = page.getViewport({ scale });
@@ -708,7 +733,6 @@ export async function extractPdfPages(pdfSource: Blob | string, maxDim = 1200, q
       }
     }
 
-    // 2. Save extracted pages to cache for instant future loads
     if (cacheKey && pageUrls.length > 0) {
       setCachedPdfPages(cacheKey, pageUrls).catch(() => {});
     }
