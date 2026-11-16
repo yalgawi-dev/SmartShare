@@ -35,7 +35,7 @@ export function FileShareWidget({
   onOpenScanner
 }: FileShareWidgetProps) {
   const { user } = useAuth();
-  const { updateFileShareItems, getRoleForSpace, getTokenForSpace } = useSpaces();
+  const { spaces, updateFileShareItems, getRoleForSpace, getTokenForSpace } = useSpaces();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
@@ -281,17 +281,44 @@ export function FileShareWidget({
     );
   };
 
-  // Confirm move items to target folder
-  const handleConfirmMoveItems = async (targetFolderId: string | null) => {
+  // Confirm move or copy items to target folder
+  const handleConfirmMoveItems = async (targetFolderId: string | null, _targetShelfId?: string, actionType: 'copy' | 'move' = 'move') => {
     if (!moveModalState) return;
     const movingIds = new Set(moveModalState.itemIds);
-    const next = allItems.map(i => {
-      if (movingIds.has(i.id)) {
-        return { ...i, parentId: targetFolderId };
-      }
-      return i;
-    });
-    await saveItems(next);
+
+    if (actionType === 'copy') {
+      const newClonedItems: FileShareItem[] = [];
+      const idMap: Record<string, string> = {};
+
+      // Recursively map items
+      const selectedItems = allItems.filter(i => movingIds.has(i.id));
+      selectedItems.forEach((item, idx) => {
+        const newId = `item_${Date.now()}_${idx}_${Math.random().toString(36).substring(2, 6)}`;
+        idMap[item.id] = newId;
+      });
+
+      selectedItems.forEach(item => {
+        newClonedItems.push({
+          ...item,
+          id: idMap[item.id],
+          name: `${item.name} (עותק)`,
+          parentId: targetFolderId,
+          createdAt: Date.now()
+        });
+      });
+
+      const next = [...allItems, ...newClonedItems];
+      await saveItems(next);
+    } else {
+      const next = allItems.map(i => {
+        if (movingIds.has(i.id)) {
+          return { ...i, parentId: targetFolderId };
+        }
+        return i;
+      });
+      await saveItems(next);
+    }
+
     setSelectedItemIds([]);
     setIsMultiSelect(false);
     setMoveModalState(null);
@@ -952,32 +979,11 @@ export function FileShareWidget({
           border: '1px solid rgba(99, 102, 241, 0.18)',
           fontSize: '0.84rem',
           overflowX: 'auto',
-          whiteSpace: 'nowrap'
+          whiteSpace: 'nowrap',
+          direction: 'rtl'
         }}>
-          <button
-            type="button"
-            onClick={() => {
-              const parentCrumb = breadcrumbTrail[breadcrumbTrail.length - 2];
-              setCurrentFolderId(parentCrumb?.id || null);
-            }}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              fontSize: '0.95rem',
-              display: 'flex',
-              alignItems: 'center',
-              padding: '0 0.2rem',
-              color: 'var(--primary)'
-            }}
-            title="חזרה לתיקייה קודמת"
-          >
-            ↩️
-          </button>
           {breadcrumbTrail.map((crumb, idx) => {
             const isLast = idx === breadcrumbTrail.length - 1;
-            const crumbFolder = crumb.id ? activeItems.find(i => i.id === crumb.id) : null;
-            const crumbPartners = crumbFolder?.folderPartners || [];
 
             return (
               <React.Fragment key={crumb.id || 'root'}>
@@ -991,15 +997,11 @@ export function FileShareWidget({
                     textDecoration: isLast ? 'none' : 'underline',
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: '4px'
+                    gap: '4px',
+                    flexShrink: 0
                   }}
                 >
                   <span>{crumb.id === null ? '🏠 ראשי' : `📁 ${crumb.name}`}</span>
-                  {crumbPartners.length > 0 && (
-                    <span style={{ fontSize: '0.65rem', padding: '1px 5px', borderRadius: '4px', background: '#e0e7ff', color: '#3730a3', fontWeight: 700 }}>
-                      👥 {crumbPartners.map(p => p.name || 'שותף').join(', ')}
-                    </span>
-                  )}
                 </span>
               </React.Fragment>
             );
@@ -1717,10 +1719,42 @@ export function FileShareWidget({
             isOpen={Boolean(moveModalState)}
             itemCount={count}
             subtitle={count > 1 ? `נבחרו ${count} פריטים להעברה` : undefined}
+            currentSpaceId={space.id}
             currentFolderId={moveModalState.currentFolderId}
+            canCopy={true}
             folders={availableFolders.map(f => ({ id: f.id, name: f.name, parentId: f.parentId }))}
             onClose={() => setMoveModalState(null)}
             onConfirmMove={handleConfirmMoveItems}
+            onConfirmCrossSpace={async (targetSpaceId, _targetShelfId, targetFolderId, actionType) => {
+              const movingIds = new Set(moveModalState.itemIds);
+              const itemsToExport = allItems.filter(i => movingIds.has(i.id));
+
+              // Map items to target space
+              const newExportedItems = itemsToExport.map((item, idx) => ({
+                ...item,
+                id: `item_${Date.now()}_${idx}_${Math.random().toString(36).substring(2, 6)}`,
+                parentId: targetFolderId || null,
+                spaceId: targetSpaceId,
+                createdAt: Date.now()
+              }));
+
+              // Update target space with exported items
+              const targetSpace = spaces.find(s => s.id === targetSpaceId);
+              if (targetSpace) {
+                const existingTargetItems = targetSpace.fileShareItems || [];
+                await updateFileShareItems(targetSpaceId, [...existingTargetItems, ...newExportedItems]);
+              }
+
+              // If action is move, remove from source space
+              if (actionType === 'move') {
+                const remaining = allItems.filter(i => !movingIds.has(i.id));
+                await saveItems(remaining);
+              }
+
+              setSelectedItemIds([]);
+              setIsMultiSelect(false);
+              setMoveModalState(null);
+            }}
             rootLabel="תיקייה ראשית (ללא תיקייה)"
             rootDescription="ברמה הראשית של שיתוף הקבצים"
           />

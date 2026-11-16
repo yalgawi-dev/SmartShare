@@ -3598,9 +3598,9 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                               <button
                                                 type="button"
                                                 onClick={() => { setActiveDocMenuId(null); setMoveDocToFolder({ docIds: [doc.id], currentFolderId: doc.folderId }); }}
-                                                style={{ background: 'transparent', border: 'none', padding: '0.35rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#0369a1', display: 'flex', alignItems: 'center', gap: '0.45rem' }}
+                                                style={{ background: 'transparent', border: 'none', padding: '0.35rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#0369a1', display: 'flex', alignItems: 'center', gap: '0.45rem', fontWeight: 700 }}
                                               >
-                                                📁 העבר לתיקייה
+                                                📁 העבר או העתק (לתיקייה / מרחב)
                                               </button>
                                               <button
                                                 type="button"
@@ -3949,7 +3949,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
         );
       })()}
 
-      {/* MOVE DOCUMENT TO FOLDER MODAL */}
+      {/* MOVE / COPY DOCUMENT TO FOLDER OR CROSS-SPACE MODAL */}
       {moveDocToFolder && (() => {
         const count = moveDocToFolder.docIds.length;
         const singleDoc = count === 1 ? documents.find(d => String(d.id) === String(moveDocToFolder.docIds[0])) : null;
@@ -3961,13 +3961,68 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             isOpen={Boolean(moveDocToFolder)}
             itemCount={count}
             subtitle={count > 1 ? `📁 נבחרו ${count} מסמכים` : `📄 ${singleDoc?.title || 'מסמך'}`}
+            currentSpaceId={space.id}
             currentFolderId={moveDocToFolder.currentFolderId}
-            folders={availableFolders.map(f => ({ id: f.id, name: f.name, parentId: f.parentId }))}
+            currentShelfId={targetShelfId}
+            shelves={space.shelves || []}
+            folders={availableFolders.map(f => ({ id: f.id, name: f.name, parentId: f.parentId, shelfId: f.shelfId }))}
             onClose={() => setMoveDocToFolder(null)}
-            onConfirmMove={(targetFolderId) => {
-              moveDocToFolder.docIds.forEach(id => {
-                updateDocument(space.id, id, { folderId: targetFolderId ? String(targetFolderId) : null });
-              });
+            onConfirmMove={(targetFolderId, destShelfId, actionType) => {
+              const effectiveShelf = destShelfId || targetShelfId;
+              if (actionType === 'copy') {
+                moveDocToFolder.docIds.forEach(id => {
+                  const orig = documents.find(d => String(d.id) === String(id));
+                  if (orig) {
+                    addDocument(space.id, {
+                      title: orig.title,
+                      type: orig.type,
+                      url: orig.url,
+                      shelfId: effectiveShelf || orig.shelfId,
+                      folderId: targetFolderId ? String(targetFolderId) : null,
+                      notes: orig.note,
+                      fileSize: orig.fileSize,
+                      allowedPartners: orig.allowedPartners || []
+                    });
+                  }
+                });
+                showFeedbackToast(count > 1 ? `${count} מסמכים שוכפלו בהצלחה!` : 'המסמך שוכפל בהצלחה!');
+              } else {
+                moveDocToFolder.docIds.forEach(id => {
+                  updateDocument(space.id, id, { 
+                    shelfId: effectiveShelf,
+                    folderId: targetFolderId ? String(targetFolderId) : null 
+                  });
+                });
+                showFeedbackToast(count > 1 ? `${count} מסמכים הועברו בהצלחה!` : 'המסמך הועבר בהצלחה!');
+              }
+              setSelectedDocIds([]);
+              setIsMultiSelect(false);
+              setMoveDocToFolder(null);
+            }}
+            onConfirmCrossSpace={async (targetSpaceId, destShelfId, destFolderId, actionType) => {
+              for (const id of moveDocToFolder.docIds) {
+                const orig = documents.find(d => String(d.id) === String(id));
+                if (orig) {
+                  addDocument(targetSpaceId, {
+                    title: orig.title,
+                    type: orig.type,
+                    url: orig.url,
+                    shelfId: destShelfId || 'general',
+                    folderId: destFolderId || null,
+                    notes: orig.note,
+                    fileSize: orig.fileSize,
+                    allowedPartners: []
+                  });
+                  if (actionType === 'move') {
+                    removeDocument(space.id, id);
+                  }
+                }
+              }
+              showFeedbackToast(
+                actionType === 'copy'
+                  ? (count > 1 ? `${count} מסמכים הועתקו בהצלחה למרחב הנבחר!` : 'המסמך הועתק בהצלחה למרחב הנבחר!')
+                  : (count > 1 ? `${count} מסמכים הועברו בהצלחה למרחב הנבחר!` : 'המסמך הועבר בהצלחה למרחב הנבחר!')
+              );
               setSelectedDocIds([]);
               setIsMultiSelect(false);
               setMoveDocToFolder(null);

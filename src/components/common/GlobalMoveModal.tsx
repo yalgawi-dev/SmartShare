@@ -26,9 +26,10 @@ export interface GlobalMoveModalProps {
   currentShelfId?: string | null;
   currentSpaceId?: string;
   isShelfTransfer?: boolean;
+  canCopy?: boolean;
   shelves?: ShelfTargetItem[];
   folders: FolderTargetItem[];
-  onConfirmMove: (targetFolderId: string | null, targetShelfId?: string) => void;
+  onConfirmMove: (targetFolderId: string | null, targetShelfId?: string, actionType?: 'copy' | 'move') => Promise<void> | void;
   onConfirmCrossSpace?: (targetSpaceId: string, targetShelfId: string | null, targetFolderId: string | null, actionType: 'copy' | 'move') => Promise<void> | void;
   rootLabel?: string;
   rootDescription?: string;
@@ -44,6 +45,7 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
   currentShelfId,
   currentSpaceId,
   isShelfTransfer = false,
+  canCopy = true,
   shelves,
   folders,
   onConfirmMove,
@@ -156,11 +158,46 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
     return fParentId !== currentParentId;
   });
 
-  const modalTitle = title || (itemCount > 1 ? `העברת ${itemCount} פריטים לתיקייה` : 'העברה לתיקייה');
+  const [localActionType, setLocalActionType] = useState<'copy' | 'move'>('move');
+  const [browsingParentId, setBrowsingParentId] = useState<string | null>(null);
+
+  // When shelf changes, reset browsing to root
+  React.useEffect(() => {
+    setBrowsingParentId(null);
+  }, [selectedShelfId]);
+
+  // Compute folder trail (breadcrumbs) for currently browsed level
+  const browsingTrail = useMemo(() => {
+    const trail: FolderTargetItem[] = [];
+    let curr = browsingParentId ? scopedFolders.find(f => normId(f.id) === normId(browsingParentId)) : null;
+    while (curr) {
+      trail.unshift(curr);
+      curr = curr.parentId ? scopedFolders.find(f => normId(f.id) === normId(curr!.parentId)) : null;
+    }
+    return trail;
+  }, [browsingParentId, scopedFolders]);
+
+  // Direct children inside current browsed parent
+  const currentChildFolders = useMemo(() => {
+    return scopedFolders.filter(f => normId(f.parentId) === normId(browsingParentId));
+  }, [scopedFolders, browsingParentId]);
+
+  // Total count of subfolders inside any folder
+  const getSubfolderCount = (fId: string) => {
+    return scopedFolders.filter(f => normId(f.parentId) === normId(fId)).length;
+  };
+
+  const isCurrentFolderTarget = (targetFolderId: string | null) => {
+    return isSameShelf && normId(targetFolderId) === activeCurrentFolderId;
+  };
 
   const handleSelectTarget = (targetFolderId: string | null) => {
-    onConfirmMove(targetFolderId, hasShelves ? selectedShelfId : undefined);
+    onConfirmMove(targetFolderId, hasShelves ? selectedShelfId : undefined, localActionType);
   };
+
+  const modalTitle = title || (itemCount > 1 
+    ? (localActionType === 'copy' ? `שכפול ${itemCount} פריטים` : `העברת ${itemCount} פריטים`) 
+    : (localActionType === 'copy' ? 'שכפול פריט' : 'העברה לתיקייה'));
 
   const handleCrossSpaceSubmit = async () => {
     if (!targetSpaceId || !onConfirmCrossSpace) return;
@@ -458,9 +495,51 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
           </div>
         ) : (
           <>
+            {/* Action Type Toggle (Copy vs Move in Current Space) */}
+            {canCopy && (
+              <div style={{ display: 'flex', background: '#f8fafc', padding: '4px', borderRadius: '12px', border: '1px solid #e2e8f0', gap: '4px', marginBottom: '0.85rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setLocalActionType('move')}
+                  style={{
+                    flex: 1,
+                    padding: '7px 8px',
+                    borderRadius: '9px',
+                    border: 'none',
+                    background: localActionType === 'move' ? '#ffffff' : 'transparent',
+                    color: localActionType === 'move' ? '#1d4ed8' : '#64748b',
+                    fontWeight: 800,
+                    fontSize: '0.8rem',
+                    cursor: 'pointer',
+                    boxShadow: localActionType === 'move' ? '0 2px 6px rgba(0,0,0,0.08)' : 'none',
+                  }}
+                >
+                  🗂️ העברה מלאה (מחק מכאן)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLocalActionType('copy')}
+                  style={{
+                    flex: 1,
+                    padding: '7px 8px',
+                    borderRadius: '9px',
+                    border: 'none',
+                    background: localActionType === 'copy' ? '#ffffff' : 'transparent',
+                    color: localActionType === 'copy' ? '#2563eb' : '#64748b',
+                    fontWeight: 800,
+                    fontSize: '0.8rem',
+                    cursor: 'pointer',
+                    boxShadow: localActionType === 'copy' ? '0 2px 6px rgba(0,0,0,0.08)' : 'none',
+                  }}
+                >
+                  📋 יצירת עותק (שמור כאן)
+                </button>
+              </div>
+            )}
+
             {/* Shelves Selector (if applicable) */}
             {hasShelves && (
-          <div style={{ marginBottom: '1rem' }}>
+          <div style={{ marginBottom: '0.85rem' }}>
             <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '0.4rem' }}>
               בחר מדף יעד:
             </label>
@@ -493,167 +572,208 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
           </div>
         )}
 
-        <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#475569', marginBottom: '0.75rem' }}>
-          {hasShelves ? 'בחר מיקום בתוך המדף:' : 'בחר תיקיית יעד:'}
-        </div>
-
-        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.6rem', paddingBottom: '0.5rem' }}>
-          {/* Option 1: Root level */}
+        {/* BREADCRUMB EXPLORER HEADER */}
+        <div style={{
+          background: '#f8fafc',
+          border: '1px solid #e2e8f0',
+          borderRadius: '12px',
+          padding: '0.55rem 0.75rem',
+          marginBottom: '0.75rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.4rem',
+          fontSize: '0.84rem',
+          overflowX: 'auto',
+          whiteSpace: 'nowrap'
+        }}>
           <button
             type="button"
-            disabled={isRootCurrent}
-            onClick={() => handleSelectTarget(null)}
+            onClick={() => setBrowsingParentId(null)}
             style={{
-              padding: '0.85rem 1rem',
-              background: isRootCurrent ? '#f1f5f9' : '#eff6ff',
-              border: isRootCurrent ? '2px solid #94a3b8' : '2px solid #2563eb',
-              borderRadius: '14px',
-              cursor: isRootCurrent ? 'default' : 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              textAlign: 'right',
-              boxShadow: isRootCurrent ? 'none' : '0 2px 6px rgba(37,99,235,0.08)'
+              background: browsingParentId === null ? '#dbeafe' : 'transparent',
+              color: browsingParentId === null ? '#1d4ed8' : '#64748b',
+              border: 'none',
+              padding: '2px 6px',
+              borderRadius: '6px',
+              fontWeight: browsingParentId === null ? 800 : 600,
+              cursor: 'pointer'
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-              <span style={{ fontSize: '1.35rem' }}>🏠</span>
-              <div>
-                <div style={{ fontSize: '0.95rem', fontWeight: 'bold', color: isRootCurrent ? '#64748b' : '#1d4ed8' }}>
-                  {rootLabel}
-                </div>
-                <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
-                  {rootDescription}
-                </div>
-              </div>
-            </div>
-            {isRootCurrent ? (
-              <span style={{ background: '#e2e8f0', color: '#475569', padding: '2px 8px', borderRadius: '8px', fontSize: '0.72rem', fontWeight: 800 }}>
-                מיקום נוכחי
-              </span>
-            ) : (
-              <span style={{ color: '#2563eb', fontSize: '0.8rem', fontWeight: 700 }}>
-                העבר לכאן ←
-              </span>
-            )}
+            🏠 {rootLabel}
           </button>
+          {browsingTrail.map((crumb, cIdx) => {
+            const isLastCrumb = cIdx === browsingTrail.length - 1;
+            return (
+              <React.Fragment key={crumb.id}>
+                <span style={{ color: '#cbd5e1' }}>/</span>
+                <button
+                  type="button"
+                  onClick={() => setBrowsingParentId(crumb.id)}
+                  style={{
+                    background: isLastCrumb ? '#dbeafe' : 'transparent',
+                    color: isLastCrumb ? '#1d4ed8' : '#64748b',
+                    border: 'none',
+                    padding: '2px 6px',
+                    borderRadius: '6px',
+                    fontWeight: isLastCrumb ? 800 : 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  📁 {crumb.name}
+                </button>
+              </React.Fragment>
+            );
+          })}
+        </div>
 
-          {/* Sibling Folders (Same Tier) */}
-          {siblingFolders.length > 0 && (
-            <div style={{ marginTop: '0.4rem' }}>
-              <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#2563eb', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span>📁</span>
-                <span>{currentFolderObj ? 'תיקיות מקבילות (באותה שכבה):' : 'תיקיות ברמה הראשית:'}</span>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                {siblingFolders.map(f => {
-                  const isCurrent = isSameShelf && normId(f.id) === activeCurrentFolderId;
-                  return (
+        {/* ACTION: SELECT CURRENT BROWSING FOLDER AS DESTINATION */}
+        <div style={{ marginBottom: '0.75rem' }}>
+          {(() => {
+            const isTargetCurrent = isCurrentFolderTarget(browsingParentId);
+            const currentFolderName = browsingParentId 
+              ? (scopedFolders.find(f => normId(f.id) === normId(browsingParentId))?.name || 'תיקייה זו') 
+              : rootLabel;
+
+            return (
+              <button
+                type="button"
+                disabled={isTargetCurrent}
+                onClick={() => handleSelectTarget(browsingParentId)}
+                style={{
+                  width: '100%',
+                  padding: '0.85rem 1rem',
+                  background: isTargetCurrent ? '#f1f5f9' : (localActionType === 'copy' ? '#eff6ff' : '#f0fdf4'),
+                  border: isTargetCurrent ? '2px solid #94a3b8' : (localActionType === 'copy' ? '2px solid #2563eb' : '2px solid #16a34a'),
+                  borderRadius: '14px',
+                  cursor: isTargetCurrent ? 'default' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  textAlign: 'right',
+                  boxShadow: isTargetCurrent ? 'none' : '0 2px 8px rgba(0,0,0,0.06)'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <span style={{ fontSize: '1.4rem' }}>{browsingParentId ? '🎯' : '🏠'}</span>
+                  <div>
+                    <div style={{ fontSize: '0.92rem', fontWeight: 800, color: isTargetCurrent ? '#64748b' : (localActionType === 'copy' ? '#1d4ed8' : '#15803d') }}>
+                      {localActionType === 'copy' ? `📋 העתק לכאן (אל "${currentFolderName}")` : `🗂️ העבר לכאן (אל "${currentFolderName}")`}
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                      {browsingParentId ? `בתוך: ${currentFolderName}` : rootDescription}
+                    </div>
+                  </div>
+                </div>
+                {isTargetCurrent ? (
+                  <span style={{ background: '#e2e8f0', color: '#475569', padding: '3px 8px', borderRadius: '8px', fontSize: '0.72rem', fontWeight: 800 }}>
+                    מיקום נוכחי
+                  </span>
+                ) : (
+                  <span style={{ 
+                    background: localActionType === 'copy' ? '#2563eb' : '#16a34a',
+                    color: '#fff',
+                    padding: '4px 10px',
+                    borderRadius: '8px',
+                    fontSize: '0.78rem',
+                    fontWeight: 800
+                  }}>
+                    בחר יעד זה ✓
+                  </span>
+                )}
+              </button>
+            );
+          })()}
+        </div>
+
+        {/* LIST OF SUBFOLDERS AT THIS DRILL-DOWN LEVEL */}
+        <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#475569', marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <span>📂</span>
+          <span>{browsingParentId ? 'תתי-תיקיות בפנים (לחץ כדי להיכנס):' : 'תיקיות ברמה הראשית (לחץ כדי להיכנס):'}</span>
+        </div>
+
+        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem', paddingBottom: '0.5rem' }}>
+          {currentChildFolders.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '1.5rem 1rem', color: '#94a3b8', fontSize: '0.85rem', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #e2e8f0' }}>
+              אין תתי-תיקיות נוספות כאן. ניתן ללחוץ על הכפתור למעלה כדי {localActionType === 'copy' ? 'להעתיק' : 'להעביר'} לכאן!
+            </div>
+          ) : (
+            currentChildFolders.map(f => {
+              const subCount = getSubfolderCount(f.id);
+              const isTargetCurrent = isCurrentFolderTarget(f.id);
+
+              return (
+                <div
+                  key={f.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '0.65rem 0.85rem',
+                    background: '#ffffff',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '12px',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+                  }}
+                >
+                  {/* Click folder name to DRILL DOWN into it */}
+                  <div
+                    onClick={() => setBrowsingParentId(f.id)}
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', flex: 1, minWidth: 0 }}
+                    title="לחץ לפתיחת התיקייה ולניווט פנימה"
+                  >
+                    <span style={{ fontSize: '1.25rem' }}>📁</span>
+                    <div style={{ overflow: 'hidden' }}>
+                      <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#1e293b', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                        {f.name}
+                      </div>
+                      <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
+                        {subCount > 0 ? `${subCount} תתי-תיקיות פנימיות ⬅️` : 'אין תתי-תיקיות (לחץ לבחירה)'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions for this folder */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
+                    {subCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setBrowsingParentId(f.id)}
+                        style={{
+                          background: '#f1f5f9',
+                          border: '1px solid #cbd5e1',
+                          color: '#475569',
+                          padding: '4px 8px',
+                          borderRadius: '8px',
+                          fontSize: '0.74rem',
+                          fontWeight: 700,
+                          cursor: 'pointer'
+                        }}
+                        title="היכנס לתוך תיקייה זו"
+                      >
+                        היכנס פנימה ↵
+                      </button>
+                    )}
                     <button
-                      key={f.id}
                       type="button"
-                      disabled={isCurrent}
+                      disabled={isTargetCurrent}
                       onClick={() => handleSelectTarget(f.id)}
                       style={{
-                        padding: '0.85rem 1rem',
-                        background: isCurrent ? '#f1f5f9' : '#ffffff',
-                        border: isCurrent ? '2px solid #94a3b8' : '1px solid #bfdbfe',
-                        borderRadius: '14px',
-                        cursor: isCurrent ? 'default' : 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        textAlign: 'right',
-                        boxShadow: isCurrent ? 'none' : '0 1px 4px rgba(37,99,235,0.06)'
+                        background: isTargetCurrent ? '#f1f5f9' : (localActionType === 'copy' ? '#eff6ff' : '#f0fdf4'),
+                        border: isTargetCurrent ? '1px solid #cbd5e1' : (localActionType === 'copy' ? '1px solid #bfdbfe' : '1px solid #bbf7d0'),
+                        color: isTargetCurrent ? '#94a3b8' : (localActionType === 'copy' ? '#1d4ed8' : '#16a34a'),
+                        padding: '4px 9px',
+                        borderRadius: '8px',
+                        fontSize: '0.76rem',
+                        fontWeight: 800,
+                        cursor: isTargetCurrent ? 'default' : 'pointer'
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                        <span style={{ fontSize: '1.35rem' }}>📁</span>
-                        <div>
-                          <div style={{ fontSize: '0.95rem', fontWeight: 'bold', color: isCurrent ? '#64748b' : '#0f172a' }}>
-                            {f.name}
-                          </div>
-                          <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
-                            {isCurrent ? 'הפריט כבר נמצא בתיקייה זו' : (currentFolderObj ? 'תיקייה מקבילה באותה שכבה' : 'תיקייה ברמה הראשית')}
-                          </div>
-                        </div>
-                      </div>
-                      {isCurrent ? (
-                        <span style={{ background: '#e2e8f0', color: '#475569', padding: '2px 8px', borderRadius: '8px', fontSize: '0.72rem', fontWeight: 800 }}>
-                          תיקייה נוכחית
-                        </span>
-                      ) : (
-                        <span style={{ color: '#2563eb', fontSize: '0.8rem', fontWeight: 700 }}>
-                          העבר לכאן ←
-                        </span>
-                      )}
+                      {isTargetCurrent ? 'נוכחי' : (localActionType === 'copy' ? 'העתק לכאן ✓' : 'העבר לכאן ✓')}
                     </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Other Folders */}
-          {otherFolders.length > 0 && (
-            <div style={{ marginTop: '0.6rem' }}>
-              <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#64748b', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span>🗂️</span>
-                <span>תיקיות בשכבות אחרות:</span>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                {otherFolders.map(f => {
-                  const isCurrent = isSameShelf && normId(f.id) === activeCurrentFolderId;
-                  const parentF = f.parentId ? scopedFolders.find(p => normId(p.id) === normId(f.parentId)) : null;
-                  return (
-                    <button
-                      key={f.id}
-                      type="button"
-                      disabled={isCurrent}
-                      onClick={() => handleSelectTarget(f.id)}
-                      style={{
-                        padding: '0.75rem 1rem',
-                        background: isCurrent ? '#f1f5f9' : '#f8fafc',
-                        border: isCurrent ? '2px solid #94a3b8' : '1px solid #e2e8f0',
-                        borderRadius: '14px',
-                        cursor: isCurrent ? 'default' : 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        textAlign: 'right'
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                        <span style={{ fontSize: '1.2rem' }}>📁</span>
-                        <div>
-                          <div style={{ fontSize: '0.9rem', fontWeight: 'bold', color: isCurrent ? '#64748b' : '#334155' }}>
-                            {f.name}
-                          </div>
-                          {parentF ? (
-                            <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
-                              בתוך: {parentF.name}
-                            </div>
-                          ) : (
-                            <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
-                              ברמה הראשית
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      {isCurrent ? (
-                        <span style={{ background: '#e2e8f0', color: '#475569', padding: '2px 8px', borderRadius: '8px', fontSize: '0.72rem', fontWeight: 800 }}>
-                          תיקייה נוכחית
-                        </span>
-                      ) : (
-                        <span style={{ color: '#2563eb', fontSize: '0.78rem', fontWeight: 700 }}>
-                          העבר לכאן ←
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+                  </div>
+                </div>
+              );
+            })
           )}
         </div>
         </>

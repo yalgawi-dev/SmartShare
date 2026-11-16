@@ -1004,7 +1004,7 @@ export function FileShareItemCard({
                         }}
                         style={{ background: 'transparent', border: 'none', padding: '0.45rem', textAlign: 'right', borderRadius: '8px', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600, color: '#1e293b' }}
                       >
-                        📁 העבר לתיקייה
+                        📁 העבר או העתק (לתיקייה / מרחב)
                       </button>
                     )}
                     <button
