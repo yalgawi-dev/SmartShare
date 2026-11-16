@@ -638,13 +638,13 @@ export default function UniversalViewerModal({
                 <TransformWrapper
                   key={`multi-${currentIndex}`}
                   initialScale={1}
-                  minScale={0.8}
+                  minScale={1}
                   maxScale={30}
-                  centerOnInit={false}
-                  centerZoomedOut={false}
+                  centerOnInit={true}
+                  centerZoomedOut={true}
                   initialPositionX={0}
                   initialPositionY={0}
-                  limitToBounds={false}
+                  limitToBounds={true}
                   panning={{ disabled: isNativeScrollMode, velocityDisabled: true }}
                   trackPadPanning={{ velocityDisabled: true }}
                   doubleClick={{ mode: 'zoomIn', step: 0.5 }}
@@ -933,9 +933,10 @@ export default function UniversalViewerModal({
               <TransformWrapper
                 key={`single-${currentIndex}`}
                 initialScale={1}
-                minScale={0.8}
+                minScale={1}
                 maxScale={30}
                 centerOnInit={true}
+                centerZoomedOut={true}
                 limitToBounds={true}
                 panning={{ velocityDisabled: true }}
                 doubleClick={{ mode: 'zoomIn', step: 0.5 }}
