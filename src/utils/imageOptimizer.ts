@@ -147,9 +147,12 @@ export async function analyzePdfStructure(arrayBuffer: ArrayBuffer): Promise<Pdf
   // - It has NO digital signature AND
   // - Either:
   //   1. It has NO selectable text layer and NO vector drawing paths (pure camera/scanner images wrapped in PDF)
+  //      NOTE: If a multi-page PDF has 5+ pages and avgBytesPerPage <= 500KB (e.g. 56 pages at 5.7MB = ~100KB/page),
+  //      it is clearly an optimized digital/compressed PDF, NOT an uncompressed raw camera scan wrapper!
   //   2. OR it contains embedded raster images and average page weight exceeds 700KB/page (e.g. 2 pages = 3.7MB -> 1.85MB/page!)
+  const isMultiPageLightweight = pageCount >= 5 && avgBytesPerPage <= 500 * 1024;
   const isHeavyImageEnvelope = (hasFullPageImage || hasBinaryImageMarkers) && avgBytesPerPage > 700 * 1024;
-  const isWrappedRasterScan = !hasDigitalSignature && (
+  const isWrappedRasterScan = !hasDigitalSignature && !isMultiPageLightweight && (
     (!hasTextLayer && !hasVectorPaths) ||
     isHeavyImageEnvelope
   );
@@ -184,7 +187,12 @@ export function isTrueOriginalPdf(analysis: PdfAnalysisResult, fileSize: number)
     return false;
   }
 
-  // Condition 2 (OR): Digital-born PDF with live text layer OR vector drawing paths (<= 700KB/page) -> Retain intact PDF
+  // Condition 2 (OR): Multi-page lightweight document (5+ pages, avg <= 500KB/page) -> Retain intact raw PDF
+  if (analysis.pageCount >= 5 && analysis.avgBytesPerPage <= 500 * 1024) {
+    return true;
+  }
+
+  // Condition 3 (OR): Digital-born PDF with live text layer OR vector drawing paths (<= 700KB/page) -> Retain intact PDF
   if ((analysis.hasTextLayer || analysis.hasVectorPaths) && analysis.avgBytesPerPage <= 700 * 1024) {
     return true;
   }
@@ -636,7 +644,12 @@ export async function generatePdfFirstPageThumbnail(source: Blob | string, maxDi
   return compressCanvasWebP(canvas, quality);
 }
 
-export async function extractPdfPages(pdfSource: Blob | string, maxDim = 1200, quality = 0.80): Promise<string[]> {
+export async function extractPdfPages(
+  pdfSource: Blob | string,
+  maxDim = 1200,
+  quality = 0.80,
+  onProgress?: (current: number, total: number) => void
+): Promise<string[]> {
   if (typeof window === 'undefined') return [];
 
   const cacheKey = typeof pdfSource === 'string' ? pdfSource : '';
@@ -682,7 +695,7 @@ export async function extractPdfPages(pdfSource: Blob | string, maxDim = 1200, q
     try {
       const { extractAllPagesWithPdfium } = await import('./pdfiumSliceRenderer');
       const docKey = cacheKey || `blob_${bytes.byteLength}_${bytes[0] || 0}`;
-      const pdfiumPages = await extractAllPagesWithPdfium(bytes, docKey, maxDim);
+      const pdfiumPages = await extractAllPagesWithPdfium(bytes, docKey, maxDim, onProgress);
       if (pdfiumPages && pdfiumPages.length > 0) {
         if (cacheKey) {
           setCachedPdfPages(cacheKey, pdfiumPages).catch(() => {});
@@ -701,6 +714,16 @@ export async function extractPdfPages(pdfSource: Blob | string, maxDim = 1200, q
     const pageUrls: string[] = [];
 
     for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+      onProgress?.(pageNum, numPages);
+      if (pageNum > 1) {
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }
+
+      // Adaptive budget: if > 4 pages and page >= 4, throttle resolution
+      const effectiveMaxDim = (numPages > 4 && pageNum > 3)
+        ? Math.min(maxDim, 1450)
+        : maxDim;
+
       const page = await pdf.getPage(pageNum);
       const unscaledViewport = page.getViewport({ scale: 1.0 });
       const currentMax = Math.max(unscaledViewport.width, unscaledViewport.height);
@@ -709,14 +732,14 @@ export async function extractPdfPages(pdfSource: Blob | string, maxDim = 1200, q
 
       let scale: number;
       if (aspectRatio >= 2.5) {
-        const isHighResRequest = maxDim >= 3000;
+        const isHighResRequest = effectiveMaxDim >= 3000;
         const targetDim = isHighResRequest ? 2400 : 1800;
         const maxPixels = isHighResRequest ? 30000000 : 18000000;
         const targetScaleByMin = targetDim / currentMin;
         const maxBudgetScale = Math.sqrt(maxPixels / (unscaledViewport.width * unscaledViewport.height));
         scale = Math.min(1.0, Math.min(targetScaleByMin, maxBudgetScale));
       } else {
-        scale = Math.min(3.2, Math.max(0.5, maxDim / currentMax));
+        scale = Math.min(3.2, Math.max(0.5, effectiveMaxDim / currentMax));
       }
 
       const viewport = page.getViewport({ scale });
@@ -729,7 +752,8 @@ export async function extractPdfPages(pdfSource: Blob | string, maxDim = 1200, q
         pageCtx.fillStyle = '#ffffff';
         pageCtx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
         await page.render({ canvasContext: pageCtx, viewport }).promise;
-        pageUrls.push(compressCanvasWebP(pageCanvas, quality));
+        const effectiveQuality = (numPages > 4 && pageNum > 3) ? Math.min(quality, 0.82) : quality;
+        pageUrls.push(compressCanvasWebP(pageCanvas, effectiveQuality));
       }
     }
 

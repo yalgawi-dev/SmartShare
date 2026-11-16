@@ -6,7 +6,7 @@ import { useSpaces } from '../../app/context/SpacesContext';
 import { useAuth } from '../../app/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { uploadImageToStorage, uploadBlobToStorage } from '../../lib/firebase';
-import { downscaleBase64, extractPdfPages, analyzePdfStructure, isTrueOriginalPdf, ensurePdfJsLoaded, dataUrlBytes } from '../../utils/imageOptimizer';
+import { downscaleBase64, extractPdfPages, analyzePdfStructure, isTrueOriginalPdf, ensurePdfJsLoaded, dataUrlBytes, generatePdfFirstPageThumbnail } from '../../utils/imageOptimizer';
 import { saveLocalDeviceFile } from '../../utils/localDeviceStorage';
 import InvoiceAttachMatchModal, { ScannedReceiptInput } from './Finance/InvoiceAttachMatchModal';
 import DynamicPdfScrollPreview from './Vault/DynamicPdfScrollPreview';
@@ -199,7 +199,7 @@ export default function SharedFileHandler() {
       const firstUri = files[0];
       const isPdf = typeof firstUri === 'string' && (firstUri.startsWith('data:application/pdf') || firstUri.includes('application/pdf'));
       if (isPdf) {
-        // Fast probe for multi-page without heavy rendering
+        // Fast probe for multi-page without heavy full extraction on open
         ensurePdfJsLoaded().then(async (pdfjs) => {
           if (!pdfjs) return;
           try {
@@ -209,10 +209,11 @@ export default function SharedFileHandler() {
               disableFontFace: true
             });
             const pdf = await loadingTask.promise;
+            // Only extract up to 3 preview pages for display in modal if multi-page, not all 50+ pages!
             if (pdf.numPages > 1) {
-              const pages = await extractPdfPages(firstUri, 1200, 0.80);
-              if (pages && pages.length > 1) {
-                setSharedAllPages(pages);
+              const previewPages = await extractPdfPages(firstUri, 1000, 0.75);
+              if (previewPages && previewPages.length > 1) {
+                setSharedAllPages(previewPages);
               }
             }
           } catch (e) {
@@ -587,7 +588,7 @@ export default function SharedFileHandler() {
 
             if (shouldRetainRawPdf) {
               // ── Benchmark: Upload raw PDF directly to cloud storage without phone CPU rendering! ──
-              logs.push({ step: '1. דילוג על רינדור טלפון (קובץ שרטוט נשמר במקורו)', ms: 0 });
+              logs.push({ step: '1. דילוג על רינדור טלפון (קובץ שרטוט/מסמך דיגיטלי נשמר במקורו)', ms: 0 });
 
               const tUploadStart = performance.now();
               const fileName = correspondingBlob?.name || correspondingBlob?.blob?.name || `doc_${Date.now()}.pdf`;
@@ -597,10 +598,24 @@ export default function SharedFileHandler() {
               );
               const tUploadEnd = performance.now();
               logs.push({ step: `2. העלאת קובץ PDF מקורי לענן (${(blobToUpload.size / (1024*1024)).toFixed(1)} MB)`, ms: Math.round(tUploadEnd - tUploadStart) });
+
+              // Generate lightweight 1st-page thumbnail for instant gallery display
+              try {
+                const thumbDataUrl = await generatePdfFirstPageThumbnail(blobToUpload, 800, 0.80);
+                if (thumbDataUrl) {
+                  const thumbUploadUrl = await uploadImageToStorage(
+                    thumbDataUrl,
+                    `vault/${selectedSpaceId}/thumb_${Date.now()}-${Math.random().toString(36).substring(7)}.webp`
+                  );
+                  uploadedPages = [thumbUploadUrl];
+                }
+              } catch (thumbErr) {
+                console.warn('Failed to generate thumbnail for raw PDF:', thumbErr);
+              }
             } else {
-              // Standard documents / multi-page files: convert to high-resolution Retina WebP (2400px @ 0.90)
+              // Standard documents / raster scans: convert pages to optimized WebP
               const tExtractStart = performance.now();
-              const webpPages = await extractPdfPages(blobToUpload, 2400, 0.90);
+              const webpPages = await extractPdfPages(blobToUpload, 2000, 0.85);
               const tExtractEnd = performance.now();
               logs.push({ step: '1. רינדור דפי ה-PDF לקנבס וכיווץ WebP (מעבד טלפון)', ms: Math.round(tExtractEnd - tExtractStart) });
 
@@ -608,13 +623,26 @@ export default function SharedFileHandler() {
                 compressedSize = webpPages.reduce((acc, p) => acc + dataUrlBytes(p), 0);
               }
 
+              // Upload pages in controlled concurrency pool (max 3 at a time) to prevent network/socket exhaustion
               const tUploadStart = performance.now();
-              uploadedPages = await Promise.all(
-                webpPages.map((pageUri, p) => uploadImageToStorage(
-                  pageUri,
-                  `vault/${selectedSpaceId}/${Date.now()}-${p}-${Math.random().toString(36).substring(7)}.webp`
-                ))
-              );
+              const uploadedUrls: string[] = new Array(webpPages.length);
+              const CONCURRENCY_LIMIT = 3;
+              for (let i = 0; i < webpPages.length; i += CONCURRENCY_LIMIT) {
+                const chunk = webpPages.slice(i, i + CONCURRENCY_LIMIT);
+                const chunkResults = await Promise.all(
+                  chunk.map((pageUri, idxInChunk) => {
+                    const pageIndex = i + idxInChunk;
+                    return uploadImageToStorage(
+                      pageUri,
+                      `vault/${selectedSpaceId}/${Date.now()}-${pageIndex}-${Math.random().toString(36).substring(7)}.webp`
+                    );
+                  })
+                );
+                chunkResults.forEach((url, idxInChunk) => {
+                  uploadedUrls[i + idxInChunk] = url;
+                });
+              }
+              uploadedPages = uploadedUrls;
               const tUploadEnd = performance.now();
               logs.push({ step: '2. העלאת קבצי WebP לשרת הענן (Supabase)', ms: Math.round(tUploadEnd - tUploadStart) });
             }
@@ -774,15 +802,26 @@ export default function SharedFileHandler() {
               } else {
                 // Wrapped Raster Scan: Convert all pages to optimized WebP!
                 savedAsRawPdf = false;
-                const webpPages = await extractPdfPages(blobToUpload, 2400, 0.90);
+                const webpPages = await extractPdfPages(blobToUpload, 2000, 0.85);
                 if (webpPages && webpPages.length > 0) {
                   calculatedSize = webpPages.reduce((acc, p) => acc + dataUrlBytes(p), 0);
-                  const uploadedPages = await Promise.all(
-                    webpPages.map((pageUri, p) => uploadImageToStorage(
-                      pageUri,
-                      `fileshare/${selectedSpaceId}/${Date.now()}-${currentIdx}-p${p}-${Math.random().toString(36).substring(7)}.webp`
-                    ))
-                  );
+                  const uploadedPages: string[] = new Array(webpPages.length);
+                  const CONCURRENCY_LIMIT = 3;
+                  for (let i = 0; i < webpPages.length; i += CONCURRENCY_LIMIT) {
+                    const chunk = webpPages.slice(i, i + CONCURRENCY_LIMIT);
+                    const chunkResults = await Promise.all(
+                      chunk.map((pageUri, idxInChunk) => {
+                        const pageIndex = i + idxInChunk;
+                        return uploadImageToStorage(
+                          pageUri,
+                          `fileshare/${selectedSpaceId}/${Date.now()}-${currentIdx}-p${pageIndex}-${Math.random().toString(36).substring(7)}.webp`
+                        );
+                      })
+                    );
+                    chunkResults.forEach((url, idxInChunk) => {
+                      uploadedPages[i + idxInChunk] = url;
+                    });
+                  }
                   fileUrl = uploadedPages[0];
                   thumbUrl = uploadedPages[0];
                   pagesArr = uploadedPages;

@@ -291,11 +291,17 @@ export async function inspectPdfStructureWithPdfium(
 /**
  * Extracts all pages of a PDF to optimized WebP data URLs using C++ PDFium WASM.
  * 10x faster than PDF.js and requires zero external script loading.
+ *
+ * Adaptive resolution budget:
+ * - Pages 1-3 (or small docs <= 4 pages): Up to full requested maxDim (e.g. 2400px Retina).
+ * - Pages 4+ on multi-page docs (> 4 pages): Adaptive maxDim (1400-1500px) to prevent mobile RAM bloat & GPU freeze.
+ * - Yields to main thread between pages via setTimeout(0) to keep the browser responsive.
  */
 export async function extractAllPagesWithPdfium(
   pdfBytes: Uint8Array,
   docKey: string,
-  maxDim = 2400
+  maxDim = 2400,
+  onProgress?: (current: number, total: number) => void
 ): Promise<string[]> {
   const pdfium = await getPdfium();
   const docPtr = await getOrLoadDocument(pdfium, pdfBytes, docKey);
@@ -303,6 +309,14 @@ export async function extractAllPagesWithPdfium(
   const pageUrls: string[] = [];
 
   for (let p = 0; p < numPages; p++) {
+    // Notify progress
+    onProgress?.(p + 1, numPages);
+
+    // Micro-yield to UI thread every page so mobile browsers don't freeze
+    if (p > 0) {
+      await new Promise(resolve => setTimeout(resolve, 0));
+    }
+
     const pagePtr = pdfium.FPDF_LoadPage(docPtr, p);
     if (!pagePtr) continue;
     let wPt = 595;
@@ -314,20 +328,27 @@ export async function extractAllPagesWithPdfium(
       pdfium.FPDF_ClosePage(pagePtr);
     }
 
+    // Adaptive dimension budget:
+    // If document is large (> 4 pages) and we're past page 3, drop to 1450px maxDim.
+    // This reduces canvas pixel count from 5.76M pixels to ~2M pixels (65% RAM/CPU savings per page!)
+    const effectiveMaxDim = (numPages > 4 && p >= 3)
+      ? Math.min(maxDim, 1450)
+      : maxDim;
+
     const currentMax = Math.max(wPt, hPt);
     const currentMin = Math.min(wPt, hPt);
     const aspectRatio = currentMax / Math.max(1, currentMin);
 
     let scale: number;
     if (aspectRatio >= 2.5) {
-      const isHighResRequest = maxDim >= 3000;
+      const isHighResRequest = effectiveMaxDim >= 3000;
       const targetDim = isHighResRequest ? 2400 : 1800;
       const maxPixels = isHighResRequest ? 30000000 : 18000000;
       const targetScaleByMin = targetDim / currentMin;
       const maxBudgetScale = Math.sqrt(maxPixels / (wPt * hPt));
       scale = Math.min(1.0, Math.min(targetScaleByMin, maxBudgetScale));
     } else {
-      scale = Math.min(3.2, Math.max(0.5, maxDim / currentMax));
+      scale = Math.min(3.2, Math.max(0.5, effectiveMaxDim / currentMax));
     }
 
     const targetW = Math.max(1, Math.round(wPt * scale));
