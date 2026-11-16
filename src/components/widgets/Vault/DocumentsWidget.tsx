@@ -2,7 +2,6 @@
 import { canAccessItem } from '../../../utils/permissionUtils';
 import { recordTelemetryAction } from '../../../utils/telemetryTracker';
 import UniversalViewerModal from '@/components/common/ViewerEngine/UniversalViewerModal';
-import { ExportToSpaceModal, ExportableFilePayload } from '@/components/common/ExportToSpaceModal';
 import React, { useState, useEffect, forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
 import { universalSearch, universalSort } from '../../../utils/searchEngine';
 import { useAuth } from '../../../app/context/AuthContext';
@@ -108,7 +107,6 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
 
   // Custom modal states (replacing browser alert/prompt/confirm)
   const [activeDocMenuId, setActiveDocMenuId] = useState<string | null>(null);
-  const [exportToSpaceFile, setExportToSpaceFile] = useState<ExportableFilePayload | null>(null);
   const [noteDocId, setNoteDocId] = useState<string | null>(null);
   const hasFinance = (space.features || []).includes('finance');
   const showTimeline = !!space.settings?.showVaultTimeline;
@@ -3483,29 +3481,9 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                           type="button"
                                           onClick={(e) => { e.stopPropagation(); setMoveDocToFolder({ docIds: [doc.id], currentFolderId: doc.folderId }); }}
                                           style={{ background: '#f0f9ff', color: '#0284c7', border: '1px solid #bae6fd', padding: '2px 5px', borderRadius: '5px', fontSize: '0.68rem', fontWeight: 'bold', cursor: 'pointer' }}
-                                          title="העבר לתיקייה"
+                                          title="העבר או העתק (לתיקייה / מרחב)"
                                         >
                                           📁
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onPointerDown={(e) => e.stopPropagation()}
-                                          onTouchStart={(e) => e.stopPropagation()}
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setExportToSpaceFile({
-                                              docId: doc.id,
-                                              name: doc.title || doc.name || 'מסמך',
-                                              url: doc.url || doc.fileUrl || (doc.pages && doc.pages[0]) || '',
-                                              size: doc.size,
-                                              type: doc.type,
-                                              thumbnailUrl: doc.thumbnailUrl,
-                                            });
-                                          }}
-                                          style={{ background: '#f5f3ff', color: '#6d28d9', border: '1px solid #ddd6fe', padding: '2px 5px', borderRadius: '5px', fontSize: '0.68rem', fontWeight: 'bold', cursor: 'pointer' }}
-                                          title="העבר למרחב אחר"
-                                        >
-                                          🗂️
                                         </button>
                                       </div>
 
@@ -3601,24 +3579,6 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                                 style={{ background: 'transparent', border: 'none', padding: '0.35rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#0369a1', display: 'flex', alignItems: 'center', gap: '0.45rem', fontWeight: 700 }}
                                               >
                                                 📁 העבר או העתק (לתיקייה / מרחב)
-                                              </button>
-                                              <button
-                                                type="button"
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  setActiveDocMenuId(null);
-                                                  setExportToSpaceFile({
-                                                    docId: doc.id,
-                                                    name: doc.title || doc.name || 'מסמך',
-                                                    url: doc.url || doc.fileUrl || (doc.pages && doc.pages[0]) || '',
-                                                    size: doc.size,
-                                                    type: doc.type,
-                                                    thumbnailUrl: doc.thumbnailUrl,
-                                                  });
-                                                }}
-                                                style={{ background: 'transparent', border: 'none', padding: '0.35rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#6d28d9', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.45rem' }}
-                                              >
-                                                🗂️ העבר למרחב אחר
                                               </button>
                                               <button
                                                 type="button"
@@ -4572,15 +4532,6 @@ const handleDeleteDocument = (docId: string, title?: string) => {
 
       {renderRecycleBinModal()}
       {renderDocNoteModal()}
-      <ExportToSpaceModal
-        isOpen={Boolean(exportToSpaceFile)}
-        onClose={() => setExportToSpaceFile(null)}
-        file={exportToSpaceFile}
-        currentSpaceId={space.id}
-        onDeleteOriginal={(docId) => {
-          if (docId) removeDocument(space.id, docId);
-        }}
-      />
       </>
     );
   }
@@ -5109,15 +5060,6 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           onCancel={() => setDuplicateMatchState(null)}
         />
       )}
-      <ExportToSpaceModal
-        isOpen={Boolean(exportToSpaceFile)}
-        onClose={() => setExportToSpaceFile(null)}
-        file={exportToSpaceFile}
-        currentSpaceId={space.id}
-        onDeleteOriginal={(docId) => {
-          if (docId) removeDocument(space.id, docId);
-        }}
-      />
     </div>
   );
 });

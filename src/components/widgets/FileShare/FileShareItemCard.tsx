@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ExportToSpaceModal } from '@/components/common/ExportToSpaceModal';
 import { FileShareItem, formatFileSize } from '@/utils/fileShareUtils';
 import PdfThumbnail from '@/components/shared/PdfThumbnail';
 
@@ -54,7 +53,6 @@ export function FileShareItemCard({
   const [isEditingName, setIsEditingName] = useState(false);
   const [editNameValue, setEditNameValue] = useState(item.name);
   const [showDotsMenu, setShowDotsMenu] = useState(false);
-  const [showExportToSpace, setShowExportToSpace] = useState(false);
 
   // Long press timer ref & flag
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -932,20 +930,11 @@ export function FileShareItemCard({
                   type="button"
                   onClick={() => onMove(item)}
                   style={{ background: '#f0f9ff', color: '#0284c7', border: '1px solid #bae6fd', padding: '2px 5px', borderRadius: '5px', fontSize: '0.68rem', fontWeight: 'bold', cursor: 'pointer' }}
-                  title="העבר לתיקייה"
+                  title="העבר או העתק לתיקייה / מרחב"
                 >
                   📁
                 </button>
               )}
-              {/* Export / Move to another space */}
-              <button
-                type="button"
-                onClick={() => setShowExportToSpace(true)}
-                style={{ background: '#f5f3ff', color: '#6d28d9', border: '1px solid #ddd6fe', padding: '2px 5px', borderRadius: '5px', fontSize: '0.68rem', fontWeight: 'bold', cursor: 'pointer' }}
-                title="העבר למרחב אחר"
-              >
-                🗂️
-              </button>
             </div>
 
             {/* Dots Menu */}
@@ -1024,22 +1013,6 @@ export function FileShareItemCard({
           </div>
         )}
       </div>
-      <ExportToSpaceModal
-        isOpen={showExportToSpace}
-        onClose={() => setShowExportToSpace(false)}
-        file={{
-          docId: item.id,
-          name: item.name || 'קובץ',
-          url: item.url,
-          size: item.size,
-          type: item.type,
-          thumbnailUrl: item.thumbnailUrl,
-        }}
-        currentSpaceId={item.spaceId}
-        onDeleteOriginal={() => {
-          onDelete(item);
-        }}
-      />
     </div>
   );
 }

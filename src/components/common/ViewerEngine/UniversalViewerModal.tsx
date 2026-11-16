@@ -8,7 +8,8 @@ import DynamicPdfScrollPreview from '@/components/widgets/Vault/DynamicPdfScroll
 import { extractPdfPages } from '@/utils/imageOptimizer';
 import { APP_VERSION } from '@/constants/version';
 import MetricsPanel from '@/components/common/ViewerEngine/MetricsPanel';
-import { ExportToSpaceModal } from '@/components/common/ExportToSpaceModal';
+import GlobalMoveModal from '@/components/common/GlobalMoveModal';
+import { useSpaces } from '@/app/context/SpacesContext';
 
 export interface ViewerDocument {
   id?: string;
@@ -64,6 +65,7 @@ export default function UniversalViewerModal({
   const [hdPagesMap, setHdPagesMap] = useState<Record<string, string[]>>({});
   const [showMetrics, setShowMetrics] = useState<boolean>(false);
   const [showExportToSpace, setShowExportToSpace] = useState<boolean>(false);
+  const { spaces, addDocument, updateFileShareItems } = useSpaces();
 
   useEffect(() => {
     if (onIndexChange) onIndexChange(currentIndex);
@@ -1259,17 +1261,62 @@ export default function UniversalViewerModal({
         isOpen={showMetrics}
         onClose={() => setShowMetrics(false)}
       />
-      <ExportToSpaceModal
+      <GlobalMoveModal
         isOpen={showExportToSpace}
         onClose={() => setShowExportToSpace(false)}
-        file={currentDoc ? {
-          docId: currentDoc.id,
-          name: currentDoc.title || currentDoc.name || 'קובץ',
-          url: currentDoc.url || (currentDoc.pages && currentDoc.pages[0]) || '',
-          size: currentDoc.size,
-          type: currentDoc.type,
-          thumbnailUrl: currentDoc.thumbnailUrl || (currentDoc.pages && currentDoc.pages[0]),
-        } : null}
+        title="העברה / שכפול למרחב"
+        subtitle={currentDoc ? `📄 ${currentDoc.title || currentDoc.name || 'קובץ'}` : undefined}
+        itemCount={1}
+        folders={[]}
+        canCopy={true}
+        onConfirmMove={() => {
+          setShowExportToSpace(false);
+        }}
+        onConfirmCrossSpace={async (targetSpaceId, targetShelfId, targetFolderId, actionType) => {
+          if (!currentDoc) return;
+          const targetSpace = spaces.find(s => s.id === targetSpaceId);
+          if (!targetSpace) return;
+
+          // If target space has file share items or is a file share space
+          const isFileShareTarget = targetSpace.fileShareItems !== undefined && (targetSpace.shelves === undefined || targetSpace.shelves.length === 0);
+
+          if (isFileShareTarget) {
+            const newFile = {
+              id: `file_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+              spaceId: targetSpaceId,
+              name: currentDoc.title || currentDoc.name || 'קובץ',
+              type: 'file' as const,
+              url: currentDoc.url || (currentDoc.pages && currentDoc.pages[0]) || '',
+              size: currentDoc.size || 0,
+              fileType: ((currentDoc.type === 'pdf') || (currentDoc.url && currentDoc.url.toLowerCase().includes('.pdf'))) ? 'pdf' as const : 'image' as const,
+              thumbnailUrl: currentDoc.thumbnailUrl || (currentDoc.pages && currentDoc.pages[0]),
+              parentId: targetFolderId || null,
+              createdAt: Date.now(),
+              createdBy: 'user',
+              creatorName: 'משתמש',
+              allowedPartners: []
+            };
+            const existing = targetSpace.fileShareItems || [];
+            await updateFileShareItems(targetSpaceId, [...existing, newFile]);
+          } else {
+            // Target space is Vault / Shelves
+            const docType: 'document' | 'pdf' | 'image' = 
+              currentDoc.type === 'pdf' ? 'pdf' : currentDoc.type === 'image' ? 'image' : 'document';
+
+            addDocument(targetSpaceId, {
+              title: currentDoc.title || currentDoc.name || 'מסמך',
+              type: docType,
+              url: currentDoc.url || (currentDoc.pages && currentDoc.pages[0]) || '',
+              shelfId: targetShelfId || (targetSpace.shelves?.[0]?.id) || 'general',
+              folderId: targetFolderId ? String(targetFolderId) : null,
+              fileSize: currentDoc.size,
+              allowedPartners: [],
+              addedBy: currentDoc.addedBy || 'user',
+              addedByName: currentDoc.addedByName || 'משתמש'
+            });
+          }
+          setShowExportToSpace(false);
+        }}
       />
     </div>,
     document.body
