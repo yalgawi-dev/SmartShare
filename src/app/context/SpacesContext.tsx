@@ -425,6 +425,12 @@ interface SpacesContextType {
     targetParentFolderId?: string | null,
     actionType?: 'copy' | 'move'
   ) => Promise<void>;
+  exportShelfToSpace: (
+    sourceSpaceId: string,
+    shelfId: string,
+    targetSpaceId: string,
+    actionType?: 'copy' | 'move'
+  ) => Promise<void>;
   addShelf: (spaceId: string, shelf: Omit<DocumentShelf, 'id' | 'createdAt'>) => string;
   updateShelf: (spaceId: string, shelfId: string, updates: Partial<DocumentShelf>) => void;
   removeShelf: (spaceId: string, shelfId: string) => void;
@@ -2726,6 +2732,83 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
     }
   };
 
+  const exportShelfToSpace = async (
+    sourceSpaceId: string,
+    shelfId: string,
+    targetSpaceId: string,
+    actionType: 'copy' | 'move' = 'copy'
+  ): Promise<void> => {
+    const sourceSpace = spaces.find(s => s.id === sourceSpaceId);
+    const targetSpace = spaces.find(s => s.id === targetSpaceId);
+    if (!sourceSpace || !targetSpace) {
+      throw new Error('מרחב מקור או יעד אינו קיים');
+    }
+
+    const sourceShelf = (sourceSpace.shelves || []).find(s => s.id === shelfId);
+    if (!sourceShelf) {
+      throw new Error('נושא המקור (המדף) לא נמצא');
+    }
+
+    const newTargetShelfId = `shelf-${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const newTargetShelf: DocumentShelf = {
+      ...sourceShelf,
+      id: newTargetShelfId,
+      allowedPartners: [],
+      createdAt: new Date().toISOString(),
+    };
+
+    // Gather all folders belonging to this shelf
+    const sourceFolders = (sourceSpace.documentFolders || []).filter(
+      f => !f.deletedAt && f.shelfId === shelfId
+    );
+    const folderIdMap: Record<string, string> = {};
+    sourceFolders.forEach((sf, idx) => {
+      folderIdMap[sf.id] = `folder_${Date.now()}_${idx}_${Math.random().toString(36).substring(2, 7)}`;
+    });
+
+    const newTargetFolders: DocumentFolder[] = sourceFolders.map(sf => ({
+      id: folderIdMap[sf.id],
+      name: sf.name,
+      shelfId: newTargetShelfId,
+      parentId: sf.parentId && folderIdMap[sf.parentId] ? folderIdMap[sf.parentId] : null,
+      stationId: sf.stationId || null,
+      allowedPartners: [],
+      createdAt: new Date().toISOString(),
+    }));
+
+    // Gather all documents belonging to this shelf
+    const sourceDocs = (sourceSpace.documents || []).filter(
+      d => !d.deletedAt && d.shelfId === shelfId
+    );
+    const newTargetDocs: SpaceDocument[] = sourceDocs.map((doc, dIdx) => ({
+      ...doc,
+      id: `doc_${Date.now()}_${dIdx}_${Math.random().toString(36).substring(2, 7)}`,
+      shelfId: newTargetShelfId,
+      folderId: doc.folderId && folderIdMap[doc.folderId] ? folderIdMap[doc.folderId] : null,
+      allowedPartners: [],
+      createdAt: new Date().toISOString(),
+    }));
+
+    // Save into target space
+    saveSpaceUpdate(targetSpaceId, sp => ({
+      ...sp,
+      shelves: [...(sp.shelves || []), newTargetShelf],
+      documentFolders: [...(sp.documentFolders || []), ...newTargetFolders],
+      documents: [...(sp.documents || []), ...newTargetDocs]
+    }));
+
+    // If 'move', remove from source space
+    if (actionType === 'move') {
+      const sourceFolderIds = sourceFolders.map(f => f.id);
+      saveSpaceUpdate(sourceSpaceId, sp => ({
+        ...sp,
+        shelves: (sp.shelves || []).filter(s => s.id !== shelfId),
+        documentFolders: (sp.documentFolders || []).filter(f => f.shelfId !== shelfId && !sourceFolderIds.includes(f.id)),
+        documents: (sp.documents || []).filter(d => d.shelfId !== shelfId)
+      }));
+    }
+  };
+
   const addShelf = (spaceId: string, shelf: Omit<DocumentShelf, 'id' | 'createdAt'>) => {
     const shelfId = `shelf-${Date.now()}`;
     const cleanAllowed = Array.isArray(shelf.allowedPartners) ? shelf.allowedPartners : [];
@@ -3014,7 +3097,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
   };
 
   return (
-    <SpacesContext.Provider value={{ spaces, getRoleForSpace, getTokenForSpace, addSpace, deleteSpace, permanentlyDeleteSpace, restoreSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceLogo, updateSpaceIcon, toggleFeature, updateSpaceSettings, updateFileShareItems, updateInvoice, attachFileToInvoice, addInvoice, approveAndRouteInvoice, addInboxItems, updateInboxItem, removeInboxItem, addMediaItem, updateMediaItem, removeMediaItem, addDocument, addDocumentAndLinkToEvent, updateDocument, mergeDocuments, removeDocument, restoreDocument, permanentlyDeleteDocument, addDocumentFolder, updateDocumentFolder, removeDocumentFolder, restoreDocumentFolder, permanentlyDeleteDocumentFolder, moveDocumentFolder, exportDocumentFolderToSpace, addShelf, updateShelf, removeShelf, restoreShelf, permanentlyDeleteShelf, addShelfEvent, updateShelfEvent, removeShelfEvent, addShelfEventComment, removeShelfEventComment, likeMediaItem, joinSpace, finalizeGuestJoin, declinePendingInvite, createPendingInvite, migrateGuestToRealUser,
+    <SpacesContext.Provider value={{ spaces, getRoleForSpace, getTokenForSpace, addSpace, deleteSpace, permanentlyDeleteSpace, restoreSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceLogo, updateSpaceIcon, toggleFeature, updateSpaceSettings, updateFileShareItems, updateInvoice, attachFileToInvoice, addInvoice, approveAndRouteInvoice, addInboxItems, updateInboxItem, removeInboxItem, addMediaItem, updateMediaItem, removeMediaItem, addDocument, addDocumentAndLinkToEvent, updateDocument, mergeDocuments, removeDocument, restoreDocument, permanentlyDeleteDocument, addDocumentFolder, updateDocumentFolder, removeDocumentFolder, restoreDocumentFolder, permanentlyDeleteDocumentFolder, moveDocumentFolder, exportDocumentFolderToSpace, exportShelfToSpace, addShelf, updateShelf, removeShelf, restoreShelf, permanentlyDeleteShelf, addShelfEvent, updateShelfEvent, removeShelfEvent, addShelfEventComment, removeShelfEventComment, likeMediaItem, joinSpace, finalizeGuestJoin, declinePendingInvite, createPendingInvite, migrateGuestToRealUser,
       requestGroupJoin,
       approveGroupMember,
       rejectGroupMember,

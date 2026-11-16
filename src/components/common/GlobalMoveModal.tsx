@@ -25,6 +25,7 @@ export interface GlobalMoveModalProps {
   currentFolderId?: string | null;
   currentShelfId?: string | null;
   currentSpaceId?: string;
+  isShelfTransfer?: boolean;
   shelves?: ShelfTargetItem[];
   folders: FolderTargetItem[];
   onConfirmMove: (targetFolderId: string | null, targetShelfId?: string) => void;
@@ -42,6 +43,7 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
   currentFolderId,
   currentShelfId,
   currentSpaceId,
+  isShelfTransfer = false,
   shelves,
   folders,
   onConfirmMove,
@@ -52,7 +54,9 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
   const { spaces } = useSpaces();
   const { user } = useAuth();
 
-  const [destinationMode, setDestinationMode] = useState<'current' | 'other'>('current');
+  const [destinationMode, setDestinationMode] = useState<'current' | 'other'>(() => {
+    return isShelfTransfer ? 'other' : 'current';
+  });
   const [crossActionType, setCrossActionType] = useState<'copy' | 'move'>('copy');
   const [targetSpaceId, setTargetSpaceId] = useState<string>('');
   const [targetSpaceShelfId, setTargetSpaceShelfId] = useState<string>('');
@@ -209,7 +213,11 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
           <div>
             <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#1e293b' }}>
-              {destinationMode === 'other' ? (crossActionType === 'copy' ? 'שכפול תיקייה למרחב אחר' : 'העברת תיקייה למרחב אחר') : modalTitle}
+              {isShelfTransfer 
+                ? (crossActionType === 'copy' ? 'שכפול נושא/מדף למרחב אחר' : 'העברת נושא/מדף למרחב אחר')
+                : destinationMode === 'other' 
+                  ? (crossActionType === 'copy' ? 'שכפול תיקייה למרחב אחר' : 'העברת תיקייה למרחב אחר') 
+                  : modalTitle}
             </h3>
             {subtitle && (
               <div style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '2px', maxWidth: '320px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -232,7 +240,7 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
         </div>
 
         {/* Destination Mode Selector: In Current Space vs In Other Space */}
-        {Boolean(onConfirmCrossSpace) && otherAvailableSpaces.length > 0 && (
+        {!isShelfTransfer && Boolean(onConfirmCrossSpace) && otherAvailableSpaces.length > 0 && (
           <div style={{ display: 'flex', background: '#f1f5f9', padding: '4px', borderRadius: '12px', marginBottom: '1rem', gap: '4px' }}>
             <button
               type="button"
@@ -347,7 +355,7 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
             </div>
 
             {/* 2. Target Shelf Selection (if space has shelves) */}
-            {targetSpaceShelves.length > 0 && (
+            {!isShelfTransfer && targetSpaceShelves.length > 0 && (
               <div>
                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>
                   2. בחר מדף יעד במרחב:
@@ -381,33 +389,35 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
             )}
 
             {/* 3. Target Parent Folder inside target space */}
-            <div>
-              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>
-                3. מיקום בתוך המרחב:
-              </label>
-              <select
-                value={targetSpaceFolderId || ''}
-                onChange={(e) => setTargetSpaceFolderId(e.target.value || null)}
-                style={{
-                  width: '100%',
-                  padding: '10px 12px',
-                  borderRadius: '12px',
-                  border: '1.5px solid #cbd5e1',
-                  fontSize: '0.88rem',
-                  fontWeight: 600,
-                  background: '#fff',
-                  outline: 'none',
-                  cursor: 'pointer'
-                }}
-              >
-                <option value="">📁 רמה ראשית (ללא תיקיית אב)</option>
-                {targetSpaceFolders.map((f: any) => (
-                  <option key={f.id} value={f.id}>
-                    📁 בתוך תיקיית: {f.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {!isShelfTransfer && (
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>
+                  3. מיקום בתוך המרחב:
+                </label>
+                <select
+                  value={targetSpaceFolderId || ''}
+                  onChange={(e) => setTargetSpaceFolderId(e.target.value || null)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: '12px',
+                    border: '1.5px solid #cbd5e1',
+                    fontSize: '0.88rem',
+                    fontWeight: 600,
+                    background: '#fff',
+                    outline: 'none',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value="">📁 רמה ראשית (ללא תיקיית אב)</option>
+                  {targetSpaceFolders.map((f: any) => (
+                    <option key={f.id} value={f.id}>
+                      📁 בתוך תיקיית: {f.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {crossError && (
               <div style={{ color: '#dc2626', fontSize: '0.82rem', background: '#fef2f2', padding: '8px 10px', borderRadius: '10px', border: '1px solid #fecaca', fontWeight: 600 }}>
@@ -438,8 +448,12 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
               }}
             >
               {isCrossSaving 
-                ? (crossActionType === 'copy' ? 'משכפל תיקייה ומסמכים...' : 'מעביר תיקייה ומסמכים...')
-                : (crossActionType === 'copy' ? '📋 צור עותק של התיקייה במרחב הנבחר' : '🗂️ העבר את התיקייה למרחב הנבחר')}
+                ? (crossActionType === 'copy' 
+                    ? (isShelfTransfer ? 'משכפל נושא/מדף ומסמכים...' : 'משכפל תיקייה ומסמכים...') 
+                    : (isShelfTransfer ? 'מעביר נושא/מדף ומסמכים...' : 'מעביר תיקייה ומסמכים...'))
+                : (crossActionType === 'copy' 
+                    ? (isShelfTransfer ? '📋 צור עותק של הנושא במרחב הנבחר' : '📋 צור עותק של התיקייה במרחב הנבחר') 
+                    : (isShelfTransfer ? '🗂️ העבר את הנושא למרחב הנבחר' : '🗂️ העבר את התיקייה למרחב הנבחר'))}
             </button>
           </div>
         ) : (

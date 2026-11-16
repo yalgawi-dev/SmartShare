@@ -6,7 +6,7 @@ import { ExportToSpaceModal, ExportableFilePayload } from '@/components/common/E
 import React, { useState, useEffect, forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
 import { universalSearch, universalSort } from '../../../utils/searchEngine';
 import { useAuth } from '../../../app/context/AuthContext';
-import { Space, useSpaces, DocumentFolder, SpaceDocument } from '../../../app/context/SpacesContext';
+import { Space, useSpaces, DocumentFolder, SpaceDocument, DocumentShelf } from '../../../app/context/SpacesContext';
 import { ShelfCoverPicker } from './ShelfCoverPicker';
 import ShelfTimeline from './ShelfTimeline';
 import { uploadImageToStorage } from '@/lib/firebase';
@@ -59,7 +59,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
     addShelf, updateShelf, removeShelf, restoreShelf, permanentlyDeleteShelf, 
     addDocument, addDocumentAndLinkToEvent, updateDocument, removeDocument, restoreDocument, permanentlyDeleteDocument, 
     addDocumentFolder, updateDocumentFolder, removeDocumentFolder, restoreDocumentFolder, permanentlyDeleteDocumentFolder, moveDocumentFolder,
-    exportDocumentFolderToSpace,
+    exportDocumentFolderToSpace, exportShelfToSpace,
     addShelfEvent, updateShelfEvent, removeShelfEvent, addShelfEventComment, removeShelfEventComment 
   } = useSpaces() as any;
   
@@ -113,6 +113,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   const hasFinance = (space.features || []).includes('finance');
   const showTimeline = !!space.settings?.showVaultTimeline;
   const [shelfToDelete, setShelfToDelete] = useState<{ id: string, name: string, count: number } | null>(null);
+  const [shelfToMove, setShelfToMove] = useState<DocumentShelf | null>(null);
   const [showRecycleBin, setShowRecycleBin] = useState(false);
   const [shelfToPermanentDelete, setShelfToPermanentDelete] = useState<{ id: string, name: string } | null>(null);
   const [docToPermanentDelete, setDocToPermanentDelete] = useState<{ id: string, title: string } | null>(null);
@@ -1479,7 +1480,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
     return (
       <>
         <div style={{ padding: '0', paddingBottom: '6rem' }}>
-        <div style={{ position: 'sticky', top: '56px', zIndex: 100, background: 'var(--bg-main, #f8fafc)', borderBottom: '1px solid #e2e8f0', margin: '0 -1rem 1rem -1rem', padding: '0.5rem 1rem 0' }}>
+        <div style={{ position: 'sticky', top: '56px', zIndex: 40, background: 'var(--bg-main, #f8fafc)', borderBottom: '1px solid #e2e8f0', margin: '0 -1rem 1rem -1rem', padding: '0.5rem 1rem 0' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
               <h2 onClick={() => handleRenameShelf(activeShelf.id, activeShelf.name)} style={{ margin: 0, color: '#1e293b', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
@@ -1520,6 +1521,14 @@ const handleDeleteDocument = (docId: string, title?: string) => {
               })()}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <button 
+                onClick={() => setShelfToMove(activeShelf)} 
+                style={{ background: 'transparent', border: 'none', padding: '0', color: '#7c3aed', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
+                title="העבר או שכפל נושא זה למרחב אחר"
+              >
+                <span>🚀</span>
+                <span>העבר/שכפל למרחב</span>
+              </button>
               <button onClick={() => setEditingShelfCoverId(activeShelf.id)} style={{ background: 'transparent', border: 'none', padding: '0', color: '#3b82f6', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>
                 🎨 עיצוב
               </button>
@@ -3095,7 +3104,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                             ? '2.5px solid #06b6d4' 
                                             : (doc.isFavorite ? '2px solid #f59e0b' : '1px solid #e2e8f0'))),
                                   position: 'relative',
-                                  zIndex: activeDocMenuId === doc.id ? 60 : (isLastViewed ? 5 : 1),
+                                  zIndex: activeDocMenuId === doc.id ? 80 : (isLastViewed ? 5 : 1),
                                   opacity: draggedDocId === doc.id ? 0.4 : (doc.id.startsWith('temp-') ? 0.6 : 1),
                                   transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
                                   transform: isChecked ? 'scale(1.02)' : (dragOverDocId === doc.id ? 'scale(1.02)' : (isLastViewed ? 'scale(1.015)' : 'none')),
@@ -4044,6 +4053,47 @@ const handleDeleteDocument = (docId: string, title?: string) => {
         );
       })()}
 
+      {/* MOVE / COPY SHELF ACROSS SPACES MODAL */}
+      {shelfToMove && (
+        <GlobalMoveModal
+          isOpen={Boolean(shelfToMove)}
+          title="העברת נושא שלם"
+          subtitle={`הנושא "${shelfToMove.name}" על כל תיקיותיו ומסמכיו`}
+          itemCount={1}
+          currentSpaceId={space.id}
+          isShelfTransfer={true}
+          currentShelfId={shelfToMove.id}
+          shelves={[]}
+          folders={[]}
+          onClose={() => setShelfToMove(null)}
+          onConfirmMove={() => {
+            setShelfToMove(null);
+          }}
+          onConfirmCrossSpace={async (targetSpaceId, _targetShelfId, _targetFolderId, actionType) => {
+            if (!exportShelfToSpace) return;
+            await exportShelfToSpace(
+              space.id,
+              shelfToMove.id,
+              targetSpaceId,
+              actionType
+            );
+            if (actionType === 'move' && activeShelfId === shelfToMove.id) {
+              setActiveShelfId(null);
+              setCurrentFolderId(null);
+            }
+            const shelfName = shelfToMove.name;
+            setShelfToMove(null);
+            showFeedbackToast(
+              actionType === 'copy'
+                ? `הנושא "${shelfName}" שוכפל בהצלחה למרחב הנבחר!`
+                : `הנושא "${shelfName}" הועבר בהצלחה למרחב הנבחר!`
+            );
+          }}
+          rootLabel="רמה ראשית"
+          rootDescription="הנושא ייווצר כנושא ראשי חדש במרחב היעד"
+        />
+      )}
+
       {/* CONFIRM DELETE FOLDER MODAL */}
       <ConfirmModal
         isOpen={Boolean(folderToDelete)}
@@ -4627,6 +4677,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                         </button>
                       );
                     })()}
+                    <button onClick={(e) => { e.stopPropagation(); setShelfToMove(shelf); }} style={{ background: 'transparent', border: 'none', fontSize: '1.1rem', cursor: 'pointer', padding: 0 }} title="העבר או שכפל נושא למרחב אחר">🚀</button>
                     <button onClick={() => setEditingShelfCoverId(shelf.id)} style={{ background: 'transparent', border: 'none', fontSize: '1.1rem', cursor: 'pointer', padding: 0 }} title="עיצוב מדף">🎨</button>
                     <button onClick={(e) => {
                       e.stopPropagation();
@@ -4711,6 +4762,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                         </button>
                       );
                     })()}
+                    <button onClick={(e) => { e.stopPropagation(); setShelfToMove(shelf); }} style={{ background: '#f5f3ff', border: '1px solid #ddd6fe', width: '28px', height: '28px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem' }} title="העבר או שכפל נושא למרחב אחר">🚀</button>
                     <button onClick={(e) => { e.stopPropagation(); setEditingShelfCoverId(shelf.id); }} style={{ background: '#f1f5f9', border: 'none', width: '28px', height: '28px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="עיצוב">🎨</button>
                     <button onClick={(e) => {
                       e.stopPropagation();
@@ -4736,6 +4788,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
 
             return (
               <div key={shelf.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', width: '90px', position: 'relative' }}>
+                <button onClick={(e) => { e.stopPropagation(); setShelfToMove(shelf); }} style={{ position: 'absolute', top: 0, left: '26px', background: 'white', border: '1px solid #ddd6fe', borderRadius: '50%', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', zIndex: 10, cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }} title="העבר או שכפל נושא למרחב אחר">🚀</button>
                 <button onClick={(e) => { e.stopPropagation(); setEditingShelfCoverId(shelf.id); }} style={{ position: 'absolute', top: 0, left: 0, background: 'white', border: '1px solid #e2e8f0', borderRadius: '50%', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', zIndex: 10, cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }} title="עיצוב">🎨</button>
                 <button onClick={(e) => {
                   e.stopPropagation();

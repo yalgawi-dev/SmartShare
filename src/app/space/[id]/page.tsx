@@ -1033,7 +1033,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
       />
 
       {/* Project Title Row */}
-      <header style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem', width: '100%', minWidth: 0 }}>
+      <header style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem', width: '100%', minWidth: 0, flexWrap: 'wrap' }}>
         <div 
            onClick={() => {
               if (!isRestricted) {
@@ -1050,7 +1050,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
           }}>
             {space.logoUrl ? <img src={space.logoUrl} alt="Logo" style={{width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover'}} /> : (space.icon || space.title.charAt(0))}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, minWidth: 0, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, minWidth: 0, flexWrap: 'wrap' }}>
           <h1 
             onClick={() => {
               if (!isRestricted) {
@@ -1069,9 +1069,6 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
               display: 'inline-flex', 
               alignItems: 'center', 
               gap: '0.4rem',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
               minWidth: 0,
               flexShrink: 1
             }}>
