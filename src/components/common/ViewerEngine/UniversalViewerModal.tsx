@@ -1262,6 +1262,7 @@ export default function UniversalViewerModal({
         isOpen={showExportToSpace}
         onClose={() => setShowExportToSpace(false)}
         file={currentDoc ? {
+          docId: currentDoc.id,
           name: currentDoc.title || currentDoc.name || 'קובץ',
           url: currentDoc.url || (currentDoc.pages && currentDoc.pages[0]) || '',
           size: currentDoc.size,

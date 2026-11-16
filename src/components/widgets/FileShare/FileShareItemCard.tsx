@@ -1028,6 +1028,7 @@ export function FileShareItemCard({
         isOpen={showExportToSpace}
         onClose={() => setShowExportToSpace(false)}
         file={{
+          docId: item.id,
           name: item.name || 'קובץ',
           url: item.url,
           size: item.size,
@@ -1035,6 +1036,9 @@ export function FileShareItemCard({
           thumbnailUrl: item.thumbnailUrl,
         }}
         currentSpaceId={item.spaceId}
+        onDeleteOriginal={() => {
+          onDelete(item);
+        }}
       />
     </div>
   );

@@ -12,6 +12,7 @@ export interface ExportableFilePayload {
   type?: string;
   thumbnailUrl?: string;
   isInvoice?: boolean;
+  docId?: string;
 }
 
 interface ExportToSpaceModalProps {
@@ -19,7 +20,8 @@ interface ExportToSpaceModalProps {
   onClose: () => void;
   file: ExportableFilePayload | null;
   currentSpaceId?: string;
-  onSuccess?: (targetSpaceName: string) => void;
+  onSuccess?: (targetSpaceName: string, actionType?: 'copy' | 'move') => void;
+  onDeleteOriginal?: (docId: string) => void;
 }
 
 interface FolderOption {
@@ -34,12 +36,14 @@ export const ExportToSpaceModal: React.FC<ExportToSpaceModalProps> = ({
   file,
   currentSpaceId,
   onSuccess,
+  onDeleteOriginal,
 }) => {
   const { spaces, updateFileShareItems, addInvoice } = useSpaces();
   const { user } = useAuth();
 
   const [selectedSpaceId, setSelectedSpaceId] = useState<string>('');
   const [targetKind, setTargetKind] = useState<'document' | 'invoice'>('document');
+  const [actionType, setActionType] = useState<'copy' | 'move'>('copy');
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [folderPath, setFolderPath] = useState<{ id: string | null; name: string }[]>([
     { id: null, name: 'ראשי' },
@@ -225,11 +229,18 @@ export const ExportToSpaceModal: React.FC<ExportToSpaceModalProps> = ({
       }
 
       const targetTitle = targetSpace.title || 'המרחב';
-      onSuccess?.(targetTitle);
+      if (actionType === 'move' && file.docId && onDeleteOriginal) {
+        try {
+          onDeleteOriginal(file.docId);
+        } catch (delErr) {
+          console.warn('Failed removing original file after move:', delErr);
+        }
+      }
+      onSuccess?.(targetTitle, actionType);
       onClose();
     } catch (err) {
       console.error('Failed exporting file to space:', err);
-      setErrorMsg('שגיאה בהעברת הקובץ');
+      setErrorMsg(actionType === 'move' ? 'שגיאה בהעברת הקובץ' : 'שגיאה בהעתקת הקובץ');
     } finally {
       setIsSaving(false);
     }
@@ -267,8 +278,8 @@ export const ExportToSpaceModal: React.FC<ExportToSpaceModalProps> = ({
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
           <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span>🗂️</span>
-            <span>העברה למרחב אחר</span>
+            <span>{actionType === 'copy' ? '📋' : '🗂️'}</span>
+            <span>{actionType === 'copy' ? 'שכפול / העתקה למרחב אחר' : 'העברה למרחב אחר'}</span>
           </h3>
           <button
             type="button"
@@ -281,6 +292,58 @@ export const ExportToSpaceModal: React.FC<ExportToSpaceModalProps> = ({
 
         <div style={{ fontSize: '0.8rem', color: '#475569', background: '#f8fafc', padding: '9px 12px', borderRadius: '10px', marginBottom: '14px', wordBreak: 'break-word', border: '1px solid #f1f5f9' }}>
           קובץ: <strong style={{ color: '#0f172a' }}>{file.name}</strong>
+        </div>
+
+        {/* Action Type Toggle: Copy vs Move */}
+        <div style={{ display: 'flex', background: '#f1f5f9', padding: '4px', borderRadius: '12px', marginBottom: '14px', gap: '4px' }}>
+          <button
+            type="button"
+            onClick={() => setActionType('copy')}
+            style={{
+              flex: 1,
+              padding: '8px 10px',
+              borderRadius: '9px',
+              border: 'none',
+              background: actionType === 'copy' ? '#ffffff' : 'transparent',
+              color: actionType === 'copy' ? '#2563eb' : '#64748b',
+              fontWeight: 800,
+              fontSize: '0.82rem',
+              cursor: 'pointer',
+              boxShadow: actionType === 'copy' ? '0 2px 6px rgba(0,0,0,0.08)' : 'none',
+              transition: 'all 0.15s ease',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px'
+            }}
+          >
+            <span>📋</span>
+            <span>יצירת עותק (שמור כאן)</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActionType('move')}
+            style={{
+              flex: 1,
+              padding: '8px 10px',
+              borderRadius: '9px',
+              border: 'none',
+              background: actionType === 'move' ? '#ffffff' : 'transparent',
+              color: actionType === 'move' ? '#7c3aed' : '#64748b',
+              fontWeight: 800,
+              fontSize: '0.82rem',
+              cursor: 'pointer',
+              boxShadow: actionType === 'move' ? '0 2px 6px rgba(0,0,0,0.08)' : 'none',
+              transition: 'all 0.15s ease',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px'
+            }}
+          >
+            <span>🗂️</span>
+            <span>העברה מלאה (מחק מכאן)</span>
+          </button>
         </div>
 
         {/* 1. Target Space */}
@@ -503,7 +566,11 @@ export const ExportToSpaceModal: React.FC<ExportToSpaceModalProps> = ({
             padding: '12px',
             borderRadius: '14px',
             border: 'none',
-            background: isSaving ? '#94a3b8' : '#2563eb',
+            background: isSaving
+              ? '#94a3b8'
+              : actionType === 'copy'
+                ? 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)'
+                : 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)',
             color: '#fff',
             fontWeight: 800,
             fontSize: '0.94rem',
@@ -511,7 +578,9 @@ export const ExportToSpaceModal: React.FC<ExportToSpaceModalProps> = ({
             boxShadow: isSaving ? 'none' : '0 4px 12px rgba(37, 99, 235, 0.25)',
           }}
         >
-          {isSaving ? 'מעביר...' : '🗂️ העבר למרחב הנבחר'}
+          {isSaving 
+            ? (actionType === 'copy' ? 'משכפל...' : 'מעביר...') 
+            : (actionType === 'copy' ? '📋 צור עותק במרחב הנבחר' : '🗂️ העבר למרחב הנבחר')}
         </button>
       </div>
     </div>

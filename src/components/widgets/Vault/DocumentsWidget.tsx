@@ -3484,6 +3484,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                           onClick={(e) => {
                                             e.stopPropagation();
                                             setExportToSpaceFile({
+                                              docId: doc.id,
                                               name: doc.title || doc.name || 'מסמך',
                                               url: doc.url || doc.fileUrl || (doc.pages && doc.pages[0]) || '',
                                               size: doc.size,
@@ -3597,6 +3598,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                                   e.stopPropagation();
                                                   setActiveDocMenuId(null);
                                                   setExportToSpaceFile({
+                                                    docId: doc.id,
                                                     name: doc.title || doc.name || 'מסמך',
                                                     url: doc.url || doc.fileUrl || (doc.pages && doc.pages[0]) || '',
                                                     size: doc.size,
@@ -4448,6 +4450,9 @@ const handleDeleteDocument = (docId: string, title?: string) => {
         onClose={() => setExportToSpaceFile(null)}
         file={exportToSpaceFile}
         currentSpaceId={space.id}
+        onDeleteOriginal={(docId) => {
+          if (docId) removeDocument(space.id, docId);
+        }}
       />
       </>
     );
@@ -4979,6 +4984,9 @@ const handleDeleteDocument = (docId: string, title?: string) => {
         onClose={() => setExportToSpaceFile(null)}
         file={exportToSpaceFile}
         currentSpaceId={space.id}
+        onDeleteOriginal={(docId) => {
+          if (docId) removeDocument(space.id, docId);
+        }}
       />
     </div>
   );
