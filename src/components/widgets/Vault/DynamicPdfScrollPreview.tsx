@@ -144,13 +144,14 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
 
           // For blueprints / megilot / CAD (aspect ratio >= 2.5): guarantee short axis is at least 2200px
           // so every CAD measurement number and fine line is crystal clear!
+          // For standard A4 documents: render at 2600px (Retina 3x) so text stays razor-sharp even when zooming in without needing focus slicing!
           let scale: number;
           if (aspectRatio >= 2.5) {
             const targetByMin = 2200 / currentMin;
             const maxBudget = Math.sqrt(32000000 / (unscaledViewport.width * unscaledViewport.height));
             scale = Math.min(1.0, Math.min(targetByMin, maxBudget));
           } else {
-            scale = Math.min(1.8, Math.max(0.8, 1600 / currentMax));
+            scale = Math.min(3.2, Math.max(1.2, 2600 / currentMax));
           }
 
           // Fast-path: render full page with C++ PDFium WASM
@@ -224,7 +225,7 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             await page.render({ canvasContext: ctx, viewport }).promise;
-            return compressCanvasWebP(canvas, 0.85);
+            return compressCanvasWebP(canvas, 0.92);
           }
           return '';
         };
@@ -700,8 +701,8 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
                 </div>
               </TransformComponent>
 
-              {/* Action Buttons Header: Focused Region Sharpener (Only shown when zoomed in > 1.25x or on wide architectural blueprints) */}
-              {pdfDocRef.current && (pdfScale > 1.25 || isWideBlueprintRef.current || regionSlice) && (
+              {/* Action Buttons Header: Focused Region Sharpener (ONLY on wide architectural blueprints / CAD plans, never on A4) */}
+              {pdfDocRef.current && (isWideBlueprintRef.current || regionSlice) && (
                 <div
                   onClick={(e) => e.stopPropagation()}
                   style={{

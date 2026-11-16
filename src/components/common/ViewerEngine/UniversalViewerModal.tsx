@@ -1063,7 +1063,9 @@ export default function UniversalViewerModal({
                   if (webpAutoFocusTimeoutRef.current) {
                     clearTimeout(webpAutoFocusTimeoutRef.current);
                   }
-                  if (newScale > 1.3) {
+                  const imgEl = singleImageRef.current;
+                  const isWidePlanImg = imgEl ? (Math.max(imgEl.naturalWidth || 1, imgEl.naturalHeight || 1) / Math.max(1, Math.min(imgEl.naturalWidth || 1, imgEl.naturalHeight || 1)) >= 2.2) : false;
+                  if (newScale > 1.3 && isWidePlanImg) {
                     webpAutoFocusTimeoutRef.current = setTimeout(() => {
                       handleRenderWebpFocusRegion();
                     }, 400);
@@ -1074,7 +1076,9 @@ export default function UniversalViewerModal({
                 }}
                 onPanningStop={() => {
                   if (webpAutoFocusTimeoutRef.current) clearTimeout(webpAutoFocusTimeoutRef.current);
-                  if (currentScale > 1.3) {
+                  const imgEl = singleImageRef.current;
+                  const isWidePlanImg = imgEl ? (Math.max(imgEl.naturalWidth || 1, imgEl.naturalHeight || 1) / Math.max(1, Math.min(imgEl.naturalWidth || 1, imgEl.naturalHeight || 1)) >= 2.2) : false;
+                  if (currentScale > 1.3 && isWidePlanImg) {
                     webpAutoFocusTimeoutRef.current = setTimeout(() => {
                       handleRenderWebpFocusRegion();
                     }, 300);
@@ -1082,7 +1086,9 @@ export default function UniversalViewerModal({
                 }}
                 onPinchStop={() => {
                   if (webpAutoFocusTimeoutRef.current) clearTimeout(webpAutoFocusTimeoutRef.current);
-                  if (currentScale > 1.3) {
+                  const imgEl = singleImageRef.current;
+                  const isWidePlanImg = imgEl ? (Math.max(imgEl.naturalWidth || 1, imgEl.naturalHeight || 1) / Math.max(1, Math.min(imgEl.naturalWidth || 1, imgEl.naturalHeight || 1)) >= 2.2) : false;
+                  if (currentScale > 1.3 && isWidePlanImg) {
                     webpAutoFocusTimeoutRef.current = setTimeout(() => {
                       handleRenderWebpFocusRegion();
                     }, 300);
@@ -1194,8 +1200,8 @@ export default function UniversalViewerModal({
                       </div>
                     </TransformComponent>
 
-                    {/* Top Focus Button for WebP (Only shown when zoomed in > 1.25x or active) */}
-                    {(currentScale > 1.25 || webpSlice) && (
+                    {/* Top Focus Button for WebP (Only shown on wide plans/blueprints or when slice active, never on A4) */}
+                    {webpSlice && (
                     <div
                       onClick={(e) => e.stopPropagation()}
                       style={{

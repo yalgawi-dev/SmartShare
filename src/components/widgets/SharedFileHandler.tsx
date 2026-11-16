@@ -598,9 +598,9 @@ export default function SharedFileHandler() {
               const tUploadEnd = performance.now();
               logs.push({ step: `2. העלאת קובץ PDF מקורי לענן (${(blobToUpload.size / (1024*1024)).toFixed(1)} MB)`, ms: Math.round(tUploadEnd - tUploadStart) });
             } else {
-              // Standard documents / multi-page files: convert to optimized WebP
+              // Standard documents / multi-page files: convert to high-resolution Retina WebP (2400px @ 0.90)
               const tExtractStart = performance.now();
-              const webpPages = await extractPdfPages(blobToUpload, 1800, 0.82);
+              const webpPages = await extractPdfPages(blobToUpload, 2400, 0.90);
               const tExtractEnd = performance.now();
               logs.push({ step: '1. רינדור דפי ה-PDF לקנבס וכיווץ WebP (מעבד טלפון)', ms: Math.round(tExtractEnd - tExtractStart) });
 
