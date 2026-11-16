@@ -26,6 +26,7 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<boolean>(false);
   const [totalPageCount, setTotalPageCount] = useState<number>(1);
+  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
   const [pdfScale, setPdfScale] = useState<number>(1);
   const [isHdRendering, setIsHdRendering] = useState<boolean>(false);
   const [isHdActive, setIsHdActive] = useState<boolean>(false);
@@ -45,6 +46,66 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
   const imgRef = React.useRef<HTMLImageElement | null>(null);
   const transformStateRef = React.useRef<{ scale: number; positionX: number; positionY: number }>({ scale: 1, positionX: 0, positionY: 0 });
   const autoFocusTimeoutRef = React.useRef<any>(null);
+  const renderPageCanvasRef = React.useRef<((pageNum: number) => Promise<string>) | null>(null);
+
+  // Load more pages on-demand in batches of 5
+  const handleLoadMorePages = async (count = 5) => {
+    if (!renderPageCanvasRef.current || isLoadingMore || pages.length >= totalPageCount) return;
+    setIsLoadingMore(true);
+    try {
+      const currentLoaded = pages.length;
+      const targetCount = Math.min(totalPageCount, currentLoaded + count);
+      const newUrls = [...pages];
+
+      for (let p = currentLoaded + 1; p <= targetCount; p++) {
+        const nextUrl = await renderPageCanvasRef.current(p);
+        if (nextUrl) {
+          newUrls.push(nextUrl);
+          setPages([...newUrls]);
+        }
+        await new Promise((r) => setTimeout(r, 60));
+      }
+
+      if (newUrls.length >= totalPageCount) {
+        setCachedPdfPages(url, newUrls).catch(() => {});
+      }
+      if (onPagesLoaded) {
+        onPagesLoaded(newUrls);
+      }
+    } catch (err) {
+      console.warn('Failed loading more pages:', err);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
+  // Load all remaining pages
+  const handleLoadAllPages = async () => {
+    if (!renderPageCanvasRef.current || isLoadingMore || pages.length >= totalPageCount) return;
+    setIsLoadingMore(true);
+    try {
+      const currentLoaded = pages.length;
+      const newUrls = [...pages];
+
+      for (let p = currentLoaded + 1; p <= totalPageCount; p++) {
+        const nextUrl = await renderPageCanvasRef.current(p);
+        if (nextUrl) {
+          newUrls.push(nextUrl);
+          setPages([...newUrls]);
+        }
+        await new Promise((r) => setTimeout(r, 60));
+      }
+
+      setCachedPdfPages(url, newUrls).catch(() => {});
+      if (onPagesLoaded) {
+        onPagesLoaded(newUrls);
+      }
+    } catch (err) {
+      console.warn('Failed loading all pages:', err);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -58,6 +119,7 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
         // Fast-path: Check if we have pre-rendered pages cached in IndexedDB!
         // If so, display instantly (<50ms) without waiting for PDF fetch & parsing!
         const cachedPages = await getCachedPdfPages(url);
+        // Only trust cache if it is a complete set or we haven't loaded yet
         if (cachedPages && cachedPages.length > 0 && isMounted) {
           setPages(cachedPages);
           setIsLoading(false);
@@ -127,8 +189,8 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
           }
         } catch (_) {}
 
-        // If we already had cached pages displayed, we're done loading!
-        if (cachedPages && cachedPages.length > 0) {
+        // If we already had cached pages and it covers all pages, we're done loading!
+        if (cachedPages && cachedPages.length >= numPages) {
           return;
         }
 
@@ -230,6 +292,8 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
           return '';
         };
 
+        renderPageCanvasRef.current = renderPageCanvas;
+
         // 1. Render Page 1 IMMEDIATELY! (< 150ms)
         const page1 = await renderPageCanvas(1);
         if (!isMounted) return;
@@ -253,7 +317,6 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
             // Yield to UI thread so scrolling/touch stays 100% responsive on 50+ page PDFs
             await new Promise((r) => setTimeout(r, 80));
           }
-          setCachedPdfPages(url, allUrls).catch(() => {});
           if (onPagesLoaded && isMounted) {
             onPagesLoaded(allUrls);
           }
@@ -728,6 +791,76 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
                       )}
                     </div>
                   ))}
+
+                  {/* Progressive Page Loader Footer for multi-page PDFs */}
+                  {totalPageCount > pages.length && (
+                    <div
+                      style={{
+                        width: '100%',
+                        maxWidth: '480px',
+                        margin: '12px auto 24px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '12px',
+                        background: 'rgba(15, 23, 42, 0.75)',
+                        backdropFilter: 'blur(10px)',
+                        borderRadius: '14px',
+                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+                        zIndex: 20
+                      }}
+                    >
+                      <div style={{ color: '#94a3b8', fontSize: '0.8rem', fontWeight: 600 }}>
+                        מוצגים {pages.length} מתוך {totalPageCount} עמודים
+                      </div>
+
+                      {isLoadingMore ? (
+                        <div style={{ color: '#38bdf8', fontSize: '0.85rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ display: 'inline-block', animation: 'spin 1s linear infinite' }}>⏳</span>
+                          טוען עמודים נוספים ברקע...
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', gap: '8px', width: '100%', justifyContent: 'center' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleLoadMorePages(5)}
+                            style={{
+                              flex: 1,
+                              padding: '8px 12px',
+                              borderRadius: '10px',
+                              border: '1px solid rgba(56, 189, 248, 0.4)',
+                              background: 'rgba(14, 165, 233, 0.2)',
+                              color: '#38bdf8',
+                              fontWeight: 700,
+                              fontSize: '0.82rem',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            ➕ טען עוד 5 עמודים
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleLoadAllPages}
+                            style={{
+                              flex: 1,
+                              padding: '8px 12px',
+                              borderRadius: '10px',
+                              border: '1px solid rgba(255, 255, 255, 0.2)',
+                              background: 'rgba(255, 255, 255, 0.1)',
+                              color: '#ffffff',
+                              fontWeight: 700,
+                              fontSize: '0.82rem',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            📖 טען את כל {totalPageCount} העמודים
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </TransformComponent>
 

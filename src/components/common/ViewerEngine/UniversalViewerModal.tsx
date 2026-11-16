@@ -574,6 +574,14 @@ export default function UniversalViewerModal({
                   url={currentDoc.rawPdfUrl || currentDoc.url}
                   title={currentDoc.title}
                   thumbnailUrl={currentDoc.thumbnailUrl && !currentDoc.thumbnailUrl.toLowerCase().includes('.pdf') ? currentDoc.thumbnailUrl : undefined}
+                  onPagesLoaded={(loadedPages) => {
+                    if (loadedPages.length >= (currentDoc.pages?.length || 0)) {
+                      currentDoc.pages = loadedPages;
+                      if (onNormalizeDoc && currentDoc.id) {
+                        onNormalizeDoc(currentDoc.id, loadedPages);
+                      }
+                    }
+                  }}
                 />
               </div>
             );
