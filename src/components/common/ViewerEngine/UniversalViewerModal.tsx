@@ -733,14 +733,19 @@ export default function UniversalViewerModal({
 
           // ── Case 2: Multi-Page Continuous Scroll ("Megilah") ───────────────
           if (isMultiPage && validImagePages.length > 1) {
+            const isNativeScrollMode = currentScale <= 1.05;
             return (
               <div
                 style={{
                   width: '100%',
                   height: '100%',
                   display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
+                  alignItems: 'flex-start',
+                  justifyContent: 'center',
+                  overflowY: isNativeScrollMode ? 'auto' : 'hidden',
+                  overflowX: 'hidden',
+                  WebkitOverflowScrolling: 'touch',
+                  touchAction: isNativeScrollMode ? 'pan-y pinch-zoom' : 'none'
                 }}
               >
                 <TransformWrapper
@@ -753,10 +758,10 @@ export default function UniversalViewerModal({
                   initialPositionX={0}
                   initialPositionY={0}
                   limitToBounds={false}
-                  panning={{ velocityDisabled: true }}
+                  panning={{ disabled: isNativeScrollMode, velocityDisabled: true }}
                   trackPadPanning={{ velocityDisabled: true }}
                   doubleClick={{ mode: 'zoomIn', step: 2.5 }}
-                  wheel={{ step: 0.2 }}
+                  wheel={{ wheelDisabled: isNativeScrollMode, step: 0.2 }}
                   pinch={{ step: 5 }}
                   onTransform={(ref: any) => setCurrentScale(ref.state.scale)}
                 >
@@ -765,14 +770,15 @@ export default function UniversalViewerModal({
                       <TransformComponent
                         wrapperStyle={{
                           width: '100%',
-                          height: '100%',
+                          height: isNativeScrollMode ? 'auto' : '100%',
+                          overflow: isNativeScrollMode ? 'visible' : 'hidden',
                           display: 'flex',
-                          alignItems: 'center',
+                          alignItems: 'flex-start',
                           justifyContent: 'center'
                         }}
                         contentStyle={{
                           width: '100%',
-                          minHeight: '100%',
+                          minHeight: isNativeScrollMode ? 'auto' : '100%',
                           display: 'flex',
                           flexDirection: 'column',
                           alignItems: 'center',
@@ -823,17 +829,18 @@ export default function UniversalViewerModal({
                               <div
                                 style={{
                                   position: 'absolute',
-                                  bottom: '12px',
-                                  right: '16px',
-                                  background: 'rgba(15, 23, 42, 0.85)',
-                                  backdropFilter: 'blur(6px)',
+                                  bottom: '8px',
+                                  right: '10px',
+                                  background: 'rgba(15, 23, 42, 0.65)',
+                                  backdropFilter: 'blur(4px)',
                                   color: '#f8fafc',
-                                  padding: '3px 10px',
-                                  borderRadius: '12px',
-                                  fontSize: '0.75rem',
-                                  fontWeight: 800,
-                                  border: '1px solid rgba(255, 255, 255, 0.15)',
-                                  boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
+                                  padding: '2px 8px',
+                                  borderRadius: '10px',
+                                  fontSize: '0.66rem',
+                                  fontWeight: 700,
+                                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                                  boxShadow: '0 2px 4px rgba(0,0,0,0.25)',
+                                  pointerEvents: 'none',
                                   zIndex: 10
                                 }}
                               >
@@ -1187,17 +1194,18 @@ export default function UniversalViewerModal({
                       </div>
                     </TransformComponent>
 
-                    {/* Top Focus Button for WebP */}
+                    {/* Top Focus Button for WebP (Only shown when zoomed in > 1.25x or active) */}
+                    {(currentScale > 1.25 || webpSlice) && (
                     <div
                       onClick={(e) => e.stopPropagation()}
                       style={{
                         position: 'absolute',
-                        top: '16px',
-                        left: '16px',
+                        top: '12px',
+                        left: '12px',
                         zIndex: 200025,
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '8px'
+                        gap: '6px'
                       }}
                     >
                       <button
@@ -1205,25 +1213,25 @@ export default function UniversalViewerModal({
                         onClick={handleRenderWebpFocusRegion}
                         disabled={isWebpSlicing}
                         style={{
-                          background: webpSlice ? '#059669' : '#2563eb',
+                          background: webpSlice ? 'rgba(5, 150, 105, 0.9)' : 'rgba(37, 99, 235, 0.88)',
                           backdropFilter: 'blur(8px)',
-                          border: webpSlice ? '1.5px solid #34d399' : '1.5px solid #60a5fa',
+                          border: webpSlice ? '1px solid #34d399' : '1px solid rgba(96, 165, 250, 0.6)',
                           color: '#ffffff',
-                          padding: '8px 14px',
-                          borderRadius: '24px',
-                          fontSize: '0.84rem',
-                          fontWeight: 800,
+                          padding: '5px 11px',
+                          borderRadius: '20px',
+                          fontSize: '0.74rem',
+                          fontWeight: 700,
                           cursor: isWebpSlicing ? 'wait' : 'pointer',
                           display: 'flex',
                           alignItems: 'center',
-                          gap: '6px',
-                          boxShadow: '0 4px 16px rgba(37,99,235,0.4)',
+                          gap: '5px',
+                          boxShadow: '0 2px 10px rgba(0,0,0,0.3)',
                           transition: 'all 0.2s ease'
                         }}
                         title="חידוד אזור WebP מוצג במסך ברזולוציה מקסימלית"
                       >
                         <span>{isWebpSlicing ? '⏳' : (webpSlice ? '✓' : '🎯')}</span>
-                        <span>{isWebpSlicing ? 'מחדד פיקסלים...' : (webpSlice ? 'אזור WebP חד ✓' : 'חדד אזור WebP (Focus)')}</span>
+                        <span>{isWebpSlicing ? 'מחדד...' : (webpSlice ? 'אזור חד ✓' : 'חדד אזור (Focus)')}</span>
                       </button>
 
                       {webpSlice && (
@@ -1234,20 +1242,21 @@ export default function UniversalViewerModal({
                             setWebpFocusActive(false);
                           }}
                           style={{
-                            background: 'rgba(15, 23, 42, 0.75)',
+                            background: 'rgba(15, 23, 42, 0.78)',
                             border: '1px solid rgba(255, 255, 255, 0.2)',
-                            color: '#94a3b8',
-                            padding: '6px 10px',
-                            borderRadius: '16px',
-                            fontSize: '0.75rem',
+                            color: '#cbd5e1',
+                            padding: '4px 9px',
+                            borderRadius: '14px',
+                            fontSize: '0.7rem',
                             cursor: 'pointer'
                           }}
                           title="בטל חידוד"
                         >
-                          בטל חידוד
+                          בטל
                         </button>
                       )}
                     </div>
+                    )}
 
                     {/* Floating Quick-Zoom Action Controls */}
                     <div

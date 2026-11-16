@@ -1982,7 +1982,7 @@ export default function SharedFileHandler() {
 
       {zoomedIndex !== null && (
         <div 
-          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.92)', zIndex: 100010, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#090d16', zIndex: 100010, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem' }}
           onTouchStart={e => setTouchStartX(e.changedTouches[0].screenX)}
           onTouchEnd={e => {
             const touchEndX = e.changedTouches[0].screenX;
@@ -1990,7 +1990,41 @@ export default function SharedFileHandler() {
             if (touchEndX - touchStartX > 50 && zoomedIndex > 0) setZoomedIndex(zoomedIndex - 1);
           }}
         >
-          <div style={{ position: 'relative', width: '100%', height: '82%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {/* Clean Top Bar: Title + File Counter (only when >1 files) + Close Button */}
+          <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.25rem 0.5rem', direction: 'rtl', zIndex: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+              <span style={{ color: '#f8fafc', fontSize: '0.92rem', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '220px' }}>
+                {sharedBlobs[zoomedIndex]?.name || 'תצוגת מסמך'}
+              </span>
+              {sharedFiles.length > 1 && (
+                <span style={{ background: 'rgba(255,255,255,0.14)', color: '#cbd5e1', padding: '2px 8px', borderRadius: '10px', fontSize: '0.72rem', fontWeight: 700 }}>
+                  קובץ {zoomedIndex + 1} מתוך {sharedFiles.length}
+                </span>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setZoomedIndex(null)}
+              style={{
+                background: 'rgba(255,255,255,0.14)',
+                border: '1px solid rgba(255,255,255,0.22)',
+                color: '#ffffff',
+                borderRadius: '20px',
+                padding: '5px 14px',
+                fontSize: '0.82rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px'
+              }}
+            >
+              <span>✕</span>
+              <span>סגור</span>
+            </button>
+          </div>
+
+          <div style={{ position: 'relative', width: '100%', flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
             {(() => {
               const isPdf = Boolean(
                 (zoomedIndex !== null && sharedBlobs[zoomedIndex]?.type === 'application/pdf') ||
@@ -2023,15 +2057,6 @@ export default function SharedFileHandler() {
                 &lt;
               </div>
             )}
-          </div>
-          <div style={{ color: 'white', marginTop: '0.8rem', fontSize: '1.1rem', fontWeight: 'bold', direction: 'rtl' }}>
-            {zoomedIndex + 1} מתוך {sharedFiles.length}
-          </div>
-          <div 
-            onClick={() => setZoomedIndex(null)}
-            style={{ marginTop: '0.8rem', padding: '0.6rem 2rem', background: '#3b82f6', color: 'white', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.95rem', boxShadow: '0 4px 12px rgba(59,130,246,0.4)' }}
-          >
-            סגור תצוגה
           </div>
         </div>
       )}

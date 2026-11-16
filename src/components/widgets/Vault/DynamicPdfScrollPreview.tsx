@@ -517,10 +517,22 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
 
   if (pages.length > 0) {
     const isMultiPage = pages.length > 1 || totalPageCount > 1;
+    const isNativeScrollMode = isMultiPage && pdfScale <= 1.05;
     return (
       <div 
         ref={wrapperRef}
-        style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          alignItems: isMultiPage ? 'flex-start' : 'center',
+          justifyContent: 'center',
+          position: 'relative',
+          overflowY: isNativeScrollMode ? 'auto' : 'hidden',
+          overflowX: 'hidden',
+          WebkitOverflowScrolling: 'touch',
+          touchAction: isNativeScrollMode ? 'pan-y pinch-zoom' : 'none'
+        }}
       >
         <TransformWrapper
           key={`pdf-${pages.length > 1 ? 'multi' : 'single'}`}
@@ -532,10 +544,10 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
           initialPositionX={0}
           initialPositionY={0}
           limitToBounds={!isMultiPage}
-          panning={{ velocityDisabled: true }}
+          panning={{ disabled: isNativeScrollMode, velocityDisabled: true }}
           trackPadPanning={{ velocityDisabled: true }}
           doubleClick={{ mode: 'zoomIn', step: 2.5 }}
-          wheel={{ step: 0.2 }}
+          wheel={{ wheelDisabled: isNativeScrollMode, step: 0.2 }}
           pinch={{ step: 5 }}
           onTransform={(ref: any) => {
             const currentScale = ref.state.scale;
@@ -578,14 +590,15 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
               <TransformComponent
                 wrapperStyle={{
                   width: '100%',
-                  height: '100%',
+                  height: isNativeScrollMode ? 'auto' : '100%',
+                  overflow: isNativeScrollMode ? 'visible' : 'hidden',
                   display: 'flex',
                   alignItems: isMultiPage ? 'flex-start' : 'center',
                   justifyContent: 'center'
                 }}
                 contentStyle={{
                   width: '100%',
-                  minHeight: '100%',
+                  minHeight: isNativeScrollMode ? 'auto' : '100%',
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
@@ -664,17 +677,18 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
                         <div
                           style={{
                             position: 'absolute',
-                            bottom: '12px',
-                            right: '16px',
-                            background: 'rgba(15, 23, 42, 0.85)',
-                            backdropFilter: 'blur(6px)',
+                            bottom: '8px',
+                            right: '10px',
+                            background: 'rgba(15, 23, 42, 0.65)',
+                            backdropFilter: 'blur(4px)',
                             color: '#f8fafc',
-                            padding: '3px 10px',
-                            borderRadius: '12px',
-                            fontSize: '0.75rem',
-                            fontWeight: 800,
-                            border: '1px solid rgba(255, 255, 255, 0.15)',
-                            boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
+                            padding: '2px 8px',
+                            borderRadius: '10px',
+                            fontSize: '0.66rem',
+                            fontWeight: 700,
+                            border: '1px solid rgba(255, 255, 255, 0.12)',
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.25)',
+                            pointerEvents: 'none',
                             zIndex: 10
                           }}
                         >
@@ -686,18 +700,18 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
                 </div>
               </TransformComponent>
 
-              {/* Action Buttons Header: Focused Region Sharpener */}
-              {pdfDocRef.current && (
+              {/* Action Buttons Header: Focused Region Sharpener (Only shown when zoomed in > 1.25x or on wide architectural blueprints) */}
+              {pdfDocRef.current && (pdfScale > 1.25 || isWideBlueprintRef.current || regionSlice) && (
                 <div
                   onClick={(e) => e.stopPropagation()}
                   style={{
                     position: 'absolute',
-                    top: '16px',
-                    left: '16px',
+                    top: '12px',
+                    left: '12px',
                     zIndex: 200025,
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '8px'
+                    gap: '6px'
                   }}
                 >
                   <button
@@ -705,25 +719,25 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
                     onClick={handleRenderFocusedRegion}
                     disabled={isSlicing}
                     style={{
-                      background: regionSlice ? '#059669' : '#2563eb',
+                      background: regionSlice ? 'rgba(5, 150, 105, 0.9)' : 'rgba(37, 99, 235, 0.88)',
                       backdropFilter: 'blur(8px)',
-                      border: regionSlice ? '1.5px solid #34d399' : '1.5px solid #60a5fa',
+                      border: regionSlice ? '1px solid #34d399' : '1px solid rgba(96, 165, 250, 0.6)',
                       color: '#ffffff',
-                      padding: '8px 14px',
-                      borderRadius: '24px',
-                      fontSize: '0.84rem',
-                      fontWeight: 800,
+                      padding: '5px 11px',
+                      borderRadius: '20px',
+                      fontSize: '0.74rem',
+                      fontWeight: 700,
                       cursor: isSlicing ? 'wait' : 'pointer',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '6px',
-                      boxShadow: '0 4px 16px rgba(37,99,235,0.4)',
+                      gap: '5px',
+                      boxShadow: '0 2px 10px rgba(0,0,0,0.3)',
                       transition: 'all 0.2s ease'
                     }}
                     title="מרנדר ומחדד אך ורק את החלון שאתה מגדיל כרגע על המסך באיכות וקטורית מקסימלית"
                   >
                     <span>{isSlicing ? '⏳' : (regionSlice ? '✓' : '🎯')}</span>
-                    <span>{isSlicing ? 'מחדד אזור מסך...' : (regionSlice ? 'אזור מסך חד ב-200% ✓' : 'חדד אזור מוצג (Focus)')}</span>
+                    <span>{isSlicing ? 'מחדד...' : (regionSlice ? 'אזור חד 200% ✓' : 'חדד אזור (Focus)')}</span>
                   </button>
 
                   {regionSlice && (
@@ -731,17 +745,17 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
                       type="button"
                       onClick={() => setRegionSlice(null)}
                       style={{
-                        background: 'rgba(15, 23, 42, 0.75)',
+                        background: 'rgba(15, 23, 42, 0.78)',
                         border: '1px solid rgba(255, 255, 255, 0.2)',
-                        color: '#94a3b8',
-                        padding: '6px 10px',
-                        borderRadius: '16px',
-                        fontSize: '0.75rem',
+                        color: '#cbd5e1',
+                        padding: '4px 9px',
+                        borderRadius: '14px',
+                        fontSize: '0.7rem',
                         cursor: 'pointer'
                       }}
                       title="הסר חידוד אזור"
                     >
-                      בטל חידוד
+                      בטל
                     </button>
                   )}
                 </div>
