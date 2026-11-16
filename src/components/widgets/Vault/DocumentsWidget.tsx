@@ -1378,6 +1378,155 @@ const handleDeleteDocument = (docId: string, title?: string) => {
         );
   };
 
+  // Single Source of Truth helper for Shelf Move/Copy Modal (accessible in both outer shelves view and inner active shelf view)
+  const renderShelfMoveModal = () => {
+    if (!shelfToMove) return null;
+    return (
+      <GlobalMoveModal
+        isOpen={Boolean(shelfToMove)}
+        title="העברה / שכפול נושא שלם"
+        subtitle={`הנושא "${shelfToMove.name}" על כל תיקיותיו ומסמכיו`}
+        itemCount={1}
+        currentSpaceId={space.id}
+        isShelfTransfer={true}
+        currentShelfId={shelfToMove.id}
+        shelves={space.shelves || []}
+        folders={[]}
+        onClose={() => setShelfToMove(null)}
+        onConfirmMove={() => {
+          setShelfToMove(null);
+        }}
+        onConfirmCrossSpace={async (targetSpaceId, _targetShelfId, _targetFolderId, actionType) => {
+          if (!exportShelfToSpace) return;
+          await exportShelfToSpace(
+            space.id,
+            shelfToMove.id,
+            targetSpaceId,
+            actionType
+          );
+          if (actionType === 'move' && activeShelfId === shelfToMove.id) {
+            setActiveShelfId(null);
+            setCurrentFolderId(null);
+          }
+          const shelfName = shelfToMove.name;
+          setShelfToMove(null);
+          showFeedbackToast(
+            actionType === 'copy'
+              ? `הנושא "${shelfName}" שוכפל בהצלחה למרחב הנבחר!`
+              : `הנושא "${shelfName}" הועבר בהצלחה למרחב הנבחר!`
+          );
+        }}
+        rootLabel="רמה ראשית"
+        rootDescription="הנושא ייווצר כנושא ראשי חדש במרחב היעד"
+      />
+    );
+  };
+
+  // Single Source of Truth helper for Delete & Custom Prompt Modals (shared between inner and outer views)
+  const renderSharedConfirmAndPromptModals = () => (
+    <>
+      <ConfirmModal
+        isOpen={Boolean(shelfToDelete)}
+        title="מחיקת מדף"
+        message={shelfToDelete?.count ? `מדף זה מכיל ${shelfToDelete.count} מסמכים. במחיקת המדף, המדף והמסמכים שבו יועברו לסל האשפה ויישמרו שם לזמן מוגבל.` : 'האם אתה בטוח שברצונך להעביר מדף זה לסל האשפה?'}
+        itemTitle={shelfToDelete?.name}
+        confirmText="העבר לסל אשפה"
+        onConfirm={() => {
+          if (shelfToDelete) {
+            removeShelf(space.id, shelfToDelete.id);
+            if (activeShelfId === shelfToDelete.id) {
+              setActiveShelfId(null);
+            }
+            setShelfToDelete(null);
+          }
+        }}
+        onClose={() => setShelfToDelete(null)}
+      />
+
+      <ConfirmModal
+        isOpen={Boolean(shelfToPermanentDelete)}
+        title="מחיקת מדף לצמיתות"
+        message="פעולה זו היא בלתי הפיכה! המדף וכל המסמכים שהיו שייכים אליו יימחקו לחלוטין מהמערכת."
+        itemTitle={shelfToPermanentDelete?.name}
+        confirmText="מחק לצמיתות"
+        onConfirm={() => {
+          if (shelfToPermanentDelete) {
+            permanentlyDeleteShelf(space.id, shelfToPermanentDelete.id);
+            setShelfToPermanentDelete(null);
+          }
+        }}
+        onClose={() => setShelfToPermanentDelete(null)}
+      />
+
+      <ConfirmModal
+        isOpen={Boolean(docToPermanentDelete)}
+        title="מחיקת מסמך לצמיתות"
+        message="פעולה זו היא בלתי הפיכה! המסמך יימחק לחלוטין ולצמיתות משרתי הענן ולא ניתן יהיה לשחזרו."
+        itemTitle={docToPermanentDelete?.title}
+        confirmText="מחק לצמיתות מהענן"
+        onConfirm={() => {
+          if (docToPermanentDelete) {
+            permanentlyDeleteDocument(space.id, docToPermanentDelete.id);
+            setDocToPermanentDelete(null);
+          }
+        }}
+        onClose={() => setDocToPermanentDelete(null)}
+      />
+
+      {customPrompt?.isOpen && (
+        <div 
+          onClick={() => setCustomPrompt(null)}
+          style={{ position: 'fixed', inset: 0, zIndex: 100006, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,0.65)', backdropFilter: 'blur(6px)', padding: '1rem' }}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            style={{ background: 'white', width: '100%', maxWidth: '380px', borderRadius: '24px', padding: '1.75rem 1.5rem', boxShadow: '0 25px 50px rgba(0,0,0,0.25)', direction: 'rtl' }}
+          >
+            <h3 style={{ margin: '0 0 1rem 0', color: '#0f172a', fontSize: '1.25rem', fontWeight: '800', textAlign: 'center' }}>
+              {customPrompt.title}
+            </h3>
+            <input 
+              autoFocus
+              type="text"
+              value={promptInput}
+              onChange={(e) => setPromptInput(e.target.value)}
+              placeholder={customPrompt.placeholder}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && promptInput.trim()) {
+                  customPrompt.onSave(promptInput.trim());
+                  setCustomPrompt(null);
+                }
+              }}
+              style={{ width: '100%', padding: '0.85rem 1rem', borderRadius: '14px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '1rem', boxSizing: 'border-box', marginBottom: '1.25rem' }}
+            />
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button 
+                type="button"
+                onClick={() => setCustomPrompt(null)}
+                style={{ flex: 1, padding: '0.85rem', borderRadius: '14px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#475569', fontWeight: 'bold', cursor: 'pointer' }}
+              >
+                ביטול
+              </button>
+              <button 
+                type="button"
+                onClick={() => {
+                  if (promptInput.trim()) {
+                    customPrompt.onSave(promptInput.trim());
+                    setCustomPrompt(null);
+                  }
+                }}
+                disabled={!promptInput.trim()}
+                style={{ flex: 1.2, padding: '0.85rem', borderRadius: '14px', border: 'none', background: '#3b82f6', color: 'white', fontWeight: 'bold', cursor: promptInput.trim() ? 'pointer' : 'not-allowed', opacity: promptInput.trim() ? 1 : 0.6 }}
+              >
+                אישור
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+
   if (activeShelves.length === 0 && !showRecycleBin) {
     return (
       <>
@@ -1521,11 +1670,11 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               <button 
                 onClick={() => setShelfToMove(activeShelf)} 
-                style={{ background: 'transparent', border: 'none', padding: '0', color: '#7c3aed', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
+                style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '3px 8px', borderRadius: '8px', color: '#16a34a', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
                 title="העבר או שכפל נושא זה למרחב אחר"
               >
-                <span>🚀</span>
-                <span>העבר/שכפל למרחב</span>
+                <span>📦</span>
+                <span>העבר/שכפל</span>
               </button>
               <button onClick={() => setEditingShelfCoverId(activeShelf.id)} style={{ background: 'transparent', border: 'none', padding: '0', color: '#3b82f6', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>
                 🎨 עיצוב
@@ -4068,46 +4217,8 @@ const handleDeleteDocument = (docId: string, title?: string) => {
         );
       })()}
 
-      {/* MOVE / COPY SHELF ACROSS SPACES MODAL */}
-      {shelfToMove && (
-        <GlobalMoveModal
-          isOpen={Boolean(shelfToMove)}
-          title="העברת נושא שלם"
-          subtitle={`הנושא "${shelfToMove.name}" על כל תיקיותיו ומסמכיו`}
-          itemCount={1}
-          currentSpaceId={space.id}
-          isShelfTransfer={true}
-          currentShelfId={shelfToMove.id}
-          shelves={[]}
-          folders={[]}
-          onClose={() => setShelfToMove(null)}
-          onConfirmMove={() => {
-            setShelfToMove(null);
-          }}
-          onConfirmCrossSpace={async (targetSpaceId, _targetShelfId, _targetFolderId, actionType) => {
-            if (!exportShelfToSpace) return;
-            await exportShelfToSpace(
-              space.id,
-              shelfToMove.id,
-              targetSpaceId,
-              actionType
-            );
-            if (actionType === 'move' && activeShelfId === shelfToMove.id) {
-              setActiveShelfId(null);
-              setCurrentFolderId(null);
-            }
-            const shelfName = shelfToMove.name;
-            setShelfToMove(null);
-            showFeedbackToast(
-              actionType === 'copy'
-                ? `הנושא "${shelfName}" שוכפל בהצלחה למרחב הנבחר!`
-                : `הנושא "${shelfName}" הועבר בהצלחה למרחב הנבחר!`
-            );
-          }}
-          rootLabel="רמה ראשית"
-          rootDescription="הנושא ייווצר כנושא ראשי חדש במרחב היעד"
-        />
-      )}
+      {/* MOVE / COPY SHELF ACROSS SPACES MODAL (Single Source of Truth) */}
+      {renderShelfMoveModal()}
 
       {/* CONFIRM DELETE FOLDER MODAL */}
       <ConfirmModal
@@ -4216,41 +4327,6 @@ const handleDeleteDocument = (docId: string, title?: string) => {
         </div>
       )}
 
-      {/* CONFIRM DELETE SHELF MODAL */}
-      <ConfirmModal
-        isOpen={Boolean(shelfToDelete)}
-        title="מחיקת מדף"
-        message={shelfToDelete?.count ? `מדף זה מכיל ${shelfToDelete.count} מסמכים. במחיקת המדף, המדף והמסמכים שבו יועברו לסל האשפה ויישמרו שם לזמן מוגבל.` : 'האם אתה בטוח שברצונך להעביר מדף זה לסל האשפה?'}
-        itemTitle={shelfToDelete?.name}
-        confirmText="העבר לסל אשפה"
-        onConfirm={() => {
-          if (shelfToDelete) {
-            removeShelf(space.id, shelfToDelete.id);
-            if (activeShelfId === shelfToDelete.id) {
-              setActiveShelfId(null);
-            }
-            setShelfToDelete(null);
-          }
-        }}
-        onClose={() => setShelfToDelete(null)}
-      />
-
-      {/* CONFIRM PERMANENT DELETE SHELF MODAL */}
-      <ConfirmModal
-        isOpen={Boolean(shelfToPermanentDelete)}
-        title="מחיקת מדף לצמיתות"
-        message="פעולה זו היא בלתי הפיכה! המדף וכל המסמכים שהיו שייכים אליו יימחקו לחלוטין מהמערכת."
-        itemTitle={shelfToPermanentDelete?.name}
-        confirmText="מחק לצמיתות"
-        onConfirm={() => {
-          if (shelfToPermanentDelete) {
-            permanentlyDeleteShelf(space.id, shelfToPermanentDelete.id);
-            setShelfToPermanentDelete(null);
-          }
-        }}
-        onClose={() => setShelfToPermanentDelete(null)}
-      />
-
       {/* CONFIRM DELETE SINGLE DOCUMENT MODAL */}
       <ConfirmModal
         isOpen={Boolean(docToDelete)}
@@ -4282,21 +4358,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
         onClose={() => setBatchDeleteConfirm(false)}
       />
 
-      {/* CONFIRM PERMANENT DELETE DOCUMENT MODAL */}
-      <ConfirmModal
-        isOpen={Boolean(docToPermanentDelete)}
-        title="מחיקת מסמך לצמיתות"
-        message="פעולה זו היא בלתי הפיכה! המסמך יימחק לחלוטין ולצמיתות משרתי הענן ולא ניתן יהיה לשחזרו."
-        itemTitle={docToPermanentDelete?.title}
-        confirmText="מחק לצמיתות מהענן"
-        onConfirm={() => {
-          if (docToPermanentDelete) {
-            permanentlyDeleteDocument(space.id, docToPermanentDelete.id);
-            setDocToPermanentDelete(null);
-          }
-        }}
-        onClose={() => setDocToPermanentDelete(null)}
-      />
+      {renderSharedConfirmAndPromptModals()}
       {/* SORT & FILTER MODAL */}
       {showSortFilterModal && (
         <div 
@@ -4477,59 +4539,6 @@ const handleDeleteDocument = (docId: string, title?: string) => {
         </div>
       )}
 
-      {/* CUSTOM PROMPT MODAL (FOR ACTIVE SHELF VIEW) */}
-      {customPrompt?.isOpen && (
-        <div 
-          onClick={() => setCustomPrompt(null)}
-          style={{ position: 'fixed', inset: 0, zIndex: 100006, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,0.65)', backdropFilter: 'blur(6px)', padding: '1rem' }}
-        >
-          <div 
-            onClick={(e) => e.stopPropagation()}
-            style={{ background: 'white', width: '100%', maxWidth: '380px', borderRadius: '24px', padding: '1.75rem 1.5rem', boxShadow: '0 25px 50px rgba(0,0,0,0.25)', direction: 'rtl' }}
-          >
-            <h3 style={{ margin: '0 0 1rem 0', color: '#0f172a', fontSize: '1.25rem', fontWeight: '800', textAlign: 'center' }}>
-              {customPrompt.title}
-            </h3>
-            <input 
-              autoFocus
-              type="text"
-              value={promptInput}
-              onChange={(e) => setPromptInput(e.target.value)}
-              placeholder={customPrompt.placeholder}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && promptInput.trim()) {
-                  customPrompt.onSave(promptInput.trim());
-                  setCustomPrompt(null);
-                }
-              }}
-              style={{ width: '100%', padding: '0.85rem 1rem', borderRadius: '14px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '1rem', boxSizing: 'border-box', marginBottom: '1.25rem' }}
-            />
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <button 
-                type="button"
-                onClick={() => setCustomPrompt(null)}
-                style={{ flex: 1, padding: '0.85rem', borderRadius: '14px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#475569', fontWeight: 'bold', cursor: 'pointer' }}
-              >
-                ביטול
-              </button>
-              <button 
-                type="button"
-                onClick={() => {
-                  if (promptInput.trim()) {
-                    customPrompt.onSave(promptInput.trim());
-                    setCustomPrompt(null);
-                  }
-                }}
-                disabled={!promptInput.trim()}
-                style={{ flex: 1.2, padding: '0.85rem', borderRadius: '14px', border: 'none', background: '#3b82f6', color: 'white', fontWeight: 'bold', cursor: promptInput.trim() ? 'pointer' : 'not-allowed', opacity: promptInput.trim() ? 1 : 0.6 }}
-              >
-                אישור
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {renderRecycleBinModal()}
       {renderDocNoteModal()}
       </>
@@ -4683,7 +4692,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                         </button>
                       );
                     })()}
-                    <button onClick={(e) => { e.stopPropagation(); setShelfToMove(shelf); }} style={{ background: 'transparent', border: 'none', fontSize: '1.1rem', cursor: 'pointer', padding: 0 }} title="העבר או שכפל נושא למרחב אחר">🚀</button>
+                    <button onClick={(e) => { e.stopPropagation(); setShelfToMove(shelf); }} style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '7px', fontSize: '0.8rem', cursor: 'pointer', padding: '3px 7px' }} title="העבר או שכפל נושא למרחב אחר">📦</button>
                     <button onClick={() => setEditingShelfCoverId(shelf.id)} style={{ background: 'transparent', border: 'none', fontSize: '1.1rem', cursor: 'pointer', padding: 0 }} title="עיצוב מדף">🎨</button>
                     <button onClick={(e) => {
                       e.stopPropagation();
@@ -4768,7 +4777,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                         </button>
                       );
                     })()}
-                    <button onClick={(e) => { e.stopPropagation(); setShelfToMove(shelf); }} style={{ background: '#f5f3ff', border: '1px solid #ddd6fe', width: '28px', height: '28px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem' }} title="העבר או שכפל נושא למרחב אחר">🚀</button>
+                    <button onClick={(e) => { e.stopPropagation(); setShelfToMove(shelf); }} style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', width: '28px', height: '28px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem' }} title="העבר או שכפל נושא למרחב אחר">📦</button>
                     <button onClick={(e) => { e.stopPropagation(); setEditingShelfCoverId(shelf.id); }} style={{ background: '#f1f5f9', border: 'none', width: '28px', height: '28px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="עיצוב">🎨</button>
                     <button onClick={(e) => {
                       e.stopPropagation();
@@ -4794,7 +4803,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
 
             return (
               <div key={shelf.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', width: '90px', position: 'relative' }}>
-                <button onClick={(e) => { e.stopPropagation(); setShelfToMove(shelf); }} style={{ position: 'absolute', top: 0, left: '26px', background: 'white', border: '1px solid #ddd6fe', borderRadius: '50%', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', zIndex: 10, cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }} title="העבר או שכפל נושא למרחב אחר">🚀</button>
+                <button onClick={(e) => { e.stopPropagation(); setShelfToMove(shelf); }} style={{ position: 'absolute', top: 0, left: '26px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '50%', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', zIndex: 10, cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }} title="העבר או שכפל נושא למרחב אחר">📦</button>
                 <button onClick={(e) => { e.stopPropagation(); setEditingShelfCoverId(shelf.id); }} style={{ position: 'absolute', top: 0, left: 0, background: 'white', border: '1px solid #e2e8f0', borderRadius: '50%', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', zIndex: 10, cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }} title="עיצוב">🎨</button>
                 <button onClick={(e) => {
                   e.stopPropagation();
@@ -4910,112 +4919,14 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       
 
 
-            {/* CONFIRM DELETE SHELF MODAL (Outer Shelves View) */}
-      <ConfirmModal
-        isOpen={Boolean(shelfToDelete)}
-        title="מחיקת מדף"
-        message={shelfToDelete?.count ? `מדף זה מכיל ${shelfToDelete.count} מסמכים. במחיקת המדף, המדף והמסמכים שבו יועברו לסל האשפה ויישמרו שם לזמן מוגבל.` : 'האם אתה בטוח שברצונך להעביר מדף זה לסל האשפה?'}
-        itemTitle={shelfToDelete?.name}
-        confirmText="העבר לסל אשפה"
-        onConfirm={() => {
-          if (shelfToDelete) {
-            removeShelf(space.id, shelfToDelete.id);
-            if (activeShelfId === shelfToDelete.id) {
-              setActiveShelfId(null);
-            }
-            setShelfToDelete(null);
-          }
-        }}
-        onClose={() => setShelfToDelete(null)}
-      />
-
-      {/* CONFIRM PERMANENT DELETE SHELF MODAL (Outer Shelves View) */}
-      <ConfirmModal
-        isOpen={Boolean(shelfToPermanentDelete)}
-        title="מחיקת מדף לצמיתות"
-        message="פעולה זו היא בלתי הפיכה! המדף וכל המסמכים שהיו שייכים אליו יימחקו לחלוטין מהמערכת."
-        itemTitle={shelfToPermanentDelete?.name}
-        confirmText="מחק לצמיתות"
-        onConfirm={() => {
-          if (shelfToPermanentDelete) {
-            permanentlyDeleteShelf(space.id, shelfToPermanentDelete.id);
-            setShelfToPermanentDelete(null);
-          }
-        }}
-        onClose={() => setShelfToPermanentDelete(null)}
-      />
-
-      {/* CONFIRM PERMANENT DELETE DOCUMENT MODAL (Outer Shelves View) */}
-      <ConfirmModal
-        isOpen={Boolean(docToPermanentDelete)}
-        title="מחיקת מסמך לצמיתות"
-        message="פעולה זו היא בלתי הפיכה! המסמך יימחק לחלוטין ולצמיתות משרתי הענן ולא ניתן יהיה לשחזרו."
-        itemTitle={docToPermanentDelete?.title}
-        confirmText="מחק לצמיתות מהענן"
-        onConfirm={() => {
-          if (docToPermanentDelete) {
-            permanentlyDeleteDocument(space.id, docToPermanentDelete.id);
-            setDocToPermanentDelete(null);
-          }
-        }}
-        onClose={() => setDocToPermanentDelete(null)}
-      />
-
-{/* CUSTOM PROMPT MODAL (REPLACES BROWSER window.prompt) */}
-      {customPrompt?.isOpen && (
-        <div 
-          onClick={() => setCustomPrompt(null)}
-          style={{ position: 'fixed', inset: 0, zIndex: 100006, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,0.65)', backdropFilter: 'blur(6px)', padding: '1rem' }}
-        >
-          <div 
-            onClick={(e) => e.stopPropagation()}
-            style={{ background: 'white', width: '100%', maxWidth: '380px', borderRadius: '24px', padding: '1.75rem 1.5rem', boxShadow: '0 25px 50px rgba(0,0,0,0.25)', direction: 'rtl' }}
-          >
-            <h3 style={{ margin: '0 0 1rem 0', color: '#0f172a', fontSize: '1.25rem', fontWeight: '800', textAlign: 'center' }}>
-              {customPrompt.title}
-            </h3>
-            <input 
-              autoFocus
-              type="text"
-              value={promptInput}
-              onChange={(e) => setPromptInput(e.target.value)}
-              placeholder={customPrompt.placeholder}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && promptInput.trim()) {
-                  customPrompt.onSave(promptInput.trim());
-                  setCustomPrompt(null);
-                }
-              }}
-              style={{ width: '100%', padding: '0.85rem 1rem', borderRadius: '14px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '1rem', boxSizing: 'border-box', marginBottom: '1.25rem' }}
-            />
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <button 
-                onClick={() => setCustomPrompt(null)}
-                style={{ flex: 1, padding: '0.85rem', borderRadius: '14px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#475569', fontWeight: 'bold', cursor: 'pointer' }}
-              >
-                ביטול
-              </button>
-              <button 
-                onClick={() => {
-                  if (promptInput.trim()) {
-                    customPrompt.onSave(promptInput.trim());
-                    setCustomPrompt(null);
-                  }
-                }}
-                disabled={!promptInput.trim()}
-                style={{ flex: 1.2, padding: '0.85rem', borderRadius: '14px', border: 'none', background: '#3b82f6', color: 'white', fontWeight: 'bold', cursor: promptInput.trim() ? 'pointer' : 'not-allowed', opacity: promptInput.trim() ? 1 : 0.6 }}
-              >
-                אישור
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {renderSharedConfirmAndPromptModals()}
 
       {/* DOCUMENT NOTE MODAL */}
       {renderDocNoteModal()}
       {/* PRIVACY MODAL IN OUTER GALLERY VIEW */}
       {renderPrivacyModal()}
+      {/* SHELF MOVE MODAL IN OUTER GALLERY VIEW */}
+      {renderShelfMoveModal()}
 
       {/* SMART DUPLICATE PREVENTION INTERCEPTION MODAL */}
       {duplicateMatchState && (
