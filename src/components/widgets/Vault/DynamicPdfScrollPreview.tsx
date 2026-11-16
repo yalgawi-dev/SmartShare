@@ -547,7 +547,7 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
           limitToBounds={!isMultiPage}
           panning={{ disabled: isNativeScrollMode, velocityDisabled: true }}
           trackPadPanning={{ velocityDisabled: true }}
-          doubleClick={{ mode: 'zoomIn', step: 2.5 }}
+          doubleClick={{ mode: 'zoomIn', step: 0.5 }}
           wheel={{ wheelDisabled: isNativeScrollMode, step: 0.2 }}
           pinch={{ step: 5 }}
           onTransform={(ref: any) => {
@@ -777,7 +777,7 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
               >
                 <button
                   type="button"
-                  onClick={() => zoomIn(2.0)}
+                  onClick={() => zoomIn(0.35)}
                   title="הגדל זום"
                   style={{
                     width: '42px',
@@ -799,7 +799,7 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
                 </button>
                 <button
                   type="button"
-                  onClick={() => zoomOut(2.0)}
+                  onClick={() => zoomOut(0.35)}
                   title="הקטן זום"
                   style={{
                     width: '42px',

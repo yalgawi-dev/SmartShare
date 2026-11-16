@@ -575,36 +575,6 @@ export default function UniversalViewerModal({
             ⏱️ מדדים
           </button>
 
-          {/* Universal Ultra-HD Button: Only visible when an actual PDF source exists for 3200px re-rendering */}
-          {hasPdfSource && (
-            <button
-              type="button"
-              onClick={handleToggleUltraHd}
-              disabled={isHdRendering}
-              style={{
-                background: isHdActive ? '#10b981' : (currentScale > 2.5 ? '#3b82f6' : 'rgba(255, 255, 255, 0.18)'),
-                backdropFilter: 'blur(8px)',
-                border: isHdActive ? '1.5px solid #34d399' : '1px solid rgba(255, 255, 255, 0.3)',
-                color: '#ffffff',
-                padding: '4px 10px',
-                borderRadius: '16px',
-                fontSize: '0.78rem',
-                fontWeight: 800,
-                cursor: isHdRendering ? 'wait' : 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                boxShadow: isHdActive ? '0 2px 10px rgba(16,185,129,0.4)' : '0 2px 6px rgba(0,0,0,0.3)',
-                transition: 'all 0.2s ease',
-                whiteSpace: 'nowrap'
-              }}
-              title="רינדור מחדש בחדות Ultra-HD לקריאת מידות ומספרים קטנים בשרטוט"
-            >
-              <span>{isHdRendering ? '⏳' : (isHdActive ? '✓' : '🔍')}</span>
-              <span>{isHdRendering ? 'מחדד...' : (isHdActive ? 'חדות HD פעילה' : 'חדד שרטוט (Ultra-HD)')}</span>
-            </button>
-          )}
-
           {/* Close Button */}
           <button
             onClick={onClose}
@@ -760,7 +730,7 @@ export default function UniversalViewerModal({
                   limitToBounds={false}
                   panning={{ disabled: isNativeScrollMode, velocityDisabled: true }}
                   trackPadPanning={{ velocityDisabled: true }}
-                  doubleClick={{ mode: 'zoomIn', step: 2.5 }}
+                  doubleClick={{ mode: 'zoomIn', step: 0.5 }}
                   wheel={{ wheelDisabled: isNativeScrollMode, step: 0.2 }}
                   pinch={{ step: 5 }}
                   onTransform={(ref: any) => setCurrentScale(ref.state.scale)}
@@ -866,7 +836,7 @@ export default function UniversalViewerModal({
                       >
                         <button
                           type="button"
-                          onClick={() => zoomIn(1.8)}
+                          onClick={() => zoomIn(0.35)}
                           title="הגדל זום"
                           style={{
                             width: '42px',
@@ -888,7 +858,7 @@ export default function UniversalViewerModal({
                         </button>
                         <button
                           type="button"
-                          onClick={() => zoomOut(1.8)}
+                          onClick={() => zoomOut(0.35)}
                           title="הקטן זום"
                           style={{
                             width: '42px',
@@ -908,34 +878,7 @@ export default function UniversalViewerModal({
                         >
                           −
                         </button>
-                        {/* HD Button directly in floating zoom toolbar: Only when real PDF source is available */}
-                        {hasPdfSource && (
-                          <button
-                            type="button"
-                            onClick={handleToggleUltraHd}
-                            disabled={isHdRendering}
-                            title="חידוד שרטוט (Ultra-HD)"
-                            style={{
-                              width: '42px',
-                              height: '42px',
-                              borderRadius: '50%',
-                              background: isHdActive ? '#10b981' : (currentScale > 2 ? '#3b82f6' : 'rgba(15, 23, 42, 0.75)'),
-                              backdropFilter: 'blur(8px)',
-                              border: isHdActive ? '1.5px solid #34d399' : '1.5px solid rgba(255, 255, 255, 0.25)',
-                              color: '#ffffff',
-                              fontSize: '0.82rem',
-                              fontWeight: 800,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              cursor: isHdRendering ? 'wait' : 'pointer',
-                              boxShadow: '0 4px 12px rgba(0,0,0,0.4)'
-                            }}
-                          >
-                            {isHdRendering ? '⏳' : (isHdActive ? 'HD✓' : 'HD')}
-                          </button>
-                        )}
-                      {currentScale > 1.1 && (
+                        {currentScale > 1.1 && (
                           <button
                             type="button"
                             onClick={() => resetTransform()}
@@ -1054,7 +997,7 @@ export default function UniversalViewerModal({
                 centerOnInit={true}
                 limitToBounds={true}
                 panning={{ velocityDisabled: true }}
-                doubleClick={{ mode: 'zoomIn', step: 2.5 }}
+                doubleClick={{ mode: 'zoomIn', step: 0.5 }}
                 wheel={{ step: 0.2 }}
                 pinch={{ step: 5 }}
                 onTransform={(ref: any) => {
@@ -1279,7 +1222,7 @@ export default function UniversalViewerModal({
                     >
                       <button
                         type="button"
-                        onClick={() => zoomIn(1.8)}
+                        onClick={() => zoomIn(0.35)}
                         title="הגדל זום"
                         style={{
                           width: '42px',
@@ -1301,7 +1244,7 @@ export default function UniversalViewerModal({
                       </button>
                       <button
                         type="button"
-                        onClick={() => zoomOut(1.8)}
+                        onClick={() => zoomOut(0.35)}
                         title="הקטן זום"
                         style={{
                           width: '42px',
@@ -1321,33 +1264,6 @@ export default function UniversalViewerModal({
                       >
                         −
                       </button>
-                      {/* HD Button directly in floating zoom toolbar: Only when real PDF source is available */}
-                      {hasPdfSource && (
-                        <button
-                          type="button"
-                          onClick={handleToggleUltraHd}
-                          disabled={isHdRendering}
-                          title="חידוד שרטוט (Ultra-HD)"
-                          style={{
-                            width: '42px',
-                            height: '42px',
-                            borderRadius: '50%',
-                            background: isHdActive ? '#10b981' : (currentScale > 2 ? '#3b82f6' : 'rgba(15, 23, 42, 0.75)'),
-                            backdropFilter: 'blur(8px)',
-                            border: isHdActive ? '1.5px solid #34d399' : '1.5px solid rgba(255, 255, 255, 0.25)',
-                            color: '#ffffff',
-                            fontSize: '0.82rem',
-                            fontWeight: 800,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            cursor: isHdRendering ? 'wait' : 'pointer',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.4)'
-                          }}
-                        >
-                          {isHdRendering ? '⏳' : (isHdActive ? 'HD✓' : 'HD')}
-                        </button>
-                      )}
                       {currentScale > 1.1 && (
                         <button
                           type="button"
