@@ -18,6 +18,8 @@ export default function AuthWall() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
+  // TEMPORARY DIAGNOSTIC STATE (Rule 12: to be removed after verification with user approval)
+  const [webOtpDiag, setWebOtpDiag] = useState<string>('');
 
   // Ref for OTPInput so it auto-focuses on step 2 (triggers keyboard & native OTP autofill)
   const masterOtpInputRef = React.useRef<HTMLInputElement | null>(null);
@@ -40,12 +42,15 @@ export default function AuthWall() {
     if ('OTPCredential' in window || (navigator as any).credentials) {
       try {
         abortController = new AbortController();
+        setWebOtpDiag('🔍 WebOTP מאזין ברקע ל-SMS...');
         (navigator as any).credentials.get({
           otp: { transport: ['sms'] },
           signal: abortController.signal
         }).then((otpCredential: any) => {
-          if (otpCredential && otpCredential.code) {
-            const extractedCode = otpCredential.code.trim();
+          const rawCode = otpCredential?.code ? String(otpCredential.code) : '';
+          setWebOtpDiag(`✅ WebOTP החזיר מ-Chrome: "${rawCode || 'ריק (null)'}"`);
+          if (rawCode) {
+            const extractedCode = rawCode.trim();
             const digitsOnly = extractedCode.replace(/\D/g, '').slice(0, 6);
             if (digitsOnly.length === 6) {
               setOtpValue(digitsOnly);
@@ -56,12 +61,15 @@ export default function AuthWall() {
           }
         }).catch((err: any) => {
           if (err.name !== 'AbortError') {
+            setWebOtpDiag(`❌ WebOTP נכשל/נדחה: ${err.name || ''} - ${err.message || JSON.stringify(err)}`);
             console.log('WebOTP auto-read info:', err);
           }
         });
-      } catch (e) {
-        // Fallback silently
+      } catch (e: any) {
+        setWebOtpDiag(`❌ WebOTP שגיאת הפעלה: ${e?.message || String(e)}`);
       }
+    } else {
+      setWebOtpDiag('⚠️ WebOTP אינו נתמך בדפדפן זה');
     }
 
     return () => {
@@ -552,11 +560,28 @@ export default function AuthWall() {
                 maxLength={6}
                 value={otpValue}
                 onChange={(e) => handleOtpChange(e.target.value)}
+                onInput={(e) => handleOtpChange((e.target as HTMLInputElement).value)}
                 autoFocus
                 placeholder="000000"
                 className="single-otp-input"
               />
             </div>
+
+            {webOtpDiag && (
+              <div style={{
+                background: '#EFF6FF',
+                border: '1px solid #BFDBFE',
+                color: '#1E40AF',
+                padding: '10px 12px',
+                borderRadius: '10px',
+                fontSize: '0.82rem',
+                fontWeight: 600,
+                textAlign: 'center',
+                direction: 'rtl'
+              }}>
+                {webOtpDiag}
+              </div>
+            )}
 
             {errorMsg && (
               <div className="auth-error">
