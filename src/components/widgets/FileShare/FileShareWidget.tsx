@@ -1333,6 +1333,8 @@ export function FileShareWidget({
         space={space}
         spaceTitle={space.title || 'המרחב שלי'}
         folderFiles={currentFolderContainedFiles}
+        allSpaceFolders={activeItems.filter(i => i.type === 'folder').map(f => ({ id: f.id, name: f.name, parentId: f.parentId }))}
+        allSpaceFiles={activeItems.filter(i => i.type === 'file')}
         spaceLogoUrl={space.features?.includes('business_card') ? space.logoUrl : undefined}
         businessCard={space.features?.includes('business_card') ? space.settings?.businessCard : undefined}
         onClose={() => setActiveShareItem(null)}

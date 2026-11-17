@@ -17,6 +17,8 @@ interface CreateShareLinkModalProps {
   space?: any;
   spaceTitle: string;
   folderFiles?: FileShareItem[];
+  allSpaceFolders?: Array<{ id: string; name: string; parentId: string | null }>;
+  allSpaceFiles?: FileShareItem[];
   spaceLogoUrl?: string;
   businessCard?: any;
   onClose: () => void;
@@ -29,6 +31,8 @@ export function CreateShareLinkModal({
   space,
   spaceTitle,
   folderFiles,
+  allSpaceFolders,
+  allSpaceFiles,
   spaceLogoUrl,
   businessCard,
   onClose,
@@ -44,6 +48,7 @@ export function CreateShareLinkModal({
   const [expiryOption, setExpiryOption] = useState<'never' | '1day' | '7days' | '30days'>('never');
   const [allowDownload, setAllowDownload] = useState(true);
   const [allowUploads, setAllowUploads] = useState(true);
+  const [includeSubtree, setIncludeSubtree] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [copied, setCopied] = useState(false);
   const [token, setToken] = useState<string>('');
@@ -158,6 +163,7 @@ export function CreateShareLinkModal({
         setPin(link.pin || '');
         setAllowDownload(link.allowDownload !== false);
         setAllowUploads(link.allowUploads !== false);
+        setIncludeSubtree(Boolean(link.includeSubtree));
         setRecipients(Array.isArray(link.recipients) ? link.recipients : []);
 
         if (!link.expiresAt) {
@@ -219,6 +225,7 @@ export function CreateShareLinkModal({
         setExpiryOption('never');
         setAllowDownload(true);
         setAllowUploads(true);
+        setIncludeSubtree(false);
         setRecipients([]);
       }
       setCopied(false);
@@ -233,6 +240,33 @@ export function CreateShareLinkModal({
     }
   }, [isOpen, item?.id]);
 
+  // Compute effective folders and files when includeSubtree is toggled
+  const { effectiveFolderFiles, effectiveSubfolders } = useMemo(() => {
+    if (!item || item.type !== 'folder') {
+      return { effectiveFolderFiles: folderFiles || [], effectiveSubfolders: [] };
+    }
+    if (!includeSubtree || !allSpaceFolders || !allSpaceFiles) {
+      return { effectiveFolderFiles: folderFiles || [], effectiveSubfolders: [] };
+    }
+
+    const targetFolderIds = new Set<string>([item.id]);
+    const subs: Array<{ id: string; name: string; parentId: string | null }> = [];
+    const collect = (parentId: string) => {
+      const children = allSpaceFolders.filter(f => f.parentId === parentId);
+      children.forEach(c => {
+        if (!targetFolderIds.has(c.id)) {
+          targetFolderIds.add(c.id);
+          subs.push({ id: c.id, name: c.name, parentId: c.parentId });
+          collect(c.id);
+        }
+      });
+    };
+    collect(item.id);
+
+    const files = allSpaceFiles.filter(f => f.parentId && targetFolderIds.has(f.parentId));
+    return { effectiveFolderFiles: files, effectiveSubfolders: subs };
+  }, [item, includeSubtree, folderFiles, allSpaceFolders, allSpaceFiles]);
+
   if (!isOpen || !item) return null;
 
   const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://smart-share-tvwn-delta.vercel.app';
@@ -246,11 +280,38 @@ export function CreateShareLinkModal({
     return null;
   };
 
-  const ensurePersisted = async (tokenToUse: string, updatedRecipients?: RecipientShareLink[]): Promise<boolean> => {
+  const ensurePersisted = async (tokenToUse: string, updatedRecipients?: RecipientShareLink[], overrideSubtree?: boolean): Promise<boolean> => {
     if (!item) return false;
     try {
       const expiresAt = calculateExpiryTimestamp(expiryOption);
       const activeRecipients = updatedRecipients !== undefined ? updatedRecipients : recipients;
+      const activeSubtree = overrideSubtree !== undefined ? overrideSubtree : includeSubtree;
+
+      // Recompute files if overrideSubtree was passed
+      let filesToSave = effectiveFolderFiles;
+      let subsToSave = effectiveSubfolders;
+      if (item.type === 'folder' && overrideSubtree !== undefined && allSpaceFolders && allSpaceFiles) {
+        if (!activeSubtree) {
+          filesToSave = folderFiles || [];
+          subsToSave = [];
+        } else {
+          const targetIds = new Set<string>([item.id]);
+          const s: Array<{ id: string; name: string; parentId: string | null }> = [];
+          const collect = (pId: string) => {
+            allSpaceFolders.filter(f => f.parentId === pId).forEach(c => {
+              if (!targetIds.has(c.id)) {
+                targetIds.add(c.id);
+                s.push({ id: c.id, name: c.name, parentId: c.parentId });
+                collect(c.id);
+              }
+            });
+          };
+          collect(item.id);
+          filesToSave = allSpaceFiles.filter(f => f.parentId && targetIds.has(f.parentId));
+          subsToSave = s;
+        }
+      }
+
       const newConfig: ShareLinkConfig = {
         enabled: true,
         token: tokenToUse,
@@ -259,6 +320,7 @@ export function CreateShareLinkModal({
         expiresAt,
         allowDownload,
         allowUploads,
+        includeSubtree: activeSubtree,
         viewCount: item.shareLink?.viewCount || 0,
         totalDurationSeconds: item.shareLink?.totalDurationSeconds || 0,
         lastViewedAt: item.shareLink?.lastViewedAt || null,
@@ -271,8 +333,8 @@ export function CreateShareLinkModal({
         spaceTitle,
         item,
         newConfig,
-        folderFiles,
-        { businessCard, spaceLogoUrl }
+        filesToSave,
+        { businessCard, spaceLogoUrl, folderSubfolders: subsToSave }
       );
 
       // Direct Firestore sync to Space document to ensure zero data loss on immediate modal reopen
@@ -760,17 +822,79 @@ ${slogan}${phoneText}${portfolioText}`);
               </div>
               <p style={{ margin: 0, fontSize: '0.76rem', color: '#334155', lineHeight: 1.45 }}>
                 {item.type === 'folder' ? (
-                  <>
-                    הקישור חושף אך ורק את <strong>הקבצים הישירים שבתוך תיקייה זו</strong> (סה״כ {folderFiles ? folderFiles.length : 0} קבצים).
-                    <br />
-                    🔒 <strong>תתי-תיקיות פנימיות אינן נגישות לאורח חיצוני</strong> דרך קישור זה (רק שותפים מורשים שנכנסים כחברים במרחב רואים את עץ התיקיות).
-                  </>
+                  includeSubtree ? (
+                    <>
+                      הקישור חושף את <strong>תיקייה זו וכל תתי-התיקיות שמתחתיה (בנים, נכדים וכו׳)</strong> (סה״כ {effectiveSubfolders.length} תתי-תיקיות ו-{effectiveFolderFiles.length} קבצים).
+                      <br />
+                      🔒 <strong>תיקיות שמעל תיקייה זו (הורים או תיקיות אחיות במרחב) חסומות לחלוטין</strong>.
+                    </>
+                  ) : (
+                    <>
+                      הקישור חושף אך ורק את <strong>הקבצים הישירים שבתוך תיקייה זו</strong> (סה״כ {folderFiles ? folderFiles.length : 0} קבצים).
+                      <br />
+                      🔒 <strong>תתי-תיקיות פנימיות אינן נגישות</strong> (אלא אם תבחר למטה לחשוף גם תתי-תיקיות).
+                    </>
+                  )
                 ) : (
                   <>
                     הקישור חושף אך ורק את <strong>הקובץ הספציפי שנבחר ({item.name})</strong>. שאר הקבצים והתיקיות במרחב נשארים חסויים לחלוטין.
                   </>
                 )}
               </p>
+
+              {/* Subtree / Descendants Toggle for Folder Shares */}
+              {item.type === 'folder' && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem', marginTop: '0.35rem' }}>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setIncludeSubtree(false);
+                      if (token) await ensurePersisted(token, undefined, false);
+                    }}
+                    style={{
+                      padding: '0.45rem 0.5rem',
+                      borderRadius: '10px',
+                      border: !includeSubtree ? '2px solid #16a34a' : '1px solid #cbd5e1',
+                      background: !includeSubtree ? '#dcfce7' : '#ffffff',
+                      color: !includeSubtree ? '#166534' : '#475569',
+                      fontWeight: !includeSubtree ? 800 : 600,
+                      fontSize: '0.75rem',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    <span>📁</span>
+                    <span>תיקייה זו בלבד</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setIncludeSubtree(true);
+                      if (token) await ensurePersisted(token, undefined, true);
+                    }}
+                    style={{
+                      padding: '0.45rem 0.5rem',
+                      borderRadius: '10px',
+                      border: includeSubtree ? '2px solid #2563eb' : '1px solid #cbd5e1',
+                      background: includeSubtree ? '#dbeafe' : '#ffffff',
+                      color: includeSubtree ? '#1e40af' : '#475569',
+                      fontWeight: includeSubtree ? 800 : 600,
+                      fontSize: '0.75rem',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    <span>🌳</span>
+                    <span>כולל תתי-תיקיות (כל העץ מתחתיי)</span>
+                  </button>
+                </div>
+              )}
             </div>
             
             {/* PIN Protection */}

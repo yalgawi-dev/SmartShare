@@ -28,6 +28,7 @@ export interface ShareLinkConfig {
   expiresAt: number | null; // timestamp in ms, or null for no expiry
   allowDownload: boolean;   // if false: view-only mode
   allowUploads?: boolean;  // if true: recipient can upload submissions / quotes
+  includeSubtree?: boolean; // if true: exposes all descendant subfolders and files under this folder
   viewCount?: number;
   totalDurationSeconds?: number;
   lastViewedAt?: number | null;
@@ -63,6 +64,8 @@ export interface FileShareItem {
   shareLink?: ShareLinkConfig;
   isFavorite?: boolean;
   deletedAt?: string;
+  linkedSourceId?: string;
+  linkedSourceType?: 'vault_doc' | 'vault_folder' | 'invoice';
 }
 
 /**
@@ -122,14 +125,21 @@ export interface PublicSharedData {
   expiresAt: number | null;
   allowDownload: boolean;
   allowUploads?: boolean;
+  includeSubtree?: boolean;
   viewCount: number;
   totalDurationSeconds?: number;
   lastViewedAt: number | null;
   createdAt: number;
   recipients?: RecipientShareLink[];
+  folderSubfolders?: Array<{
+    id: string;
+    name: string;
+    parentId: string | null;
+  }>;
   folderFiles?: Array<{
     id: string;
     name: string;
+    parentId?: string | null;
     url: string;
     thumbnailUrl?: string;
     pages?: string[];
@@ -168,7 +178,7 @@ export async function createOrUpdatePublicShare(
   item: FileShareItem,
   config: ShareLinkConfig,
   folderFiles?: FileShareItem[],
-  options?: { businessCard?: BusinessCardShareData; spaceLogoUrl?: string }
+  options?: { businessCard?: BusinessCardShareData; spaceLogoUrl?: string; folderSubfolders?: Array<{ id: string; name: string; parentId: string | null }> }
 ): Promise<string> {
   const token = config.token || generateShareToken();
   const now = Date.now();
@@ -223,22 +233,27 @@ export async function createOrUpdatePublicShare(
     expiresAt: config.expiresAt || null,
     allowDownload: config.allowDownload !== false,
     allowUploads: config.allowUploads !== false,
+    includeSubtree: Boolean(config.includeSubtree),
     viewCount: config.viewCount || 0,
     lastViewedAt: config.lastViewedAt || null,
     createdAt: config.createdAt || now,
     recipients: Array.isArray(config.recipients) ? config.recipients : []
   };
 
-  if (item.type === 'folder' && folderFiles) {
-    payload.folderFiles = folderFiles.map(f => ({
-      id: f.id,
-      name: f.name,
-      url: f.url || '',
-      thumbnailUrl: f.thumbnailUrl || (Array.isArray(f.pages) && f.pages.length > 0 ? f.pages[0] : (f.url && !f.url.toLowerCase().includes('.pdf') ? f.url : undefined)),
-      pages: f.pages || [],
-      fileType: f.fileType || 'other',
-      size: f.size || 0
-    }));
+  if (item.type === 'folder') {
+    payload.folderSubfolders = config.includeSubtree && options?.folderSubfolders ? options.folderSubfolders : [];
+    if (folderFiles) {
+      payload.folderFiles = folderFiles.map(f => ({
+        id: f.id,
+        name: f.name,
+        parentId: f.parentId || null,
+        url: f.url || '',
+        thumbnailUrl: f.thumbnailUrl || (Array.isArray(f.pages) && f.pages.length > 0 ? f.pages[0] : (f.url && !f.url.toLowerCase().includes('.pdf') ? f.url : undefined)),
+        pages: f.pages || [],
+        fileType: f.fileType || 'other',
+        size: f.size || 0
+      }));
+    }
   }
 
   await setDoc(shareDocRef, sanitizeFirestoreData(payload), { merge: true });
@@ -548,11 +563,31 @@ export async function syncPublicFolderShares(
     const folder = allItems.find(i => i.id === folderId && i.type === 'folder');
     if (!folder || !folder.shareLink?.token) return;
 
-    const folderFiles = allItems.filter(i => i.parentId === folderId && !i.deletedAt);
+    const includeSubtree = Boolean(folder.shareLink.includeSubtree);
+    let targetFolderIds = new Set<string>([folderId]);
+    const collectedSubfolders: Array<{ id: string; name: string; parentId: string | null }> = [];
+
+    if (includeSubtree) {
+      const collectDescendants = (parentId: string) => {
+        const children = allItems.filter(i => i.type === 'folder' && i.parentId === parentId && !i.deletedAt);
+        children.forEach(c => {
+          if (!targetFolderIds.has(c.id)) {
+            targetFolderIds.add(c.id);
+            collectedSubfolders.push({ id: c.id, name: c.name, parentId: c.parentId });
+            collectDescendants(c.id);
+          }
+        });
+      };
+      collectDescendants(folderId);
+    }
+
+    const folderFiles = allItems.filter(i => i.type === 'file' && i.parentId && targetFolderIds.has(i.parentId) && !i.deletedAt);
     const mappedFiles = folderFiles.map(f => ({
       id: f.id,
       name: f.name,
+      parentId: f.parentId || null,
       url: f.url || '',
+      thumbnailUrl: f.thumbnailUrl || (Array.isArray(f.pages) && f.pages.length > 0 ? f.pages[0] : (f.url && !f.url.toLowerCase().includes('.pdf') ? f.url : undefined)),
       pages: f.pages || [],
       fileType: f.fileType || 'other',
       size: f.size || 0
@@ -562,7 +597,11 @@ export async function syncPublicFolderShares(
     const masterDocRef = doc(db, 'shared_links', folder.shareLink.token);
     
     // Optional branding enrichment if available and feature enabled
-    let brandingUpdates: any = { folderFiles: mappedFiles };
+    let brandingUpdates: any = {
+      folderFiles: mappedFiles,
+      folderSubfolders: collectedSubfolders,
+      includeSubtree
+    };
     try {
       if (spaceId) {
         const spaceSnap = await getDoc(doc(db, 'spaces', spaceId));

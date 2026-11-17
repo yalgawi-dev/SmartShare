@@ -23,6 +23,8 @@ import { LinkDocumentsModal, LinkedDocsPreviewModal } from './DocumentLinkModals
 import { APP_VERSION } from '@/constants/version';
 import { findDuplicateInSpace, computeImageDHash, DuplicateMatch } from '@/utils/duplicateDetection';
 import { DuplicateWarningModal } from './DuplicateWarningModal';
+import { CreateShareLinkModal } from '../FileShare/CreateShareLinkModal';
+import { FileShareItem, ShareLinkConfig } from '@/utils/fileShareUtils';
 
 export interface DocumentsWidgetRef {
   addDocument: (url: string, type: 'document' | 'image' | 'pdf', allPages?: string[], targetEventId?: string, explicitShelfId?: string) => Promise<string | undefined>;
@@ -59,7 +61,8 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
     addDocument, addDocumentAndLinkToEvent, updateDocument, removeDocument, restoreDocument, permanentlyDeleteDocument, 
     addDocumentFolder, updateDocumentFolder, removeDocumentFolder, restoreDocumentFolder, permanentlyDeleteDocumentFolder, moveDocumentFolder,
     exportDocumentFolderToSpace, exportShelfToSpace,
-    addShelfEvent, updateShelfEvent, removeShelfEvent, addShelfEventComment, removeShelfEventComment 
+    addShelfEvent, updateShelfEvent, removeShelfEvent, addShelfEventComment, removeShelfEventComment,
+    updateFileShareItems
   } = useSpaces() as any;
   
   const shelves = space.shelves || [];
@@ -109,7 +112,9 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   const [activeDocMenuId, setActiveDocMenuId] = useState<string | null>(null);
   const [noteDocId, setNoteDocId] = useState<string | null>(null);
   const hasFinance = (space.features || []).includes('finance');
+  const hasFileShare = (space.features || []).includes('fileshare');
   const showTimeline = !!space.settings?.showVaultTimeline;
+  const [externalShareItem, setExternalShareItem] = useState<FileShareItem | null>(null);
   const [shelfToDelete, setShelfToDelete] = useState<{ id: string, name: string, count: number } | null>(null);
   const [shelfToMove, setShelfToMove] = useState<DocumentShelf | null>(null);
   const [showRecycleBin, setShowRecycleBin] = useState(false);
@@ -241,6 +246,145 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
 
   const showFeedbackToast = (message: string, type: 'success' | 'info' = 'success') => {
     setFeedbackToast({ message, type });
+  };
+
+  // Pin Vault document or folder to the Space Sharing Wall with ZERO storage duplication
+  const handlePinToSharingWall = async (target: { type: 'doc' | 'folder'; item: any }) => {
+    const existingItems: FileShareItem[] = Array.isArray((space as any).fileShareItems) ? [...(space as any).fileShareItems] : [];
+    const now = Date.now();
+
+    if (target.type === 'doc') {
+      const docItem = target.item;
+      const alreadyLinked = existingItems.find(i => !i.deletedAt && i.linkedSourceId === docItem.id);
+      if (alreadyLinked) {
+        showFeedbackToast('המסמך כבר משויך לקיר השיתוף!', 'info');
+        return;
+      }
+      const isPdf = docItem.type === 'pdf' || docItem.url?.toLowerCase().includes('.pdf');
+      const newWallItem: FileShareItem = {
+        id: `wall_doc_${docItem.id}_${now}`,
+        spaceId: space.id,
+        name: docItem.title || 'מסמך',
+        type: 'file',
+        parentId: null,
+        url: docItem.url,
+        thumbnailUrl: docItem.thumbnailUrl || (Array.isArray(docItem.pages) && docItem.pages.length > 0 ? docItem.pages[0] : (!isPdf ? docItem.url : undefined)),
+        pages: docItem.pages || [docItem.url],
+        fileType: isPdf ? 'pdf' : 'image',
+        size: 0, // Zero storage duplication!
+        createdAt: now,
+        createdBy: user?.id || 'user',
+        creatorName: user?.realName || user?.nickname || 'משתמש',
+        allowedPartners: docItem.allowedPartners || [],
+        linkedSourceId: docItem.id,
+        linkedSourceType: 'vault_doc'
+      };
+      if (updateFileShareItems) {
+        await updateFileShareItems(space.id, [...existingItems, newWallItem]);
+      }
+      showFeedbackToast('המסמך שויך לקיר השיתוף בהצלחה (ללא שכפול נפח)!');
+    } else if (target.type === 'folder') {
+      const folder = target.item as DocumentFolder;
+      const alreadyLinked = existingItems.find(i => !i.deletedAt && i.linkedSourceId === folder.id);
+      if (alreadyLinked) {
+        showFeedbackToast('התיקייה כבר משויכת לקיר השיתוף!', 'info');
+        return;
+      }
+      // Create root folder pointer and recursively map descendant subfolders and docs with 0 byte duplication
+      const newItemsToAppend: FileShareItem[] = [];
+      const folderIdMap: Record<string, string> = {};
+
+      const mapFolderRecursive = (vFolder: DocumentFolder, wallParentId: string | null) => {
+        const wallFolderId = `wall_fld_${vFolder.id}_${now}`;
+        folderIdMap[vFolder.id] = wallFolderId;
+        newItemsToAppend.push({
+          id: wallFolderId,
+          spaceId: space.id,
+          name: vFolder.name,
+          type: 'folder',
+          parentId: wallParentId,
+          createdAt: now,
+          createdBy: user?.id || 'user',
+          creatorName: user?.realName || user?.nickname || 'משתמש',
+          allowedPartners: vFolder.allowedPartners || [],
+          linkedSourceId: vFolder.id,
+          linkedSourceType: 'vault_folder'
+        });
+
+        // Docs inside this folder
+        const childDocs = documents.filter(d => !d.deletedAt && d.folderId === vFolder.id);
+        childDocs.forEach(d => {
+          const isPdf = d.type === 'pdf' || d.url?.toLowerCase().includes('.pdf');
+          newItemsToAppend.push({
+            id: `wall_doc_${d.id}_${now}`,
+            spaceId: space.id,
+            name: d.title || 'מסמך',
+            type: 'file',
+            parentId: wallFolderId,
+            url: d.url,
+            thumbnailUrl: d.thumbnailUrl || (Array.isArray(d.pages) && d.pages.length > 0 ? d.pages[0] : (!isPdf ? d.url : undefined)),
+            pages: d.pages || [d.url],
+            fileType: isPdf ? 'pdf' : 'image',
+            size: 0,
+            createdAt: now,
+            createdBy: user?.id || 'user',
+            creatorName: user?.realName || user?.nickname || 'משתמש',
+            allowedPartners: d.allowedPartners || [],
+            linkedSourceId: d.id,
+            linkedSourceType: 'vault_doc'
+          });
+        });
+
+        // Subfolders
+        const subFolders = (space.documentFolders || []).filter(sf => !sf.deletedAt && sf.parentId === vFolder.id);
+        subFolders.forEach(sf => mapFolderRecursive(sf, wallFolderId));
+      };
+
+      mapFolderRecursive(folder, null);
+      if (updateFileShareItems) {
+        await updateFileShareItems(space.id, [...existingItems, ...newItemsToAppend]);
+      }
+      showFeedbackToast(`התיקייה "${folder.name}" ותכולתה שויכו לקיר השיתוף (0 נפח כפול)!`);
+    }
+  };
+
+  // Open External Share Link Modal directly for any Vault document or folder
+  const handleOpenExternalShareModal = (target: { type: 'doc' | 'folder'; item: any }) => {
+    if (target.type === 'doc') {
+      const d = target.item;
+      const isPdf = d.type === 'pdf' || d.url?.toLowerCase().includes('.pdf');
+      setExternalShareItem({
+        id: d.id,
+        spaceId: space.id,
+        name: d.title || 'מסמך',
+        type: 'file',
+        parentId: d.folderId || null,
+        url: d.url,
+        thumbnailUrl: d.thumbnailUrl || (Array.isArray(d.pages) && d.pages.length > 0 ? d.pages[0] : (!isPdf ? d.url : undefined)),
+        pages: d.pages || [d.url],
+        fileType: isPdf ? 'pdf' : 'image',
+        size: d.fileSize || 0,
+        createdAt: new Date(d.createdAt || Date.now()).getTime(),
+        createdBy: d.addedBy || user?.id || 'user',
+        creatorName: d.addedByName || user?.realName || 'משתמש',
+        allowedPartners: d.allowedPartners || [],
+        shareLink: (d as any).shareLink
+      });
+    } else {
+      const f = target.item as DocumentFolder;
+      setExternalShareItem({
+        id: f.id,
+        spaceId: space.id,
+        name: f.name,
+        type: 'folder',
+        parentId: f.parentId || null,
+        createdAt: new Date(f.createdAt || Date.now()).getTime(),
+        createdBy: f.ownerId || user?.id || 'user',
+        creatorName: user?.realName || 'משתמש',
+        allowedPartners: f.allowedPartners || [],
+        shareLink: (f as any).shareLink
+      });
+    }
   };
 
   useEffect(() => {
@@ -3164,8 +3308,34 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                       style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '5px', padding: '1px 4px', fontSize: '0.68rem', cursor: 'pointer' }}
                                       title="קשר לתחנה"
                                     >
-                                      🔗
+                                      📍
                                     </button>
+                                  )}
+                                  {hasFileShare && (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleOpenExternalShareModal({ type: 'folder', item: folder });
+                                        }}
+                                        style={{ background: '#eff6ff', border: '1px solid #bfdbfe', color: '#2563eb', borderRadius: '5px', padding: '1px 4px', fontSize: '0.68rem', cursor: 'pointer' }}
+                                        title="קישור שיתוף חיצוני מאובטח לתיקייה (או כל תת-העץ מתחתיה)"
+                                      >
+                                        🔗
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handlePinToSharingWall({ type: 'folder', item: folder });
+                                        }}
+                                        style={{ background: '#f5f3ff', border: '1px solid #ddd6fe', color: '#7c3aed', borderRadius: '5px', padding: '1px 4px', fontSize: '0.68rem', cursor: 'pointer' }}
+                                        title="שייך תיקייה לקיר השיתוף המרוכז (ללא שכפול נפח)"
+                                      >
+                                        📤
+                                      </button>
+                                    </>
                                   )}
                                   <button
                                     type="button"
@@ -3610,6 +3780,19 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                             </button>
                                           );
                                         })()}
+                                        {hasFileShare && (
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleOpenExternalShareModal({ type: 'doc', item: doc });
+                                            }}
+                                            style={{ background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '2px 5px', borderRadius: '5px', fontSize: '0.68rem', fontWeight: 'bold', cursor: 'pointer' }}
+                                            title="קישור שיתוף חיצוני מאובטח"
+                                          >
+                                            🔗
+                                          </button>
+                                        )}
                                         <button
                                           type="button"
                                           onClick={(e) => { e.stopPropagation(); setSharingDoc(doc); }}
@@ -3750,8 +3933,32 @@ const handleDeleteDocument = (docId: string, title?: string) => {
 
                                               {/* קבוצה 3: קישור */}
                                               <div style={{ fontSize: '0.72rem', fontWeight: 900, color: '#475569', padding: '0.1rem 0.4rem', letterSpacing: '0.3px' }}>
-                                                קישורים
+                                                קישורים ושיתוף
                                               </div>
+                                              {hasFileShare && (
+                                                <>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                      setActiveDocMenuId(null);
+                                                      handleOpenExternalShareModal({ type: 'doc', item: doc });
+                                                    }}
+                                                    style={{ background: 'transparent', border: 'none', padding: '0.35rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#2563eb', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.45rem' }}
+                                                  >
+                                                    🔗 קישור שיתוף חיצוני מאובטח
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                      setActiveDocMenuId(null);
+                                                      handlePinToSharingWall({ type: 'doc', item: doc });
+                                                    }}
+                                                    style={{ background: 'transparent', border: 'none', padding: '0.35rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#7c3aed', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.45rem' }}
+                                                  >
+                                                    📤 שייך לקיר השיתוף (0 נפח)
+                                                  </button>
+                                                </>
+                                              )}
                                               <button
                                                 type="button"
                                                 onClick={() => { setActiveDocMenuId(null); setLinkingDoc(doc); }}
@@ -4135,6 +4342,67 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       })()}
 
       {renderPrivacyModal()}
+
+      {/* EXTERNAL PUBLIC SHARE LINK MODAL FOR VAULT ITEMS (When FileShare plugin is active) */}
+      {externalShareItem && (
+        <CreateShareLinkModal
+          isOpen={Boolean(externalShareItem)}
+          item={externalShareItem}
+          space={space}
+          spaceTitle={space.title || 'המרחב שלי'}
+          folderFiles={externalShareItem.type === 'folder' ? documents.filter(d => !d.deletedAt && d.folderId === externalShareItem.id).map(d => {
+            const isPdf = d.type === 'pdf' || d.url?.toLowerCase().includes('.pdf');
+            return {
+              id: d.id,
+              spaceId: space.id,
+              name: d.title || 'מסמך',
+              type: 'file' as const,
+              parentId: d.folderId || null,
+              url: d.url,
+              thumbnailUrl: d.thumbnailUrl || (Array.isArray(d.pages) && d.pages.length > 0 ? d.pages[0] : (!isPdf ? d.url : undefined)),
+              pages: d.pages || [d.url],
+              fileType: isPdf ? 'pdf' as const : 'image' as const,
+              size: d.fileSize || 0,
+              createdAt: new Date(d.createdAt || Date.now()).getTime(),
+              createdBy: d.addedBy || user?.id || 'user',
+              creatorName: d.addedByName || user?.realName || 'משתמש'
+            };
+          }) : undefined}
+          allSpaceFolders={(space.documentFolders || []).filter(f => !f.deletedAt).map(f => ({
+            id: f.id,
+            name: f.name,
+            parentId: f.parentId || null
+          }))}
+          allSpaceFiles={documents.filter(d => !d.deletedAt).map(d => {
+            const isPdf = d.type === 'pdf' || d.url?.toLowerCase().includes('.pdf');
+            return {
+              id: d.id,
+              spaceId: space.id,
+              name: d.title || 'מסמך',
+              type: 'file' as const,
+              parentId: d.folderId || null,
+              url: d.url,
+              thumbnailUrl: d.thumbnailUrl || (Array.isArray(d.pages) && d.pages.length > 0 ? d.pages[0] : (!isPdf ? d.url : undefined)),
+              pages: d.pages || [d.url],
+              fileType: isPdf ? 'pdf' as const : 'image' as const,
+              size: d.fileSize || 0,
+              createdAt: new Date(d.createdAt || Date.now()).getTime(),
+              createdBy: d.addedBy || user?.id || 'user',
+              creatorName: d.addedByName || user?.realName || 'משתמש'
+            };
+          })}
+          spaceLogoUrl={space.features?.includes('business_card') ? space.logoUrl : undefined}
+          businessCard={space.features?.includes('business_card') ? space.settings?.businessCard : undefined}
+          onClose={() => setExternalShareItem(null)}
+          onSaved={(newConfig?: ShareLinkConfig) => {
+            if (externalShareItem.type === 'folder') {
+              updateDocumentFolder(space.id, externalShareItem.id, { shareLink: newConfig || null } as any);
+            } else {
+              updateDocument(space.id, externalShareItem.id, { shareLink: newConfig || null } as any);
+            }
+          }}
+        />
+      )}
 
       {/* MOVE ENTIRE FOLDER MODAL (Rule DRY / Single Source of Truth via GlobalMoveModal) */}
       {folderToMove && (() => {
@@ -4917,6 +5185,67 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       {renderDocNoteModal()}
       {/* PRIVACY MODAL IN OUTER GALLERY VIEW */}
       {renderPrivacyModal()}
+
+      {/* EXTERNAL PUBLIC SHARE LINK MODAL FOR VAULT ITEMS (When FileShare plugin is active) */}
+      {externalShareItem && (
+        <CreateShareLinkModal
+          isOpen={Boolean(externalShareItem)}
+          item={externalShareItem}
+          space={space}
+          spaceTitle={space.title || 'המרחב שלי'}
+          folderFiles={externalShareItem.type === 'folder' ? documents.filter(d => !d.deletedAt && d.folderId === externalShareItem.id).map(d => {
+            const isPdf = d.type === 'pdf' || d.url?.toLowerCase().includes('.pdf');
+            return {
+              id: d.id,
+              spaceId: space.id,
+              name: d.title || 'מסמך',
+              type: 'file' as const,
+              parentId: d.folderId || null,
+              url: d.url,
+              thumbnailUrl: d.thumbnailUrl || (Array.isArray(d.pages) && d.pages.length > 0 ? d.pages[0] : (!isPdf ? d.url : undefined)),
+              pages: d.pages || [d.url],
+              fileType: isPdf ? 'pdf' as const : 'image' as const,
+              size: d.fileSize || 0,
+              createdAt: new Date(d.createdAt || Date.now()).getTime(),
+              createdBy: d.addedBy || user?.id || 'user',
+              creatorName: d.addedByName || user?.realName || 'משתמש'
+            };
+          }) : undefined}
+          allSpaceFolders={(space.documentFolders || []).filter(f => !f.deletedAt).map(f => ({
+            id: f.id,
+            name: f.name,
+            parentId: f.parentId || null
+          }))}
+          allSpaceFiles={documents.filter(d => !d.deletedAt).map(d => {
+            const isPdf = d.type === 'pdf' || d.url?.toLowerCase().includes('.pdf');
+            return {
+              id: d.id,
+              spaceId: space.id,
+              name: d.title || 'מסמך',
+              type: 'file' as const,
+              parentId: d.folderId || null,
+              url: d.url,
+              thumbnailUrl: d.thumbnailUrl || (Array.isArray(d.pages) && d.pages.length > 0 ? d.pages[0] : (!isPdf ? d.url : undefined)),
+              pages: d.pages || [d.url],
+              fileType: isPdf ? 'pdf' as const : 'image' as const,
+              size: d.fileSize || 0,
+              createdAt: new Date(d.createdAt || Date.now()).getTime(),
+              createdBy: d.addedBy || user?.id || 'user',
+              creatorName: d.addedByName || user?.realName || 'משתמש'
+            };
+          })}
+          spaceLogoUrl={space.features?.includes('business_card') ? space.logoUrl : undefined}
+          businessCard={space.features?.includes('business_card') ? space.settings?.businessCard : undefined}
+          onClose={() => setExternalShareItem(null)}
+          onSaved={(newConfig?: ShareLinkConfig) => {
+            if (externalShareItem.type === 'folder') {
+              updateDocumentFolder(space.id, externalShareItem.id, { shareLink: newConfig || null } as any);
+            } else {
+              updateDocument(space.id, externalShareItem.id, { shareLink: newConfig || null } as any);
+            }
+          }}
+        />
+      )}
       {/* SHELF MOVE MODAL IN OUTER GALLERY VIEW */}
       {renderShelfMoveModal()}
 

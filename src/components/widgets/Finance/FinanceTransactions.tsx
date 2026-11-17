@@ -11,6 +11,8 @@ import PdfThumbnail from '../../shared/PdfThumbnail';
 import { recordTelemetryAction } from '../../../utils/telemetryTracker';
 import InvoiceAttachMatchModal from './InvoiceAttachMatchModal';
 import UniversalViewerModal, { ViewerDocument } from '../../common/ViewerEngine/UniversalViewerModal';
+import { CreateShareLinkModal } from '../FileShare/CreateShareLinkModal';
+import { FileShareItem, ShareLinkConfig } from '@/utils/fileShareUtils';
 
 interface FinanceTransactionsProps {
   invoices: any[];
@@ -42,10 +44,12 @@ export function FinanceTransactions({
   processRetroScan
 }: FinanceTransactionsProps) {
 
-  const { getTokenForSpace, getRoleForSpace, sendMessageToMember, requestInvoiceDeletion, respondToInvoiceDeletionRequest } = useSpaces() as any;
+  const { getTokenForSpace, getRoleForSpace, sendMessageToMember, requestInvoiceDeletion, respondToInvoiceDeletionRequest, updateFileShareItems } = useSpaces() as any;
   const myRole = space ? getRoleForSpace(space.id) : 'none';
   const isCreatorMe = myRole === 'creator' || (space?.creatorId && user?.id === space.creatorId);
   const myEffectiveId = user?.id || 'me';
+  const hasFileShare = Boolean(space?.features?.includes('fileshare'));
+  const [externalShareInvoiceItem, setExternalShareInvoiceItem] = useState<FileShareItem | null>(null);
   const [deletionRequestModal, setDeletionRequestModal] = useState<{ isOpen: boolean; invoice: any; reason: string }>({ isOpen: false, invoice: null, reason: '' });
   const [editingInvoice, setEditingInvoice] = useState<any>(null);
   const [editForm, setEditForm] = useState({ amount: '', supplier: '', date: '', category: 'כללי', customCategory: '' });
@@ -533,6 +537,75 @@ export function FinanceTransactions({
                             <button onClick={() => handleShareInvoice(inv)} style={{ background: 'none', border: 'none', color: '#3b82f6', fontSize: '0.85rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
                               📤 שתף (PDF)
                             </button>
+                            {hasFileShare && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const isPdf = inv.attachmentUrl?.toLowerCase().includes('.pdf');
+                                    setExternalShareInvoiceItem({
+                                      id: inv.id,
+                                      spaceId: space.id,
+                                      name: `חשבונית - ${inv.supplier || 'ספק'} (₪${inv.amount || 0})`,
+                                      type: 'file',
+                                      parentId: null,
+                                      url: inv.attachmentUrl,
+                                      thumbnailUrl: !isPdf ? inv.attachmentUrl : undefined,
+                                      pages: inv.attachmentPages || [inv.attachmentUrl],
+                                      fileType: isPdf ? 'pdf' : 'image',
+                                      size: 0,
+                                      createdAt: Date.now(),
+                                      createdBy: user?.id || 'user',
+                                      creatorName: user?.realName || 'משתמש',
+                                      shareLink: inv.shareLink
+                                    });
+                                  }}
+                                  style={{ background: '#eff6ff', border: '1px solid #bfdbfe', color: '#2563eb', borderRadius: '6px', padding: '2px 6px', fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
+                                  title="צור קישור שיתוף חיצוני מאובטח לחשבונית זו"
+                                >
+                                  🔗 קישור
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    const existingItems: FileShareItem[] = Array.isArray(space.fileShareItems) ? [...space.fileShareItems] : [];
+                                    if (existingItems.some(i => !i.deletedAt && i.linkedSourceId === inv.id)) {
+                                      alert('החשבונית כבר משויכת לקיר השיתוף!');
+                                      return;
+                                    }
+                                    const isPdf = inv.attachmentUrl?.toLowerCase().includes('.pdf');
+                                    const now = Date.now();
+                                    const newItem: FileShareItem = {
+                                      id: `wall_inv_${inv.id}_${now}`,
+                                      spaceId: space.id,
+                                      name: `חשבונית - ${inv.supplier || 'ספק'} (₪${inv.amount || 0})`,
+                                      type: 'file',
+                                      parentId: null,
+                                      url: inv.attachmentUrl,
+                                      thumbnailUrl: !isPdf ? inv.attachmentUrl : undefined,
+                                      pages: inv.attachmentPages || [inv.attachmentUrl],
+                                      fileType: isPdf ? 'pdf' : 'image',
+                                      size: 0,
+                                      createdAt: now,
+                                      createdBy: user?.id || 'user',
+                                      creatorName: user?.realName || 'משתמש',
+                                      linkedSourceId: inv.id,
+                                      linkedSourceType: 'invoice'
+                                    };
+                                    if (updateFileShareItems) {
+                                      await updateFileShareItems(space.id, [...existingItems, newItem]);
+                                      alert('החשבונית שויכה לקיר השיתוף בהצלחה (0 נפח כפול)!');
+                                    }
+                                  }}
+                                  style={{ background: '#f5f3ff', border: '1px solid #ddd6fe', color: '#7c3aed', borderRadius: '6px', padding: '2px 6px', fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
+                                  title="שייך חשבונית זו לקיר השיתוף המרוכז (ללא שכפול נפח)"
+                                >
+                                  📤 לקיר שיתוף
+                                </button>
+                              </>
+                            )}
                           </div>
                         </div>
                         <div 
@@ -1419,6 +1492,23 @@ export function FinanceTransactions({
           docs={[viewerDoc]}
           initialIndex={0}
           onClose={() => setViewerDoc(null)}
+        />
+      )}
+
+      {externalShareInvoiceItem && (
+        <CreateShareLinkModal
+          isOpen={Boolean(externalShareInvoiceItem)}
+          item={externalShareInvoiceItem}
+          space={space}
+          spaceTitle={space?.title || 'המרחב שלי'}
+          spaceLogoUrl={space?.features?.includes('business_card') ? space?.logoUrl : undefined}
+          businessCard={space?.features?.includes('business_card') ? space?.settings?.businessCard : undefined}
+          onClose={() => setExternalShareInvoiceItem(null)}
+          onSaved={(newConfig?: ShareLinkConfig) => {
+            if (updateInvoice && space) {
+              updateInvoice(space.id, externalShareInvoiceItem.id, { shareLink: newConfig || null });
+            }
+          }}
         />
       )}
     </div>

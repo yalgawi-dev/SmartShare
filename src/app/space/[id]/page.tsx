@@ -100,7 +100,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [scannerMode, setScannerMode] = useState<'camera' | 'upload'>('camera');
   const [scannerCategory, setScannerCategory] = useState<'receipt' | 'document' | 'image'>('receipt');
-  const [financeTab, setFinanceTab] = useState<'summary' | 'transactions' | 'inbox' | 'shelves' | 'documents'>(() => { if (typeof window !== 'undefined') { const t = new URLSearchParams(window.location.search).get('tab'); if (t === 'inbox' || t === 'transactions' || t === 'documents' || t === 'shelves') return t as any; } return 'summary'; });
+  const [financeTab, setFinanceTab] = useState<'summary' | 'transactions' | 'inbox' | 'shelves' | 'documents' | 'fileshare'>(() => { if (typeof window !== 'undefined') { const t = new URLSearchParams(window.location.search).get('tab'); if (t === 'inbox' || t === 'transactions' || t === 'documents' || t === 'shelves' || t === 'fileshare') return t as any; } return 'summary'; });
   const [tooltipData, setTooltipData] = useState<{ id: string, text: string, target: 'tools' | 'settings' } | null>(null);
   const [activeChatId, setActiveChatId] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
@@ -982,6 +982,45 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
               )}
             </button>
           )}
+          {/* Dedicated Sharing Wall Screen Button (when space has Finance or Vault alongside FileShare) */}
+          {hasFileShare && (hasFinance || hasVault) && (
+            <button
+              type="button"
+              onClick={() => setFinanceTab(prev => prev === 'fileshare' ? (hasFinance ? 'summary' : 'shelves') : 'fileshare')}
+              style={{
+                background: financeTab === 'fileshare' ? 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)' : '#eff6ff',
+                color: financeTab === 'fileshare' ? '#ffffff' : '#1d4ed8',
+                border: financeTab === 'fileshare' ? 'none' : '1.5px solid #bfdbfe',
+                padding: '0.5rem 0.9rem',
+                borderRadius: '50px',
+                fontWeight: 800,
+                fontSize: '0.82rem',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                boxShadow: financeTab === 'fileshare' ? '0 4px 12px rgba(37, 99, 235, 0.35)' : 'var(--shadow-sm)',
+                transition: 'all 0.2s ease',
+                flexShrink: 0
+              }}
+              title="פתח את קיר השיתוף המרוכז של המרחב"
+            >
+              <span>📤</span>
+              <span>{financeTab === 'fileshare' ? 'חזור למרחב' : 'קיר שיתוף'}</span>
+              {Array.isArray(space.fileShareItems) && space.fileShareItems.filter((i: any) => !i.deletedAt).length > 0 && (
+                <span style={{
+                  background: financeTab === 'fileshare' ? 'rgba(255,255,255,0.25)' : '#dbeafe',
+                  color: financeTab === 'fileshare' ? '#ffffff' : '#1e40af',
+                  padding: '0 6px',
+                  borderRadius: '10px',
+                  fontSize: '0.7rem',
+                  fontWeight: 800
+                }}>
+                  {space.fileShareItems.filter((i: any) => !i.deletedAt).length}
+                </span>
+              )}
+            </button>
+          )}
           <div style={{ position: 'relative' }}>
               <button onClick={() => {
                 if (myMember && myMember.canAddPlugins === false) {
@@ -1294,12 +1333,16 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
              );
           })}
 
-          {/* Finance is always at the top if active */}
-          <div style={{ display: hasFinance && financeTab !== 'documents' && financeTab !== 'shelves' ? 'block' : 'none' }}>{hasFinance && <FinanceWidget ref={financeRef} space={space} activePartnersCount={activePartnersCount} isAddingExpense={isAddingExpense} setIsAddingExpense={setIsAddingExpense} onRestrictedAction={handleRestrictedAction} onOpenPartnersModal={() => setShowPartnersModal(true)} activeTab={financeTab as any} setActiveTab={setFinanceTab as any} />}</div>
-          <div style={{ display: hasVault && (!hasFinance || financeTab === 'documents' || financeTab === 'shelves') ? 'block' : 'none' }}>{hasVault && <DocumentsWidget ref={documentsRef} space={space} activePartnersCount={activePartnersCount} />}</div>
+          {/* Finance is always at the top if active (hidden when on Vault or Sharing Wall screen) */}
+          <div style={{ display: hasFinance && financeTab !== 'documents' && financeTab !== 'shelves' && financeTab !== 'fileshare' ? 'block' : 'none' }}>
+            {hasFinance && <FinanceWidget ref={financeRef} space={space} activePartnersCount={activePartnersCount} isAddingExpense={isAddingExpense} setIsAddingExpense={setIsAddingExpense} onRestrictedAction={handleRestrictedAction} onOpenPartnersModal={() => setShowPartnersModal(true)} activeTab={financeTab as any} setActiveTab={setFinanceTab as any} />}
+          </div>
+          <div style={{ display: hasVault && financeTab !== 'fileshare' && (!hasFinance || financeTab === 'documents' || financeTab === 'shelves') ? 'block' : 'none' }}>
+            {hasVault && <DocumentsWidget ref={documentsRef} space={space} activePartnersCount={activePartnersCount} />}
+          </div>
 
-          {/* Independent FileShare Portal Feature */}
-          {hasFileShare && (
+          {/* Dedicated Sharing Wall Screen (shown either when space is FileShare-only, or when user clicked 'קיר שיתוף') */}
+          {hasFileShare && (financeTab === 'fileshare' || (!hasFinance && !hasVault)) && (
             <FileShareWidget
               space={space}
               hasPartners={hasPartners}

@@ -65,6 +65,7 @@ export default function PublicSharePage({ params }: SharePageProps) {
 
   // Viewer state
   const [previewState, setPreviewState] = useState<{ docs: any[]; index: number } | null>(null);
+  const [currentSubfolderId, setCurrentSubfolderId] = useState<string | null>(null);
 
   // Heartbeat tracking for time spent in document (Audit duration)
   const startTimeRef = useRef<number>(Date.now());
@@ -630,13 +631,155 @@ export default function PublicSharePage({ params }: SharePageProps) {
             </div>
           )}
 
-          {isFolder ? (
-            /* FOLDER VIEW: GRID OF CONTAINED FILES MATCHING APP DESKTOP/MOBILE VIEW */
+          {isFolder ? (() => {
+            const activeFolderId = currentSubfolderId || shareData.itemId;
+            const hasSubtree = Boolean(shareData.includeSubtree && Array.isArray(shareData.folderSubfolders) && shareData.folderSubfolders.length > 0);
+            const allSubs = shareData.folderSubfolders || [];
+            const visibleSubfolders = hasSubtree
+              ? allSubs.filter(sf => (sf.parentId || shareData.itemId) === activeFolderId)
+              : [];
+            const allFiles = shareData.folderFiles || [];
+            const visibleFiles = hasSubtree
+              ? allFiles.filter(f => (f.parentId || shareData.itemId) === activeFolderId)
+              : allFiles;
+
+            // Compute breadcrumbs trail starting strictly from shared root folder (never above it!)
+            const trail: Array<{ id: string | null; name: string }> = [{ id: null, name: shareData.name }];
+            if (hasSubtree && currentSubfolderId) {
+              const subPath: Array<{ id: string | null; name: string }> = [];
+              let curr: string | null = currentSubfolderId;
+              const visited = new Set<string>();
+              while (curr && curr !== shareData.itemId && !visited.has(curr)) {
+                visited.add(curr);
+                const found = allSubs.find(s => s.id === curr);
+                if (found) {
+                  subPath.unshift({ id: found.id, name: found.name });
+                  curr = found.parentId;
+                } else {
+                  break;
+                }
+              }
+              trail.push(...subPath);
+            }
+
+            return (
+            /* FOLDER VIEW: GRID OF CONTAINED SUBFOLDERS & FILES MATCHING APP DESKTOP/MOBILE VIEW */
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+              {/* Breadcrumb navigation when subtree is enabled */}
+              {hasSubtree && (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  background: '#ffffff',
+                  padding: '0.6rem 0.9rem',
+                  borderRadius: '12px',
+                  border: '1px solid #cbd5e1',
+                  overflowX: 'auto',
+                  whiteSpace: 'nowrap'
+                }}>
+                  {currentSubfolderId && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const currObj = allSubs.find(s => s.id === currentSubfolderId);
+                        const nextId = (!currObj || !currObj.parentId || currObj.parentId === shareData.itemId) ? null : currObj.parentId;
+                        setCurrentSubfolderId(nextId);
+                      }}
+                      style={{
+                        background: '#eff6ff',
+                        border: '1px solid #bfdbfe',
+                        color: '#1d4ed8',
+                        borderRadius: '8px',
+                        padding: '3px 8px',
+                        fontSize: '0.78rem',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        marginLeft: '4px'
+                      }}
+                    >
+                      ↩️ חזור
+                    </button>
+                  )}
+                  <span style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 700 }}>מיקום:</span>
+                  {trail.map((crumb, idx) => {
+                    const isLast = idx === trail.length - 1;
+                    return (
+                      <React.Fragment key={crumb.id || 'root'}>
+                        <button
+                          type="button"
+                          onClick={() => setCurrentSubfolderId(crumb.id)}
+                          style={{
+                            background: isLast ? '#dbeafe' : 'transparent',
+                            color: isLast ? '#1e40af' : '#334155',
+                            border: 'none',
+                            borderRadius: '6px',
+                            padding: '2px 7px',
+                            fontSize: '0.8rem',
+                            fontWeight: isLast ? 800 : 600,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {idx === 0 ? `🏠 ${crumb.name}` : `📁 ${crumb.name}`}
+                        </button>
+                        {!isLast && <span style={{ color: '#94a3b8' }}>/</span>}
+                      </React.Fragment>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Subfolders Grid (if any in current folder) */}
+              {visibleSubfolders.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <span style={{ fontSize: '0.88rem', fontWeight: 800, color: '#334155', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>📁</span>
+                    <span>תתי-תיקיות ({visibleSubfolders.length}):</span>
+                  </span>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(135px, 1fr))',
+                    gap: '0.75rem'
+                  }}>
+                    {visibleSubfolders.map(sf => {
+                      const subFilesCount = allFiles.filter(f => f.parentId === sf.id).length;
+                      const subFoldersCount = allSubs.filter(s => s.parentId === sf.id).length;
+                      return (
+                        <div
+                          key={sf.id}
+                          onClick={() => setCurrentSubfolderId(sf.id)}
+                          style={{
+                            background: '#ffffff',
+                            borderRadius: '14px',
+                            padding: '0.85rem 0.7rem',
+                            border: '1.5px solid #cbd5e1',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '0.35rem',
+                            cursor: 'pointer',
+                            boxShadow: '0 2px 5px rgba(0,0,0,0.03)',
+                            textAlign: 'center'
+                          }}
+                        >
+                          <div style={{ fontSize: '2.4rem', lineHeight: 1 }}>📁</div>
+                          <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#0f172a', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {sf.name}
+                          </div>
+                          <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600 }}>
+                            {subFoldersCount > 0 ? `${subFoldersCount} תיקיות • ` : ''}{subFilesCount} קבצים
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: '0.9rem', fontWeight: 800, color: '#334155', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <span>📄</span>
-                  <span>קבצים בתיקייה ({(shareData.folderFiles || []).length}):</span>
+                  <span>קבצים בתיקייה ({visibleFiles.length}):</span>
                 </span>
               </div>
 
@@ -645,7 +788,7 @@ export default function PublicSharePage({ params }: SharePageProps) {
                 gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
                 gap: '0.85rem'
               }}>
-                {(shareData.folderFiles || []).map((f, idx) => {
+                {visibleFiles.map((f, idx) => {
                   const isPdf = f.fileType === 'pdf' || f.name?.toLowerCase().endsWith('.pdf') || f.url?.toLowerCase().includes('.pdf');
                   const isImg = f.fileType === 'image' || f.url?.match(/\.(jpg|jpeg|png|webp|gif)/i);
                   const previewUrl = f.thumbnailUrl || (Array.isArray(f.pages) && f.pages.length > 0 ? f.pages[0] : (isImg ? f.url : ''));
@@ -653,7 +796,7 @@ export default function PublicSharePage({ params }: SharePageProps) {
                   return (
                     <div
                       key={f.id}
-                      onClick={() => openViewerForFile(f, shareData.folderFiles)}
+                      onClick={() => openViewerForFile(f, visibleFiles)}
                       style={{
                         background: '#ffffff',
                         borderRadius: '14px',
@@ -774,7 +917,7 @@ export default function PublicSharePage({ params }: SharePageProps) {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '0.35rem', paddingTop: '0.35rem', borderTop: '1px solid #f1f5f9' }} onClick={e => e.stopPropagation()}>
                           <button
                             type="button"
-                            onClick={() => openViewerForFile(f, shareData.folderFiles)}
+                            onClick={() => openViewerForFile(f, visibleFiles)}
                             style={{
                               flex: 1,
                               background: '#eff6ff',
@@ -815,13 +958,14 @@ export default function PublicSharePage({ params }: SharePageProps) {
                 })}
               </div>
 
-              {(!shareData.folderFiles || shareData.folderFiles.length === 0) && (
+              {visibleFiles.length === 0 && visibleSubfolders.length === 0 && (
                 <div style={{ padding: '3rem 1rem', textAlign: 'center', color: '#64748b', background: '#ffffff', borderRadius: '16px', border: '2px dashed #e2e8f0' }}>
                   התיקייה ריקה מקבצים.
                 </div>
               )}
             </div>
-          ) : (
+            );
+          })() : (
             /* SINGLE FILE VIEW */
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center' }}>
               <div style={{

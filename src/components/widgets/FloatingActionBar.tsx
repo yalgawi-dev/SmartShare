@@ -34,8 +34,8 @@ export function FloatingActionBar({
   hasPartners?: boolean;
   hasActivePartners?: boolean;
   partnersCount?: number;
-  activeTab?: 'summary' | 'transactions' | 'inbox' | 'shelves' | 'documents';
-  setActiveTab?: (tab: 'summary' | 'transactions' | 'inbox' | 'shelves' | 'documents') => void;
+  activeTab?: 'summary' | 'transactions' | 'inbox' | 'shelves' | 'documents' | 'fileshare';
+  setActiveTab?: (tab: 'summary' | 'transactions' | 'inbox' | 'shelves' | 'documents' | 'fileshare') => void;
   onAddExpense: () => void;
   onOpenScanner: (mode?: 'camera' | 'upload', category?: 'receipt' | 'document' | 'image') => void;
   onOpenPartners?: () => void;
@@ -335,7 +335,7 @@ export function FloatingActionBar({
 
       {/* Left side (RTL End) - Inbox and Manual Add */}
       <div style={{ display: 'flex', gap: '0.1rem', paddingLeft: '0.1rem', flex: 1, justifyContent: 'space-evenly' }}>
-        {hasFinance && effectiveTab !== 'documents' && effectiveTab !== 'shelves' ? (
+        {hasFinance && effectiveTab !== 'documents' && effectiveTab !== 'shelves' && effectiveTab !== 'fileshare' ? (
           <>
             <button 
               onClick={() => setActiveTab && setActiveTab('inbox')}
@@ -454,8 +454,8 @@ export function FloatingActionBar({
               </button>
             )}
 
-            {/* When hasFileShare is active - Dedicate floating buttons to FileShare */}
-            {hasFileShare && !hasFinance && (!hasVault || !isInShelf) && (
+            {/* When hasFileShare is active (either standalone or when viewing 'fileshare' wall screen) - Dedicate floating buttons to FileShare */}
+            {hasFileShare && (effectiveTab === 'fileshare' || (!hasFinance && (!hasVault || !isInShelf))) && (
               <div style={{ display: 'flex', gap: '0.1rem', flex: 1, width: '100%', alignItems: 'center' }}>
                 <button 
                   onClick={() => {
