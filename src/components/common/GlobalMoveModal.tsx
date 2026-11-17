@@ -128,20 +128,6 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
     return availableShelves.find(s => s.id === selectedShelfId) || null;
   }, [availableShelves, selectedShelfId]);
 
-  // Reset state when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      setSelectedSpaceId(currentSpaceId || (availableSpaces[0]?.id || ''));
-      setSelectedShelfId(currentShelfId || (hasShelves ? availableShelves[0].id : ''));
-      setSelectedFolderId(null);
-      setActionType('move');
-      // Auto-expand all folders
-      const allIds = new Set<string>();
-      folders.forEach(f => allIds.add(String(f.id)));
-      setExpandedFolderIds(allIds);
-    }
-  }, [isOpen, currentSpaceId, currentShelfId, hasShelves, folders]);
-
   // When selected space changes, update shelf
   useEffect(() => {
     if (isCurrentSpace) {
@@ -182,6 +168,25 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
     }
     return pool;
   }, [isCurrentSpace, folders, activeSpaceObj, hasShelves, selectedShelfId]);
+
+  // Reset state when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedSpaceId(currentSpaceId || (availableSpaces[0]?.id || ''));
+      setSelectedShelfId(currentShelfId || (hasShelves ? availableShelves[0].id : ''));
+      setSelectedFolderId(null);
+      setActionType('move');
+    }
+  }, [isOpen, currentSpaceId, currentShelfId, hasShelves]);
+
+  // Auto-expand all folders when folders change or modal opens
+  useEffect(() => {
+    if (isOpen && activeSpaceFolders.length > 0) {
+      const allIds = new Set<string>();
+      activeSpaceFolders.forEach(f => allIds.add(String(f.id)));
+      setExpandedFolderIds(allIds);
+    }
+  }, [isOpen, activeSpaceFolders]);
 
   const normId = (id?: string | null) => (id && String(id).trim().length > 0 ? String(id).trim() : null);
   const activeCurrentFolderId = normId(currentFolderId);

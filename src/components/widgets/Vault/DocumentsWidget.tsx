@@ -4063,7 +4063,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
         const count = moveDocToFolder.docIds.length;
         const singleDoc = count === 1 ? documents.find(d => String(d.id) === String(moveDocToFolder.docIds[0])) : null;
         const targetShelfId = activeShelfId || activeShelf?.id || singleDoc?.shelfId;
-        const availableFolders = (space.documentFolders || []).filter(f => !f.deletedAt && f.shelfId === targetShelfId);
+        const availableFolders = (space.documentFolders || []).filter(f => !f.deletedAt);
         
         return (
           <GlobalMoveModal
