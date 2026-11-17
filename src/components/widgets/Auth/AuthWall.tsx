@@ -31,6 +31,46 @@ export default function AuthWall() {
     }
   }, [step]);
 
+  // Web OTP API: Auto-read and auto-fill SMS code on mobile devices
+  useEffect(() => {
+    if (step !== 2) return;
+    if (typeof window === 'undefined') return;
+
+    let abortController: AbortController | null = null;
+    if ('OTPCredential' in window || (navigator as any).credentials) {
+      try {
+        abortController = new AbortController();
+        (navigator as any).credentials.get({
+          otp: { transport: ['sms'] },
+          signal: abortController.signal
+        }).then((otpCredential: any) => {
+          if (otpCredential && otpCredential.code) {
+            const extractedCode = otpCredential.code.trim();
+            const digitsOnly = extractedCode.replace(/\D/g, '').slice(0, 6);
+            if (digitsOnly.length === 6) {
+              setOtpValue(digitsOnly);
+              setTimeout(() => {
+                handleVerify(digitsOnly);
+              }, 50);
+            }
+          }
+        }).catch((err: any) => {
+          if (err.name !== 'AbortError') {
+            console.log('WebOTP auto-read info:', err);
+          }
+        });
+      } catch (e) {
+        // Fallback silently
+      }
+    }
+
+    return () => {
+      if (abortController) {
+        abortController.abort();
+      }
+    };
+  }, [step]);
+
   useEffect(() => {
     // If user is logged in via social/secondary provider without phone, or missing realName
     if (user && !user.phone) {
