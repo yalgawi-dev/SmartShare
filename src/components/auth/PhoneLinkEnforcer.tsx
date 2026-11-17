@@ -27,46 +27,6 @@ export default function PhoneLinkEnforcer() {
     }
   }, []);
 
-  // Web OTP API: Auto-read and auto-fill SMS code on mobile devices
-  useEffect(() => {
-    if (step !== 2) return;
-    if (typeof window === 'undefined') return;
-
-    let abortController: AbortController | null = null;
-    if ('OTPCredential' in window || (navigator as any).credentials) {
-      try {
-        abortController = new AbortController();
-        (navigator as any).credentials.get({
-          otp: { transport: ['sms'] },
-          signal: abortController.signal
-        }).then((otpCredential: any) => {
-          if (otpCredential && otpCredential.code) {
-            const extractedCode = otpCredential.code.trim();
-            const digitsOnly = extractedCode.replace(/\D/g, '').slice(0, 6);
-            if (digitsOnly.length === 6) {
-              setOtpValue(digitsOnly);
-              setTimeout(() => {
-                verifyCode(digitsOnly);
-              }, 50);
-            }
-          }
-        }).catch((err: any) => {
-          if (err.name !== 'AbortError') {
-            console.log('WebOTP auto-read info:', err);
-          }
-        });
-      } catch (e) {
-        // Fallback silently
-      }
-    }
-
-    return () => {
-      if (abortController) {
-        abortController.abort();
-      }
-    };
-  }, [step]);
-
   const initRecaptcha = () => {
     if (typeof window === 'undefined') return;
     try {
@@ -405,15 +365,19 @@ export default function PhoneLinkEnforcer() {
               </strong>
             </p>
 
-            <div style={{ display: 'flex', justifyContent: 'center', direction: 'ltr', width: '100%' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.6rem', direction: 'ltr', width: '100%' }}>
               <input
                 ref={otpInputRef}
-                type="text"
+                id="otp-link-input"
+                name="otp"
+                type="tel"
                 inputMode="numeric"
                 autoComplete="one-time-code"
+                pattern="[0-9]*"
                 maxLength={6}
                 value={otpValue}
                 onChange={e => handleOtpChange(e.target.value)}
+                onInput={e => handleOtpChange((e.target as HTMLInputElement).value)}
                 autoFocus
                 placeholder="000000"
                 style={{
@@ -434,6 +398,44 @@ export default function PhoneLinkEnforcer() {
                 }}
                 disabled={isSubmitting}
               />
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const text = await navigator.clipboard.readText();
+                    const match = text.match(/\b(\d{6})\b/) || text.match(/(\d{6})/);
+                    if (match && match[1]) {
+                      handleOtpChange(match[1]);
+                    } else {
+                      const digits = text.replace(/\D/g, '').slice(0, 6);
+                      if (digits.length > 0) {
+                        handleOtpChange(digits);
+                      } else {
+                        setErrorMsg('לא נמצא קוד בן 6 ספרות בלוח ההעתקה.');
+                      }
+                    }
+                  } catch {
+                    otpInputRef.current?.focus();
+                  }
+                }}
+                style={{
+                  background: '#EFF6FF',
+                  border: '1px solid #BFDBFE',
+                  color: '#1D4ED8',
+                  padding: '6px 14px',
+                  borderRadius: '10px',
+                  fontSize: '0.84rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  direction: 'rtl'
+                }}
+              >
+                <span>📋</span>
+                <span>הדבק קוד מלוח ההעתקה</span>
+              </button>
             </div>
 
             <button

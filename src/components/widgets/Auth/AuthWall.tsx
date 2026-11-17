@@ -18,10 +18,8 @@ export default function AuthWall() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
-  // TEMPORARY DIAGNOSTIC STATE (Rule 12: to be removed after verification with user approval)
-  const [webOtpDiag, setWebOtpDiag] = useState<string>('');
 
-  // Ref for OTPInput so it auto-focuses on step 2 (triggers keyboard & native OTP autofill)
+  // Ref for OTP input so it auto-focuses on step 2
   const masterOtpInputRef = React.useRef<HTMLInputElement | null>(null);
 
   // Auto-focus master input on entering step 2
@@ -31,52 +29,6 @@ export default function AuthWall() {
         masterOtpInputRef.current?.focus();
       }, 100);
     }
-  }, [step]);
-
-  // Web OTP API: Auto-read and auto-fill SMS code on mobile devices
-  useEffect(() => {
-    if (step !== 2) return;
-    if (typeof window === 'undefined') return;
-
-    let abortController: AbortController | null = null;
-    if ('OTPCredential' in window || (navigator as any).credentials) {
-      try {
-        abortController = new AbortController();
-        setWebOtpDiag('🔍 WebOTP מאזין ברקע ל-SMS...');
-        (navigator as any).credentials.get({
-          otp: { transport: ['sms'] },
-          signal: abortController.signal
-        }).then((otpCredential: any) => {
-          const rawCode = otpCredential?.code ? String(otpCredential.code) : '';
-          setWebOtpDiag(`✅ WebOTP החזיר מ-Chrome: "${rawCode || 'ריק (null)'}"`);
-          if (rawCode) {
-            const extractedCode = rawCode.trim();
-            const digitsOnly = extractedCode.replace(/\D/g, '').slice(0, 6);
-            if (digitsOnly.length === 6) {
-              setOtpValue(digitsOnly);
-              setTimeout(() => {
-                handleVerify(digitsOnly);
-              }, 50);
-            }
-          }
-        }).catch((err: any) => {
-          if (err.name !== 'AbortError') {
-            setWebOtpDiag(`❌ WebOTP נכשל/נדחה: ${err.name || ''} - ${err.message || JSON.stringify(err)}`);
-            console.log('WebOTP auto-read info:', err);
-          }
-        });
-      } catch (e: any) {
-        setWebOtpDiag(`❌ WebOTP שגיאת הפעלה: ${e?.message || String(e)}`);
-      }
-    } else {
-      setWebOtpDiag('⚠️ WebOTP אינו נתמך בדפדפן זה');
-    }
-
-    return () => {
-      if (abortController) {
-        abortController.abort();
-      }
-    };
   }, [step]);
 
   useEffect(() => {
@@ -551,12 +503,15 @@ export default function AuthWall() {
               <b dir="ltr">{countryCode} {phone}</b>
             </div>
             
-            <div className="otp-container-relative" dir="ltr">
+            <div className="otp-container-relative" dir="ltr" style={{ flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
               <input
                 ref={masterOtpInputRef}
-                type="text"
+                id="otp-code-input"
+                name="otp"
+                type="tel"
                 inputMode="numeric"
                 autoComplete="one-time-code"
+                pattern="[0-9]*"
                 maxLength={6}
                 value={otpValue}
                 onChange={(e) => handleOtpChange(e.target.value)}
@@ -565,23 +520,45 @@ export default function AuthWall() {
                 placeholder="000000"
                 className="single-otp-input"
               />
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const text = await navigator.clipboard.readText();
+                    const match = text.match(/\b(\d{6})\b/) || text.match(/(\d{6})/);
+                    if (match && match[1]) {
+                      handleOtpChange(match[1]);
+                    } else {
+                      const digits = text.replace(/\D/g, '').slice(0, 6);
+                      if (digits.length > 0) {
+                        handleOtpChange(digits);
+                      } else {
+                        setErrorMsg('לא נמצא קוד בן 6 ספרות בלוח ההעתקה.');
+                      }
+                    }
+                  } catch {
+                    masterOtpInputRef.current?.focus();
+                  }
+                }}
+                style={{
+                  background: '#EFF6FF',
+                  border: '1px solid #BFDBFE',
+                  color: '#1D4ED8',
+                  padding: '6px 14px',
+                  borderRadius: '10px',
+                  fontSize: '0.84rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  direction: 'rtl'
+                }}
+              >
+                <span>📋</span>
+                <span>הדבק קוד מלוח ההעתקה</span>
+              </button>
             </div>
-
-            {webOtpDiag && (
-              <div style={{
-                background: '#EFF6FF',
-                border: '1px solid #BFDBFE',
-                color: '#1E40AF',
-                padding: '10px 12px',
-                borderRadius: '10px',
-                fontSize: '0.82rem',
-                fontWeight: 600,
-                textAlign: 'center',
-                direction: 'rtl'
-              }}>
-                {webOtpDiag}
-              </div>
-            )}
 
             {errorMsg && (
               <div className="auth-error">
