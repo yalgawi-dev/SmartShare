@@ -52,7 +52,6 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
   folders,
   onConfirmMove,
   onConfirmCrossSpace,
-  rootLabel = 'רמה ראשית של המדף',
 }) => {
   const { spaces } = useSpaces();
   const { user } = useAuth();
@@ -103,18 +102,31 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
 
   const isCurrentSpace = selectedSpaceId === currentSpaceId;
 
-  // Active shelves in the selected space
+  // Active shelves in the selected space - sorted so current shelf appears FIRST!
   const availableShelves = useMemo(() => {
+    let rawShelves: ShelfTargetItem[] = [];
     if (isCurrentSpace && Array.isArray(shelves) && shelves.length > 0) {
-      return shelves;
+      rawShelves = shelves;
+    } else if (activeSpaceObj && Array.isArray(activeSpaceObj.shelves) && activeSpaceObj.shelves.length > 0) {
+      rawShelves = activeSpaceObj.shelves;
     }
-    if (activeSpaceObj && Array.isArray(activeSpaceObj.shelves) && activeSpaceObj.shelves.length > 0) {
-      return activeSpaceObj.shelves;
-    }
-    return [];
-  }, [isCurrentSpace, shelves, activeSpaceObj]);
+
+    if (!rawShelves.length) return [];
+
+    // Sort: currentShelfId first
+    return [...rawShelves].sort((a, b) => {
+      if (a.id === currentShelfId) return -1;
+      if (b.id === currentShelfId) return 1;
+      return 0;
+    });
+  }, [isCurrentSpace, shelves, activeSpaceObj, currentShelfId]);
 
   const hasShelves = availableShelves.length > 0;
+
+  // Selected shelf object name
+  const currentShelfObj = useMemo(() => {
+    return availableShelves.find(s => s.id === selectedShelfId) || null;
+  }, [availableShelves, selectedShelfId]);
 
   // Reset state when modal opens
   useEffect(() => {
@@ -123,9 +135,12 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
       setSelectedShelfId(currentShelfId || (hasShelves ? availableShelves[0].id : ''));
       setSelectedFolderId(null);
       setActionType('move');
-      setExpandedFolderIds(new Set());
+      // Auto-expand all folders so user sees the tree clearly
+      const allIds = new Set<string>();
+      folders.forEach(f => allIds.add(String(f.id)));
+      setExpandedFolderIds(allIds);
     }
-  }, [isOpen, currentSpaceId, currentShelfId, hasShelves]);
+  }, [isOpen, currentSpaceId, currentShelfId, hasShelves, folders]);
 
   // When selected space changes, update shelf
   useEffect(() => {
@@ -135,7 +150,6 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
       setSelectedShelfId(hasShelves ? availableShelves[0].id : '');
     }
     setSelectedFolderId(null);
-    setExpandedFolderIds(new Set());
   }, [selectedSpaceId]);
 
   // Folders for active space & selected shelf
@@ -236,7 +250,7 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
                   marginRight: `${indentPx}px`,
                   borderRadius: '10px',
                   background: isSelected ? '#eff6ff' : isCurrentOrigin ? '#fffbeb' : '#ffffff',
-                  border: isSelected ? '1.5px solid #2563eb' : isCurrentOrigin ? '1px dashed #f59e0b' : '1px solid #e2e8f0',
+                  border: isSelected ? '1.5px solid #2563eb' : isCurrentOrigin ? '1.5px dashed #f59e0b' : '1px solid #e2e8f0',
                   cursor: 'pointer',
                   transition: 'all 0.15s ease',
                 }}
@@ -283,8 +297,9 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   {isCurrentOrigin && (
-                    <span style={{ fontSize: '0.65rem', background: '#fef3c7', color: '#b45309', padding: '1px 5px', borderRadius: '4px', fontWeight: 700 }}>
-                      נוכחי
+                    <span style={{ fontSize: '0.68rem', background: '#fef3c7', color: '#b45309', border: '1px solid #fcd34d', padding: '1px 6px', borderRadius: '5px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '3px' }}>
+                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444', display: 'inline-block' }} />
+                      אתה כאן
                     </span>
                   )}
                   <div style={{
@@ -312,6 +327,11 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
 
   const isRootSelected = selectedFolderId === null;
   const isRootCurrentOrigin = isCurrentSpace && isSameShelf && activeCurrentFolderId === null;
+
+  // Clear label for the base shelf / root level
+  const rootDisplayLabel = currentShelfObj 
+    ? `רמה ראשית (בסיס נושא "${currentShelfObj.name}")` 
+    : 'רמה ראשית (ללא תיקייה)';
 
   return (
     <div
@@ -374,7 +394,7 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
           </button>
         </div>
 
-        {/* 2. What was selected to move (Clean, no unnecessary text) */}
+        {/* 2. What was selected to move */}
         {subtitle && (
           <div style={{ fontSize: '0.82rem', color: '#334155', background: '#f8fafc', padding: '8px 12px', borderRadius: '10px', marginBottom: '12px', border: '1px solid #e2e8f0', fontWeight: 600 }}>
             נבחר: <strong style={{ color: '#0f172a' }}>{subtitle}</strong>
@@ -456,7 +476,7 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
           </select>
         </div>
 
-        {/* 5. Shelf / Theme Selector (if space has shelves) */}
+        {/* 5. Shelf / Theme Selector (Sorted with CURRENT shelf FIRST!) */}
         {hasShelves && (
           <div style={{ marginBottom: '12px' }}>
             <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, color: '#475569', marginBottom: '5px' }}>
@@ -473,7 +493,6 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
                     onClick={() => {
                       setSelectedShelfId(sh.id);
                       setSelectedFolderId(null);
-                      setExpandedFolderIds(new Set());
                     }}
                     style={{
                       padding: '6px 12px',
@@ -493,7 +512,7 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
                     <span>{sh.icon || '🗂️'}</span>
                     <span>{sh.name}</span>
                     {isCurrent && (
-                      <span style={{ fontSize: '0.62rem', background: '#dbeafe', color: '#1e40af', padding: '0 4px', borderRadius: '4px' }}>
+                      <span style={{ fontSize: '0.62rem', background: '#dbeafe', color: '#1e40af', padding: '1px 5px', borderRadius: '4px', fontWeight: 700 }}>
                         נוכחי
                       </span>
                     )}
@@ -504,7 +523,7 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
           </div>
         )}
 
-        {/* 6. Folder Tree (Windows Explorer style: Primary folders, click opens children) */}
+        {/* 6. Folder Tree (Windows Explorer style: Primary folders, clear current location indication) */}
         <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '4px', minHeight: '160px', maxHeight: '250px', border: '1.5px solid #e2e8f0', borderRadius: '12px', padding: '8px', background: '#f8fafc', marginBottom: '14px' }}>
           {/* Main / Root folder */}
           <div
@@ -516,7 +535,7 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
               padding: '7px 10px',
               borderRadius: '10px',
               background: isRootSelected ? '#eff6ff' : isRootCurrentOrigin ? '#fffbeb' : '#ffffff',
-              border: isRootSelected ? '1.5px solid #2563eb' : isRootCurrentOrigin ? '1px dashed #f59e0b' : '1px solid #e2e8f0',
+              border: isRootSelected ? '1.5px solid #2563eb' : isRootCurrentOrigin ? '1.5px dashed #f59e0b' : '1px solid #e2e8f0',
               cursor: 'pointer',
               transition: 'all 0.15s ease',
             }}
@@ -524,13 +543,14 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ fontSize: '1.1rem' }}>🏠</span>
               <span style={{ fontSize: '0.86rem', fontWeight: isRootSelected ? 800 : 700, color: isRootSelected ? '#1d4ed8' : '#0f172a' }}>
-                {rootLabel}
+                {rootDisplayLabel}
               </span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               {isRootCurrentOrigin && (
-                <span style={{ fontSize: '0.65rem', background: '#fef3c7', color: '#b45309', padding: '1px 5px', borderRadius: '4px', fontWeight: 700 }}>
-                  נוכחי
+                <span style={{ fontSize: '0.68rem', background: '#fef3c7', color: '#b45309', border: '1px solid #fcd34d', padding: '1px 6px', borderRadius: '5px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '3px' }}>
+                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444', display: 'inline-block' }} />
+                  אתה כאן
                 </span>
               )}
               <div style={{
