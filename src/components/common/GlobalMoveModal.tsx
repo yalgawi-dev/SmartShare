@@ -52,7 +52,7 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
   folders,
   onConfirmMove,
   onConfirmCrossSpace,
-  rootLabel = 'תיקייה ראשית (ללא תיקייה)',
+  rootLabel = 'רמה ראשית של המדף',
 }) => {
   const { spaces } = useSpaces();
   const { user } = useAuth();
@@ -63,10 +63,13 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
   // 2. Space selection: ברירת מחדל היא המרחב הנוכחי!
   const [selectedSpaceId, setSelectedSpaceId] = useState<string>(currentSpaceId || '');
 
-  // 3. Current selected target folder
+  // 3. Shelf selection (if space has shelves / themes)
+  const [selectedShelfId, setSelectedShelfId] = useState<string>(currentShelfId || '');
+
+  // 4. Current selected target folder
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
 
-  // 4. Expanded folders set (Windows Explorer style tree toggle)
+  // 5. Expanded folders set (Windows Explorer style tree toggle)
   const [expandedFolderIds, setExpandedFolderIds] = useState<Set<string>>(new Set());
 
   // Authorized spaces calculation
@@ -93,16 +96,6 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
     return spaces.filter(s => isAuthorizedMemberOfSpace(s));
   }, [spaces, isAuthorizedMemberOfSpace]);
 
-  // Reset state when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      setSelectedSpaceId(currentSpaceId || (availableSpaces[0]?.id || ''));
-      setSelectedFolderId(null);
-      setActionType('move');
-      setExpandedFolderIds(new Set());
-    }
-  }, [isOpen, currentSpaceId, availableSpaces]);
-
   // Selected space object
   const activeSpaceObj = useMemo(() => {
     return availableSpaces.find(s => s.id === selectedSpaceId) || null;
@@ -110,36 +103,78 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
 
   const isCurrentSpace = selectedSpaceId === currentSpaceId;
 
-  // Folders for active space
-  const activeSpaceFolders = useMemo<FolderTargetItem[]>(() => {
-    if (isCurrentSpace) {
-      return folders;
+  // Active shelves in the selected space
+  const availableShelves = useMemo(() => {
+    if (isCurrentSpace && Array.isArray(shelves) && shelves.length > 0) {
+      return shelves;
     }
-    if (!activeSpaceObj) return [];
-    const docFolders = (activeSpaceObj.documentFolders || [])
-      .filter((f: any) => !f.deletedAt)
-      .map((f: any) => ({
-        id: String(f.id),
-        name: f.name || 'תיקייה',
-        parentId: f.parentId ? String(f.parentId) : null,
-        shelfId: f.shelfId ? String(f.shelfId) : null,
-      }));
-    const fileFolders = (activeSpaceObj.fileShareItems || [])
-      .filter((i: any) => i && i.type === 'folder' && !i.deletedAt)
-      .map((f: any) => ({
-        id: String(f.id),
-        name: f.name || 'תיקייה',
-        parentId: f.parentId ? String(f.parentId) : null,
-        shelfId: null,
-      }));
-    return [...docFolders, ...fileFolders];
-  }, [isCurrentSpace, folders, activeSpaceObj]);
+    if (activeSpaceObj && Array.isArray(activeSpaceObj.shelves) && activeSpaceObj.shelves.length > 0) {
+      return activeSpaceObj.shelves;
+    }
+    return [];
+  }, [isCurrentSpace, shelves, activeSpaceObj]);
+
+  const hasShelves = availableShelves.length > 0;
+
+  // Reset state when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedSpaceId(currentSpaceId || (availableSpaces[0]?.id || ''));
+      setSelectedShelfId(currentShelfId || (hasShelves ? availableShelves[0].id : ''));
+      setSelectedFolderId(null);
+      setActionType('move');
+      setExpandedFolderIds(new Set());
+    }
+  }, [isOpen, currentSpaceId, currentShelfId, hasShelves]);
+
+  // When selected space changes, update shelf
+  useEffect(() => {
+    if (isCurrentSpace) {
+      setSelectedShelfId(currentShelfId || (hasShelves ? availableShelves[0].id : ''));
+    } else {
+      setSelectedShelfId(hasShelves ? availableShelves[0].id : '');
+    }
+    setSelectedFolderId(null);
+    setExpandedFolderIds(new Set());
+  }, [selectedSpaceId]);
+
+  // Folders for active space & selected shelf
+  const activeSpaceFolders = useMemo<FolderTargetItem[]>(() => {
+    let pool: FolderTargetItem[] = [];
+    if (isCurrentSpace) {
+      pool = folders;
+    } else if (activeSpaceObj) {
+      const docFolders = (activeSpaceObj.documentFolders || [])
+        .filter((f: any) => !f.deletedAt)
+        .map((f: any) => ({
+          id: String(f.id),
+          name: f.name || 'תיקייה',
+          parentId: f.parentId ? String(f.parentId) : null,
+          shelfId: f.shelfId ? String(f.shelfId) : null,
+        }));
+      const fileFolders = (activeSpaceObj.fileShareItems || [])
+        .filter((i: any) => i && i.type === 'folder' && !i.deletedAt)
+        .map((f: any) => ({
+          id: String(f.id),
+          name: f.name || 'תיקייה',
+          parentId: f.parentId ? String(f.parentId) : null,
+          shelfId: null,
+        }));
+      pool = [...docFolders, ...fileFolders];
+    }
+
+    if (hasShelves && selectedShelfId) {
+      return pool.filter(f => !f.shelfId || f.shelfId === selectedShelfId);
+    }
+    return pool;
+  }, [isCurrentSpace, folders, activeSpaceObj, hasShelves, selectedShelfId]);
 
   const normId = (id?: string | null) => (id && String(id).trim().length > 0 ? String(id).trim() : null);
   const activeCurrentFolderId = normId(currentFolderId);
 
   // Check if chosen destination is identical to origin
-  const isDestinationSameAsOrigin = isCurrentSpace && normId(selectedFolderId) === activeCurrentFolderId;
+  const isSameShelf = !hasShelves || selectedShelfId === currentShelfId;
+  const isDestinationSameAsOrigin = isCurrentSpace && isSameShelf && normId(selectedFolderId) === activeCurrentFolderId;
 
   // Toggle folder open/close
   const toggleFolderExpand = (folderId: string, e: React.MouseEvent) => {
@@ -162,12 +197,12 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
 
     if (isCurrentSpace) {
       // In current space
-      await onConfirmMove(selectedFolderId, currentShelfId || undefined, actionType);
+      await onConfirmMove(selectedFolderId, hasShelves ? selectedShelfId : undefined, actionType);
       onClose();
     } else {
       // Cross space transfer
       if (onConfirmCrossSpace) {
-        const targetShelf = activeSpaceObj?.shelves?.[0]?.id || null;
+        const targetShelf = hasShelves ? selectedShelfId : null;
         await onConfirmCrossSpace(selectedSpaceId, targetShelf, selectedFolderId, actionType);
         onClose();
       }
@@ -186,7 +221,7 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
           const hasChildren = activeSpaceFolders.some(f => normId(f.parentId) === folderId);
           const isExpanded = expandedFolderIds.has(folderId);
           const isSelected = normId(selectedFolderId) === folderId;
-          const isCurrentOrigin = isCurrentSpace && folderId === activeCurrentFolderId;
+          const isCurrentOrigin = isCurrentSpace && isSameShelf && folderId === activeCurrentFolderId;
           const indentPx = depth * 20;
 
           return (
@@ -276,7 +311,7 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
   };
 
   const isRootSelected = selectedFolderId === null;
-  const isRootCurrentOrigin = isCurrentSpace && activeCurrentFolderId === null;
+  const isRootCurrentOrigin = isCurrentSpace && isSameShelf && activeCurrentFolderId === null;
 
   return (
     <div
@@ -399,8 +434,6 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
             value={selectedSpaceId}
             onChange={(e) => {
               setSelectedSpaceId(e.target.value);
-              setSelectedFolderId(null);
-              setExpandedFolderIds(new Set());
             }}
             style={{
               width: '100%',
@@ -423,7 +456,55 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
           </select>
         </div>
 
-        {/* 5. Folder Tree (Windows Explorer style: Primary folders, click opens children) */}
+        {/* 5. Shelf / Theme Selector (if space has shelves) */}
+        {hasShelves && (
+          <div style={{ marginBottom: '12px' }}>
+            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, color: '#475569', marginBottom: '5px' }}>
+              נושא (מדף) יעד:
+            </label>
+            <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px' }}>
+              {availableShelves.map((sh) => {
+                const isSelected = sh.id === selectedShelfId;
+                const isCurrent = isCurrentSpace && sh.id === currentShelfId;
+                return (
+                  <button
+                    key={sh.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedShelfId(sh.id);
+                      setSelectedFolderId(null);
+                      setExpandedFolderIds(new Set());
+                    }}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '10px',
+                      border: isSelected ? '2px solid #2563eb' : '1px solid #cbd5e1',
+                      background: isSelected ? '#eff6ff' : '#ffffff',
+                      color: isSelected ? '#1d4ed8' : '#475569',
+                      fontWeight: isSelected ? 800 : 600,
+                      fontSize: '0.82rem',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    <span>{sh.icon || '🗂️'}</span>
+                    <span>{sh.name}</span>
+                    {isCurrent && (
+                      <span style={{ fontSize: '0.62rem', background: '#dbeafe', color: '#1e40af', padding: '0 4px', borderRadius: '4px' }}>
+                        נוכחי
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* 6. Folder Tree (Windows Explorer style: Primary folders, click opens children) */}
         <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '4px', minHeight: '160px', maxHeight: '250px', border: '1.5px solid #e2e8f0', borderRadius: '12px', padding: '8px', background: '#f8fafc', marginBottom: '14px' }}>
           {/* Main / Root folder */}
           <div
@@ -462,11 +543,11 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
             </div>
           </div>
 
-          {/* Render top-level folders and their branches */}
+          {/* Render top-level folders of this shelf and their branches */}
           {renderFolderBranch(null, 0)}
         </div>
 
-        {/* 6. Confirm / Submit Button */}
+        {/* 7. Confirm / Submit Button */}
         <div>
           <button
             type="button"
