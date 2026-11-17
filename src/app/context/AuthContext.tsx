@@ -195,15 +195,58 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const userSnap = await getDoc(userRef);
         
         let activeUser: UserProfile;
+        let canonicalUserId = firebaseUser.uid;
         
         if (userSnap.exists()) {
           activeUser = userSnap.data() as UserProfile;
+          if ((activeUser as any).linkedCanonicalId) {
+            canonicalUserId = (activeUser as any).linkedCanonicalId;
+            const canonSnap = await getDoc(doc(db, 'users', canonicalUserId));
+            if (canonSnap.exists()) {
+              activeUser = canonSnap.data() as UserProfile;
+            }
+          }
           let needsUpdate = false;
           
           const bestName = firebaseUser.displayName || firebaseUser.providerData?.[0]?.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : null);
           const bestPhoto = firebaseUser.photoURL || firebaseUser.providerData?.[0]?.photoURL;
           const bestEmail = firebaseUser.email || firebaseUser.providerData?.[0]?.email || activeUser.email;
           const userPhone = firebaseUser.phoneNumber || activeUser.phone;
+
+          // If this doc was created as a fresh Google account before, check if there is an older phone account with this same verified email!
+          if (!userPhone && bestEmail) {
+            try {
+              const allUsersSnap = await getDocs(collection(db, 'users'));
+              const cleanTargetEmail = bestEmail.trim().toLowerCase();
+              let matchedPhoneProfile: { id: string; data: UserProfile } | null = null;
+              allUsersSnap.forEach(dSnap => {
+                if (dSnap.id === firebaseUser.uid) return;
+                const dData = dSnap.data() as UserProfile;
+                const dbEmail = (dData.email || '').trim().toLowerCase();
+                if (dbEmail && dbEmail === cleanTargetEmail && dData.phone) {
+                  matchedPhoneProfile = { id: dSnap.id, data: dData };
+                }
+              });
+              if (matchedPhoneProfile) {
+                const matched = matchedPhoneProfile as { id: string; data: UserProfile };
+                canonicalUserId = matched.id;
+                activeUser = {
+                  ...matched.data,
+                  spaceKeys: { ...(activeUser.spaceKeys || {}), ...(matched.data.spaceKeys || {}) },
+                  avatarUrl: matched.data.avatarUrl || bestPhoto || activeUser.avatarUrl,
+                  email: bestEmail
+                };
+                await updateDoc(doc(db, 'users', canonicalUserId), {
+                  spaceKeys: activeUser.spaceKeys || {},
+                  email: bestEmail,
+                  ...(activeUser.avatarUrl ? { avatarUrl: activeUser.avatarUrl } : {})
+                });
+                await updateDoc(userRef, { linkedCanonicalId: canonicalUserId, phone: activeUser.phone });
+              }
+            } catch (mergeErr) {
+              console.warn('Auto-merge lookup warning:', mergeErr);
+            }
+          }
 
           const isOwnerAdmin = checkIsSuperAdmin(bestEmail, userPhone) || checkIsSuperAdmin(firebaseUser.email, firebaseUser.phoneNumber);
           if (isOwnerAdmin && !activeUser.isAdmin) {
@@ -237,7 +280,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
 
           if (needsUpdate) {
-            await updateDoc(userRef, { 
+            await updateDoc(doc(db, 'users', canonicalUserId), { 
               isAdmin: activeUser.isAdmin ?? false,
               realName: activeUser.realName || '',
               nickname: activeUser.nickname || '',
@@ -246,58 +289,100 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             });
           }
         } else {
-          // Check global policy settings if configured by admin for newly registering users
-          let initialQuotaConfig: any = {
-            isQuotaActive: false, // Default: Unlimited unless admin activated global quota!
-            storageQuotaMB: 500,
-            pagesQuota: 100,
-            quotaMode: 'storage',
-            ocrQuota: 50,
-            hasCustomQuota: false
-          };
-
-          try {
-            const systemSettingsSnap = await getDoc(doc(db, 'system_settings', 'global_quotas'));
-            if (systemSettingsSnap.exists()) {
-              const sysData = systemSettingsSnap.data();
-              initialQuotaConfig = {
-                isQuotaActive: sysData.isQuotaActive ?? false,
-                storageQuotaMB: sysData.storageQuotaMB ?? 500,
-                pagesQuota: sysData.pagesQuota ?? 100,
-                quotaMode: sysData.quotaMode ?? 'storage',
-                ocrQuota: sysData.ocrQuota ?? 50,
-                hasCustomQuota: false
-              };
-            }
-          } catch (sysErr) {
-            console.warn("Could not load global_quotas system settings, using safe defaults", sysErr);
-          }
-          
           const bestName = firebaseUser.displayName || firebaseUser.providerData?.[0]?.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : null);
           const bestPhoto = firebaseUser.photoURL || firebaseUser.providerData?.[0]?.photoURL;
           const bestEmail = firebaseUser.email || firebaseUser.providerData?.[0]?.email;
           const isAdminUser = checkIsSuperAdmin(bestEmail, firebaseUser.phoneNumber);
 
-          activeUser = {
-            id: firebaseUser.uid,
-            realName: bestName || '',
-            phone: firebaseUser.phoneNumber || '',
-            email: bestEmail || '',
-            nickname: (bestName ? bestName.split(' ')[0] : ''),
-            avatarUrl: bestPhoto || null,
-            status: 'hidden',
-            contacts: [],
-            isAdmin: isAdminUser,
-            createdAt: new Date().toISOString(),
-            ...initialQuotaConfig
-          };
-          await setDoc(userRef, activeUser);
+          // Check if an existing user profile already registered this backup email!
+          let existingMatchedProfile: { id: string; data: UserProfile } | null = null;
+          if (bestEmail) {
+            try {
+              const allUsersSnap = await getDocs(collection(db, 'users'));
+              const cleanTargetEmail = bestEmail.trim().toLowerCase();
+              allUsersSnap.forEach(dSnap => {
+                const dData = dSnap.data() as UserProfile;
+                const dbEmail = (dData.email || '').trim().toLowerCase();
+                if (dbEmail && dbEmail === cleanTargetEmail) {
+                  existingMatchedProfile = { id: dSnap.id, data: dData };
+                } else if (isAdminUser && checkIsSuperAdmin(dData.email, dData.phone) && dData.phone) {
+                  existingMatchedProfile = { id: dSnap.id, data: dData };
+                }
+              });
+            } catch (lookupErr) {
+              console.warn('Backup email profile lookup error:', lookupErr);
+            }
+          }
+
+          if (existingMatchedProfile) {
+            const matched = existingMatchedProfile as { id: string; data: UserProfile };
+            canonicalUserId = matched.id;
+            activeUser = {
+              ...matched.data,
+              email: bestEmail || matched.data.email || '',
+              avatarUrl: matched.data.avatarUrl || bestPhoto || undefined,
+              isAdmin: matched.data.isAdmin || isAdminUser
+            };
+            await updateDoc(doc(db, 'users', canonicalUserId), {
+              email: activeUser.email,
+              isAdmin: activeUser.isAdmin,
+              ...(activeUser.avatarUrl ? { avatarUrl: activeUser.avatarUrl } : {})
+            });
+            // Also save a pointer doc on the new Firebase UID so subsequent loads are instant
+            await setDoc(userRef, {
+              ...activeUser,
+              id: canonicalUserId,
+              linkedCanonicalId: canonicalUserId
+            });
+          } else {
+            // Check global policy settings if configured by admin for newly registering users
+            let initialQuotaConfig: any = {
+              isQuotaActive: false, // Default: Unlimited unless admin activated global quota!
+              storageQuotaMB: 500,
+              pagesQuota: 100,
+              quotaMode: 'storage',
+              ocrQuota: 50,
+              hasCustomQuota: false
+            };
+
+            try {
+              const systemSettingsSnap = await getDoc(doc(db, 'system_settings', 'global_quotas'));
+              if (systemSettingsSnap.exists()) {
+                const sysData = systemSettingsSnap.data();
+                initialQuotaConfig = {
+                  isQuotaActive: sysData.isQuotaActive ?? false,
+                  storageQuotaMB: sysData.storageQuotaMB ?? 500,
+                  pagesQuota: sysData.pagesQuota ?? 100,
+                  quotaMode: sysData.quotaMode ?? 'storage',
+                  ocrQuota: sysData.ocrQuota ?? 50,
+                  hasCustomQuota: false
+                };
+              }
+            } catch (sysErr) {
+              console.warn("Could not load global_quotas system settings, using safe defaults", sysErr);
+            }
+
+            activeUser = {
+              id: firebaseUser.uid,
+              realName: bestName || '',
+              phone: firebaseUser.phoneNumber || '',
+              email: bestEmail || '',
+              nickname: (bestName ? bestName.split(' ')[0] : ''),
+              avatarUrl: bestPhoto || null,
+              status: 'hidden',
+              contacts: [],
+              isAdmin: isAdminUser,
+              createdAt: new Date().toISOString(),
+              ...initialQuotaConfig
+            };
+            await setDoc(userRef, activeUser);
+          }
         }
 
         if (!activeUser.isBlocked) {
-          setUser({ ...activeUser, id: firebaseUser.uid } as any);
+          setUser({ ...activeUser, id: canonicalUserId } as any);
           if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-            requestNotificationPermission(firebaseUser.uid).catch(console.error);
+            requestNotificationPermission(canonicalUserId).catch(console.error);
           }
           // Update presence immediately on login
           try {
@@ -317,7 +402,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               presenceUpdates.pwaInstalled = true;
               presenceUpdates.pwaLastSeenAt = new Date().toISOString();
             }
-            await updateDoc(doc(db, 'users', firebaseUser.uid), presenceUpdates);
+            await updateDoc(doc(db, 'users', canonicalUserId), presenceUpdates);
           } catch(e) {}
         }
         setIsLoaded(true);
@@ -339,6 +424,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const userSnap = await getDoc(userRef);
       if (userSnap.exists()) {
         let activeUser = userSnap.data() as UserProfile;
+        let canonicalUserId = firebaseUser.uid;
+        if ((activeUser as any).linkedCanonicalId) {
+          canonicalUserId = (activeUser as any).linkedCanonicalId;
+          const canonSnap = await getDoc(doc(db, 'users', canonicalUserId));
+          if (canonSnap.exists()) {
+            activeUser = canonSnap.data() as UserProfile;
+          }
+        }
         let needsUpdate = false;
         
         const bestName = forcedName || firebaseUser.displayName || firebaseUser.providerData?.[0]?.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : null);
@@ -366,7 +459,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         if (needsUpdate) {
-          await updateDoc(userRef, { 
+          await updateDoc(doc(db, 'users', canonicalUserId), { 
             realName: activeUser.realName,
             nickname: activeUser.nickname,
             avatarUrl: activeUser.avatarUrl,
@@ -374,7 +467,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             ...(isOwnerAdmin ? { isAdmin: true } : {})
           });
         }
-        setUser(prev => prev ? { ...prev, ...activeUser, id: firebaseUser.uid } as any : { ...activeUser, id: firebaseUser.uid } as any);
+        setUser(prev => prev ? { ...prev, ...activeUser, id: canonicalUserId } as any : { ...activeUser, id: canonicalUserId } as any);
       }
     } catch (err) {
       console.error("Failed to sync provider data", err);

@@ -12,6 +12,7 @@ export default function AuthWall() {
   
   const [phone, setPhone] = useState('');
   const [name, setName] = useState('');
+  const [backupEmail, setBackupEmail] = useState('');
   const [countryCode, setCountryCode] = useState('+972');
   const [step, setStep] = useState(1);
   const [otpValue, setOtpValue] = useState('');
@@ -32,12 +33,15 @@ export default function AuthWall() {
   }, [step]);
 
   useEffect(() => {
-    // If user is logged in via social/secondary provider without phone, or missing realName
-    if (user && !user.phone) {
-      setStep(1);
-      setIsSubmitting(false);
-    } else if (user && user.phone && !user.realName) {
+    // If user is logged in but missing realName, move to Step 3 (profile completion + backup email)
+    if (user && (user.phone || user.email) && !user.realName) {
+      if (user.email && !backupEmail) {
+        setBackupEmail(user.email);
+      }
       setStep(3);
+      setIsSubmitting(false);
+    } else if (user && !user.phone && !user.email) {
+      setStep(1);
       setIsSubmitting(false);
     }
   }, [user]);
@@ -205,13 +209,25 @@ export default function AuthWall() {
       setErrorMsg('יש להזין שם מלא.');
       return;
     }
+    const cleanEmail = backupEmail.trim().toLowerCase();
+    if (cleanEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      setErrorMsg('כתובת האימייל שהוזנה אינה תקינה.');
+      return;
+    }
     setIsSubmitting(true);
     setErrorMsg('');
     try {
+      const updates: any = {
+        realName: cleanName,
+        nickname: cleanName.split(' ')[0]
+      };
+      if (cleanEmail) {
+        updates.email = cleanEmail;
+      }
       // Race updateProfile with a 3.5s timeout so the button never stays stuck on spinner
       const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 3500));
       await Promise.race([
-        updateProfile({ realName: cleanName, nickname: cleanName.split(' ')[0] }),
+        updateProfile(updates),
         timeoutPromise
       ]);
     } catch (e) {
@@ -339,6 +355,28 @@ export default function AuthWall() {
                 />
               </div>
             </div>
+
+            <div className="input-group" style={{ marginTop: '4px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span>אימייל לגיבוי ואבטחה (Google / Apple)</span>
+                <span style={{ fontSize: '0.72rem', background: '#DBEAFE', color: '#1E40AF', padding: '2px 7px', borderRadius: '6px', fontWeight: 700 }}>מומלץ מאוד 🛡️</span>
+              </label>
+              <p style={{ margin: '0 0 6px 0', fontSize: '0.78rem', color: '#64748B', lineHeight: 1.4 }}>
+                יאפשר לך להיכנס לחשבונך ולכל המרחבים שלך בלחיצה דרך Google גם אם שליחת SMS מהנייד תיחסם בעתיד.
+              </p>
+              <div className="input-wrapper" dir="ltr">
+                <input
+                  type="email"
+                  value={backupEmail}
+                  onChange={e => { setBackupEmail(e.target.value); setErrorMsg(''); }}
+                  className="auth-input"
+                  style={{ textAlign: 'left', paddingRight: '14px' }}
+                  placeholder="your.name@gmail.com"
+                  onKeyDown={e => e.key === 'Enter' && handleSaveName()}
+                />
+              </div>
+            </div>
+
             {errorMsg && <div className="auth-error">{errorMsg}</div>}
             <button
               onClick={handleSaveName}

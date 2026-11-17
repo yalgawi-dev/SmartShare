@@ -11,6 +11,7 @@ export default function PhoneLoginFlow({ onSuccess, onCancel }: { onSuccess: () 
   const [phone, setPhone] = useState('');
   const [otpValue, setOtpValue] = useState('');
   const [name, setName] = useState('');
+  const [backupEmail, setBackupEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
@@ -124,6 +125,11 @@ export default function PhoneLoginFlow({ onSuccess, onCancel }: { onSuccess: () 
       setErrorMsg('אנא הזן את שמך המלא');
       return;
     }
+    const cleanEmail = backupEmail.trim().toLowerCase();
+    if (cleanEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      setErrorMsg('כתובת האימייל שהוזנה אינה תקינה');
+      return;
+    }
     setIsSubmitting(true);
     try {
       const user = auth.currentUser;
@@ -132,6 +138,7 @@ export default function PhoneLoginFlow({ onSuccess, onCancel }: { onSuccess: () 
         await setDoc(doc(db, 'users', user.uid), {
           realName: name,
           phone: user.phoneNumber,
+          ...(cleanEmail ? { email: cleanEmail } : {}),
           userId: user.uid,
           createdAt: Date.now(),
           provider: 'phone'
@@ -291,6 +298,14 @@ export default function PhoneLoginFlow({ onSuccess, onCancel }: { onSuccess: () 
           <div className={styles.inputGroup}>
             <label>שם מלא</label>
             <input type="text" placeholder="הכנס שם פרטי ומשפחה" value={name} onChange={e => setName(e.target.value)} disabled={isSubmitting} style={{ padding: '0.8rem', fontSize: '1.1rem', borderRadius: '12px', border: '1px solid var(--border-light)' }} autoFocus />
+          </div>
+
+          <div className={styles.inputGroup}>
+            <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>אימייל לגיבוי ואבטחה (Google)</span>
+              <span style={{ fontSize: '0.72rem', background: '#DBEAFE', color: '#1E40AF', padding: '2px 7px', borderRadius: '6px', fontWeight: 700 }}>מומלץ 🛡️</span>
+            </label>
+            <input type="email" dir="ltr" placeholder="your.name@gmail.com" value={backupEmail} onChange={e => setBackupEmail(e.target.value)} disabled={isSubmitting} style={{ padding: '0.8rem', fontSize: '1rem', borderRadius: '12px', border: '1px solid var(--border-light)', textAlign: 'left' }} />
           </div>
 
           <button onClick={saveNameAndFinish} disabled={isSubmitting || !name.trim()} className={styles.primaryBtn} style={{ background: '#25D366' }}>

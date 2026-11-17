@@ -743,10 +743,14 @@ export default function SettingsPage() {
                 </div>
 
                 <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.88rem', fontWeight: 700, color: '#334155' }}>
-                  אימייל:
+                  <span>אימייל לגיבוי ואבטחה (לכניסה דרך Google במקרה של חסימת SMS):</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <input type="email" value={email} onChange={e => setEmail(e.target.value)} onBlur={e => saveField('email', e.target.value)} placeholder="name@example.com" style={{ flex: 1, padding: '0.65rem 0.85rem', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '0.95rem', outline: 'none', direction: 'ltr', textAlign: 'right' }} />
-                    {email && <span style={{ color: '#16a34a', fontWeight: 800, fontSize: '0.8rem', whiteSpace: 'nowrap' }}>רשום ✓</span>}
+                    <input type="email" value={email} onChange={e => setEmail(e.target.value)} onBlur={e => saveField('email', e.target.value.trim().toLowerCase())} placeholder="your.name@gmail.com" style={{ flex: 1, padding: '0.65rem 0.85rem', borderRadius: '10px', border: email ? '1px solid #cbd5e1' : '2px solid #f59e0b', fontSize: '0.95rem', outline: 'none', direction: 'ltr', textAlign: 'right' }} />
+                    {email ? (
+                      <span style={{ color: '#16a34a', fontWeight: 800, fontSize: '0.8rem', whiteSpace: 'nowrap' }}>מגובה ✓</span>
+                    ) : (
+                      <span style={{ color: '#d97706', fontWeight: 800, fontSize: '0.75rem', whiteSpace: 'nowrap' }}>מומלץ להוסיף 🛡️</span>
+                    )}
                   </div>
                 </label>
               </div>
