@@ -1668,14 +1668,6 @@ const handleDeleteDocument = (docId: string, title?: string) => {
               })()}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <button 
-                onClick={() => setShelfToMove(activeShelf)} 
-                style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '3px 8px', borderRadius: '8px', color: '#16a34a', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
-                title="העבר או שכפל נושא זה למרחב אחר"
-              >
-                <span>📦</span>
-                <span>העבר/שכפל</span>
-              </button>
               <button onClick={() => setEditingShelfCoverId(activeShelf.id)} style={{ background: 'transparent', border: 'none', padding: '0', color: '#3b82f6', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>
                 🎨 עיצוב
               </button>
