@@ -10,12 +10,12 @@ export default function PhoneLinkEnforcer() {
   const { user, isLoaded, updateProfile } = useAuth();
   const [step, setStep] = useState<1 | 2>(1);
   const [phone, setPhone] = useState('');
-  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [otpValue, setOtpValue] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmationResult, setConfirmationResult] = useState<any>(null);
   const [isDismissed, setIsDismissed] = useState(false);
-  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const otpInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     // Check if user dismissed the phone prompt in this session
@@ -94,7 +94,7 @@ export default function PhoneLinkEnforcer() {
       setConfirmationResult(verificationId);
       setStep(2);
       setIsSubmitting(false);
-      setTimeout(() => inputRefs.current[0]?.focus(), 150);
+      setTimeout(() => otpInputRef.current?.focus(), 150);
     } catch (error: any) {
       console.error('Phone link error:', error);
       setIsSubmitting(false);
@@ -112,47 +112,19 @@ export default function PhoneLinkEnforcer() {
     }
   };
 
-  const handleOtpChange = (index: number, value: string) => {
+  const handleOtpChange = (value: string) => {
     setErrorMsg('');
-    if (!value) {
-      const newOtp = [...otp];
-      newOtp[index] = '';
-      setOtp(newOtp);
-      return;
-    }
-
-    // Auto-fill / paste full code
-    const digitsOnly = value.replace(/\D/g, '');
-    if (digitsOnly.length > 1) {
-      const chars = digitsOnly.slice(0, 6).split('');
-      const newOtp = ['', '', '', '', '', ''];
-      chars.forEach((c, i) => { newOtp[i] = c; });
-      setOtp(newOtp);
-      if (chars.length === 6) {
-        inputRefs.current[5]?.focus();
-        setTimeout(() => {
-          verifyCode(newOtp.join(''));
-        }, 50);
-      } else {
-        inputRefs.current[Math.min(5, chars.length)]?.focus();
-      }
-      return;
-    }
-
-    if (!/^\d*$/.test(value)) return;
-    const newOtp = [...otp];
-    newOtp[index] = value;
-    setOtp(newOtp);
-    if (value && index < 5) inputRefs.current[index + 1]?.focus();
-    if (index === 5 && newOtp.join('').length === 6) {
+    const digitsOnly = value.replace(/\D/g, '').slice(0, 6);
+    setOtpValue(digitsOnly);
+    if (digitsOnly.length === 6) {
       setTimeout(() => {
-        verifyCode(newOtp.join(''));
+        verifyCode(digitsOnly);
       }, 50);
     }
   };
 
   const verifyCode = async (directCode?: string) => {
-    const code = (typeof directCode === 'string' ? directCode : otp.join('')).trim();
+    const code = (typeof directCode === 'string' ? directCode : otpValue).trim();
     if (code.length !== 6) {
       setErrorMsg('הזן קוד בן 6 ספרות');
       return;
@@ -393,47 +365,40 @@ export default function PhoneLinkEnforcer() {
               </strong>
             </p>
 
-            <div style={{ display: 'flex', gap: '0.45rem', justifyContent: 'center', direction: 'ltr' }}>
-              {otp.map((digit, i) => (
-                <input
-                  key={i}
-                  ref={el => { inputRefs.current[i] = el; }}
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  maxLength={6}
-                  value={digit}
-                  onPaste={e => {
-                    e.preventDefault();
-                    const pastedData = e.clipboardData.getData('text');
-                    handleOtpChange(0, pastedData);
-                  }}
-                  onChange={e => handleOtpChange(i, e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Backspace' && !digit && i > 0) {
-                      inputRefs.current[i - 1]?.focus();
-                    }
-                  }}
-                  style={{
-                    width: '44px',
-                    height: '52px',
-                    fontSize: '1.4rem',
-                    textAlign: 'center',
-                    border: '2px solid #cbd5e1',
-                    borderRadius: '12px',
-                    background: '#f8fafc',
-                    color: '#0f172a',
-                    fontWeight: 700,
-                    outline: 'none'
-                  }}
-                  disabled={isSubmitting}
-                />
-              ))}
+            <div style={{ display: 'flex', justifyContent: 'center', direction: 'ltr', width: '100%' }}>
+              <input
+                ref={otpInputRef}
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                value={otpValue}
+                onChange={e => handleOtpChange(e.target.value)}
+                autoFocus
+                placeholder="000000"
+                style={{
+                  width: '100%',
+                  maxWidth: '260px',
+                  height: '56px',
+                  fontSize: '28px',
+                  letterSpacing: '10px',
+                  paddingLeft: '10px',
+                  textAlign: 'center',
+                  border: '2px solid #cbd5e1',
+                  borderRadius: '14px',
+                  background: '#f8fafc',
+                  color: '#0f172a',
+                  fontWeight: 800,
+                  outline: 'none',
+                  transition: 'all 0.2s'
+                }}
+                disabled={isSubmitting}
+              />
             </div>
 
             <button
               onClick={() => verifyCode()}
-              disabled={isSubmitting || otp.some(d => !d)}
+              disabled={isSubmitting || otpValue.length < 6}
               style={{
                 background: 'linear-gradient(135deg, #10B981, #059669)',
                 color: 'white',

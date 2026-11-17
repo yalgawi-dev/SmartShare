@@ -5,7 +5,6 @@ import { useAuth } from '@/app/context/AuthContext';
 import { RecaptchaVerifier, ConfirmationResult } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { COUNTRIES } from '@/utils/countries';
-import { OTPInput } from 'input-otp';
 import { APP_VERSION } from '@/constants/version';
 
 export default function AuthWall() {
@@ -505,31 +504,17 @@ export default function AuthWall() {
             </div>
             
             <div className="otp-container-relative" dir="ltr">
-              <OTPInput
+              <input
                 ref={masterOtpInputRef}
-                maxLength={6}
-                value={otpValue}
-                onChange={handleOtpChange}
-                autoFocus
+                type="text"
                 inputMode="numeric"
                 autoComplete="one-time-code"
-                pasteTransformer={(pasted) => pasted.replace(/\D/g, '').slice(0, 6)}
-                containerClassName="otp-inputs"
-                render={({ slots }) => (
-                  <>
-                    {slots.map((slot, idx) => (
-                      <div
-                        key={idx}
-                        className={`otp-box ${slot.char ? 'filled' : ''} ${slot.isActive ? 'active' : ''}`}
-                      >
-                        {slot.char}
-                        {slot.hasFakeCaret && (
-                          <div className="otp-fake-caret" />
-                        )}
-                      </div>
-                    ))}
-                  </>
-                )}
+                maxLength={6}
+                value={otpValue}
+                onChange={(e) => handleOtpChange(e.target.value)}
+                autoFocus
+                placeholder="000000"
+                className="single-otp-input"
               />
             </div>
 
@@ -806,56 +791,33 @@ export default function AuthWall() {
           justify-content: center;
         }
 
-        .otp-inputs {
-          display: flex;
-          justify-content: center;
-          gap: 12px;
-          position: relative;
-        }
-
-        .otp-box {
-          position: relative;
-          width: 48px;
-          height: 58px;
+        .single-otp-input {
+          width: 100%;
+          max-width: 280px;
+          height: 60px;
           background: #F8FAFC;
           border: 2px solid #E2E8F0;
-          border-radius: 14px;
-          font-size: 24px;
-          font-weight: 700;
-          display: flex;
-          align-items: center;
-          justify-content: center;
+          border-radius: 16px;
+          font-size: 32px;
+          font-weight: 800;
+          text-align: center;
+          letter-spacing: 12px;
+          padding-left: 12px; /* compensate for letter-spacing at the end */
           color: #0F172A;
-          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-          box-shadow: 0 1px 2px rgba(0,0,0,0.03);
-          user-select: none;
+          outline: none;
+          transition: all 0.2s ease;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
 
-        .otp-box.active {
+        .single-otp-input:focus {
           border-color: var(--primary, #4F46E5);
           background: #FFFFFF;
           box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.15);
-          transform: translateY(-2px);
         }
 
-        .otp-box.filled {
-          border-color: #CBD5E1;
-          background: #FFFFFF;
-          color: #0F172A;
-        }
-
-        .otp-fake-caret {
-          position: absolute;
-          width: 2px;
-          height: 24px;
-          background: var(--primary, #4F46E5);
-          border-radius: 1px;
-          animation: caret-blink 1.2s ease-in-out infinite;
-        }
-
-        @keyframes caret-blink {
-          0%, 70%, 100% { opacity: 1; }
-          20%, 50% { opacity: 0; }
+        .single-otp-input::placeholder {
+          color: #CBD5E1;
+          letter-spacing: 12px;
         }
 
         .auth-actions {
@@ -899,13 +861,15 @@ export default function AuthWall() {
             padding: 0 24px 0 12px;
             font-size: 14px;
           }
-          .otp-inputs {
-            gap: 8px;
-          }
-          .otp-box {
-            width: 44px;
+          .single-otp-input {
+            max-width: 250px;
             height: 54px;
-            font-size: 20px;
+            font-size: 26px;
+            letter-spacing: 8px;
+            padding-left: 8px;
+          }
+          .single-otp-input::placeholder {
+            letter-spacing: 8px;
           }
         }
       `}</style>

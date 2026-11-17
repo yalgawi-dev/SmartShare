@@ -9,12 +9,12 @@ export default function PhoneLoginFlow({ onSuccess, onCancel }: { onSuccess: () 
   const { loginWithPhone, isLoaded } = useAuth();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [phone, setPhone] = useState('');
-  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [otpValue, setOtpValue] = useState('');
   const [name, setName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
-  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const otpInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && !(window as any).recaptchaVerifierPhoneLogin) {
@@ -63,7 +63,7 @@ export default function PhoneLoginFlow({ onSuccess, onCancel }: { onSuccess: () 
       setConfirmationResult(confirmation);
       setIsSubmitting(false);
       setStep(2);
-      setTimeout(() => inputRefs.current[0]?.focus(), 100);
+      setTimeout(() => otpInputRef.current?.focus(), 100);
     } catch (error: any) {
       console.error(error);
       setIsSubmitting(false);
@@ -78,23 +78,19 @@ export default function PhoneLoginFlow({ onSuccess, onCancel }: { onSuccess: () 
     }
   };
 
-  const handleOtpChange = (index: number, value: string) => {
+  const handleOtpChange = (value: string) => {
     setErrorMsg('');
-    if (!/^\d*$/.test(value)) return;
-    const newOtp = [...otp];
-    newOtp[index] = value;
-    setOtp(newOtp);
-    if (value && index < 5) inputRefs.current[index + 1]?.focus();
-  };
-
-  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Backspace' && !otp[index] && index > 0) {
-      inputRefs.current[index - 1]?.focus();
+    const digitsOnly = value.replace(/\D/g, '').slice(0, 6);
+    setOtpValue(digitsOnly);
+    if (digitsOnly.length === 6) {
+      setTimeout(() => {
+        verifyCode(digitsOnly);
+      }, 50);
     }
   };
 
-  const verifyCode = async () => {
-    const code = otp.join('');
+  const verifyCode = async (directCode?: string) => {
+    const code = (typeof directCode === 'string' ? directCode : otpValue).trim();
     if (code.length !== 6) {
       setErrorMsg('יש להזין קוד בן 6 ספרות');
       return;
@@ -188,28 +184,42 @@ export default function PhoneLoginFlow({ onSuccess, onCancel }: { onSuccess: () 
             <p style={{ margin: 0, color: 'var(--text-secondary)' }}>שלחנו קוד בעל 6 ספרות למספר<br/><strong style={{ color: 'var(--text-primary)', direction: 'ltr', display: 'inline-block', marginTop: '0.25rem' }}>+972 {phone.replace(/^0/, '')}</strong></p>
           </div>
           
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', direction: 'ltr' }}>
-            {otp.map((digit, i) => (
-              <input
-                key={i}
-                ref={el => { inputRefs.current[i] = el; }}
-                type="text"
-                inputMode="numeric"
-                maxLength={1}
-                value={digit}
-                onChange={e => handleOtpChange(i, e.target.value)}
-                onKeyDown={e => handleOtpKeyDown(i, e)}
-                disabled={isSubmitting}
-                style={{ width: '45px', height: '55px', fontSize: '1.5rem', textAlign: 'center', fontWeight: 'bold', borderRadius: '12px', border: `2px solid ${digit ? 'var(--primary)' : 'var(--border-light)'}`, background: digit ? 'var(--bg-main)' : 'var(--bg-card)', transition: 'all 0.2s', outline: 'none' }}
-              />
-            ))}
+          <div style={{ display: 'flex', justifyContent: 'center', direction: 'ltr', width: '100%' }}>
+            <input
+              ref={otpInputRef}
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              value={otpValue}
+              onChange={e => handleOtpChange(e.target.value)}
+              autoFocus
+              placeholder="000000"
+              style={{
+                width: '100%',
+                maxWidth: '260px',
+                height: '56px',
+                fontSize: '28px',
+                letterSpacing: '10px',
+                paddingLeft: '10px',
+                textAlign: 'center',
+                border: '2px solid var(--border-light, #cbd5e1)',
+                borderRadius: '14px',
+                background: 'var(--bg-main, #f8fafc)',
+                color: 'var(--text-primary, #0f172a)',
+                fontWeight: 800,
+                outline: 'none',
+                transition: 'all 0.2s'
+              }}
+              disabled={isSubmitting}
+            />
           </div>
 
           <div style={{ textAlign: 'center', marginTop: '-0.5rem' }}>
             <button 
               onClick={() => {
                 setStep(1);
-                setOtp(['', '', '', '', '', '']);
+                setOtpValue('');
                 setErrorMsg('');
                 setTimeout(() => {
                   handleSendCode();
@@ -222,7 +232,7 @@ export default function PhoneLoginFlow({ onSuccess, onCancel }: { onSuccess: () 
             </button>
           </div>
 
-          <button onClick={verifyCode} disabled={isSubmitting || otp.join('').length !== 6} className={styles.primaryBtn} style={{ background: '#25D366' }}>
+          <button onClick={() => verifyCode()} disabled={isSubmitting || otpValue.length !== 6} className={styles.primaryBtn} style={{ background: '#25D366' }}>
             {isSubmitting ? 'מאמת...' : 'אמת והיכנס'}
           </button>
         </div>
