@@ -123,7 +123,7 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
 
   const hasShelves = availableShelves.length > 0;
 
-  // Selected shelf object name
+  // Selected shelf object
   const currentShelfObj = useMemo(() => {
     return availableShelves.find(s => s.id === selectedShelfId) || null;
   }, [availableShelves, selectedShelfId]);
@@ -229,14 +229,14 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
     if (children.length === 0) return null;
 
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
         {children.map(folder => {
           const folderId = String(folder.id);
           const hasChildren = activeSpaceFolders.some(f => normId(f.parentId) === folderId);
           const isExpanded = expandedFolderIds.has(folderId);
           const isSelected = normId(selectedFolderId) === folderId;
           const isCurrentOrigin = isCurrentSpace && isSameShelf && folderId === activeCurrentFolderId;
-          const indentPx = depth * 20;
+          const indentPx = depth * 18;
 
           return (
             <div key={folderId} style={{ display: 'flex', flexDirection: 'column' }}>
@@ -246,13 +246,14 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  padding: '7px 10px',
+                  padding: '9px 12px',
                   marginRight: `${indentPx}px`,
-                  borderRadius: '10px',
+                  borderRadius: '12px',
                   background: isSelected ? '#eff6ff' : isCurrentOrigin ? '#fffbeb' : '#ffffff',
-                  border: isSelected ? '1.5px solid #2563eb' : isCurrentOrigin ? '1.5px dashed #f59e0b' : '1px solid #e2e8f0',
+                  border: isSelected ? '2px solid #2563eb' : isCurrentOrigin ? '1.5px dashed #f59e0b' : '1px solid #e2e8f0',
                   cursor: 'pointer',
                   transition: 'all 0.15s ease',
+                  boxShadow: isSelected ? '0 2px 8px rgba(37,99,235,0.12)' : 'none'
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
@@ -282,10 +283,10 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
                     <span style={{ width: '16px' }} />
                   )}
 
-                  <span style={{ fontSize: '1.1rem' }}>{isExpanded ? '📂' : '📁'}</span>
+                  <span style={{ fontSize: '1.2rem' }}>{isExpanded ? '📂' : '📁'}</span>
                   <span style={{
-                    fontSize: '0.86rem',
-                    fontWeight: isSelected ? 800 : 600,
+                    fontSize: '0.88rem',
+                    fontWeight: isSelected ? 800 : 700,
                     color: isSelected ? '#1d4ed8' : '#1e293b',
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
@@ -303,8 +304,8 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
                     </span>
                   )}
                   <div style={{
-                    width: '16px',
-                    height: '16px',
+                    width: '18px',
+                    height: '18px',
                     borderRadius: '50%',
                     border: isSelected ? '5px solid #2563eb' : '2px solid #cbd5e1',
                     background: '#fff'
@@ -314,7 +315,7 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
 
               {/* Recursive child branches if expanded */}
               {hasChildren && isExpanded && (
-                <div style={{ marginTop: '3px' }}>
+                <div style={{ marginTop: '4px' }}>
                   {renderFolderBranch(folderId, depth + 1)}
                 </div>
               )}
@@ -325,13 +326,8 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
     );
   };
 
-  const isRootSelected = selectedFolderId === null;
-  const isRootCurrentOrigin = isCurrentSpace && isSameShelf && activeCurrentFolderId === null;
-
-  // Clear label for the base shelf / root level
-  const rootDisplayLabel = currentShelfObj 
-    ? `רמה ראשית (בסיס נושא "${currentShelfObj.name}")` 
-    : 'רמה ראשית (ללא תיקייה)';
+  const isShelfDirectSelected = selectedFolderId === null;
+  const isShelfDirectCurrentOrigin = isCurrentSpace && isSameShelf && activeCurrentFolderId === null;
 
   return (
     <div
@@ -523,48 +519,60 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
           </div>
         )}
 
-        {/* 6. Folder Tree (Windows Explorer style: Primary folders, clear current location indication) */}
-        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '4px', minHeight: '160px', maxHeight: '250px', border: '1.5px solid #e2e8f0', borderRadius: '12px', padding: '8px', background: '#f8fafc', marginBottom: '14px' }}>
-          {/* Main / Root folder */}
-          <div
-            onClick={() => setSelectedFolderId(null)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '7px 10px',
-              borderRadius: '10px',
-              background: isRootSelected ? '#eff6ff' : isRootCurrentOrigin ? '#fffbeb' : '#ffffff',
-              border: isRootSelected ? '1.5px solid #2563eb' : isRootCurrentOrigin ? '1.5px dashed #f59e0b' : '1px solid #e2e8f0',
-              cursor: 'pointer',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '1.1rem' }}>🏠</span>
-              <span style={{ fontSize: '0.86rem', fontWeight: isRootSelected ? 800 : 700, color: isRootSelected ? '#1d4ed8' : '#0f172a' }}>
-                {rootDisplayLabel}
-              </span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              {isRootCurrentOrigin && (
-                <span style={{ fontSize: '0.68rem', background: '#fef3c7', color: '#b45309', border: '1px solid #fcd34d', padding: '1px 6px', borderRadius: '5px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '3px' }}>
-                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444', display: 'inline-block' }} />
-                  אתה כאן
+        {/* 6. Folder Tree (Natural view: Shelf Name acts as parent root folder, children list below) */}
+        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '5px', minHeight: '160px', maxHeight: '250px', border: '1.5px solid #e2e8f0', borderRadius: '12px', padding: '8px', background: '#f8fafc', marginBottom: '14px' }}>
+          
+          {/* Natural Top-Level Parent (The Selected Shelf itself as a clean folder item) */}
+          {currentShelfObj && (
+            <div
+              onClick={() => setSelectedFolderId(null)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '9px 12px',
+                borderRadius: '12px',
+                background: isShelfDirectSelected ? '#eff6ff' : isShelfDirectCurrentOrigin ? '#fffbeb' : '#ffffff',
+                border: isShelfDirectSelected ? '2px solid #2563eb' : isShelfDirectCurrentOrigin ? '1.5px dashed #f59e0b' : '1px solid #cbd5e1',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                boxShadow: isShelfDirectSelected ? '0 2px 8px rgba(37,99,235,0.12)' : 'none'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                <span style={{ fontSize: '1.2rem' }}>{currentShelfObj.icon || '🗂️'}</span>
+                <span style={{ fontSize: '0.9rem', fontWeight: 800, color: isShelfDirectSelected ? '#1d4ed8' : '#0f172a' }}>
+                  {currentShelfObj.name}
                 </span>
-              )}
-              <div style={{
-                width: '16px',
-                height: '16px',
-                borderRadius: '50%',
-                border: isRootSelected ? '5px solid #2563eb' : '2px solid #cbd5e1',
-                background: '#fff'
-              }} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {isShelfDirectCurrentOrigin && (
+                  <span style={{ fontSize: '0.68rem', background: '#fef3c7', color: '#b45309', border: '1px solid #fcd34d', padding: '1px 6px', borderRadius: '5px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '3px' }}>
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444', display: 'inline-block' }} />
+                    אתה כאן
+                  </span>
+                )}
+                <div style={{
+                  width: '18px',
+                  height: '18px',
+                  borderRadius: '50%',
+                  border: isShelfDirectSelected ? '5px solid #2563eb' : '2px solid #cbd5e1',
+                  background: '#fff'
+                }} />
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Render top-level folders of this shelf and their branches */}
-          {renderFolderBranch(null, 0)}
+          {/* Children and subfolders under this shelf */}
+          <div style={{ paddingRight: currentShelfObj ? '12px' : '0', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            {activeSpaceFolders.filter(f => !f.parentId).length === 0 && !currentShelfObj ? (
+              <div style={{ padding: '16px', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>
+                אין תיקיות עדיין
+              </div>
+            ) : (
+              renderFolderBranch(null, 0)
+            )}
+          </div>
         </div>
 
         {/* 7. Confirm / Submit Button */}
