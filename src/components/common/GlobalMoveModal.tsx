@@ -102,7 +102,7 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
 
   const isCurrentSpace = selectedSpaceId === currentSpaceId;
 
-  // Active shelves in the selected space - sorted so current shelf appears FIRST!
+  // Active shelves in the selected space - sorted with current shelf FIRST
   const availableShelves = useMemo(() => {
     let rawShelves: ShelfTargetItem[] = [];
     if (isCurrentSpace && Array.isArray(shelves) && shelves.length > 0) {
@@ -135,7 +135,7 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
       setSelectedShelfId(currentShelfId || (hasShelves ? availableShelves[0].id : ''));
       setSelectedFolderId(null);
       setActionType('move');
-      // Auto-expand all folders so user sees the tree clearly
+      // Auto-expand all folders
       const allIds = new Set<string>();
       folders.forEach(f => allIds.add(String(f.id)));
       setExpandedFolderIds(allIds);
@@ -519,10 +519,10 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
           </div>
         )}
 
-        {/* 6. Folder Tree (Natural view: Shelf Name acts as parent root folder, children list below) */}
+        {/* 6. Folder Tree (Natural Windows Explorer View) */}
         <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '5px', minHeight: '160px', maxHeight: '250px', border: '1.5px solid #e2e8f0', borderRadius: '12px', padding: '8px', background: '#f8fafc', marginBottom: '14px' }}>
           
-          {/* Natural Top-Level Parent (The Selected Shelf itself as a clean folder item) */}
+          {/* Top-Level Shelf Item */}
           {currentShelfObj && (
             <div
               onClick={() => setSelectedFolderId(null)}
@@ -564,8 +564,8 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
           )}
 
           {/* Children and subfolders under this shelf */}
-          <div style={{ paddingRight: currentShelfObj ? '12px' : '0', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            {activeSpaceFolders.filter(f => !f.parentId).length === 0 && !currentShelfObj ? (
+          <div style={{ paddingRight: currentShelfObj ? '14px' : '0', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            {activeSpaceFolders.length === 0 && !currentShelfObj ? (
               <div style={{ padding: '16px', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>
                 אין תיקיות עדיין
               </div>

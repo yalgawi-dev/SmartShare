@@ -4170,10 +4170,10 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             subtitle={`התיקייה "${folderToMove.name}" על כל מסמכיה`}
             itemCount={1}
             currentSpaceId={space.id}
-            currentFolderId={folderToMove.parentId || null}
+            currentFolderId={folderToMove.id}
             currentShelfId={folderToMove.shelfId}
             shelves={space.shelves || []}
-            folders={validFolders.map(f => ({ id: f.id, name: f.name, parentId: f.parentId, shelfId: f.shelfId }))}
+            folders={(space.documentFolders || []).filter(f => !f.deletedAt && !getDescendantFolderIds(folderToMove.id).includes(f.id)).map(f => ({ id: f.id, name: f.name, parentId: f.parentId, shelfId: f.shelfId }))}
             onClose={() => setFolderToMove(null)}
             onConfirmMove={(targetFolderId, targetShelfId) => {
               const destShelfId = targetShelfId || folderToMove.shelfId;
