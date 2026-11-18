@@ -3,13 +3,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
-import { downloadDocument, formatFileSize } from '@/utils/documentUtils';
+import { downloadDocument } from '@/utils/documentUtils';
 import DynamicPdfScrollPreview from '@/components/widgets/Vault/DynamicPdfScrollPreview';
 import { extractPdfPages } from '@/utils/imageOptimizer';
-import { APP_VERSION } from '@/constants/version';
-import MetricsPanel from '@/components/common/ViewerEngine/MetricsPanel';
-import GlobalMoveModal from '@/components/common/GlobalMoveModal';
-import { useSpaces } from '@/app/context/SpacesContext';
 
 export interface ViewerDocument {
   id?: string;
@@ -63,9 +59,6 @@ export default function UniversalViewerModal({
   const [isHdRendering, setIsHdRendering] = useState<boolean>(false);
   const [hdActiveDocIds, setHdActiveDocIds] = useState<Record<string, boolean>>({});
   const [hdPagesMap, setHdPagesMap] = useState<Record<string, string[]>>({});
-  const [showMetrics, setShowMetrics] = useState<boolean>(false);
-  const [showExportToSpace, setShowExportToSpace] = useState<boolean>(false);
-  const { spaces, addDocument, updateFileShareItems } = useSpaces();
 
   useEffect(() => {
     if (onIndexChange) onIndexChange(currentIndex);
@@ -314,27 +307,13 @@ export default function UniversalViewerModal({
           pointerEvents: 'auto'
         }}
       >
-        {/* Version Badge & Title */}
+        {/* Clean Header: Document Title & Count */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0, flex: 1, overflow: 'hidden' }}>
-          <span
-            style={{
-              background: '#4f46e5',
-              color: 'white',
-              padding: '2px 8px',
-              borderRadius: '8px',
-              fontSize: '0.7rem',
-              fontWeight: 800,
-              flexShrink: 0,
-              boxShadow: '0 2px 6px rgba(79, 70, 229, 0.4)'
-            }}
-          >
-            {APP_VERSION}
-          </span>
           <span
             style={{
               color: '#f8fafc',
               fontWeight: 700,
-              fontSize: '0.95rem',
+              fontSize: '1rem',
               minWidth: 0,
               flexShrink: 1,
               overflow: 'hidden',
@@ -344,58 +323,8 @@ export default function UniversalViewerModal({
           >
             #{currentIndex + 1} • {currentDoc.title || 'מסמך'}
           </span>
-          {/* Storage Target Badge */}
-          <span
-            style={{
-              background: currentDoc.storageTarget === 'local' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(37, 99, 235, 0.2)',
-              color: currentDoc.storageTarget === 'local' ? '#34d399' : '#60a5fa',
-              border: `1px solid ${currentDoc.storageTarget === 'local' ? '#059669' : '#2563eb'}`,
-              padding: '2px 8px',
-              borderRadius: '8px',
-              fontSize: '0.72rem',
-              fontWeight: 700,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px'
-            }}
-          >
-            <span>{currentDoc.storageTarget === 'local' ? '📱' : currentDoc.storageTarget === 'gdrive' ? '📁' : '☁️'}</span>
-            <span>{currentDoc.storageTarget === 'local' ? 'במכשיר' : currentDoc.storageTarget === 'gdrive' ? 'Google Drive' : 'ענן MySpace'}</span>
-          </span>
-          {currentDoc.fileSize && (
-            <span
-              style={{
-                background: 'rgba(255, 255, 255, 0.15)',
-                color: '#f8fafc',
-                padding: '2px 8px',
-                borderRadius: '8px',
-                fontSize: '0.72rem',
-                fontWeight: 700,
-                border: '1px solid rgba(255, 255, 255, 0.2)'
-              }}
-              title="גודל הקובץ"
-            >
-              ⚖️ {formatFileSize(currentDoc.fileSize)}
-            </span>
-          )}
-          {currentDoc.addedByName && (
-            <span
-              style={{
-                background: 'rgba(255, 255, 255, 0.15)',
-                color: '#f8fafc',
-                padding: '2px 8px',
-                borderRadius: '8px',
-                fontSize: '0.72rem',
-                fontWeight: 700,
-                border: '1px solid rgba(255, 255, 255, 0.2)'
-              }}
-              title="השותף שהעלה את המסמך"
-            >
-              👤 {currentDoc.addedByName}
-            </span>
-          )}
           {docs.length > 1 && (
-            <span style={{ color: '#94a3b8', fontSize: '0.8rem', fontWeight: 600 }}>
+            <span style={{ color: '#94a3b8', fontSize: '0.8rem', fontWeight: 600, flexShrink: 0 }}>
               ({currentIndex + 1}/{docs.length})
             </span>
           )}
@@ -417,9 +346,9 @@ export default function UniversalViewerModal({
                 background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
                 border: '1px solid rgba(255, 255, 255, 0.3)',
                 color: '#ffffff',
-                padding: '5px 10px',
+                padding: '6px 12px',
                 borderRadius: '16px',
-                fontSize: '0.78rem',
+                fontSize: '0.8rem',
                 fontWeight: 800,
                 cursor: 'pointer',
                 display: 'flex',
@@ -433,28 +362,6 @@ export default function UniversalViewerModal({
               <span>פתיחה מקורית</span>
             </button>
           )}
-
-          {/* Performance Profiler Metrics Toggle Button */}
-          <button
-            type="button"
-            onClick={() => setShowMetrics(prev => !prev)}
-            style={{
-              background: showMetrics ? '#0284c7' : 'rgba(255, 255, 255, 0.15)',
-              border: '1px solid rgba(255, 255, 255, 0.25)',
-              color: '#ffffff',
-              padding: '4px 8px',
-              borderRadius: '16px',
-              fontSize: '0.75rem',
-              fontWeight: 700,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px'
-            }}
-            title="הצג לוג זמנים ומדדי טעינה ורשת"
-          >
-            ⏱️ מדדים
-          </button>
 
           {/* Close Button */}
           <button
@@ -1090,18 +997,21 @@ export default function UniversalViewerModal({
         onClick={(e) => e.stopPropagation()}
         style={{
           position: 'absolute',
-          bottom: '20px',
+          bottom: 'max(20px, env(safe-area-inset-bottom))',
+          left: '50%',
+          transform: 'translateX(-50%)',
           display: 'flex',
-          gap: '0.85rem',
+          gap: '1rem',
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 200010,
-          background: 'rgba(30, 41, 59, 0.85)',
-          backdropFilter: 'blur(8px)',
-          padding: '0.45rem 1rem',
+          background: 'rgba(30, 41, 59, 0.88)',
+          backdropFilter: 'blur(10px)',
+          padding: '0.5rem 1.25rem',
           borderRadius: '30px',
-          border: '1px solid rgba(255, 255, 255, 0.15)',
-          boxShadow: '0 6px 20px rgba(0,0,0,0.45)'
+          border: '1px solid rgba(255, 255, 255, 0.18)',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+          maxWidth: '90vw'
         }}
       >
         <button
@@ -1110,74 +1020,22 @@ export default function UniversalViewerModal({
             background: 'transparent',
             color: 'white',
             border: 'none',
-            padding: '0.4rem 0.8rem',
+            padding: '0.45rem 1rem',
             borderRadius: '20px',
             fontWeight: 700,
-            fontSize: '0.9rem',
+            fontSize: '0.92rem',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
-            gap: '0.4rem',
-            transition: 'background 0.2s'
+            gap: '0.45rem',
+            transition: 'background 0.2s',
+            whiteSpace: 'nowrap'
           }}
         >
           <span>⬇️ הורדה</span>
         </button>
 
-        <div style={{ width: '1px', height: '18px', background: 'rgba(255,255,255,0.2)' }} />
-
-        <button
-          onClick={() => setShowExportToSpace(true)}
-          title="העברה פנימית למרחב אחר"
-          style={{
-            background: 'rgba(139, 92, 246, 0.25)',
-            color: '#ddd6fe',
-            border: '1px solid rgba(139, 92, 246, 0.5)',
-            padding: '0.4rem 0.75rem',
-            borderRadius: '20px',
-            fontWeight: 700,
-            fontSize: '0.82rem',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.3rem',
-          }}
-        >
-          <span>🗂️ למרחב</span>
-        </button>
-
-        <div style={{ width: '1px', height: '18px', background: 'rgba(255,255,255,0.2)' }} />
-
-        <button
-          onClick={() => {
-            if (typeof window !== 'undefined') {
-              window.dispatchEvent(new CustomEvent('smartshare:open_scanner_for_doc', {
-                detail: { doc: currentDoc }
-              }));
-              onClose();
-            }
-          }}
-          style={{
-            background: 'rgba(59, 130, 246, 0.25)',
-            color: '#93c5fd',
-            border: '1px solid rgba(59, 130, 246, 0.5)',
-            padding: '0.4rem 0.85rem',
-            borderRadius: '20px',
-            fontWeight: 750,
-            fontSize: '0.85rem',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.4rem',
-            transition: 'background 0.2s',
-            whiteSpace: 'nowrap'
-          }}
-          title="פתח את הסורק עם עמודי המגילה כדי להוסיף עמודים נוספים"
-        >
-          <span>📷 הוסף עמוד</span>
-        </button>
-
-        <div style={{ width: '1px', height: '18px', background: 'rgba(255,255,255,0.2)' }} />
+        <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.25)' }} />
 
         <button
           onClick={handleShare}
@@ -1185,83 +1043,21 @@ export default function UniversalViewerModal({
             background: '#10b981',
             color: 'white',
             border: 'none',
-            padding: '0.45rem 1.1rem',
+            padding: '0.45rem 1.2rem',
             borderRadius: '20px',
             fontWeight: 800,
-            fontSize: '0.9rem',
+            fontSize: '0.92rem',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
-            gap: '0.4rem',
-            boxShadow: '0 2px 8px rgba(16, 185, 129, 0.35)'
+            gap: '0.45rem',
+            boxShadow: '0 2px 8px rgba(16, 185, 129, 0.35)',
+            whiteSpace: 'nowrap'
           }}
         >
           <span>📤 שתף</span>
         </button>
       </div>
-
-      {/* Real-Time Performance & Timing Metrics Panel */}
-      <MetricsPanel
-        isOpen={showMetrics}
-        onClose={() => setShowMetrics(false)}
-      />
-      <GlobalMoveModal
-        isOpen={showExportToSpace}
-        onClose={() => setShowExportToSpace(false)}
-        title="העברה / שכפול למרחב"
-        subtitle={currentDoc ? `📄 ${currentDoc.title || currentDoc.name || 'קובץ'}` : undefined}
-        itemCount={1}
-        folders={[]}
-        canCopy={true}
-        onConfirmMove={() => {
-          setShowExportToSpace(false);
-        }}
-        onConfirmCrossSpace={async (targetSpaceId, targetShelfId, targetFolderId, actionType) => {
-          if (!currentDoc) return;
-          const targetSpace = spaces.find(s => s.id === targetSpaceId);
-          if (!targetSpace) return;
-
-          // If target space has file share items or is a file share space
-          const isFileShareTarget = targetSpace.fileShareItems !== undefined && (targetSpace.shelves === undefined || targetSpace.shelves.length === 0);
-
-          if (isFileShareTarget) {
-            const newFile = {
-              id: `file_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-              spaceId: targetSpaceId,
-              name: currentDoc.title || currentDoc.name || 'קובץ',
-              type: 'file' as const,
-              url: currentDoc.url || (currentDoc.pages && currentDoc.pages[0]) || '',
-              size: currentDoc.size || 0,
-              fileType: ((currentDoc.type === 'pdf') || (currentDoc.url && currentDoc.url.toLowerCase().includes('.pdf'))) ? 'pdf' as const : 'image' as const,
-              thumbnailUrl: currentDoc.thumbnailUrl || (currentDoc.pages && currentDoc.pages[0]),
-              parentId: targetFolderId || null,
-              createdAt: Date.now(),
-              createdBy: 'user',
-              creatorName: 'משתמש',
-              allowedPartners: []
-            };
-            const existing = targetSpace.fileShareItems || [];
-            await updateFileShareItems(targetSpaceId, [...existing, newFile]);
-          } else {
-            // Target space is Vault / Shelves
-            const docType: 'document' | 'pdf' | 'image' = 
-              currentDoc.type === 'pdf' ? 'pdf' : currentDoc.type === 'image' ? 'image' : 'document';
-
-            addDocument(targetSpaceId, {
-              title: currentDoc.title || currentDoc.name || 'מסמך',
-              type: docType,
-              url: currentDoc.url || (currentDoc.pages && currentDoc.pages[0]) || '',
-              shelfId: targetShelfId || (targetSpace.shelves?.[0]?.id) || 'general',
-              folderId: targetFolderId ? String(targetFolderId) : null,
-              fileSize: currentDoc.size,
-              allowedPartners: [],
-              addedBy: currentDoc.addedBy || 'user',
-              addedByName: currentDoc.addedByName || 'משתמש'
-            });
-          }
-          setShowExportToSpace(false);
-        }}
-      />
     </div>,
     document.body
   );
