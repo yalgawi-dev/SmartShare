@@ -464,6 +464,7 @@ interface LinkedDocsPreviewModalProps {
   isOpen: boolean;
   parentDoc: SpaceDocument | null;
   allDocs: SpaceDocument[];
+  contextDocs?: SpaceDocument[];
   onClose: () => void;
   onOpenDoc: (doc: SpaceDocument, allLinked: SpaceDocument[]) => void;
   onEditLinks: (doc: SpaceDocument) => void;
@@ -473,6 +474,7 @@ export const LinkedDocsPreviewModal: React.FC<LinkedDocsPreviewModalProps> = ({
   isOpen,
   parentDoc,
   allDocs,
+  contextDocs,
   onClose,
   onOpenDoc,
   onEditLinks
@@ -484,8 +486,10 @@ export const LinkedDocsPreviewModal: React.FC<LinkedDocsPreviewModalProps> = ({
   // Total linked cluster: parent doc first, followed by all target linked docs
   const docCluster = [parentDoc, ...linkedDocs];
 
-  const parentIdx = allDocs.findIndex(d => d.id === parentDoc.id);
-  const parentNum = parentIdx >= 0 ? `#${parentIdx + 1}` : (parentDoc.docNumber ? `#${parentDoc.docNumber}` : '#1');
+  // Match the exact visible number from the active view/context (#1, #2...)
+  const numPool = (contextDocs && contextDocs.length > 0) ? contextDocs : allDocs;
+  const parentIdx = numPool.findIndex(d => d.id === parentDoc.id);
+  const parentNum = parentIdx >= 0 ? `#${parentIdx + 1}` : (parentDoc.docNumber ? `#${parentDoc.docNumber}` : '#');
 
   return (
     <div
@@ -565,11 +569,11 @@ export const LinkedDocsPreviewModal: React.FC<LinkedDocsPreviewModalProps> = ({
                 <div style={{ width: '34px', height: '34px', borderRadius: '10px', background: '#2563eb', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.92rem', fontWeight: 800, flexShrink: 0 }}>
                   {parentNum}
                 </div>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#1e3a8a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#1e3a8a', wordBreak: 'break-word', lineHeight: 1.25 }}>
                     {parentDoc.title}
                   </div>
-                  <div style={{ fontSize: '0.72rem', color: '#64748b', display: 'flex', gap: '0.5rem', marginTop: '2px' }}>
+                  <div style={{ fontSize: '0.72rem', color: '#64748b', display: 'flex', gap: '0.5rem', marginTop: '3px' }}>
                     <span>📅 {new Date(parentDoc.createdAt).toLocaleDateString('he-IL')}</span>
                     {parentDoc.fileSize && <span>⚖️ {formatFileSize(parentDoc.fileSize)}</span>}
                   </div>
@@ -614,7 +618,7 @@ export const LinkedDocsPreviewModal: React.FC<LinkedDocsPreviewModalProps> = ({
             </div>
           ) : (
             linkedDocs.map((doc) => {
-              const docIdx = allDocs.findIndex(d => d.id === doc.id);
+              const docIdx = numPool.findIndex(d => d.id === doc.id);
               const docNum = docIdx >= 0 ? `#${docIdx + 1}` : (doc.docNumber ? `#${doc.docNumber}` : '#');
 
               return (
@@ -635,11 +639,11 @@ export const LinkedDocsPreviewModal: React.FC<LinkedDocsPreviewModalProps> = ({
                     <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: '#e0f2fe', color: '#0369a1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem', fontWeight: 800, flexShrink: 0 }}>
                       {docNum}
                     </div>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#1e293b', wordBreak: 'break-word', lineHeight: 1.25 }}>
                         {doc.title}
                       </div>
-                      <div style={{ fontSize: '0.72rem', color: '#64748b', display: 'flex', gap: '0.5rem', marginTop: '2px' }}>
+                      <div style={{ fontSize: '0.72rem', color: '#64748b', display: 'flex', gap: '0.5rem', marginTop: '3px' }}>
                         <span>📅 {new Date(doc.createdAt).toLocaleDateString('he-IL')}</span>
                         {doc.fileSize && <span>⚖️ {formatFileSize(doc.fileSize)}</span>}
                       </div>

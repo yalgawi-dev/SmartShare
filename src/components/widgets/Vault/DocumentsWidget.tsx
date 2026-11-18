@@ -241,7 +241,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   const [folderToDelete, setFolderToDelete] = useState<{ id: string, name: string } | null>(null);
   const [folderToMove, setFolderToMove] = useState<DocumentFolder | null>(null);
   const [linkingDoc, setLinkingDoc] = useState<SpaceDocument | null>(null);
-  const [viewLinkedDocsFor, setViewLinkedDocsFor] = useState<SpaceDocument | null>(null);
+  const [viewLinkedDocsFor, setViewLinkedDocsFor] = useState<{ doc: SpaceDocument; contextDocs?: SpaceDocument[] } | null>(null);
   const [feedbackToast, setFeedbackToast] = useState<{ message: string; type?: 'success' | 'info' } | null>(null);
 
   const showFeedbackToast = (message: string, type: 'success' | 'info' = 'success') => {
@@ -3003,7 +3003,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                       return (
                                         <button
                                           type="button"
-                                          onClick={(e) => { e.stopPropagation(); setViewLinkedDocsFor(doc); }}
+                                          onClick={(e) => { e.stopPropagation(); setViewLinkedDocsFor({ doc, contextDocs: filteredDocs }); }}
                                           style={{ fontSize: '0.66rem', color: '#1d4ed8', background: '#eff6ff', border: '1px solid #93c5fd', padding: '1px 5px', borderRadius: '4px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}
                                           title={`לחץ לצפייה במסמכים מקושרים: ${numsLabel}`}
                                         >
@@ -3025,7 +3025,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                       return (
                                         <button
                                           type="button"
-                                          onClick={(e) => { e.stopPropagation(); setViewLinkedDocsFor(parentDocs[0]); }}
+                                          onClick={(e) => { e.stopPropagation(); setViewLinkedDocsFor({ doc: parentDocs[0], contextDocs: filteredDocs }); }}
                                           style={{ fontSize: '0.66rem', color: '#b45309', background: '#fef3c7', border: '1px solid #fde68a', padding: '1px 5px', borderRadius: '4px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}
                                           title={`מוצמד מתוך מסמך: ${parentDocs.map(p => p.title).join(', ')}`}
                                         >
@@ -3806,7 +3806,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                           onClick={(e) => {
                                             if (isMultiSelect) return;
                                             e.stopPropagation();
-                                            setViewLinkedDocsFor(doc);
+                                            setViewLinkedDocsFor({ doc, contextDocs: filteredDocs });
                                           }}
                                           style={{
                                             background: '#eff6ff',
@@ -3844,7 +3844,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                           onClick={(e) => {
                                             if (isMultiSelect) return;
                                             e.stopPropagation();
-                                            setViewLinkedDocsFor(parentDocs[0]);
+                                            setViewLinkedDocsFor({ doc: parentDocs[0], contextDocs: filteredDocs });
                                           }}
                                           style={{
                                             background: '#fef3c7',
@@ -4715,8 +4715,9 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       {/* VIEW LINKED DOCUMENTS MODAL */}
       <LinkedDocsPreviewModal
         isOpen={Boolean(viewLinkedDocsFor)}
-        parentDoc={viewLinkedDocsFor}
+        parentDoc={viewLinkedDocsFor?.doc || null}
         allDocs={activeDocuments}
+        contextDocs={viewLinkedDocsFor?.contextDocs}
         onClose={() => setViewLinkedDocsFor(null)}
         onOpenDoc={(targetDoc, allLinked) => {
           const idx = allLinked.findIndex(d => d.id === targetDoc.id);
