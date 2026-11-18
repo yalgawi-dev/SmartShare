@@ -523,6 +523,9 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
   const [personalInbox, setPersonalInbox] = useState<any[]>([]);
   const [globalAnnouncement, setGlobalAnnouncement] = useState<GlobalAnnouncement>({});
   const mediaUnsubscribes = useRef<Record<string, () => void>>({});
+  // Per-space write queue + active mutation list to prevent stale onSnapshot rollbacks during rapid sequential updates (e.g. scan -> fileSize measure -> move folder)
+  const spaceWriteQueueRef = useRef<Record<string, Promise<any>>>({});
+  const pendingSpaceMutationsRef = useRef<Record<string, Array<{ id: string; mutator: (space: Omit<Space, 'mediaItems'>) => Omit<Space, 'mediaItems'> }>>>({});
 
   const updateGlobalAnnouncement = async (updates: Partial<GlobalAnnouncement>) => {
     setGlobalAnnouncement(prev => {
@@ -739,7 +742,24 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
         return true;
       });
 
-      setSpacesBase(dbSpaces);
+      // Re-apply any in-flight local mutations that haven't finished their Firestore transaction yet
+      // so an intermediate onSnapshot (e.g. from background fileSize measurement) never reverts a folder move!
+      const mergedDbSpaces = dbSpaces.map(sp => {
+        const pendingList = pendingSpaceMutationsRef.current[sp.id];
+        if (pendingList && pendingList.length > 0) {
+          return pendingList.reduce((acc, item) => {
+            try {
+              return item.mutator(acc);
+            } catch {
+              return acc;
+            }
+          }, sp);
+        }
+        return sp;
+      });
+
+      spacesBaseRef.current = mergedDbSpaces;
+      setSpacesBase(mergedDbSpaces);
       
       // Setup mediaItems listeners for all spaces
       dbSpaces.forEach(space => {
@@ -816,8 +836,14 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
     return res;
   };
 
-  // Helper function to update Space ROOT document
+  // Helper function to update Space ROOT document (Serialized per-space + protected against intermediate onSnapshot rollbacks)
     const saveSpaceUpdate = async (spaceId: string, mutator: (space: Omit<Space, 'mediaItems'>) => Omit<Space, 'mediaItems'>): Promise<boolean> => {
+      const mutationId = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+      if (!pendingSpaceMutationsRef.current[spaceId]) {
+        pendingSpaceMutationsRef.current[spaceId] = [];
+      }
+      pendingSpaceMutationsRef.current[spaceId].push({ id: mutationId, mutator });
+
       // 1. Get current space and compute mutation synchronously using REF for immediate optimistic UI
       const currentSpace = spacesBaseRef.current.find(s => s.id === spaceId);
       if (currentSpace) {
@@ -828,40 +854,49 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
           setSpacesBase(nextSpaces);
         }
       }
-  
-      // 2. Save to Firestore using an atomic transaction so stale local state (e.g. during external Share Target boot)
-      // NEVER overwrites documents, folders, or events saved previously in the cloud!
-      const spaceRef = doc(db, 'spaces', spaceId);
-      try {
-        await runTransaction(db, async (transaction) => {
-          const snap = await transaction.get(spaceRef);
-          const freshData = snap.exists()
-            ? ({ id: snap.id, ...snap.data() } as Omit<Space, 'mediaItems'>)
-            : currentSpace;
-          if (!freshData) return;
-          delete (freshData as any).mediaItems;
-          const freshUpdated = mutator(freshData);
-          if (freshUpdated === freshData) return;
-          transaction.set(spaceRef, sanitizeForFirestore(freshUpdated));
-        });
-        return true;
-      } catch (e: any) {
-        console.error("Transaction failed, falling back to direct setDoc", e);
+
+      // 2. Serialize writes per-space so rapid back-to-back mutations (e.g. scan -> fileSize measure -> folder move)
+      // never race or trigger intermediate onSnapshot state rollbacks!
+      const prevTask = spaceWriteQueueRef.current[spaceId] || Promise.resolve();
+      const executeWrite = async (): Promise<boolean> => {
+        const spaceRef = doc(db, 'spaces', spaceId);
         try {
-          if (!currentSpace) return false;
-          const fallbackUpdated = mutator(currentSpace);
-          await setDoc(spaceRef, sanitizeForFirestore(fallbackUpdated), { merge: true });
+          await runTransaction(db, async (transaction) => {
+            const snap = await transaction.get(spaceRef);
+            const freshData = snap.exists()
+              ? ({ id: snap.id, ...snap.data() } as Omit<Space, 'mediaItems'>)
+              : spacesBaseRef.current.find(s => s.id === spaceId);
+            if (!freshData) return;
+            delete (freshData as any).mediaItems;
+            const freshUpdated = mutator(freshData);
+            if (freshUpdated === freshData) return;
+            transaction.set(spaceRef, sanitizeForFirestore(freshUpdated));
+          });
           return true;
-        } catch (fallbackErr) {
-          console.error("Error updating Firestore space root", fallbackErr);
-          if (currentSpace) {
-            const revertedSpaces = spacesBaseRef.current.map(space => space.id === spaceId ? currentSpace : space);
-            spacesBaseRef.current = revertedSpaces;
-            setSpacesBase(revertedSpaces);
+        } catch (e: any) {
+          console.error("Transaction failed, falling back to direct setDoc", e);
+          try {
+            const latestLocal = spacesBaseRef.current.find(s => s.id === spaceId) || currentSpace;
+            if (!latestLocal) return false;
+            const fallbackUpdated = mutator(latestLocal);
+            await setDoc(spaceRef, sanitizeForFirestore(fallbackUpdated), { merge: true });
+            return true;
+          } catch (fallbackErr) {
+            console.error("Error updating Firestore space root", fallbackErr);
+            return false;
           }
-          return false;
+        } finally {
+          if (pendingSpaceMutationsRef.current[spaceId]) {
+            pendingSpaceMutationsRef.current[spaceId] = pendingSpaceMutationsRef.current[spaceId].filter(
+              m => m.id !== mutationId
+            );
+          }
         }
-      }
+      };
+
+      const nextPromise = prevTask.then(executeWrite, executeWrite);
+      spaceWriteQueueRef.current[spaceId] = nextPromise;
+      return nextPromise;
     };
 
   

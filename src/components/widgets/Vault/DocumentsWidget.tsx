@@ -563,7 +563,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
     }
   }, [previewState, lastViewedDocId]);
 
-  // Proactively measure file sizes for all documents without a saved fileSize
+  // Proactively measure file sizes for all documents without a saved fileSize (in-memory only to avoid triggering background Firestore transaction storms)
   React.useEffect(() => {
     if (!documents || documents.length === 0) return;
     const unmeasured = documents.filter(d => !d.fileSize && !measuredSizes[d.id] && d.url);
@@ -573,7 +573,6 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
       if (doc.url.startsWith('data:')) {
         const sz = Math.round((doc.url.length * 3) / 4);
         setMeasuredSizes(prev => ({ ...prev, [doc.id]: sz }));
-        if (typeof updateDocument === 'function') updateDocument(space.id, doc.id, { fileSize: sz });
       } else {
         fetch(doc.url, { method: 'HEAD' })
           .then(res => {
@@ -582,14 +581,12 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
               const sz = parseInt(cl, 10);
               if (sz > 0) {
                 setMeasuredSizes(prev => ({ ...prev, [doc.id]: sz }));
-                if (typeof updateDocument === 'function') updateDocument(space.id, doc.id, { fileSize: sz });
                 return;
               }
             }
             return fetch(doc.url).then(r => r.blob()).then(b => {
               if (b.size > 0) {
                 setMeasuredSizes(prev => ({ ...prev, [doc.id]: b.size }));
-                if (typeof updateDocument === 'function') updateDocument(space.id, doc.id, { fileSize: b.size });
               }
             });
           })
@@ -597,7 +594,6 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
             fetch(doc.url).then(r => r.blob()).then(b => {
               if (b.size > 0) {
                 setMeasuredSizes(prev => ({ ...prev, [doc.id]: b.size }));
-                if (typeof updateDocument === 'function') updateDocument(space.id, doc.id, { fileSize: b.size });
               }
             }).catch(() => {});
           });
@@ -973,7 +969,16 @@ const handleDeleteDocument = (docId: string, title?: string) => {
         }
 
         let detectedSize: number | undefined = undefined;
-        if (url.startsWith('data:')) {
+        if (allPages && allPages.length > 0) {
+          let sumBytes = 0;
+          allPages.forEach(p => {
+            if (p && p.startsWith('data:')) {
+              sumBytes += Math.round((p.length * 3) / 4);
+            }
+          });
+          if (sumBytes > 0) detectedSize = sumBytes;
+        }
+        if (!detectedSize && url.startsWith('data:')) {
           detectedSize = Math.round((url.length * 3) / 4);
         }
 
