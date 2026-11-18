@@ -27,15 +27,12 @@ export function DuplicateWarningModal({
   const matchHebrewReason = () => {
     switch (match.matchReason) {
       case 'visual_similarity':
-        return `דמיון חזותי גבוה של ${match.confidencePercentage}% (התמונה זהה למרות דחיסה שונה בווטסאפ/סריקה)`;
+      case 'structural_content':
+        return `התאמת תוכן ומבנה פנימי של ${match.confidencePercentage}% (מבנה עמוד, שורות וטקסט זהים)`;
       case 'exact_hash':
-        return 'קובץ זהה במאה אחוז (אותה חתימת בייטים)';
-      case 'name_and_size':
-        return 'אותו שם מסמך ומשקל קובץ קרוב';
-      case 'exact_name':
-        return 'שם מסמך זהה לחלוטין';
+        return 'תוכן קובץ זהה במאה אחוז (אותה חתימת בייטים)';
       default:
-        return 'נמצאה התאמה במערכת';
+        return 'נמצאה התאמת תוכן במערכת';
     }
   };
 

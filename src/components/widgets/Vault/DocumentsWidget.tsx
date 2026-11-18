@@ -21,7 +21,7 @@ import { saveLocalDeviceFile } from '../../../utils/localDeviceStorage';
 import DocNoteModal from './DocNoteModal';
 import { LinkDocumentsModal, LinkedDocsPreviewModal } from './DocumentLinkModals';
 import { APP_VERSION } from '@/constants/version';
-import { findDuplicateInSpace, computeImageDHash, DuplicateMatch } from '@/utils/duplicateDetection';
+import { findDuplicateInSpace, computeImageDHash, resolveExplorerUniqueTitle, DuplicateMatch } from '@/utils/duplicateDetection';
 import { DuplicateWarningModal } from './DuplicateWarningModal';
 import { CreateShareLinkModal } from '../FileShare/CreateShareLinkModal';
 import { FileShareItem, ShareLinkConfig } from '@/utils/fileShareUtils';
@@ -694,14 +694,18 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
         ? explicitFolderId
         : (targetShelfId === activeShelfId ? (currentFolderIdRef.current ?? currentFolderId) : null);
 
-      // Smart Duplicate Detection (Interception across WhatsApp, camera scans, recompressed images)
+      // Smart Content/Structural Duplicate Detection (strictly content & internal page layout, NEVER by name)
+      const baseAutoTitle = type === 'image' ? 'תמונה סרוקה' : 'מסמך סרוק';
+      const resolvedFolderTitle = resolveExplorerUniqueTitle(baseAutoTitle, documents, targetShelfId, targetFolderId);
+
       if (!bypassDuplicateCheck) {
         const sampleUrl = (allPages && allPages.length > 0) ? allPages[0] : url;
         const incomingSize = sampleUrl.startsWith('data:') ? Math.round((sampleUrl.length * 3) / 4) : undefined;
         const duplicateMatch = await findDuplicateInSpace({
           incomingUrl: sampleUrl,
-          incomingTitle: type === 'image' ? 'תמונה סרוקה' : 'מסמך סרוק',
+          incomingTitle: resolvedFolderTitle,
           incomingSize,
+          incomingPageCount: Array.isArray(allPages) && allPages.length > 0 ? allPages.length : 1,
           existingDocuments: documents,
           shelves,
           members: space.members || []
@@ -710,7 +714,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
         if (duplicateMatch) {
           setDuplicateMatchState({
             match: duplicateMatch,
-            incomingTitle: type === 'image' ? 'תמונה סרוקה' : 'מסמך סרוק',
+            incomingTitle: resolvedFolderTitle,
             shelfId: targetShelfId,
             url,
             type: typeof type !== 'undefined' ? type : 'document',
@@ -887,9 +891,10 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       const liveFolderId = currentFolderIdRef.current ?? currentFolderId;
       const effectiveFolderId = typeof folderId !== 'undefined' ? folderId : (shelfId === activeShelfId ? liveFolderId : null);
 
-      // Optimistic UI update
+      // Optimistic UI update — Windows Explorer-style folder-scoped unique naming
       const tempId = 'temp-' + Date.now();
-      const title = type === 'image' ? 'תמונה סרוקה' : 'מסמך סרוק';
+      const baseTitle = type === 'image' ? 'תמונה סרוקה' : 'מסמך סרוק';
+      const title = resolveExplorerUniqueTitle(baseTitle, documents, shelfId, effectiveFolderId);
       
       let previewUrl = (allPages && allPages.length > 0) ? allPages[0] : (url.startsWith('data:image') ? url : undefined);
       setUploadingDocs(prev => [...prev, { id: tempId, shelfId, folderId: effectiveFolderId || null, url, title, type, thumbnailUrl: previewUrl }]);

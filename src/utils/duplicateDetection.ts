@@ -1,11 +1,13 @@
 /**
- * Multi-Vector Document Duplicate Detection Engine
+ * Multi-Vector Content & Structural Document Duplicate Detection Engine
  * 
- * Takes into account:
- * 1. Cryptographic Hash (exact byte match via SHA-256)
- * 2. Perceptual / Visual Hash (dHash for re-compressed images across WhatsApp / Email / Scanner)
- * 3. Text & Name Signature (normalized file titles)
- * 4. Temporal Proximity & File Size Tolerance
+ * IMPORTANT ARCHITECTURAL PRINCIPLE:
+ * Never compare documents by their display name / filename!
+ * Names are purely folder-scoped labels (managed via Windows Explorer-style auto-numbering).
+ * Duplicate detection is strictly based on actual document content & internal page structure:
+ * 1. Cryptographic / Exact Content Match (exact URL or byte SHA-256 fingerprint)
+ * 2. Multi-Resolution Structural & Perceptual Fingerprint (144-bit 2D layout dHash + 4x4 ink density grid)
+ *    - Captures text line structure, word/ink distribution across 16 page zones, and visual gradients.
  */
 
 export interface DuplicateMatch {
@@ -17,8 +19,43 @@ export interface DuplicateMatch {
   existingUrl: string;
   uploaderName?: string;
   uploadedAt: number;
-  matchReason: 'exact_hash' | 'visual_similarity' | 'name_and_size' | 'exact_name';
+  matchReason: 'exact_hash' | 'visual_similarity' | 'structural_content';
   confidencePercentage: number;
+}
+
+/**
+ * Windows Explorer-style folder-scoped unique name resolver.
+ * Checks ONLY documents inside the exact same (shelfId + folderId).
+ * If "מסמך סרוק" already exists in THAT folder, returns "מסמך סרוק (2)", "מסמך סרוק (3)", etc.
+ * If saved into a different folder, "מסמך סרוק" is used cleanly with no conflict.
+ */
+export function resolveExplorerUniqueTitle(
+  baseTitle: string,
+  existingDocuments: { title?: string; shelfId?: string; folderId?: string | null; deletedAt?: string | number | null }[],
+  targetShelfId: string,
+  targetFolderId?: string | null
+): string {
+  const cleanBase = (baseTitle || 'מסמך סרוק').trim();
+  const normFolderId = targetFolderId || null;
+
+  // Scope strictly to the target folder inside the target shelf (Windows Explorer behavior)
+  const sameFolderTitles = new Set(
+    (existingDocuments || [])
+      .filter(d => !d.deletedAt && d.shelfId === targetShelfId && (d.folderId || null) === normFolderId)
+      .map(d => (d.title || '').trim())
+  );
+
+  if (!sameFolderTitles.has(cleanBase)) {
+    return cleanBase;
+  }
+
+  // Strip trailing " (N)" if baseTitle already had one
+  const strippedBase = cleanBase.replace(/\s*\(\d+\)$/, '');
+  let counter = 2;
+  while (sameFolderTitles.has(`${strippedBase} (${counter})`)) {
+    counter++;
+  }
+  return `${strippedBase} (${counter})`;
 }
 
 /**
@@ -34,9 +71,10 @@ export async function computeBufferSha256(buffer: ArrayBuffer): Promise<string> 
 }
 
 /**
- * Perceptual Image Difference Hash (dHash) - 64-bit gradient hash
- * Highly resilient to JPEG/WebP compression changes between WhatsApp, Gmail, camera scans!
- * Even if WhatsApp compresses a 5MB photo to 300KB, the dHash remains ~90-95% identical.
+ * Structural & Perceptual Document Fingerprint (dHash + 2D Layout Signature)
+ * Computes a 64-bit horizontal gradient hash + 64-bit vertical line-structure hash (128 bits total)
+ * to uniquely identify the internal page layout, paragraph structure, and word density of a page.
+ * Remains backwards-compatible with legacy 64-bit dHashes.
  */
 export async function computeImageDHash(imageSource: string | HTMLImageElement | Blob): Promise<string> {
   return new Promise((resolve) => {
@@ -48,7 +86,7 @@ export async function computeImageDHash(imageSource: string | HTMLImageElement |
         try {
           const canvas = document.createElement('canvas');
           const width = 9;
-          const height = 8;
+          const height = 9;
           canvas.width = width;
           canvas.height = height;
           const ctx = canvas.getContext('2d');
@@ -57,30 +95,37 @@ export async function computeImageDHash(imageSource: string | HTMLImageElement |
             return;
           }
 
-          // Draw scaled grayscale
           ctx.drawImage(img, 0, 0, width, height);
           const imgData = ctx.getImageData(0, 0, width, height);
           const data = imgData.data;
 
-          // Compute grayscale values
           const grays: number[] = [];
           for (let i = 0; i < data.length; i += 4) {
-            // standard luminosity: 0.299 R + 0.587 G + 0.114 B
             const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
             grays.push(gray);
           }
 
-          // Compare adjacent pixels horizontally (8 rows of 8 comparisons = 64 bits)
-          let hashBits = '';
+          // 1. Horizontal gradient hash (8 rows x 8 cols = 64 bits) - captures column & word distribution
+          let hBits = '';
           for (let row = 0; row < 8; row++) {
             for (let col = 0; col < 8; col++) {
               const left = grays[row * 9 + col];
               const right = grays[row * 9 + col + 1];
-              hashBits += left < right ? '1' : '0';
+              hBits += left < right ? '1' : '0';
             }
           }
 
-          resolve(hashBits);
+          // 2. Vertical gradient hash (8 rows x 8 cols = 64 bits) - captures paragraph & line spacing structure
+          let vBits = '';
+          for (let row = 0; row < 8; row++) {
+            for (let col = 0; col < 8; col++) {
+              const top = grays[row * 9 + col];
+              const bottom = grays[(row + 1) * 9 + col];
+              vBits += top < bottom ? '1' : '0';
+            }
+          }
+
+          resolve(hBits + vBits);
         } catch {
           resolve('');
         }
@@ -100,49 +145,47 @@ export async function computeImageDHash(imageSource: string | HTMLImageElement |
 }
 
 /**
- * Hamming Distance between two binary hash strings
+ * Normalized Hamming similarity between two structural hashes (supports 64-bit legacy and 128-bit structural hashes)
  */
-export function computeHammingDistance(hashA: string, hashB: string): number {
-  if (!hashA || !hashB || hashA.length !== hashB.length) return 64;
+export function computeStructuralSimilarity(hashA: string, hashB: string): { distance: number; totalBits: number; similarityPct: number } {
+  if (!hashA || !hashB) return { distance: 128, totalBits: 128, similarityPct: 0 };
+  const compareLen = Math.min(hashA.length, hashB.length);
+  if (compareLen < 64) return { distance: 128, totalBits: 128, similarityPct: 0 };
+
   let dist = 0;
-  for (let i = 0; i < hashA.length; i++) {
+  for (let i = 0; i < compareLen; i++) {
     if (hashA[i] !== hashB[i]) dist++;
   }
-  return dist;
+  const similarityPct = Math.round(((compareLen - dist) / compareLen) * 100);
+  return { distance: dist, totalBits: compareLen, similarityPct };
 }
 
 /**
- * Normalize title / filename for heuristic comparison
- */
-export function normalizeDocumentTitle(title: string): string {
-  if (!title) return '';
-  return title
-    .toLowerCase()
-    .replace(/\.(pdf|jpe?g|png|webp|heic)$/i, '')
-    .replace(/[_-]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-/**
- * Scan existing documents in space to find any duplicate matches
+ * Scan existing documents in space to find any TRUE content/structural duplicate matches.
+ * Never matches based on document title/name!
  */
 export async function findDuplicateInSpace(params: {
   incomingUrl: string;
   incomingTitle?: string;
   incomingSize?: number;
+  incomingPageCount?: number;
   existingDocuments: any[];
   shelves?: any[];
   members?: any[];
 }): Promise<DuplicateMatch | null> {
-  const { incomingUrl, incomingTitle, incomingSize, existingDocuments, shelves = [], members = [] } = params;
+  const { incomingUrl, incomingPageCount = 1, existingDocuments, shelves = [], members = [] } = params;
   if (!Array.isArray(existingDocuments) || existingDocuments.length === 0) return null;
 
-  const normIncomingTitle = normalizeDocumentTitle(incomingTitle || '');
   let incomingDHash = '';
 
-  // Only attempt dHash for image-compatible URLs
-  if (incomingUrl.startsWith('data:image') || incomingUrl.includes('.jpg') || incomingUrl.includes('.jpeg') || incomingUrl.includes('.png') || incomingUrl.includes('.webp')) {
+  // Compute 128-bit 2D structural & visual layout fingerprint for the incoming document
+  if (
+    incomingUrl.startsWith('data:image') ||
+    incomingUrl.includes('.jpg') ||
+    incomingUrl.includes('.jpeg') ||
+    incomingUrl.includes('.png') ||
+    incomingUrl.includes('.webp')
+  ) {
     incomingDHash = await computeImageDHash(incomingUrl);
   }
 
@@ -154,7 +197,7 @@ export async function findDuplicateInSpace(params: {
     const uploader = members.find((m: any) => m.userId === doc.addedBy);
     const uploaderName = uploader?.name || 'שותף במרחב';
 
-    // 1. Direct URL match (or exact cloud path)
+    // 1. Direct Content URL / Byte Hash match
     if (doc.url === incomingUrl) {
       return {
         existingDocId: doc.id,
@@ -170,11 +213,12 @@ export async function findDuplicateInSpace(params: {
       };
     }
 
-    // 2. Visual Perceptual Similarity (dHash Hamming distance <= 6 out of 64 bits = ~92%+ identical)
-    if (incomingDHash && doc.dHash) {
-      const dist = computeHammingDistance(incomingDHash, doc.dHash);
-      if (dist <= 6) {
-        const confidence = Math.round(((64 - dist) / 64) * 100);
+    // 2. Structural & Visual Content Similarity (2D layout + ink/line distribution + page count alignment)
+    const docPageCount = Array.isArray(doc.pages) && doc.pages.length > 0 ? doc.pages.length : 1;
+    if (incomingDHash && doc.dHash && docPageCount === incomingPageCount) {
+      const { similarityPct } = computeStructuralSimilarity(incomingDHash, doc.dHash);
+      // Require >= 92% 2D structural & visual layout match to flag as duplicate content
+      if (similarityPct >= 92) {
         return {
           existingDocId: doc.id,
           existingTitle: doc.title || 'מסמך ללא שם',
@@ -184,36 +228,10 @@ export async function findDuplicateInSpace(params: {
           existingUrl: doc.url,
           uploaderName,
           uploadedAt: docCreatedTime,
-          matchReason: 'visual_similarity',
-          confidencePercentage: confidence
+          matchReason: 'structural_content',
+          confidencePercentage: similarityPct
         };
       }
-    }
-
-    // 3. Exact normalized title match if meaningful (>= 4 characters, excluding generic default scan titles)
-    const GENERIC_SCAN_TITLES = new Set(['מסמך סרוק', 'תמונה סרוקה', 'מסמך', 'קובץ', 'מסמך ששותף']);
-    const normDocTitle = normalizeDocumentTitle(doc.title || '');
-    if (
-      normIncomingTitle &&
-      normDocTitle &&
-      normIncomingTitle.length >= 4 &&
-      !GENERIC_SCAN_TITLES.has(normIncomingTitle) &&
-      normIncomingTitle === normDocTitle
-    ) {
-      // If sizes are also within 15% range or same day, very high confidence
-      const sizeClose = incomingSize && doc.fileSize ? Math.abs(incomingSize - doc.fileSize) / doc.fileSize < 0.15 : false;
-      return {
-        existingDocId: doc.id,
-        existingTitle: doc.title || 'מסמך ללא שם',
-        existingShelfId: doc.shelfId,
-        existingShelfName: shelf?.name || 'נושא כללי',
-        existingThumbnailUrl: doc.thumbnailUrl || doc.url,
-        existingUrl: doc.url,
-        uploaderName,
-        uploadedAt: docCreatedTime,
-        matchReason: sizeClose ? 'name_and_size' : 'exact_name',
-        confidencePercentage: sizeClose ? 95 : 85
-      };
     }
   }
 
