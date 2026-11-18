@@ -329,11 +329,14 @@ export default function Dashboard() {
           <div style={{ width: '40px', height: '40px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
             <img src="/myspace_logo.png" alt="MySpace Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1rem, 3.8vw, 1.45rem)', whiteSpace: 'nowrap', lineHeight: '1.2', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              MySpace <VersionBadge />
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0 }}>
+            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1rem, 3.8vw, 1.35rem)', whiteSpace: 'nowrap', lineHeight: '1.15', display: 'flex', alignItems: 'center' }}>
+              MySpace
             </h1>
-            <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.75rem', whiteSpace: 'nowrap', opacity: 0.8 }}>פלטפורמת שיתוף</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', marginTop: '2px', flexWrap: 'nowrap' }}>
+              <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.7rem', whiteSpace: 'nowrap', opacity: 0.8 }}>פלטפורמת שיתוף</p>
+              <VersionBadge style={{ fontSize: '0.54rem', padding: '1px 4px', borderRadius: '5px' }} />
+            </div>
           </div>
         </div>
 

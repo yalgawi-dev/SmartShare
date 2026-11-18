@@ -35,17 +35,20 @@ export default function VersionBadge({
       title={showReloadPrompt ? 'לחץ לרענון עמוק ומשיכת הגרסה החדשה' : undefined}
       className={className}
       style={{
-        fontSize: '0.65rem',
+        fontSize: '0.58rem',
         background: isUpdating ? '#fef08a' : '#e0e7ff',
         color: isUpdating ? '#854d0e' : '#4338ca',
-        padding: '2px 8px',
-        borderRadius: '10px',
-        fontWeight: 'bold',
+        padding: '1px 5px',
+        borderRadius: '6px',
+        fontWeight: 800,
         cursor: showReloadPrompt ? 'pointer' : 'default',
         userSelect: 'none',
         display: 'inline-flex',
         alignItems: 'center',
-        gap: '3px',
+        gap: '2px',
+        lineHeight: 1.2,
+        whiteSpace: 'nowrap',
+        flexShrink: 0,
         transition: 'all 0.2s ease',
         ...style,
       }}
