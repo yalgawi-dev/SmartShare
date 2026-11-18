@@ -50,6 +50,7 @@ export function FloatingActionBar({
   const [isInShelf, setIsInShelf] = useState(false);
   const [isFileShareSubfolder, setIsFileShareSubfolder] = useState(false);
   const [activeShelfId, setActiveShelfId] = useState<string | null>(null);
+  const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
   const [shelfSubTab, setShelfSubTab] = useState<'timeline' | 'vault'>('vault');
   const [isVaultTab, setIsVaultTab] = useState(false);
   const [timelineSortOrder, setTimelineSortOrder] = useState<'desc' | 'asc'>('desc');
@@ -64,9 +65,16 @@ export function FloatingActionBar({
     const handleClose = () => {
       setIsInShelf(false);
       setActiveShelfId(null);
+      setActiveFolderId(null);
       setShelfSubTab('vault');
       if (setActiveTab) {
         setActiveTab('shelves');
+      }
+    };
+    const handleHierarchyState = (e?: any) => {
+      if (e?.detail) {
+        if ('shelfId' in e.detail) setActiveShelfId(e.detail.shelfId || null);
+        if ('folderId' in e.detail) setActiveFolderId(e.detail.folderId || null);
       }
     };
     const handleSubTab = (e: any) => {
@@ -94,6 +102,7 @@ export function FloatingActionBar({
 
     window.addEventListener('smartshare:fileshare_folder_entered', handleFileShareFolderEntered);
     window.addEventListener('smartshare:fileshare_folder_exited', handleFileShareFolderExited);
+    window.addEventListener('smartshare:hierarchy_state', handleHierarchyState);
     window.addEventListener('smartshare:trigger_file_upload', handleTriggerUpload);
     window.addEventListener("smartshare:shelf_opened", handleOpen);
     window.addEventListener("smartshare:shelf_closed", handleClose);
@@ -113,6 +122,7 @@ export function FloatingActionBar({
       window.removeEventListener("smartshare:vault_tab_inactive", handleVaultOff);
       window.removeEventListener('smartshare:fileshare_folder_entered', handleFileShareFolderEntered);
       window.removeEventListener('smartshare:fileshare_folder_exited', handleFileShareFolderExited);
+      window.removeEventListener('smartshare:hierarchy_state', handleHierarchyState);
       window.removeEventListener('smartshare:trigger_file_upload', handleTriggerUpload);
       window.removeEventListener("smartshare:preview_open", handlePreviewOpen);
       window.removeEventListener("smartshare:preview_closed", handlePreviewClose);
@@ -311,11 +321,11 @@ export function FloatingActionBar({
              onClick={() => {
                if (isInShelf && activeShelfId) {
                  window.dispatchEvent(new CustomEvent('smartshare:open_scanner_event', {
-                   detail: { shelfId: activeShelfId, mode: 'camera' }
+                   detail: { shelfId: activeShelfId, folderId: activeFolderId, mode: 'camera' }
                  }));
                  return;
                }
-               const cat = (activeTab === 'documents' || activeTab === 'shelves' || isVaultTab || !hasFinance) 
+               const cat = (activeTab === 'documents' || activeTab === 'shelves' || activeTab === 'fileshare' || isVaultTab || !hasFinance) 
                  ? 'document' 
                  : (activeTab === 'inbox' ? 'document' : 'receipt');
                onOpenScanner('camera', cat);

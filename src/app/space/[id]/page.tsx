@@ -163,7 +163,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
     }
   }, [activeChatId, space?.features]);
 
-  const [pendingEventScan, setPendingEventScan] = useState<{ eventId: string; shelfId?: string } | null>(null);
+  const [pendingEventScan, setPendingEventScan] = useState<{ eventId: string; shelfId?: string; folderId?: string | null } | null>(null);
   const [editingDocumentInfo, setEditingDocumentInfo] = useState<{ docId: string; title: string; pages: string[]; sourceDocIds?: string[]; itemType?: 'vault' | 'fileshare'; initialStep?: 'scanning' | 'cropping' | 'review' } | null>(null);
   const [isScannerBannerDismissed, setIsScannerBannerDismissed] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
@@ -174,9 +174,9 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
 
   useEffect(() => {
     const handleScannerForEvent = (e: any) => {
-      const { eventId, shelfId, mode } = e.detail || {};
+      const { eventId, shelfId, folderId, mode } = e.detail || {};
       if (eventId || shelfId) {
-        setPendingEventScan({ eventId: eventId || '', shelfId });
+        setPendingEventScan({ eventId: eventId || '', shelfId, folderId: typeof folderId !== 'undefined' ? folderId : null });
         setScannerMode(mode || 'camera');
         setScannerCategory('document');
         setIsScannerOpen(true);
@@ -1532,6 +1532,14 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
                 setPendingEventScan(null);
                 const targetEventId = targetEventInfo?.eventId;
                 const targetShelfId = targetEventInfo?.shelfId;
+                const targetFolderId = targetEventInfo?.folderId;
+
+                if (financeTab === 'fileshare' || (!hasFinance && !hasVault && hasFileShare)) {
+                    window.dispatchEvent(new CustomEvent('smartshare:fileshare_save_scan', {
+                      detail: { url, allPages, routingType }
+                    }));
+                    return;
+                }
 
                 if (routingType === 'receipt_batch' && allPages && allPages.length > 1) {
                     financeRef.current?.processBatch(allPages);
@@ -1559,7 +1567,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
                         } 
                       }));
                     }
-                    documentsRef.current?.addDocument(url, routingType, allPages, targetEventId || undefined, targetShelfId).then(docId => {
+                    documentsRef.current?.addDocument(url, routingType, allPages, targetEventId || undefined, targetShelfId, false, targetFolderId).then(docId => {
                       if (!targetEventId || !docId) {
                         window.dispatchEvent(new CustomEvent('smartshare:doc_upload_finished'));
                         return;

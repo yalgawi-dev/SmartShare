@@ -1,39 +1,148 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { SpaceDocument } from '@/app/context/SpacesContext';
+import React, { useState, useEffect, useMemo } from 'react';
+import { SpaceDocument, DocumentFolder, DocumentShelf } from '@/app/context/SpacesContext';
 import { formatFileSize } from '@/utils/documentUtils';
 
 interface LinkDocumentsModalProps {
   isOpen: boolean;
   doc: SpaceDocument | null;
   allDocs: SpaceDocument[];
+  folders?: DocumentFolder[];
+  shelves?: DocumentShelf[];
   onClose: () => void;
   onSave: (docId: string, linkedDocIds: string[]) => void;
 }
+
+type ScopeFilter = 'same_folder' | 'nearby' | 'all_shelf';
 
 export const LinkDocumentsModal: React.FC<LinkDocumentsModalProps> = ({
   isOpen,
   doc,
   allDocs,
+  folders = [],
+  shelves = [],
   onClose,
   onSave
 }) => {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [scopeFilter, setScopeFilter] = useState<ScopeFilter>('same_folder');
+
+  const activeFolders = useMemo(() => folders.filter(f => !f.deletedAt), [folders]);
 
   useEffect(() => {
     if (doc) {
       setSelectedIds(doc.linkedDocIds || []);
       setSearchTerm('');
+      // Default to same_folder if there are documents in the same folder, otherwise nearby
+      const docFolderId = doc.folderId || null;
+      const sameFolderCount = allDocs.filter(
+        d => d.id !== doc.id && !d.deletedAt && d.shelfId === doc.shelfId && (d.folderId || null) === docFolderId
+      ).length;
+      setScopeFilter(sameFolderCount > 0 ? 'same_folder' : 'nearby');
     }
-  }, [doc]);
+  }, [doc, allDocs]);
 
   if (!isOpen || !doc) return null;
 
-  // Filter candidates: exclude this document and deleted documents
-  const candidateDocs = allDocs.filter(d => d.id !== doc.id && !d.deletedAt);
-  const filteredCandidates = candidateDocs.filter(d => 
+  const docFolderId = doc.folderId || null;
+  const currentFolder = docFolderId ? activeFolders.find(f => f.id === docFolderId) : null;
+  const parentFolderId = currentFolder ? (currentFolder.parentId || null) : null;
+  const currentShelf = shelves.find(s => s.id === doc.shelfId);
+
+  const getFolderLabel = (folderId?: string | null, shelfId?: string): string => {
+    if (!folderId) {
+      const sh = shelves.find(s => s.id === shelfId);
+      return sh ? `רמה ראשית (${sh.name})` : 'רמה ראשית במדף';
+    }
+    const found = activeFolders.find(f => f.id === folderId);
+    return found ? found.name : 'תיקייה';
+  };
+
+  // Classify relationship of any candidate document to `doc`
+  const classifyRelation = (candidate: SpaceDocument): {
+    group: 'same_folder' | 'child_folder' | 'parent_folder' | 'sibling_folder' | 'other_shelf';
+    badgeText: string;
+    badgeColor: string;
+    badgeBg: string;
+  } => {
+    const candFolderId = candidate.folderId || null;
+
+    // 1. Exact same folder in the same shelf
+    if (candidate.shelfId === doc.shelfId && candFolderId === docFolderId) {
+      return {
+        group: 'same_folder',
+        badgeText: docFolderId ? `📁 באותה תיקייה (${getFolderLabel(docFolderId, doc.shelfId)})` : '📂 באותה רמה ראשית',
+        badgeColor: '#047857',
+        badgeBg: '#d1fae5'
+      };
+    }
+
+    if (candidate.shelfId === doc.shelfId) {
+      const candFolder = candFolderId ? activeFolders.find(f => f.id === candFolderId) : null;
+
+      // 2. Child subfolder of current folder (or top-level folder when doc is at root)
+      if (candFolder && (candFolder.parentId || null) === docFolderId) {
+        return {
+          group: 'child_folder',
+          badgeText: `↳ תיקיית-בן: ${candFolder.name}`,
+          badgeColor: '#1d4ed8',
+          badgeBg: '#dbeafe'
+        };
+      }
+
+      // 3. Parent folder of current folder
+      if (docFolderId && candFolderId === parentFolderId) {
+        return {
+          group: 'parent_folder',
+          badgeText: `↰ תיקיית-אב: ${getFolderLabel(parentFolderId, doc.shelfId)}`,
+          badgeColor: '#7c3aed',
+          badgeBg: '#ede9fe'
+        };
+      }
+
+      // 4. Sibling folder at the same level (shares same parentId)
+      if (docFolderId && candFolder && (candFolder.parentId || null) === parentFolderId) {
+        return {
+          group: 'sibling_folder',
+          badgeText: `📁 תיקייה סמוכה: ${candFolder.name}`,
+          badgeColor: '#0369a1',
+          badgeBg: '#e0f2fe'
+        };
+      }
+    }
+
+    // 5. Other folder in shelf
+    return {
+      group: 'other_shelf',
+      badgeText: `📁 ${getFolderLabel(candFolderId, candidate.shelfId)}`,
+      badgeColor: '#64748b',
+      badgeBg: '#f1f5f9'
+    };
+  };
+
+  // Restrict base candidates to the same shelf ( plus any already-selected linked docs so user can always see/uncheck them )
+  const shelfCandidates = allDocs.filter(
+    d => d.id !== doc.id && !d.deletedAt && (d.shelfId === doc.shelfId || selectedIds.includes(d.id))
+  );
+
+  const sameFolderDocs = shelfCandidates.filter(d => classifyRelation(d).group === 'same_folder');
+  const nearbyDocs = shelfCandidates.filter(d => {
+    const g = classifyRelation(d).group;
+    return g === 'same_folder' || g === 'child_folder' || g === 'parent_folder' || g === 'sibling_folder' || selectedIds.includes(d.id);
+  });
+
+  // Apply scope filter (when searching by text, search across the current shelf so nothing is unreachable)
+  const scopedCandidates = searchTerm.trim()
+    ? shelfCandidates
+    : scopeFilter === 'same_folder'
+    ? sameFolderDocs
+    : scopeFilter === 'nearby'
+    ? nearbyDocs
+    : shelfCandidates;
+
+  const filteredCandidates = scopedCandidates.filter(d =>
     !searchTerm.trim() || (d.title || '').toLowerCase().includes(searchTerm.toLowerCase().trim())
   );
 
@@ -89,47 +198,124 @@ export const LinkDocumentsModal: React.FC<LinkDocumentsModalProps> = ({
         }}
       >
         {/* Header */}
-        <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-            <div style={{ width: '38px', height: '38px', borderRadius: '12px', background: '#ecfdf5', color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.25rem' }}>
+        <div style={{ padding: '1.15rem 1.35rem', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0 }}>
+            <div style={{ width: '38px', height: '38px', borderRadius: '12px', background: '#ecfdf5', color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.25rem', flexShrink: 0 }}>
               💳
             </div>
-            <div>
-              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#0f172a' }}>
-                קישור חשבוניות ומסמכים
+            <div style={{ minWidth: 0 }}>
+              <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#0f172a' }}>
+                קישור חשבונית לתשלום / מסמך
               </h3>
-              <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '2px', maxWidth: '280px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                אישור תשלום / מסמך אב: <span style={{ fontWeight: 700, color: '#1e293b' }}>{doc.title}</span>
+              <div style={{ fontSize: '0.76rem', color: '#64748b', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                מסמך מקור: <span style={{ fontWeight: 700, color: '#1e293b' }}>{doc.title}</span>
+              </div>
+              <div style={{ fontSize: '0.7rem', color: '#0369a1', fontWeight: 700, marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span>📍 מיקום נוכחי:</span>
+                <span>{currentFolder ? `תיקיית "${currentFolder.name}"` : `רמה ראשית (${currentShelf?.name || 'מדף'})`}</span>
               </div>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', fontSize: '0.95rem', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', fontSize: '0.95rem', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
           >
             ✕
           </button>
         </div>
 
         {/* Informative explanation */}
-        <div style={{ padding: '0.75rem 1.5rem', background: '#f8fafc', borderBottom: '1px solid #f1f5f9', fontSize: '0.8rem', color: '#475569', lineHeight: 1.4 }}>
-          💡 בחר את החשבוניות או המסמכים המשולמים באמצעות אישור זה. בלחיצה עליו, יוצגו החשבוניות המקושרות.
+        <div style={{ padding: '0.65rem 1.35rem', background: '#f8fafc', borderBottom: '1px solid #f1f5f9', fontSize: '0.77rem', color: '#475569', lineHeight: 1.4 }}>
+          💡 <strong>מה יוצג לאחר הקישור?</strong> על גבי המסמך יופיע תג ירוק <strong>"💳 מקושר"</strong> ועל החשבונית יופיע <strong>"✅ משולם ע"י..."</strong> — לחיצה על התג תפתח מיד את המסמך המקושר לצפייה משותפת.
+        </div>
+
+        {/* Proximity Scope Filter Tabs (Same Folder -> Nearby Folders -> Entire Shelf) */}
+        <div style={{ padding: '0.6rem 1.35rem 0.25rem 1.35rem', display: 'flex', gap: '0.4rem' }}>
+          <button
+            type="button"
+            onClick={() => setScopeFilter('same_folder')}
+            style={{
+              flex: 1,
+              padding: '0.45rem 0.4rem',
+              borderRadius: '10px',
+              border: scopeFilter === 'same_folder' ? '1.5px solid #059669' : '1px solid #e2e8f0',
+              background: scopeFilter === 'same_folder' ? '#ecfdf5' : '#f8fafc',
+              color: scopeFilter === 'same_folder' ? '#047857' : '#64748b',
+              fontSize: '0.74rem',
+              fontWeight: scopeFilter === 'same_folder' ? 800 : 600,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px'
+            }}
+          >
+            <span>📁 באותה תיקייה</span>
+            <span style={{ background: scopeFilter === 'same_folder' ? '#059669' : '#cbd5e1', color: 'white', borderRadius: '999px', padding: '0px 6px', fontSize: '0.66rem', fontWeight: 800 }}>
+              {sameFolderDocs.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setScopeFilter('nearby')}
+            style={{
+              flex: 1,
+              padding: '0.45rem 0.4rem',
+              borderRadius: '10px',
+              border: scopeFilter === 'nearby' ? '1.5px solid #2563eb' : '1px solid #e2e8f0',
+              background: scopeFilter === 'nearby' ? '#eff6ff' : '#f8fafc',
+              color: scopeFilter === 'nearby' ? '#1d4ed8' : '#64748b',
+              fontSize: '0.74rem',
+              fontWeight: scopeFilter === 'nearby' ? 800 : 600,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px'
+            }}
+          >
+            <span>🌿 תיקיות צמודות</span>
+            <span style={{ background: scopeFilter === 'nearby' ? '#2563eb' : '#cbd5e1', color: 'white', borderRadius: '999px', padding: '0px 6px', fontSize: '0.66rem', fontWeight: 800 }}>
+              {nearbyDocs.length}
+            </span>
+          </button>
+
+          {shelfCandidates.length > nearbyDocs.length && (
+            <button
+              type="button"
+              onClick={() => setScopeFilter('all_shelf')}
+              style={{
+                padding: '0.45rem 0.6rem',
+                borderRadius: '10px',
+                border: scopeFilter === 'all_shelf' ? '1.5px solid #475569' : '1px solid #e2e8f0',
+                background: scopeFilter === 'all_shelf' ? '#f1f5f9' : '#ffffff',
+                color: scopeFilter === 'all_shelf' ? '#0f172a' : '#64748b',
+                fontSize: '0.72rem',
+                fontWeight: scopeFilter === 'all_shelf' ? 800 : 600,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              כל הנושא ({shelfCandidates.length})
+            </button>
+          )}
         </div>
 
         {/* Search & Bulk select */}
-        <div style={{ padding: '0.75rem 1.5rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+        <div style={{ padding: '0.5rem 1.35rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="🔍 חפש חשבונית לפי שם..."
+            placeholder="🔍 חפש מסמך או חשבונית לפי שם..."
             style={{
               flex: 1,
-              padding: '0.55rem 0.85rem',
+              padding: '0.5rem 0.85rem',
               borderRadius: '12px',
               border: '1px solid #cbd5e1',
-              fontSize: '0.85rem',
+              fontSize: '0.82rem',
               outline: 'none',
               background: '#f8fafc'
             }}
@@ -139,12 +325,12 @@ export const LinkDocumentsModal: React.FC<LinkDocumentsModalProps> = ({
               type="button"
               onClick={handleSelectAll}
               style={{
-                padding: '0.55rem 0.85rem',
+                padding: '0.5rem 0.75rem',
                 borderRadius: '12px',
                 border: '1px solid #cbd5e1',
                 background: '#ffffff',
                 color: '#334155',
-                fontSize: '0.75rem',
+                fontSize: '0.74rem',
                 fontWeight: 700,
                 cursor: 'pointer',
                 whiteSpace: 'nowrap'
@@ -156,14 +342,37 @@ export const LinkDocumentsModal: React.FC<LinkDocumentsModalProps> = ({
         </div>
 
         {/* Documents List */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '0.5rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '0.35rem 1.35rem', display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
           {filteredCandidates.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '2rem 1rem', color: '#94a3b8', fontSize: '0.85rem' }}>
-              לא נמצאו מסמכים מתאימים במדף
+            <div style={{ textAlign: 'center', padding: '1.75rem 1rem', color: '#64748b', fontSize: '0.84rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.6rem' }}>
+              <div>
+                {scopeFilter === 'same_folder'
+                  ? 'אין מסמכים נוספים באותה תיקייה.'
+                  : 'לא נמצאו מסמכים ברמה זו.'}
+              </div>
+              {scopeFilter === 'same_folder' && nearbyDocs.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setScopeFilter('nearby')}
+                  style={{
+                    padding: '0.45rem 0.9rem',
+                    borderRadius: '10px',
+                    border: '1px solid #93c5fd',
+                    background: '#eff6ff',
+                    color: '#1d4ed8',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                >
+                  🌿 הצג מסמכים מתיקיות צמודות (אב / בן / אחיות) ({nearbyDocs.length})
+                </button>
+              )}
             </div>
           ) : (
             filteredCandidates.map(d => {
               const isSelected = selectedIds.includes(d.id);
+              const rel = classifyRelation(d);
               return (
                 <div
                   key={d.id}
@@ -172,7 +381,7 @@ export const LinkDocumentsModal: React.FC<LinkDocumentsModalProps> = ({
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    padding: '0.65rem 0.85rem',
+                    padding: '0.6rem 0.8rem',
                     borderRadius: '14px',
                     border: isSelected ? '2px solid #10b981' : '1px solid #e2e8f0',
                     background: isSelected ? '#ecfdf5' : '#ffffff',
@@ -180,22 +389,25 @@ export const LinkDocumentsModal: React.FC<LinkDocumentsModalProps> = ({
                     transition: 'all 0.15s ease'
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0 }}>
-                    <div style={{ width: '22px', height: '22px', borderRadius: '6px', border: isSelected ? '2px solid #10b981' : '2px solid #cbd5e1', background: isSelected ? '#10b981' : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '0.75rem', fontWeight: 800 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0, flex: 1 }}>
+                    <div style={{ width: '22px', height: '22px', borderRadius: '6px', border: isSelected ? '2px solid #10b981' : '2px solid #cbd5e1', background: isSelected ? '#10b981' : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '0.75rem', fontWeight: 800, flexShrink: 0 }}>
                       {isSelected ? '✓' : ''}
                     </div>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: '0.86rem', fontWeight: isSelected ? 800 : 600, color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontSize: '0.85rem', fontWeight: isSelected ? 800 : 600, color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {d.docNumber ? `#${d.docNumber} • ` : ''}{d.title}
                       </div>
-                      <div style={{ fontSize: '0.7rem', color: '#64748b', display: 'flex', gap: '0.5rem', marginTop: '2px' }}>
+                      <div style={{ fontSize: '0.69rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '0.45rem', marginTop: '3px', flexWrap: 'wrap' }}>
+                        <span style={{ background: rel.badgeBg, color: rel.badgeColor, padding: '1px 6px', borderRadius: '5px', fontWeight: 700, fontSize: '0.65rem' }}>
+                          {rel.badgeText}
+                        </span>
                         <span>📅 {new Date(d.createdAt).toLocaleDateString('he-IL')}</span>
                         {d.fileSize && <span>⚖️ {formatFileSize(d.fileSize)}</span>}
                       </div>
                     </div>
                   </div>
                   {isSelected && (
-                    <span style={{ fontSize: '0.68rem', fontWeight: 800, color: '#047857', background: '#d1fae5', padding: '2px 8px', borderRadius: '6px' }}>
+                    <span style={{ fontSize: '0.68rem', fontWeight: 800, color: '#047857', background: '#d1fae5', padding: '2px 8px', borderRadius: '6px', flexShrink: 0, marginRight: '0.4rem' }}>
                       מקושר
                     </span>
                   )}

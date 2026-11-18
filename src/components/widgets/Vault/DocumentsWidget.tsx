@@ -27,7 +27,7 @@ import { CreateShareLinkModal } from '../FileShare/CreateShareLinkModal';
 import { FileShareItem, ShareLinkConfig } from '@/utils/fileShareUtils';
 
 export interface DocumentsWidgetRef {
-  addDocument: (url: string, type: 'document' | 'image' | 'pdf', allPages?: string[], targetEventId?: string, explicitShelfId?: string) => Promise<string | undefined>;
+  addDocument: (url: string, type: 'document' | 'image' | 'pdf', allPages?: string[], targetEventId?: string, explicitShelfId?: string, bypassDuplicateCheck?: boolean, explicitFolderId?: string | null) => Promise<string | undefined>;
   uploadAndLinkDocument?: (shelfId: string, eventId: string, url: string, type: 'document' | 'image' | 'pdf') => Promise<void>;
 }
 
@@ -664,7 +664,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   
   const [editingShelfCoverId, setEditingShelfCoverId] = useState<string | null>(null);
   useImperativeHandle(ref, () => ({
-    addDocument: async (url, type, allPages, targetEventId, explicitShelfId?: string, bypassDuplicateCheck?: boolean) => {
+    addDocument: async (url, type, allPages, targetEventId, explicitShelfId?: string, bypassDuplicateCheck?: boolean, explicitFolderId?: string | null) => {
       let targetShelfId: string | null = explicitShelfId || null;
       
       if (!targetShelfId && targetEventId && targetEventId !== '__new_station__') {
@@ -690,7 +690,9 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
         }
       }
       
-      const targetFolderId = targetShelfId === activeShelfId ? (currentFolderIdRef.current ?? currentFolderId) : null;
+      const targetFolderId = typeof explicitFolderId !== 'undefined' && explicitFolderId !== null
+        ? explicitFolderId
+        : (targetShelfId === activeShelfId ? (currentFolderIdRef.current ?? currentFolderId) : null);
 
       // Smart Duplicate Detection (Interception across WhatsApp, camera scans, recompressed images)
       if (!bypassDuplicateCheck) {
@@ -4648,6 +4650,8 @@ const handleDeleteDocument = (docId: string, title?: string) => {
         isOpen={Boolean(linkingDoc)}
         doc={linkingDoc}
         allDocs={activeDocuments}
+        folders={space.documentFolders || []}
+        shelves={space.shelves || []}
         onClose={() => setLinkingDoc(null)}
         onSave={(docId, linkedDocIds) => {
           updateDocument(space.id, docId, { linkedDocIds });
@@ -4915,6 +4919,49 @@ const handleDeleteDocument = (docId: string, title?: string) => {
 
       {renderRecycleBinModal()}
       {renderDocNoteModal()}
+
+      {/* SMART DUPLICATE PREVENTION INTERCEPTION MODAL (ACTIVE SHELF / FOLDER VIEW) */}
+      {duplicateMatchState && (
+        <DuplicateWarningModal
+          isOpen={Boolean(duplicateMatchState)}
+          match={duplicateMatchState.match}
+          incomingTitle={duplicateMatchState.incomingTitle}
+          onViewExisting={() => {
+            const targetDoc = documents.find(d => d.id === duplicateMatchState.match.existingDocId);
+            if (targetDoc) {
+              setPreviewState({ docs: [targetDoc], index: 0 });
+            }
+            setDuplicateMatchState(null);
+          }}
+          onLinkToCurrentShelf={() => {
+            const targetDoc = documents.find(d => d.id === duplicateMatchState.match.existingDocId);
+            if (targetDoc) {
+              const currentLinked = Array.isArray(targetDoc.linkedShelfIds) ? targetDoc.linkedShelfIds : [];
+              if (!currentLinked.includes(duplicateMatchState.shelfId)) {
+                updateDocument(space.id, targetDoc.id, {
+                  linkedShelfIds: [...currentLinked, duplicateMatchState.shelfId]
+                });
+              }
+            }
+            setDuplicateMatchState(null);
+          }}
+          onUploadAnyway={async () => {
+            const state = duplicateMatchState;
+            setDuplicateMatchState(null);
+            if (state) {
+              await handleSaveDocument(
+                state.shelfId,
+                state.url,
+                state.type,
+                state.allPages,
+                state.targetEventId,
+                state.folderId
+              );
+            }
+          }}
+          onCancel={() => setDuplicateMatchState(null)}
+        />
+      )}
       </>
     );
   }

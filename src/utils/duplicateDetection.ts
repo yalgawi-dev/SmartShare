@@ -190,9 +190,16 @@ export async function findDuplicateInSpace(params: {
       }
     }
 
-    // 3. Exact normalized title match if meaningful (>= 4 characters)
+    // 3. Exact normalized title match if meaningful (>= 4 characters, excluding generic default scan titles)
+    const GENERIC_SCAN_TITLES = new Set(['מסמך סרוק', 'תמונה סרוקה', 'מסמך', 'קובץ', 'מסמך ששותף']);
     const normDocTitle = normalizeDocumentTitle(doc.title || '');
-    if (normIncomingTitle && normDocTitle && normIncomingTitle.length >= 4 && normIncomingTitle === normDocTitle) {
+    if (
+      normIncomingTitle &&
+      normDocTitle &&
+      normIncomingTitle.length >= 4 &&
+      !GENERIC_SCAN_TITLES.has(normIncomingTitle) &&
+      normIncomingTitle === normDocTitle
+    ) {
       // If sizes are also within 15% range or same day, very high confidence
       const sizeClose = incomingSize && doc.fileSize ? Math.abs(incomingSize - doc.fileSize) / doc.fileSize < 0.15 : false;
       return {

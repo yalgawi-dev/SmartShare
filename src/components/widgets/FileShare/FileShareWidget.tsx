@@ -170,10 +170,58 @@ export function FileShareWidget({
       setShowImportModal(true);
     };
 
+    const handleScannedDoc = async (e: any) => {
+      const { url, allPages } = e.detail || {};
+      if (!url && (!Array.isArray(allPages) || allPages.length === 0)) return;
+      const pagesToUpload: string[] = Array.isArray(allPages) && allPages.length > 0 ? allPages : [url];
+      setIsUploading(true);
+      setUploadProgress('שומר סריקה בתיקייה...');
+      try {
+        let totalSize = 0;
+        const uploadedPages = await Promise.all(
+          pagesToUpload.map(async (pageUri, idx) => {
+            if (pageUri.startsWith('data:')) {
+              totalSize += Math.round((pageUri.length * 3) / 4);
+              const ext = pageUri.startsWith('data:application/pdf') ? 'pdf' : (pageUri.startsWith('data:image/webp') ? 'webp' : 'jpg');
+              const storagePath = `spaces/${space.id}/fileshare/scan_${Date.now()}_p${idx}_${Math.random().toString(36).substring(2, 7)}.${ext}`;
+              return await uploadImageToStorage(pageUri, storagePath);
+            }
+            return pageUri;
+          })
+        );
+        const nowStr = new Date().toLocaleDateString('he-IL');
+        const newItem: FileShareItem = {
+          id: `file_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          spaceId: space.id,
+          name: uploadedPages.length > 1 ? `מסמך סרוק (${uploadedPages.length} עמ') - ${nowStr}.webp` : `מסמך סרוק - ${nowStr}.webp`,
+          type: 'file',
+          parentId: currentFolderId,
+          url: uploadedPages[0],
+          thumbnailUrl: uploadedPages[0],
+          pages: uploadedPages,
+          fileType: 'image',
+          size: totalSize || 120000,
+          createdAt: Date.now(),
+          createdBy: currentUserId,
+          creatorName: user?.realName || user?.nickname || 'שותף',
+          allowedPartners: []
+        };
+        await saveItems([...allItems, newItem]);
+        setSaveFeedbackToast('המסמך הסרוק נשמר בהצלחה בתיקייה!');
+        setTimeout(() => setSaveFeedbackToast(null), 3000);
+      } catch (err) {
+        console.error('Failed saving scanned document to FileShare folder:', err);
+      } finally {
+        setIsUploading(false);
+        setUploadProgress('');
+      }
+    };
+
     window.addEventListener('smartshare:add_folder', handleAddFolder);
     window.addEventListener('smartshare:fileshare_add_folder', handleAddFolder);
     window.addEventListener('smartshare:fileshare_upload', handleUpload);
     window.addEventListener('smartshare:fileshare_import', handleImport);
+    window.addEventListener('smartshare:fileshare_save_scan', handleScannedDoc);
 
     const handleBackStep = (e: any) => {
       if (currentFolderId) {
@@ -189,9 +237,10 @@ export function FileShareWidget({
       window.removeEventListener('smartshare:fileshare_add_folder', handleAddFolder);
       window.removeEventListener('smartshare:fileshare_upload', handleUpload);
       window.removeEventListener('smartshare:fileshare_import', handleImport);
+      window.removeEventListener('smartshare:fileshare_save_scan', handleScannedDoc);
       window.removeEventListener('smartshare:navigate_back_one_step', handleBackStep);
     };
-  }, [currentFolderId, activeItems]);
+  }, [currentFolderId, activeItems, allItems, space.id, currentUserId, user]);
 
   // Breadcrumbs path computation
   const breadcrumbTrail = useMemo(() => {
