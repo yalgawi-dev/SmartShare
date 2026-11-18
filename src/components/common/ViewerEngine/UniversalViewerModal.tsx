@@ -512,29 +512,29 @@ export default function UniversalViewerModal({
         </div>
       )}
 
-      {/* Navigation Arrow: Previous Document */}
-      {currentIndex > 0 && (
+      {/* Navigation Arrow: Previous Document (Only when not zoomed in, so it never covers document text) */}
+      {currentIndex > 0 && currentScale <= 1.05 && (
         <button
           onClick={handlePrev}
           style={{
             position: 'absolute',
-            left: '12px',
+            left: '8px',
             top: '50%',
             transform: 'translateY(-50%)',
-            background: 'rgba(15, 23, 42, 0.75)',
-            backdropFilter: 'blur(6px)',
-            color: 'white',
-            border: '1px solid rgba(255, 255, 255, 0.2)',
+            background: 'rgba(15, 23, 42, 0.45)',
+            backdropFilter: 'blur(4px)',
+            color: 'rgba(255,255,255,0.85)',
+            border: '1px solid rgba(255, 255, 255, 0.15)',
             borderRadius: '50%',
-            width: '46px',
-            height: '46px',
-            fontSize: '1.8rem',
+            width: '36px',
+            height: '36px',
+            fontSize: '1.4rem',
             cursor: 'pointer',
             zIndex: 200010,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 4px 15px rgba(0,0,0,0.5)'
+            boxShadow: '0 2px 10px rgba(0,0,0,0.3)'
           }}
           title="מסמך קודם (או החלק ימינה)"
         >
@@ -542,29 +542,29 @@ export default function UniversalViewerModal({
         </button>
       )}
 
-      {/* Navigation Arrow: Next Document */}
-      {currentIndex < docs.length - 1 && (
+      {/* Navigation Arrow: Next Document (Only when not zoomed in, so it never covers document text) */}
+      {currentIndex < docs.length - 1 && currentScale <= 1.05 && (
         <button
           onClick={handleNext}
           style={{
             position: 'absolute',
-            right: '12px',
+            right: '8px',
             top: '50%',
             transform: 'translateY(-50%)',
-            background: 'rgba(15, 23, 42, 0.75)',
-            backdropFilter: 'blur(6px)',
-            color: 'white',
-            border: '1px solid rgba(255, 255, 255, 0.2)',
+            background: 'rgba(15, 23, 42, 0.45)',
+            backdropFilter: 'blur(4px)',
+            color: 'rgba(255,255,255,0.85)',
+            border: '1px solid rgba(255, 255, 255, 0.15)',
             borderRadius: '50%',
-            width: '46px',
-            height: '46px',
-            fontSize: '1.8rem',
+            width: '36px',
+            height: '36px',
+            fontSize: '1.4rem',
             cursor: 'pointer',
             zIndex: 200010,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 4px 15px rgba(0,0,0,0.5)'
+            boxShadow: '0 2px 10px rgba(0,0,0,0.3)'
           }}
           title="מסמך הבא (או החלק שמאלה)"
         >
@@ -740,16 +740,22 @@ export default function UniversalViewerModal({
                         </div>
                       </TransformComponent>
 
-                      {/* Floating Quick-Zoom Action Controls */}
+                      {/* Floating Quick-Zoom Action Controls (Compact horizontal pill in bottom-left margin so document text is never obstructed) */}
                       <div
                         onClick={(e) => e.stopPropagation()}
                         style={{
                           position: 'absolute',
-                          bottom: '90px',
-                          left: '16px',
+                          bottom: '68px',
+                          left: '12px',
                           display: 'flex',
-                          flexDirection: 'column',
-                          gap: '8px',
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: '4px',
+                          padding: '3px 6px',
+                          borderRadius: '20px',
+                          background: 'rgba(15, 23, 42, 0.55)',
+                          backdropFilter: 'blur(6px)',
+                          border: '1px solid rgba(255, 255, 255, 0.18)',
                           zIndex: 200020
                         }}
                       >
@@ -758,19 +764,18 @@ export default function UniversalViewerModal({
                           onClick={() => zoomIn(0.35)}
                           title="הגדל זום"
                           style={{
-                            width: '42px',
-                            height: '42px',
+                            width: '28px',
+                            height: '28px',
                             borderRadius: '50%',
-                            background: 'rgba(15, 23, 42, 0.75)',
-                            backdropFilter: 'blur(8px)',
-                            border: '1.5px solid rgba(255, 255, 255, 0.25)',
+                            background: 'transparent',
+                            border: 'none',
                             color: '#ffffff',
-                            fontSize: '1.3rem',
+                            fontSize: '1.05rem',
+                            fontWeight: 800,
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            cursor: 'pointer',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.4)'
+                            cursor: 'pointer'
                           }}
                         >
                           +
@@ -780,21 +785,14 @@ export default function UniversalViewerModal({
                           onClick={() => resetTransform()}
                           title="אחוז הגדלה (לחץ לאיפוס ל-100%)"
                           style={{
-                            minWidth: '42px',
-                            padding: '4px 6px',
-                            borderRadius: '12px',
-                            background: 'rgba(15, 23, 42, 0.85)',
-                            backdropFilter: 'blur(8px)',
-                            border: '1.5px solid rgba(255, 255, 255, 0.25)',
+                            padding: '2px 5px',
+                            borderRadius: '8px',
+                            background: currentScale > 1.05 ? 'rgba(37, 99, 235, 0.75)' : 'rgba(255, 255, 255, 0.12)',
+                            border: 'none',
                             color: '#ffffff',
-                            fontSize: '0.72rem',
+                            fontSize: '0.68rem',
                             fontWeight: 800,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
                             cursor: 'pointer',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
-                            transition: 'all 0.15s ease',
                             userSelect: 'none'
                           }}
                         >
@@ -805,48 +803,22 @@ export default function UniversalViewerModal({
                           onClick={() => zoomOut(0.35)}
                           title="הקטן זום"
                           style={{
-                            width: '42px',
-                            height: '42px',
+                            width: '28px',
+                            height: '28px',
                             borderRadius: '50%',
-                            background: 'rgba(15, 23, 42, 0.75)',
-                            backdropFilter: 'blur(8px)',
-                            border: '1.5px solid rgba(255, 255, 255, 0.25)',
+                            background: 'transparent',
+                            border: 'none',
                             color: '#ffffff',
-                            fontSize: '1.3rem',
+                            fontSize: '1.05rem',
+                            fontWeight: 800,
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            cursor: 'pointer',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.4)'
+                            cursor: 'pointer'
                           }}
                         >
                           −
                         </button>
-                        {currentScale > 1.1 && (
-                          <button
-                            type="button"
-                            onClick={() => resetTransform()}
-                            title="איפוס תצוגה"
-                            style={{
-                              width: '42px',
-                              height: '42px',
-                              borderRadius: '50%',
-                              background: 'rgba(37, 99, 235, 0.85)',
-                              backdropFilter: 'blur(8px)',
-                              border: '1.5px solid rgba(255, 255, 255, 0.3)',
-                              color: '#ffffff',
-                              fontSize: '0.8rem',
-                              fontWeight: 800,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              cursor: 'pointer',
-                              boxShadow: '0 4px 12px rgba(37,99,235,0.5)'
-                            }}
-                          >
-                            1:1
-                          </button>
-                        )}
                       </div>
                     </>
                   )}
@@ -1025,16 +997,22 @@ export default function UniversalViewerModal({
                       </div>
                     </TransformComponent>
 
-                    {/* Floating Quick-Zoom Action Controls */}
+                    {/* Floating Quick-Zoom Action Controls (Compact horizontal pill in bottom-left margin so document text is never obstructed) */}
                     <div
                       onClick={(e) => e.stopPropagation()}
                       style={{
                         position: 'absolute',
-                        bottom: '90px',
-                        left: '16px',
+                        bottom: '68px',
+                        left: '12px',
                         display: 'flex',
-                        flexDirection: 'column',
-                        gap: '8px',
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: '3px 6px',
+                        borderRadius: '20px',
+                        background: 'rgba(15, 23, 42, 0.55)',
+                        backdropFilter: 'blur(6px)',
+                        border: '1px solid rgba(255, 255, 255, 0.18)',
                         zIndex: 200020
                       }}
                     >
@@ -1043,19 +1021,18 @@ export default function UniversalViewerModal({
                         onClick={() => zoomIn(0.35)}
                         title="הגדל זום"
                         style={{
-                          width: '42px',
-                          height: '42px',
+                          width: '28px',
+                          height: '28px',
                           borderRadius: '50%',
-                          background: 'rgba(15, 23, 42, 0.75)',
-                          backdropFilter: 'blur(8px)',
-                          border: '1.5px solid rgba(255, 255, 255, 0.25)',
+                          background: 'transparent',
+                          border: 'none',
                           color: '#ffffff',
-                          fontSize: '1.3rem',
+                          fontSize: '1.05rem',
+                          fontWeight: 800,
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          cursor: 'pointer',
-                          boxShadow: '0 4px 12px rgba(0,0,0,0.4)'
+                          cursor: 'pointer'
                         }}
                       >
                         +
@@ -1065,21 +1042,14 @@ export default function UniversalViewerModal({
                         onClick={() => resetTransform()}
                         title="אחוז הגדלה (לחץ לאיפוס ל-100%)"
                         style={{
-                          minWidth: '42px',
-                          padding: '4px 6px',
-                          borderRadius: '12px',
-                          background: 'rgba(15, 23, 42, 0.85)',
-                          backdropFilter: 'blur(8px)',
-                          border: '1.5px solid rgba(255, 255, 255, 0.25)',
+                          padding: '2px 5px',
+                          borderRadius: '8px',
+                          background: currentScale > 1.05 ? 'rgba(37, 99, 235, 0.75)' : 'rgba(255, 255, 255, 0.12)',
+                          border: 'none',
                           color: '#ffffff',
-                          fontSize: '0.72rem',
+                          fontSize: '0.68rem',
                           fontWeight: 800,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
                           cursor: 'pointer',
-                          boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
-                          transition: 'all 0.15s ease',
                           userSelect: 'none'
                         }}
                       >
@@ -1090,48 +1060,22 @@ export default function UniversalViewerModal({
                         onClick={() => zoomOut(0.35)}
                         title="הקטן זום"
                         style={{
-                          width: '42px',
-                          height: '42px',
+                          width: '28px',
+                          height: '28px',
                           borderRadius: '50%',
-                          background: 'rgba(15, 23, 42, 0.75)',
-                          backdropFilter: 'blur(8px)',
-                          border: '1.5px solid rgba(255, 255, 255, 0.25)',
+                          background: 'transparent',
+                          border: 'none',
                           color: '#ffffff',
-                          fontSize: '1.3rem',
+                          fontSize: '1.05rem',
+                          fontWeight: 800,
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          cursor: 'pointer',
-                          boxShadow: '0 4px 12px rgba(0,0,0,0.4)'
+                          cursor: 'pointer'
                         }}
                       >
                         −
                       </button>
-                      {currentScale > 1.1 && (
-                        <button
-                          type="button"
-                          onClick={() => resetTransform()}
-                          title="איפוס תצוגה"
-                          style={{
-                            width: '42px',
-                            height: '42px',
-                            borderRadius: '50%',
-                            background: 'rgba(37, 99, 235, 0.85)',
-                            backdropFilter: 'blur(8px)',
-                            border: '1.5px solid rgba(255, 255, 255, 0.3)',
-                            color: '#ffffff',
-                            fontSize: '0.8rem',
-                            fontWeight: 800,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            cursor: 'pointer',
-                            boxShadow: '0 4px 12px rgba(37,99,235,0.5)'
-                          }}
-                        >
-                          1:1
-                        </button>
-                      )}
                     </div>
                   </>
                 )}

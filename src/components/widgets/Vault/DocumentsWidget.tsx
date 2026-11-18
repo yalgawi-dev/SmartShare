@@ -949,12 +949,19 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           }
         }
 
-        // Station resolution: If targetEventId not specified, check if effective folder has linked station
+        // Station resolution: If targetEventId not specified, check if effective folder or any ancestor folder has linked station
         let effectiveTargetEventId = targetEventId;
         if (!effectiveTargetEventId && effectiveFolderId) {
-          const targetFolder = (space.documentFolders || []).find(f => f.id === effectiveFolderId);
-          if (targetFolder?.stationId) {
-            effectiveTargetEventId = targetFolder.stationId;
+          let currFId: string | null = effectiveFolderId;
+          const visited = new Set<string>();
+          while (currFId && !visited.has(currFId)) {
+            visited.add(currFId);
+            const targetFolder = (space.documentFolders || []).find(f => f.id === currFId);
+            if (targetFolder?.stationId) {
+              effectiveTargetEventId = targetFolder.stationId;
+              break;
+            }
+            currFId = targetFolder?.parentId || null;
           }
         }
 
@@ -2411,25 +2418,13 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             const activeShelfEvents = allSpaceEvents.filter(e => e.shelfId === activeShelfId);
             
             const isDocLinked = (docId: string, docUrl?: string) => {
-              const cleanId = String(docId || '').trim();
-              const cleanUrl = docUrl ? String(docUrl).trim() : '';
-              return allSpaceEvents.some(e => {
-                const matchesDocId = (e.documentIds || []).some(id => {
-                  const sId = String(id || '').trim();
-                  return sId === cleanId || (cleanUrl && sId === cleanUrl);
-                });
-                const matchesTaskId = (e.tasks || []).some(t => {
-                  const sTaskId = String(t.documentId || '').trim();
-                  return sTaskId === cleanId || (cleanUrl && sTaskId === cleanUrl);
-                });
-                return matchesDocId || matchesTaskId;
-              });
+              return Boolean(getDocLinkedEvent(docId, docUrl));
             };
 
             const getDocLinkedEvent = (docId: string, docUrl?: string) => {
               const cleanId = String(docId || '').trim();
               const cleanUrl = docUrl ? String(docUrl).trim() : '';
-              return allSpaceEvents.find(e => {
+              const directEvent = allSpaceEvents.find(e => {
                 const matchesDocId = (e.documentIds || []).some(id => {
                   const sId = String(id || '').trim();
                   return sId === cleanId || (cleanUrl && sId === cleanUrl);
@@ -2440,6 +2435,22 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                 });
                 return matchesDocId || matchesTaskId;
               });
+              if (directEvent) return directEvent;
+
+              // Fallback: Check if document's folder or ancestor folder is linked to a station
+              const docObj = shelfDocs.find(d => d.id === cleanId);
+              let currFId = docObj?.folderId || null;
+              const visited = new Set<string>();
+              while (currFId && !visited.has(currFId)) {
+                visited.add(currFId);
+                const f = (space.documentFolders || []).find(fl => fl.id === currFId);
+                if (f?.stationId) {
+                  const folderEv = allSpaceEvents.find(e => e.id === f.stationId);
+                  if (folderEv) return folderEv;
+                }
+                currFId = f?.parentId || null;
+              }
+              return undefined;
             };
 
             // Current Level Folders (Explorer Hierarchy)
@@ -3144,6 +3155,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                   textAlign: 'center',
                                   gap: '0.35rem',
                                   position: 'relative',
+                                  zIndex: activeDocMenuId === folder.id ? 80 : 1,
                                   transform: isFolderDragOver ? 'scale(1.04)' : 'none'
                                 }}
                                 onMouseEnter={(e) => {
@@ -3253,110 +3265,212 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                   </span>
                                 )}
 
-                                {/* Folder card actions */}
-                                <div style={{ display: 'flex', gap: '3px', marginTop: '0.2rem', justifyContent: 'center' }} onClick={(e) => e.stopPropagation()}>
-                                  {(() => {
-                                    const folderPrivacy = getPrivacyInfo(folder.allowedPartners);
-                                    return (
+                                {/* Folder card actions (Uniform 4-button layout matching Document Cards) */}
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginTop: 'auto', paddingTop: '0.35rem', borderTop: '1px solid #f1f5f9' }} onClick={(e) => e.stopPropagation()}>
+                                  <div style={{ display: 'flex', gap: '3px' }}>
+                                    {(() => {
+                                      const folderPrivacy = getPrivacyInfo(folder.allowedPartners);
+                                      return (
+                                        <button
+                                          type="button"
+                                          onClick={() => setPrivacyTarget({
+                                            type: 'folder',
+                                            id: folder.id,
+                                            name: folder.name,
+                                            allowedPartners: folder.allowedPartners || [],
+                                            ownerId: folder.ownerId
+                                          })}
+                                          style={{ 
+                                            background: folderPrivacy.bg, 
+                                            border: `1px solid ${folderPrivacy.border}`, 
+                                            borderRadius: '5px', 
+                                            padding: '2px 5px', 
+                                            fontSize: '0.68rem', 
+                                            fontWeight: 'bold',
+                                            color: folderPrivacy.color,
+                                            cursor: 'pointer' 
+                                          }}
+                                          title={`פרטיות וגישה לתיקייה: ${folderPrivacy.text}`}
+                                        >
+                                          {folderPrivacy.icon}
+                                        </button>
+                                      );
+                                    })()}
+                                    {hasFileShare ? (
+                                      <>
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleOpenExternalShareModal({ type: 'folder', item: folder });
+                                          }}
+                                          style={{ background: '#eff6ff', border: '1px solid #bfdbfe', color: '#2563eb', borderRadius: '5px', padding: '2px 5px', fontSize: '0.68rem', fontWeight: 'bold', cursor: 'pointer' }}
+                                          title="קישור שיתוף חיצוני מאובטח לתיקייה"
+                                        >
+                                          🔗
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handlePinToSharingWall({ type: 'folder', item: folder });
+                                          }}
+                                          style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', color: '#059669', borderRadius: '5px', padding: '2px 5px', fontSize: '0.68rem', fontWeight: 'bold', cursor: 'pointer' }}
+                                          title="שייך תיקייה לקיר השיתוף המרוכז (ללא שכפול נפח)"
+                                        >
+                                          📤
+                                        </button>
+                                      </>
+                                    ) : (
                                       <button
                                         type="button"
-                                        onClick={() => setPrivacyTarget({
-                                          type: 'folder',
-                                          id: folder.id,
-                                          name: folder.name,
-                                          allowedPartners: folder.allowedPartners || [],
-                                          ownerId: folder.ownerId
-                                        })}
-                                        style={{ 
-                                          background: folderPrivacy.bg, 
-                                          border: `1px solid ${folderPrivacy.border}`, 
-                                          borderRadius: '5px', 
-                                          padding: '1px 5px', 
-                                          fontSize: '0.68rem', 
-                                          color: folderPrivacy.color,
-                                          cursor: 'pointer' 
+                                        onClick={() => {
+                                          setPromptInput(folder.name);
+                                          setCustomPrompt({
+                                            isOpen: true,
+                                            title: 'עריכת שם תיקייה',
+                                            placeholder: 'שם התיקייה...',
+                                            defaultValue: folder.name,
+                                            onSave: (val) => {
+                                              if (val.trim()) updateDocumentFolder(space.id, folder.id, { name: val.trim() });
+                                            }
+                                          });
                                         }}
-                                        title={`פרטיות וגישה לתיקייה: ${folderPrivacy.text}`}
+                                        style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '5px', padding: '2px 5px', fontSize: '0.68rem', cursor: 'pointer' }}
+                                        title="ערוך שם"
                                       >
-                                        {folderPrivacy.icon}
+                                        ✏️
                                       </button>
-                                    );
-                                  })()}
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setPromptInput(folder.name);
-                                      setCustomPrompt({
-                                        isOpen: true,
-                                        title: 'עריכת שם תיקייה',
-                                        placeholder: 'שם התיקייה...',
-                                        defaultValue: folder.name,
-                                        onSave: (val) => {
-                                          if (val.trim()) updateDocumentFolder(space.id, folder.id, { name: val.trim() });
-                                        }
-                                      });
-                                    }}
-                                    style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '5px', padding: '1px 4px', fontSize: '0.68rem', cursor: 'pointer' }}
-                                    title="ערוך שם"
-                                  >
-                                    ✏️
-                                  </button>
-                                  {showTimeline && (
+                                    )}
                                     <button
                                       type="button"
-                                      onClick={() => setLinkStationFolder(folder)}
-                                      style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '5px', padding: '1px 4px', fontSize: '0.68rem', cursor: 'pointer' }}
-                                      title="קשר לתחנה"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setFolderToMove(folder);
+                                      }}
+                                      style={{ background: '#f0f9ff', color: '#0284c7', border: '1px solid #bae6fd', padding: '2px 5px', borderRadius: '5px', fontSize: '0.68rem', fontWeight: 'bold', cursor: 'pointer' }}
+                                      title="העבר תיקייה למדף/מיקום אחר"
                                     >
-                                      📍
+                                      📁
                                     </button>
-                                  )}
-                                  {hasFileShare && (
-                                    <>
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleOpenExternalShareModal({ type: 'folder', item: folder });
-                                        }}
-                                        style={{ background: '#eff6ff', border: '1px solid #bfdbfe', color: '#2563eb', borderRadius: '5px', padding: '1px 4px', fontSize: '0.68rem', cursor: 'pointer' }}
-                                        title="קישור שיתוף חיצוני מאובטח לתיקייה (או כל תת-העץ מתחתיה)"
-                                      >
-                                        🔗
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handlePinToSharingWall({ type: 'folder', item: folder });
-                                        }}
-                                        style={{ background: '#f5f3ff', border: '1px solid #ddd6fe', color: '#7c3aed', borderRadius: '5px', padding: '1px 4px', fontSize: '0.68rem', cursor: 'pointer' }}
-                                        title="שייך תיקייה לקיר השיתוף המרוכז (ללא שכפול נפח)"
-                                      >
-                                        📤
-                                      </button>
-                                    </>
-                                  )}
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setFolderToMove(folder);
-                                      
-                                    }}
-                                    style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '3px 7px', borderRadius: '7px', fontSize: '0.72rem', fontWeight: 600, color: '#16a34a', cursor: 'pointer' }}
-                                    title="העבר תיקייה למדף/מיקום אחר"
-                                  >
-                                    📦
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => setFolderToDelete({ id: folder.id, name: folder.name })}
-                                    style={{ background: '#fee2e2', border: '1px solid #fecaca', color: '#dc2626', borderRadius: '5px', padding: '1px 4px', fontSize: '0.68rem', cursor: 'pointer' }}
-                                    title="מחק תיקייה"
-                                  >
-                                    🗑️
-                                  </button>
+                                  </div>
+
+                                  {/* Folder 3-dots menu */}
+                                  <div data-doc-menu-container="true" style={{ position: 'relative' }}>
+                                    <button
+                                      type="button"
+                                      onPointerDown={(e) => e.stopPropagation()}
+                                      onTouchStart={(e) => e.stopPropagation()}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setActiveDocMenuId(activeDocMenuId === folder.id ? null : folder.id);
+                                      }}
+                                      style={{ background: 'transparent', color: '#64748b', border: 'none', borderRadius: '4px', padding: '1px 4px', fontSize: '0.85rem', cursor: 'pointer' }}
+                                    >
+                                      ⋮
+                                    </button>
+
+                                    {activeDocMenuId === folder.id && (
+                                      <>
+                                        <div onClick={(e) => { e.stopPropagation(); setActiveDocMenuId(null); }} style={{ position: 'fixed', inset: 0, zIndex: 9998 }} />
+                                        <div onClick={(e) => e.stopPropagation()} style={{ position: 'absolute', bottom: '120%', left: 0, background: 'white', borderRadius: '14px', boxShadow: '0 12px 30px rgba(0,0,0,0.18)', border: '1px solid #e2e8f0', padding: '0.45rem', zIndex: 9999, display: 'flex', flexDirection: 'column', gap: '0.25rem', minWidth: '170px', direction: 'rtl' }}>
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setActiveDocMenuId(null);
+                                              setPromptInput(folder.name);
+                                              setCustomPrompt({
+                                                isOpen: true,
+                                                title: 'עריכת שם תיקייה',
+                                                placeholder: 'שם התיקייה...',
+                                                defaultValue: folder.name,
+                                                onSave: (val) => {
+                                                  if (val.trim()) updateDocumentFolder(space.id, folder.id, { name: val.trim() });
+                                                }
+                                              });
+                                            }}
+                                            style={{ background: 'transparent', border: 'none', padding: '0.35rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#334155', display: 'flex', alignItems: 'center', gap: '0.45rem', fontWeight: 600 }}
+                                          >
+                                            ✏️ ערוך שם תיקייה
+                                          </button>
+                                          {showTimeline && (
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setActiveDocMenuId(null);
+                                                setLinkStationFolder(folder);
+                                              }}
+                                              style={{ background: 'transparent', border: 'none', padding: '0.35rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#2563eb', display: 'flex', alignItems: 'center', gap: '0.45rem', fontWeight: 700 }}
+                                            >
+                                              📍 {folderStation ? 'שנה תחנה בציר הזמן' : 'קשר לתחנה בציר הזמן'}
+                                            </button>
+                                          )}
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setActiveDocMenuId(null);
+                                              setFolderToMove(folder);
+                                            }}
+                                            style={{ background: 'transparent', border: 'none', padding: '0.35rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#0369a1', display: 'flex', alignItems: 'center', gap: '0.45rem', fontWeight: 700 }}
+                                          >
+                                            📦 העבר או העתק תיקייה
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setActiveDocMenuId(null);
+                                              setPrivacyTarget({
+                                                type: 'folder',
+                                                id: folder.id,
+                                                name: folder.name,
+                                                allowedPartners: folder.allowedPartners || [],
+                                                ownerId: folder.ownerId
+                                              });
+                                            }}
+                                            style={{ background: 'transparent', border: 'none', padding: '0.35rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#15803d', display: 'flex', alignItems: 'center', gap: '0.45rem' }}
+                                          >
+                                            🔐 הרשאות ופרטיות
+                                          </button>
+                                          {hasFileShare && (
+                                            <>
+                                              <div style={{ height: '1px', background: '#f1f5f9', margin: '0.15rem 0' }} />
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  setActiveDocMenuId(null);
+                                                  handleOpenExternalShareModal({ type: 'folder', item: folder });
+                                                }}
+                                                style={{ background: 'transparent', border: 'none', padding: '0.35rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#2563eb', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.45rem' }}
+                                              >
+                                                🔗 קישור שיתוף חיצוני
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  setActiveDocMenuId(null);
+                                                  handlePinToSharingWall({ type: 'folder', item: folder });
+                                                }}
+                                                style={{ background: 'transparent', border: 'none', padding: '0.35rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#7c3aed', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.45rem' }}
+                                              >
+                                                📤 שייך לקיר השיתוף (0 נפח)
+                                              </button>
+                                            </>
+                                          )}
+                                          <div style={{ height: '1px', background: '#fef2f2', margin: '0.15rem 0' }} />
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setActiveDocMenuId(null);
+                                              setFolderToDelete({ id: folder.id, name: folder.name });
+                                            }}
+                                            style={{ background: '#fff1f2', border: '1px solid #fecdd3', padding: '0.4rem 0.6rem', borderRadius: '8px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#e11d48', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.45rem' }}
+                                          >
+                                            🗑️ מחק תיקייה
+                                          </button>
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                             );

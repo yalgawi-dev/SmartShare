@@ -1977,7 +1977,8 @@ export default function SharedFileHandler() {
                   setShowTimingModal(false);
                   setIsModalOpen(false);
                   setSharedFiles([]);
-                  router.push('/space/' + selectedSpaceId + '?tab=documents');
+                  const targetUrl = `/space/${selectedSpaceId}?tab=documents${selectedShelfId && selectedShelfId !== '__new__' ? `&shelfId=${selectedShelfId}` : ''}${selectedFolderId ? `&folderId=${selectedFolderId}` : ''}`;
+                  router.push(targetUrl);
                 }}
                 style={{ background: 'transparent', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: '#64748b' }}
               >
@@ -2035,7 +2036,8 @@ export default function SharedFileHandler() {
                   setShowTimingModal(false);
                   setIsModalOpen(false);
                   setSharedFiles([]);
-                  router.push('/space/' + selectedSpaceId + '?tab=documents');
+                  const targetUrl = `/space/${selectedSpaceId}?tab=documents${selectedShelfId && selectedShelfId !== '__new__' ? `&shelfId=${selectedShelfId}` : ''}${selectedFolderId ? `&folderId=${selectedFolderId}` : ''}`;
+                  router.push(targetUrl);
                 }}
                 style={{
                   padding: '0.75rem 1.2rem', borderRadius: '14px', border: '1px solid #cbd5e1',

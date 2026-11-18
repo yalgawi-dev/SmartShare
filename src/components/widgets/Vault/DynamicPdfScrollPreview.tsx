@@ -693,16 +693,22 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
                 </div>
               </TransformComponent>
 
-              {/* Bottom-Left Floating Zoom Buttons (+, %, -, 1:1) */}
+              {/* Bottom-Left Compact Horizontal Zoom Pill (+, %, -) - Non-intrusive so document text is never covered */}
               <div
                 onClick={(e) => e.stopPropagation()}
                 style={{
                   position: 'absolute',
-                  bottom: '90px',
-                  left: '16px',
+                  bottom: '68px',
+                  left: '12px',
                   display: 'flex',
-                  flexDirection: 'column',
-                  gap: '8px',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '3px 6px',
+                  borderRadius: '20px',
+                  background: 'rgba(15, 23, 42, 0.55)',
+                  backdropFilter: 'blur(6px)',
+                  border: '1px solid rgba(255, 255, 255, 0.18)',
                   zIndex: 200025
                 }}
               >
@@ -711,19 +717,18 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
                   onClick={() => zoomIn(0.35)}
                   title="הגדל זום"
                   style={{
-                    width: '42px',
-                    height: '42px',
+                    width: '28px',
+                    height: '28px',
                     borderRadius: '50%',
-                    background: 'rgba(15, 23, 42, 0.75)',
-                    backdropFilter: 'blur(8px)',
-                    border: '1.5px solid rgba(255, 255, 255, 0.25)',
+                    background: 'transparent',
+                    border: 'none',
                     color: '#ffffff',
-                    fontSize: '1.3rem',
+                    fontSize: '1.05rem',
+                    fontWeight: 800,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    cursor: 'pointer',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.4)'
+                    cursor: 'pointer'
                   }}
                 >
                   +
@@ -733,21 +738,14 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
                   onClick={() => resetTransform()}
                   title="אחוז הגדלה (לחץ לאיפוס ל-100%)"
                   style={{
-                    minWidth: '42px',
-                    padding: '4px 6px',
-                    borderRadius: '12px',
-                    background: 'rgba(15, 23, 42, 0.85)',
-                    backdropFilter: 'blur(8px)',
-                    border: '1.5px solid rgba(255, 255, 255, 0.25)',
+                    padding: '2px 5px',
+                    borderRadius: '8px',
+                    background: pdfScale > 1.05 ? 'rgba(37, 99, 235, 0.75)' : 'rgba(255, 255, 255, 0.12)',
+                    border: 'none',
                     color: '#ffffff',
-                    fontSize: '0.72rem',
+                    fontSize: '0.68rem',
                     fontWeight: 800,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
                     cursor: 'pointer',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
-                    transition: 'all 0.15s ease',
                     userSelect: 'none'
                   }}
                 >
@@ -758,48 +756,22 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
                   onClick={() => zoomOut(0.35)}
                   title="הקטן זום"
                   style={{
-                    width: '42px',
-                    height: '42px',
+                    width: '28px',
+                    height: '28px',
                     borderRadius: '50%',
-                    background: 'rgba(15, 23, 42, 0.75)',
-                    backdropFilter: 'blur(8px)',
-                    border: '1.5px solid rgba(255, 255, 255, 0.25)',
+                    background: 'transparent',
+                    border: 'none',
                     color: '#ffffff',
-                    fontSize: '1.3rem',
+                    fontSize: '1.05rem',
+                    fontWeight: 800,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    cursor: 'pointer',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.4)'
+                    cursor: 'pointer'
                   }}
                 >
                   −
                 </button>
-                {pdfScale > 1.1 && (
-                  <button
-                    type="button"
-                    onClick={() => resetTransform()}
-                    title="איפוס תצוגה"
-                    style={{
-                      width: '42px',
-                      height: '42px',
-                      borderRadius: '50%',
-                      background: 'rgba(37, 99, 235, 0.85)',
-                      backdropFilter: 'blur(8px)',
-                      border: '1.5px solid rgba(255, 255, 255, 0.3)',
-                      color: '#ffffff',
-                      fontSize: '0.8rem',
-                      fontWeight: 800,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      cursor: 'pointer',
-                      boxShadow: '0 4px 12px rgba(37,99,235,0.5)'
-                    }}
-                  >
-                    1:1
-                  </button>
-                )}
               </div>
             </>
           )}

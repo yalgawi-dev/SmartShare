@@ -535,10 +535,22 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
             const eventDocs = shelfDocs.filter(d => {
               const cleanId = String(d.id || '').trim();
               const cleanUrl = String(d.url || '').trim();
-              return (event.documentIds || []).some(id => {
+              const isDirectlyInEvent = (event.documentIds || []).some(id => {
                 const sId = String(id || '').trim();
                 return sId === cleanId || (cleanUrl && sId === cleanUrl);
               });
+              if (isDirectlyInEvent) return true;
+
+              // Also include documents sitting inside any folder or subfolder linked to this station
+              let currFId = d.folderId || null;
+              const visited = new Set<string>();
+              while (currFId && !visited.has(currFId)) {
+                visited.add(currFId);
+                const f = (space.documentFolders || []).find(fl => fl.id === currFId && !fl.deletedAt);
+                if (f?.stationId === event.id) return true;
+                currFId = f?.parentId || null;
+              }
+              return false;
             });
             const year = event.eventDate.substring(0, 4);
             const prevYear = idx > 0 ? events[idx - 1].eventDate.substring(0, 4) : null;

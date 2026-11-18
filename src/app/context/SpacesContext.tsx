@@ -6,7 +6,7 @@ import { isAuthenticPartnerName, calculateCurrentSharesSnapshot } from '../../ut
 import { useAuth } from './AuthContext';
 import { db } from '@/lib/firebase';
 import { triggerPushNotification } from '@/utils/notifications';
-import { collection, doc, onSnapshot, setDoc, deleteDoc, updateDoc, addDoc, getDocs } from 'firebase/firestore';
+import { collection, doc, onSnapshot, setDoc, deleteDoc, updateDoc, addDoc, getDocs, runTransaction } from 'firebase/firestore';
 
 export type FeatureId = string;
 export type InvoiceStatus = 'approved' | 'pending' | 'dispute' | 'missing';
@@ -814,29 +814,49 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
 
   // Helper function to update Space ROOT document
     const saveSpaceUpdate = async (spaceId: string, mutator: (space: Omit<Space, 'mediaItems'>) => Omit<Space, 'mediaItems'>): Promise<boolean> => {
-      // 1. Get current space and compute mutation synchronously using REF
+      // 1. Get current space and compute mutation synchronously using REF for immediate optimistic UI
       const currentSpace = spacesBaseRef.current.find(s => s.id === spaceId);
-      if (!currentSpace) return false;
-      
-      const updatedSpace = mutator(currentSpace);
-      if (updatedSpace === currentSpace) return false;
-      
-      // 2. Optimistically update REF and UI immediately
-      const nextSpaces = spacesBaseRef.current.map(space => space.id === spaceId ? updatedSpace : space);
-      spacesBaseRef.current = nextSpaces; // Sync immediately
-      setSpacesBase(nextSpaces);
+      if (currentSpace) {
+        const updatedSpace = mutator(currentSpace);
+        if (updatedSpace !== currentSpace) {
+          const nextSpaces = spacesBaseRef.current.map(space => space.id === spaceId ? updatedSpace : space);
+          spacesBaseRef.current = nextSpaces;
+          setSpacesBase(nextSpaces);
+        }
+      }
   
-      // 3. Save to Firestore
+      // 2. Save to Firestore using an atomic transaction so stale local state (e.g. during external Share Target boot)
+      // NEVER overwrites documents, folders, or events saved previously in the cloud!
+      const spaceRef = doc(db, 'spaces', spaceId);
       try {
-        await setDoc(doc(db, 'spaces', spaceId), sanitizeForFirestore(updatedSpace));
+        await runTransaction(db, async (transaction) => {
+          const snap = await transaction.get(spaceRef);
+          const freshData = snap.exists()
+            ? ({ id: snap.id, ...snap.data() } as Omit<Space, 'mediaItems'>)
+            : currentSpace;
+          if (!freshData) return;
+          delete (freshData as any).mediaItems;
+          const freshUpdated = mutator(freshData);
+          if (freshUpdated === freshData) return;
+          transaction.set(spaceRef, sanitizeForFirestore(freshUpdated));
+        });
         return true;
       } catch (e: any) {
-        console.error("Error updating Firestore space root", e);
-        // Revert UI on failure
-        const revertedSpaces = spacesBaseRef.current.map(space => space.id === spaceId ? currentSpace : space);
-        spacesBaseRef.current = revertedSpaces;
-        setSpacesBase(revertedSpaces);
-        return false;
+        console.error("Transaction failed, falling back to direct setDoc", e);
+        try {
+          if (!currentSpace) return false;
+          const fallbackUpdated = mutator(currentSpace);
+          await setDoc(spaceRef, sanitizeForFirestore(fallbackUpdated), { merge: true });
+          return true;
+        } catch (fallbackErr) {
+          console.error("Error updating Firestore space root", fallbackErr);
+          if (currentSpace) {
+            const revertedSpaces = spacesBaseRef.current.map(space => space.id === spaceId ? currentSpace : space);
+            spacesBaseRef.current = revertedSpaces;
+            setSpacesBase(revertedSpaces);
+          }
+          return false;
+        }
       }
     };
 
@@ -2384,17 +2404,56 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
 
   
   const addDocument = (spaceId: string, doc: Omit<SpaceDocument, 'id' | 'createdAt'>) => {
-    const docId = `doc-${Date.now()}`;
+    const docId = `doc-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     const cleanAllowed = Array.isArray(doc.allowedPartners) ? doc.allowedPartners : [];
-    saveSpaceUpdate(spaceId, space => ({
-      ...space,
-      documents: [{ ...doc, allowedPartners: cleanAllowed, id: docId, createdAt: new Date().toISOString() }, ...(space.documents || [])]
-    }));
+    saveSpaceUpdate(spaceId, space => {
+      // Resolve inherited stationId from folder hierarchy (direct folder or ancestor folder)
+      let inheritedStationId: string | null = null;
+      let currFId = doc.folderId || null;
+      const visited = new Set<string>();
+      while (currFId && !visited.has(currFId)) {
+        visited.add(currFId);
+        const f = (space.documentFolders || []).find(fl => fl.id === currFId);
+        if (f?.stationId) {
+          inheritedStationId = f.stationId;
+          break;
+        }
+        currFId = f?.parentId || null;
+      }
+
+      const newDoc: SpaceDocument = {
+        ...doc,
+        allowedPartners: cleanAllowed,
+        id: docId,
+        createdAt: new Date().toISOString()
+      };
+
+      const updatedEvents = inheritedStationId
+        ? (space.shelfEvents || []).map(ev => {
+            if (ev.id === inheritedStationId) {
+              const currentDocIds = ev.documentIds || [];
+              return {
+                ...ev,
+                documentIds: currentDocIds.includes(docId) ? currentDocIds : [...currentDocIds, docId]
+              };
+            }
+            return ev;
+          })
+        : space.shelfEvents;
+
+      return {
+        ...space,
+        documents: (space.documents || []).some(d => d.id === docId)
+          ? (space.documents || [])
+          : [newDoc, ...(space.documents || [])],
+        shelfEvents: updatedEvents
+      };
+    });
     return docId;
   };
 
   const addDocumentAndLinkToEvent = (spaceId: string, doc: Omit<SpaceDocument, 'id' | 'createdAt'>, eventId: string) => {
-    const docId = `doc-${Date.now()}`;
+    const docId = `doc-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     const cleanEventId = String(eventId || '').trim();
     const cleanAllowed = Array.isArray(doc.allowedPartners) ? doc.allowedPartners : [];
     saveSpaceUpdate(spaceId, space => {
@@ -2421,7 +2480,9 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
 
       return {
         ...space,
-        documents: [newDoc, ...(space.documents || [])],
+        documents: (space.documents || []).some(d => d.id === docId)
+          ? (space.documents || [])
+          : [newDoc, ...(space.documents || [])],
         shelfEvents: updatedEvents
       };
     });
