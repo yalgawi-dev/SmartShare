@@ -514,11 +514,48 @@ const [isMounted, setIsMounted] = useState(false);
       }
     const supplier = formData.get('supplier') as string;
     const clientName = formData.get('clientName') as string;
-    
+    const rawSplitMode = (formData.get('payerSplitMode') as 'single' | 'all_by_shares' | 'custom_split') || 'single';
+    const rawSplitsJson = (formData.get('payerSplitsJson') as string) || '';
+    let parsedPayerSplits: Record<string, number> | undefined = undefined;
+    if (rawSplitMode !== 'single' && rawSplitsJson) {
+      try {
+        const obj = JSON.parse(rawSplitsJson);
+        if (obj && typeof obj === 'object') {
+          const cleanSplits: Record<string, number> = {};
+          Object.entries(obj).forEach(([k, v]) => {
+            const num = Number(v);
+            if (!isNaN(num) && num > 0) {
+              // Normalize self ID to myEffectiveId
+              const normKey = (k === 'me' || k === user?.id) ? myEffectiveId : k;
+              cleanSplits[normKey] = Number(((cleanSplits[normKey] || 0) + num).toFixed(2));
+            }
+          });
+          if (Object.keys(cleanSplits).length > 0) {
+            parsedPayerSplits = cleanSplits;
+          }
+        }
+      } catch (_) {}
+    }
+
     let payerName = user?.realName || 'אני';
     let payerId: string | undefined = myEffectiveId;
-    
-    if (options?.customPayerId) {
+
+    if (parsedPayerSplits && rawSplitMode === 'all_by_shares') {
+      payerName = '🏦 כל השותפים יחד (חשבון משותף)';
+      payerId = myEffectiveId;
+    } else if (parsedPayerSplits && rawSplitMode === 'custom_split') {
+      const splitKeys = Object.keys(parsedPayerSplits);
+      const splitLabels = splitKeys.map(uid => {
+        const pName = (uid === myEffectiveId || uid === user?.id || uid === 'me')
+          ? (user?.realName || 'אני')
+          : (validMembers.find((m: any) => m.userId === uid)?.name || 'שותף');
+        const pAmt = parsedPayerSplits![uid];
+        const pct = amount > 0 ? Math.round((pAmt / Math.abs(amount)) * 100) : 0;
+        return `${pName} (${pct}%)`;
+      });
+      payerName = `⚖️ פיצול: ${splitLabels.join(' + ')}`;
+      payerId = myEffectiveId;
+    } else if (options?.customPayerId) {
       payerId = options.customPayerId;
       if (payerId === myEffectiveId || payerId === user?.id || payerId === 'me') {
         payerName = user?.realName || 'אני';
@@ -640,7 +677,8 @@ const [isMounted, setIsMounted] = useState(false);
       approvedBy: finalApprovedBy,
       vatRate: space.settings?.defaultVatRate || 18,
       hasAttachment: !!finalAttachmentUrl,
-      payerId: payerId
+      payerId: payerId,
+      ...(parsedPayerSplits ? { payerSplits: parsedPayerSplits, payerSplitMode: rawSplitMode } : { payerSplitMode: 'single' })
     };
 
     if ((isTransfer || isIncome) && targetId) {

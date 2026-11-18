@@ -4,6 +4,8 @@ import ScannerModal from '../ScannerModal';
 import { APP_VERSION } from '@/constants/version';
 import { parseCleanAmount, matchInvoiceToExpenses } from '@/utils/invoiceMatcher';
 import { useSpaces } from '@/app/context/SpacesContext';
+import { calculateCurrentSharesSnapshot } from '@/utils/partnerUtils';
+import { PayerSplitEditor, PayerSplitMode, SplitPartnerOption } from './PayerSplitEditor';
 
 interface FinanceAddExpenseFormProps {
   space?: any;
@@ -55,7 +57,9 @@ export function FinanceAddExpenseForm({
   onAttachToExisting
 }: FinanceAddExpenseFormProps) {
   const [isCredit, setIsCredit] = React.useState(ocrData?.isCreditInvoice || false);
-    const [isStoreCredit, setIsStoreCredit] = React.useState(false);
+  const [isStoreCredit, setIsStoreCredit] = React.useState(false);
+  const [payerSplitMode, setPayerSplitMode] = useState<PayerSplitMode>(() => retroInvoiceToEdit?.payerSplitMode || 'single');
+  const [payerSplits, setPayerSplits] = useState<Record<string, number>>(() => retroInvoiceToEdit?.payerSplits || {});
 
     React.useEffect(() => {
       if (ocrData?.isCreditInvoice !== undefined) {
@@ -90,6 +94,34 @@ export function FinanceAddExpenseForm({
   const { spaces } = useSpaces();
   const currentSpace = (spaces || []).find((s: any) => s.id === space?.id) || space;
   const effectiveInvoices = currentSpace?.invoices || space?.invoices || [];
+
+  // Build unified list of participating partners (self + validMembers) with their project share percentage
+  const allPartnerOptions: SplitPartnerOption[] = useMemo(() => {
+    const sharesSnap = calculateCurrentSharesSnapshot(currentSpace);
+    const myUid = user?.id || 'me';
+    const creatorUid = currentSpace?.creatorId || myUid;
+    const realPartnerMembers = validMembers.filter((m: any) => m.userId !== 'virtual_treasury_member');
+    const totalCount = realPartnerMembers.length + 1;
+    const defaultEqualPct = totalCount > 0 ? 100 / totalCount : 100;
+
+    const myShare = sharesSnap[myUid] ?? sharesSnap[creatorUid] ?? defaultEqualPct;
+    const list: SplitPartnerOption[] = [
+      {
+        userId: myUid,
+        name: user?.realName || 'אני',
+        defaultSharePct: Number(myShare) || defaultEqualPct
+      }
+    ];
+    realPartnerMembers.forEach((m: any) => {
+      const mShare = sharesSnap[m.userId] ?? (typeof m.sharePercentage === 'number' ? m.sharePercentage : defaultEqualPct);
+      list.push({
+        userId: m.userId,
+        name: m.name || 'שותף',
+        defaultSharePct: Number(mShare) || defaultEqualPct
+      });
+    });
+    return list;
+  }, [currentSpace, user?.id, user?.realName, validMembers]);
 
   const [dismissedMatchId, setDismissedMatchId] = useState<string | null>(null);
 
@@ -511,21 +543,40 @@ export function FinanceAddExpenseForm({
           </div>
           
           {validMembers.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-              <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>{selectedCategory === 'העברה/קיזוז' ? 'מאת (משלם)' : selectedCategory === 'הכנסת עסק' ? 'מי שמר את הכסף? (מוחזק אצל)' : 'מי שילם?'}</label>
-              <select 
-                required 
-                value={selectedPayerId} 
-                onChange={e => setSelectedPayerId(e.target.value)}
-                style={{ padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'rgba(0,0,0,0.02)' }}
-              >
-                <option value={user?.id || 'me'}>{user?.realName || 'אני'}</option>
-                {validMembers.map((m: any) => (
-                  <option key={m.userId} value={m.userId}>{m.name}</option>
-                ))}
-                
-              </select>
+            selectedCategory === 'העברה/קיזוז' || selectedCategory === 'הכנסת עסק' ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>
+                  {selectedCategory === 'העברה/קיזוז' ? 'מאת (משלם)' : 'מי שמר את הכסף? (מוחזק אצל)'}
+                </label>
+                <select 
+                  required 
+                  value={selectedPayerId} 
+                  onChange={e => setSelectedPayerId(e.target.value)}
+                  style={{ padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'rgba(0,0,0,0.02)' }}
+                >
+                  <option value={user?.id || 'me'}>{user?.realName || 'אני'}</option>
+                  {validMembers.map((m: any) => (
+                    <option key={m.userId} value={m.userId}>{m.name}</option>
+                  ))}
+                </select>
               </div>
+            ) : (
+              <>
+                <PayerSplitEditor
+                  totalAmount={Number(formValues.amount) || 0}
+                  allPartners={allPartnerOptions}
+                  selectedPayerId={selectedPayerId}
+                  onSelectSinglePayer={setSelectedPayerId}
+                  splitMode={payerSplitMode}
+                  onChangeSplitMode={setPayerSplitMode}
+                  payerSplits={payerSplits}
+                  onChangePayerSplits={setPayerSplits}
+                  label="מי שילם?"
+                />
+                <input type="hidden" name="payerSplitMode" value={payerSplitMode} />
+                <input type="hidden" name="payerSplitsJson" value={payerSplitMode !== 'single' ? JSON.stringify(payerSplits) : ''} />
+              </>
+            )
           )}
           
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>

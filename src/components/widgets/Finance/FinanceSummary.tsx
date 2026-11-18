@@ -165,9 +165,9 @@ export function FinanceSummary({
     });
   }
 
-  const resolveUserId = (invoiceObj: any, idField: string, nameField: string) => {
-    let resolvedId = invoiceObj[idField];
-    const trimmedName = (invoiceObj[nameField] || '').trim();
+  const resolveSingleUserId = (rawId: string | undefined, rawName?: string): string => {
+    let resolvedId = rawId;
+    const trimmedName = (rawName || '').trim();
     if (resolvedId === 'me' || trimmedName === 'אני' || trimmedName === 'אורח' || trimmedName === 'אני (לא פעיל)') return creatorId;
     if (trimmedName) {
       if (trimmedName === user?.realName || trimmedName === creatorName || trimmedName === space.createdBy) return creatorId;
@@ -175,15 +175,44 @@ export function FinanceSummary({
       if (existingMember) return existingMember.userId;
     }
     if ((isCreatorMe && resolvedId === user?.id) || (space.creatorId && resolvedId === space.creatorId) || (space.createdBy && resolvedId === space.createdBy)) return creatorId;
-    
-    if (resolvedId !== TREASURY_MEMBER_ID && !unifiedBalances.has(resolvedId)) {
+
+    if (resolvedId !== TREASURY_MEMBER_ID && (!resolvedId || !unifiedBalances.has(resolvedId))) {
       if (trimmedName) return 'guest_name_' + trimmedName;
-      if (!resolvedId) return 'unknown_' + (invoiceObj.id || Math.random());
+      if (!resolvedId) return 'unknown_' + Math.random();
     }
     return resolvedId || 'unknown';
   };
 
+  const resolveUserId = (invoiceObj: any, idField: string, nameField: string) => {
+    return resolveSingleUserId(invoiceObj[idField], invoiceObj[nameField]);
+  };
+
   expensesOnly.forEach((inv: any) => {
+    // Multi-payer split support ('all_by_shares' or 'custom_split' via inv.payerSplits)
+    if (inv.payerSplits && typeof inv.payerSplits === 'object' && Object.keys(inv.payerSplits).length > 0) {
+      if (inv.isStoreCredit && inv.amount < 0) {
+        return;
+      }
+      Object.entries(inv.payerSplits).forEach(([splitUid, splitAmt]) => {
+        const numericAmt = Number(splitAmt) || 0;
+        if (Math.abs(numericAmt) < 0.005) return;
+        const matchedSplitId = resolveSingleUserId(splitUid);
+        if (!unifiedBalances.has(matchedSplitId)) {
+          const foundMem = validMembers.find((m: any) => m.userId === splitUid);
+          unifiedBalances.set(matchedSplitId, {
+            name: foundMem?.name || 'שותף במרחב',
+            paid: 0, expected: 0, balance: 0,
+            userId: matchedSplitId,
+            isMember: Boolean(foundMem),
+            transfersSent: 0, transfersReceived: 0,
+            p: 0
+          });
+        }
+        unifiedBalances.get(matchedSplitId)!.paid += numericAmt;
+      });
+      return;
+    }
+
     let matchedId = resolveUserId(inv, 'payerId', 'payerName');
     
     if (!unifiedBalances.has(matchedId)) {

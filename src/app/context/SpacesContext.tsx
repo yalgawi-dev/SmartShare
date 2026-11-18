@@ -53,6 +53,10 @@ export interface Invoice {
   hasAttachment: boolean; 
   attachmentUrl?: string;
   payerId?: string;
+  /** Multi-payer split mapping: userId -> exact amount (₪) paid by that partner for this invoice */
+  payerSplits?: Record<string, number>;
+  /** Payer split mode metadata ('single' | 'all_by_shares' | 'custom_split') */
+  payerSplitMode?: 'single' | 'all_by_shares' | 'custom_split';
   vatNumber?: string;
     documentType?: string;
   invoiceNumber?: string;

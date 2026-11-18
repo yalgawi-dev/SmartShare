@@ -13,6 +13,8 @@ import InvoiceAttachMatchModal from './InvoiceAttachMatchModal';
 import UniversalViewerModal, { ViewerDocument } from '../../common/ViewerEngine/UniversalViewerModal';
 import { CreateShareLinkModal } from '../FileShare/CreateShareLinkModal';
 import { FileShareItem, ShareLinkConfig } from '@/utils/fileShareUtils';
+import { calculateCurrentSharesSnapshot } from '../../../utils/partnerUtils';
+import { PayerSplitEditor, PayerSplitMode, SplitPartnerOption } from './PayerSplitEditor';
 
 interface FinanceTransactionsProps {
   invoices: any[];
@@ -53,6 +55,35 @@ export function FinanceTransactions({
   const [deletionRequestModal, setDeletionRequestModal] = useState<{ isOpen: boolean; invoice: any; reason: string }>({ isOpen: false, invoice: null, reason: '' });
   const [editingInvoice, setEditingInvoice] = useState<any>(null);
   const [editForm, setEditForm] = useState({ amount: '', supplier: '', date: '', category: 'כללי', customCategory: '' });
+  const [editPayerId, setEditPayerId] = useState<string>('');
+  const [editSplitMode, setEditSplitMode] = useState<PayerSplitMode>('single');
+  const [editPayerSplits, setEditPayerSplits] = useState<Record<string, number>>({});
+
+  const allPartnerOptions: SplitPartnerOption[] = React.useMemo(() => {
+    const sharesSnap = calculateCurrentSharesSnapshot(space);
+    const creatorUid = space?.creatorId || 'me';
+    const creatorName = space?.createdBy || 'יוצר המרחב';
+    const validMems = (space?.members || []).filter((m: any) => m.status !== 'removed' && m.userId !== creatorUid && m.userId !== 'virtual_treasury_member');
+    const totalCount = validMems.length + 1;
+    const defaultEqualPct = totalCount > 0 ? 100 / totalCount : 100;
+
+    const list: SplitPartnerOption[] = [
+      {
+        userId: creatorUid,
+        name: isCreatorMe ? (user?.realName || creatorName) : creatorName,
+        defaultSharePct: Number(sharesSnap[creatorUid]) || defaultEqualPct
+      }
+    ];
+    validMems.forEach((m: any) => {
+      const mShare = sharesSnap[m.userId] ?? (typeof m.sharePercentage === 'number' ? m.sharePercentage : defaultEqualPct);
+      list.push({
+        userId: m.userId,
+        name: m.name || 'שותף',
+        defaultSharePct: Number(mShare) || defaultEqualPct
+      });
+    });
+    return list;
+  }, [space, isCreatorMe, user?.realName]);
   const [typeFilter, setTypeFilter] = useState<'expense' | 'income' | 'transfer'>('expense');
   const [memberFilter, setMemberFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -226,12 +257,53 @@ export function FinanceTransactions({
     const oldSupplier = (editingInvoice.supplier || '').trim();
     const isSupplierChanged = newSupplier !== oldSupplier;
 
+    const oldSplitMode: PayerSplitMode = editingInvoice.payerSplitMode || 'single';
+    const isSplitChanged =
+      editSplitMode !== oldSplitMode ||
+      (editSplitMode === 'single' && editPayerId && editPayerId !== editingInvoice.payerId) ||
+      (editSplitMode !== 'single' && JSON.stringify(editPayerSplits) !== JSON.stringify(editingInvoice.payerSplits || {}));
+
     // 1. ABSOLUTE ZERO-ACTION GUARD:
     // If user clicked 'עריכה' and saved with identical values (no field was modified):
-    if (!isAmountChanged && !isDateChanged && !isCategoryChanged && !isSupplierChanged) {
+    if (!isAmountChanged && !isDateChanged && !isCategoryChanged && !isSupplierChanged && !isSplitChanged) {
       // Zero changes occurred! DO NOT reset approvals, DO NOT write audit logs, DO NOT notify partners!
       setEditingInvoice(null);
       return;
+    }
+
+    let payerUpdates: any = {};
+    if (isSplitChanged || isAmountChanged) {
+      if (editSplitMode === 'single') {
+        const chosenPartner = allPartnerOptions.find(p => p.userId === editPayerId) || allPartnerOptions[0];
+        payerUpdates = {
+          payerId: chosenPartner?.userId || editingInvoice.payerId,
+          payerName: chosenPartner?.name || editingInvoice.payerName,
+          payerSplitMode: 'single',
+          payerSplits: null
+        };
+      } else if (editSplitMode === 'all_by_shares') {
+        payerUpdates = {
+          payerName: '🏦 כל השותפים יחד (חשבון משותף)',
+          payerSplitMode: 'all_by_shares',
+          payerSplits: editPayerSplits
+        };
+      } else if (editSplitMode === 'custom_split') {
+        const cleanSplits: Record<string, number> = {};
+        Object.entries(editPayerSplits || {}).forEach(([uid, val]) => {
+          const num = Number(val);
+          if (!isNaN(num) && num > 0) cleanSplits[uid] = Number(num.toFixed(2));
+        });
+        const splitLabels = Object.keys(cleanSplits).map(uid => {
+          const pName = allPartnerOptions.find(p => p.userId === uid)?.name || 'שותף';
+          const pct = newAmount > 0 ? Math.round((cleanSplits[uid] / Math.abs(newAmount)) * 100) : 0;
+          return `${pName} (${pct}%)`;
+        });
+        payerUpdates = {
+          payerName: `⚖️ פיצול: ${splitLabels.join(' + ')}`,
+          payerSplitMode: 'custom_split',
+          payerSplits: cleanSplits
+        };
+      }
     }
 
     // If new custom category, save to space customCategories
@@ -249,9 +321,9 @@ export function FinanceTransactions({
     const ocrExtractedAmount = editingInvoice.ocrData?.amount ? Number(editingInvoice.ocrData.amount) : null;
     const isContradictingOcr = isAmountChanged && ocrExtractedAmount !== null && !isNaN(ocrExtractedAmount) && Math.abs(newAmount - ocrExtractedAmount) >= 0.01;
 
-    // Financial integrity check: ONLY if the amount or date was ACTUALLY changed in a shared space, reset approvals!
-    if (isAmountChanged || isDateChanged) {
-      logReason = `שינוי פיננסי: ${isAmountChanged ? `סכום שונה מ-₪${oldAmount} ל-₪${newAmount}` : ''}${isDateChanged ? ` | תאריך שונה מ-${normOldDate} ל-${normEditDate}` : ''}`;
+    // Financial integrity check: ONLY if the amount, date, or payer split was ACTUALLY changed in a shared space, reset approvals!
+    if (isAmountChanged || isDateChanged || isSplitChanged) {
+      logReason = `שינוי פיננסי: ${isAmountChanged ? `סכום שונה מ-₪${oldAmount} ל-₪${newAmount}` : ''}${isDateChanged ? ` | תאריך שונה מ-${normOldDate} ל-${normEditDate}` : ''}${isSplitChanged ? ' | עודכן אופן חלוקת התשלום בין השותפים' : ''}`;
       if (isContradictingOcr) {
         logReason += ` [⚠️ סתירה מול סריקת OCR: ₪${ocrExtractedAmount}]`;
       }
@@ -280,6 +352,7 @@ export function FinanceTransactions({
         date: editForm.date,
         category: finalCategory,
         isOcrMismatched: isContradictingOcr,
+        ...payerUpdates,
         ...approvalUpdates
       },
       user?.realName || user?.id || 'me',
@@ -830,15 +903,18 @@ export function FinanceTransactions({
                                     }
                                     const standardCategories = ['כללי', 'רכבים ותחבורה', 'תקשורת', 'חומרים', 'הנהלת חשבונות', ...(space.settings?.customCategories || [])];
                                     const isStandard = standardCategories.includes(inv.category || '');
-                                    setEditForm({
-                                      amount: inv.amount !== null && inv.amount !== undefined ? String(inv.amount) : '',
-                                      supplier: inv.supplier || '',
-                                      date: d,
-                                      category: isStandard ? (inv.category || 'כללי') : (inv.category ? 'other' : 'כללי'),
-                                      customCategory: !isStandard && inv.category ? inv.category : ''
-                                    });
-                                  }
-                                }} style={{ flex: 1, padding: '0.75rem', background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border-light)', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
+                                      setEditForm({
+                                        amount: inv.amount !== null && inv.amount !== undefined ? String(inv.amount) : '',
+                                        supplier: inv.supplier || '',
+                                        date: d,
+                                        category: isStandard ? (inv.category || 'כללי') : (inv.category ? 'other' : 'כללי'),
+                                        customCategory: !isStandard && inv.category ? inv.category : ''
+                                      });
+                                      setEditPayerId(inv.payerId === 'me' ? (space?.creatorId || 'me') : (inv.payerId || space?.creatorId || 'me'));
+                                      setEditSplitMode(inv.payerSplitMode || (inv.payerSplits && Object.keys(inv.payerSplits).length > 0 ? 'custom_split' : 'single'));
+                                      setEditPayerSplits(inv.payerSplits || {});
+                                    }
+                                  }} style={{ flex: 1, padding: '0.75rem', background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border-light)', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
                                   ✏️ {editingInvoice?.id === inv.id ? 'סגור עריכה' : 'עריכה'}
                                 </button>
                                 {(() => {
@@ -972,6 +1048,20 @@ export function FinanceTransactions({
                             סכום (₪)
                             <input type="number" step="0.01" placeholder="0.00" value={editForm.amount} onChange={e => setEditForm({...editForm, amount: e.target.value})} style={{ padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'var(--bg-card)', color: 'var(--text-primary)' }} required />
                           </label>
+
+                          {allPartnerOptions.length > 1 && inv.type !== 'transfer' && inv.type !== 'income' && (
+                            <PayerSplitEditor
+                              totalAmount={Number(editForm.amount) || 0}
+                              allPartners={allPartnerOptions}
+                              selectedPayerId={editPayerId}
+                              onSelectSinglePayer={setEditPayerId}
+                              splitMode={editSplitMode}
+                              onChangeSplitMode={setEditSplitMode}
+                              payerSplits={editPayerSplits}
+                              onChangePayerSplits={setEditPayerSplits}
+                              label="מי שילם? (משלם יחיד / חשבון משותף / פיצול מותאם)"
+                            />
+                          )}
 
                           {(() => {
                             const ocrAmt = inv.ocrData?.amount ? Number(inv.ocrData.amount) : null;
