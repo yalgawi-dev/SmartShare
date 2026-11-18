@@ -982,45 +982,6 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
               )}
             </button>
           )}
-          {/* Dedicated Sharing Wall Screen Button (when space has Finance or Vault alongside FileShare) */}
-          {hasFileShare && (hasFinance || hasVault) && (
-            <button
-              type="button"
-              onClick={() => setFinanceTab(prev => prev === 'fileshare' ? (hasFinance ? 'summary' : 'shelves') : 'fileshare')}
-              style={{
-                background: financeTab === 'fileshare' ? 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)' : '#eff6ff',
-                color: financeTab === 'fileshare' ? '#ffffff' : '#1d4ed8',
-                border: financeTab === 'fileshare' ? 'none' : '1.5px solid #bfdbfe',
-                padding: '0.5rem 0.9rem',
-                borderRadius: '50px',
-                fontWeight: 800,
-                fontSize: '0.82rem',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.35rem',
-                boxShadow: financeTab === 'fileshare' ? '0 4px 12px rgba(37, 99, 235, 0.35)' : 'var(--shadow-sm)',
-                transition: 'all 0.2s ease',
-                flexShrink: 0
-              }}
-              title="פתח את קיר השיתוף המרוכז של המרחב"
-            >
-              <span>📤</span>
-              <span>{financeTab === 'fileshare' ? 'חזור למרחב' : 'קיר שיתוף'}</span>
-              {Array.isArray(space.fileShareItems) && space.fileShareItems.filter((i: any) => !i.deletedAt).length > 0 && (
-                <span style={{
-                  background: financeTab === 'fileshare' ? 'rgba(255,255,255,0.25)' : '#dbeafe',
-                  color: financeTab === 'fileshare' ? '#ffffff' : '#1e40af',
-                  padding: '0 6px',
-                  borderRadius: '10px',
-                  fontSize: '0.7rem',
-                  fontWeight: 800
-                }}>
-                  {space.fileShareItems.filter((i: any) => !i.deletedAt).length}
-                </span>
-              )}
-            </button>
-          )}
           <div style={{ position: 'relative' }}>
               <button onClick={() => {
                 if (myMember && myMember.canAddPlugins === false) {
@@ -1071,55 +1032,99 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
         onSavedToast={(msg) => showToast(msg)}
       />
 
-      {/* Project Title Row */}
-      <header style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem', width: '100%', minWidth: 0, flexWrap: 'wrap' }}>
-        <div 
-           onClick={() => {
-              if (!isRestricted) {
-                const newIcon = window.prompt('הזן אימוג׳י חדש:', space.icon);
-                if (newIcon) updateSpaceIcon(id, newIcon);
-              }
-           }}
-           title={!isRestricted ? "לחץ להחלפת אימוג׳י" : ""}
-           style={{ 
-            width: '42px', height: '42px', borderRadius: '10px', background: 'var(--bg-card)', 
-            boxShadow: 'var(--shadow-sm)', border: '1px solid var(--border-light)', 
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-            cursor: !isRestricted ? 'pointer' : 'default', fontSize: '1.5rem'
-          }}>
-            {space.logoUrl ? <img src={space.logoUrl} alt="Logo" style={{width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover'}} /> : (space.icon || space.title.charAt(0))}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, minWidth: 0, flexWrap: 'wrap' }}>
-          <h1 
-            onClick={() => {
-              if (!isRestricted) {
-                setEditTitleValue(space.title);
-                setEditingSpaceId(id);
-              }
-            }}
-            title={!isRestricted ? "לחץ לעריכת שם המרחב" : ""}
-            style={{ 
-              margin: 0, 
-              fontSize: '1.25rem', 
-              fontWeight: '800', 
-              color: 'var(--text-primary)', 
-              letterSpacing: '-0.01em', 
-              cursor: !isRestricted ? 'pointer' : 'default', 
-              display: 'inline-flex', 
-              alignItems: 'center', 
-              gap: '0.4rem',
-              minWidth: 0,
-              flexShrink: 1
-            }}>
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{space.title}</span>
-            <VersionBadge />
-            {!isRestricted && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.4, flexShrink: 0 }}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>}
-          </h1>
-          <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', whiteSpace: 'nowrap', flexShrink: 0 }}>
-            ({(space as any).createdAt ? new Date((space as any).createdAt).toLocaleDateString('he-IL') : new Date(space.id && !isNaN(Number(space.id)) ? Number(space.id) : Date.now()).toLocaleDateString('he-IL')})
-          </span>
-        </div>
-      </header>
+      {/* Project Title Row (Hidden when viewing dedicated Sharing Wall screen to avoid clutter) */}
+      {!(hasFileShare && (hasFinance || hasVault) && financeTab === 'fileshare') && (
+        <header style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', width: '100%', minWidth: 0, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0 }}>
+            <div 
+               onClick={() => {
+                  if (!isRestricted) {
+                    const newIcon = window.prompt('הזן אימוג׳י חדש:', space.icon);
+                    if (newIcon) updateSpaceIcon(id, newIcon);
+                  }
+               }}
+               title={!isRestricted ? "לחץ להחלפת אימוג׳י" : ""}
+               style={{ 
+                width: '42px', height: '42px', borderRadius: '10px', background: 'var(--bg-card)', 
+                boxShadow: 'var(--shadow-sm)', border: '1px solid var(--border-light)', 
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                cursor: !isRestricted ? 'pointer' : 'default', fontSize: '1.5rem'
+              }}>
+                {space.logoUrl ? <img src={space.logoUrl} alt="Logo" style={{width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover'}} /> : (space.icon || space.title.charAt(0))}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, minWidth: 0, flexWrap: 'wrap' }}>
+              <h1 
+                onClick={() => {
+                  if (!isRestricted) {
+                    setEditTitleValue(space.title);
+                    setEditingSpaceId(id);
+                  }
+                }}
+                title={!isRestricted ? "לחץ לעריכת שם המרחב" : ""}
+                style={{ 
+                  margin: 0, 
+                  fontSize: '1.25rem', 
+                  fontWeight: '800', 
+                  color: 'var(--text-primary)', 
+                  letterSpacing: '-0.01em', 
+                  cursor: !isRestricted ? 'pointer' : 'default', 
+                  display: 'inline-flex', 
+                  alignItems: 'center', 
+                  gap: '0.4rem',
+                  minWidth: 0,
+                  flexShrink: 1
+                }}>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{space.title}</span>
+                <VersionBadge />
+                {!isRestricted && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.4, flexShrink: 0 }}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>}
+              </h1>
+              <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                ({(space as any).createdAt ? new Date((space as any).createdAt).toLocaleDateString('he-IL') : new Date(space.id && !isNaN(Number(space.id)) ? Number(space.id) : Date.now()).toLocaleDateString('he-IL')})
+              </span>
+            </div>
+          </div>
+
+          {hasFileShare && (hasFinance || hasVault) && (
+            <button
+              type="button"
+              onClick={() => setFinanceTab('fileshare')}
+              style={{
+                background: '#ffffff',
+                color: '#334155',
+                border: '1px solid #cbd5e1',
+                padding: '0.4rem 0.85rem',
+                borderRadius: '12px',
+                fontWeight: 700,
+                fontSize: '0.8rem',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                boxShadow: 'var(--shadow-sm)',
+                transition: 'all 0.15s ease',
+                flexShrink: 0
+              }}
+              title="פתח את קיר השיתוף המרוכז של המרחב"
+            >
+              <span>📤</span>
+              <span>קיר שיתוף</span>
+              {Array.isArray(space.fileShareItems) && space.fileShareItems.filter((i: any) => !i.deletedAt).length > 0 && (
+                <span style={{
+                  background: '#eff6ff',
+                  color: '#2563eb',
+                  border: '1px solid #bfdbfe',
+                  padding: '0 6px',
+                  borderRadius: '8px',
+                  fontSize: '0.7rem',
+                  fontWeight: 800
+                }}>
+                  {space.fileShareItems.filter((i: any) => !i.deletedAt).length}
+                </span>
+              )}
+            </button>
+          )}
+        </header>
+      )}
       
       {/* Hidden file input for cover upload in case we need it elsewhere later */}
       <input type="file" accept="image/*" ref={fileInputRef} onChange={handleCoverUpload} style={{ display: 'none' }} />
@@ -1349,6 +1354,8 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
               hasScanner={hasScanner}
               activePartnersCount={activePartnersCount}
               onOpenScanner={() => handleRestrictedAction(() => { setScannerMode('camera'); setScannerCategory('document'); setIsScannerOpen(true); })}
+              onBackToSpace={hasFinance || hasVault ? () => setFinanceTab(hasFinance ? 'summary' : 'shelves') : undefined}
+              onOpenPartners={() => handleRestrictedAction(() => setShowPartnersModal(true))}
             />
           )}
 

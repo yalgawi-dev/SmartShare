@@ -489,7 +489,7 @@ export function FloatingActionBar({
               </div>
             )}
 
-            {hasPartners && (
+            {hasPartners && !(hasFileShare && (effectiveTab === 'fileshare' || (!hasFinance && (!hasVault || !isInShelf)))) && (
               <button 
                 onClick={hasActivePartners ? onOpenPartners : onOpenInvite}
                 style={{

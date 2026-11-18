@@ -750,66 +750,61 @@ const [isMounted, setIsMounted] = useState(false);
 
       
       {/* Header and Controls */}
-      <div style={{ padding: '1.5rem', paddingBottom: '0.5rem' }}>
+      <div style={{ padding: '1.25rem 1.5rem 0.75rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <div>
-              <h2 style={{ fontSize: '1.25rem', margin: 0, color: 'var(--text-primary)', fontWeight: '800', letterSpacing: '-0.02em' }}>
-                ניהול הוצאות <VersionBadge />
-              </h2>
-              
-            </div>
-          </div>
-          
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            {space.features?.includes('partners') && !isSharedOnly && (
-              <button 
-                onClick={() => handleRestrictedAction(() => onTriggerTransfer())}
-                style={{ background: 'var(--bg-main)', border: '1px solid var(--border-light)', borderRadius: '12px', padding: '0.4rem 0.6rem', fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.1rem', boxShadow: 'var(--shadow-sm)', minWidth: '4.5rem' }}
-                title="רישום העברה או קבלת הכנסה מהעסק"
-              >
-                <span style={{ fontSize: '1.2rem', lineHeight: '1' }}>💳</span> 
-                <span>תשלום</span>
-              </button>
-            )}
-            {space.features?.includes('partners') && (
-              <button 
-                onClick={() => {
-                  if (onOpenPartnersModal) {
-                    handleRestrictedAction(() => onOpenPartnersModal());
-                  } else {
-                    handleInviteClick();
-                  }
-                }}
-                style={{ background: 'var(--bg-main)', border: '1px solid var(--border-light)', borderRadius: '12px', padding: '0.4rem 0.6rem', fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.1rem', boxShadow: 'var(--shadow-sm)', minWidth: '4.5rem' }}
-                title="ניהול שותפים / הוספת שותף"
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', lineHeight: '1' }}>
-                  <span style={{ fontSize: '1.2rem' }}>👥</span>
-                  <span style={{ fontSize: '0.85rem', color: 'var(--primary)', fontWeight: 'bold' }}>{activePartnersCount}</span>
-                </div>
-                <span>שותפים</span>
-              </button>
-            )}
-              <button 
-                onClick={() => handleRestrictedAction(() => window.location.href = `/space/${space.id}/reports`)}
-                style={{ background: 'var(--bg-main)', border: '1px solid var(--border-light)', borderRadius: '12px', padding: '0.4rem 0.6rem', fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.1rem', boxShadow: 'var(--shadow-sm)', minWidth: '4.5rem' }}
-                title="מחולל דוחות מתקדם"
-              >
-                <span style={{ fontSize: '1.2rem', lineHeight: '1' }}>📊</span> 
-                <span>דוחות</span>
-              </button>
-            {onRemove && (
-              <button 
-                onClick={onRemove}
-                style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.25rem', color: 'var(--text-secondary)', padding: '0.5rem' }}
-                title="הסרת תצוגת הכלי"
-              >
-                ×
-              </button>
-            )}
-          </div>
+          <h2 style={{ fontSize: '1.25rem', margin: 0, color: 'var(--text-primary)', fontWeight: '800', letterSpacing: '-0.02em', display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span>ניהול הוצאות</span>
+            <VersionBadge />
+          </h2>
+          {onRemove && (
+            <button 
+              onClick={onRemove}
+              style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.25rem', color: 'var(--text-secondary)', padding: '0.25rem' }}
+              title="הסרת תצוגת הכלי"
+            >
+              ×
+            </button>
+          )}
+        </div>
+        
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+          {space.features?.includes('partners') && !isSharedOnly && (
+            <button 
+              onClick={() => handleRestrictedAction(() => onTriggerTransfer())}
+              style={{ flex: 1, background: 'var(--bg-main)', border: '1px solid var(--border-light)', borderRadius: '12px', padding: '0.45rem 0.6rem', fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.15rem', boxShadow: 'var(--shadow-sm)', minWidth: '4.5rem' }}
+              title="רישום העברה או קבלת הכנסה מהעסק"
+            >
+              <span style={{ fontSize: '1.2rem', lineHeight: '1' }}>💳</span> 
+              <span>תשלום</span>
+            </button>
+          )}
+          {space.features?.includes('partners') && (
+            <button 
+              onClick={() => {
+                if (onOpenPartnersModal) {
+                  handleRestrictedAction(() => onOpenPartnersModal());
+                } else {
+                  handleInviteClick();
+                }
+              }}
+              style={{ flex: 1, background: 'var(--bg-main)', border: '1px solid var(--border-light)', borderRadius: '12px', padding: '0.45rem 0.6rem', fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.15rem', boxShadow: 'var(--shadow-sm)', minWidth: '4.5rem' }}
+              title="ניהול שותפים / הוספת שותף"
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', lineHeight: '1' }}>
+                <span style={{ fontSize: '1.2rem' }}>👥</span>
+                <span style={{ fontSize: '0.85rem', color: 'var(--primary)', fontWeight: 'bold' }}>{activePartnersCount}</span>
+              </div>
+              <span>שותפים</span>
+            </button>
+          )}
+          <button 
+            onClick={() => handleRestrictedAction(() => window.location.href = `/space/${space.id}/reports`)}
+            style={{ flex: 1, background: 'var(--bg-main)', border: '1px solid var(--border-light)', borderRadius: '12px', padding: '0.45rem 0.6rem', fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.15rem', boxShadow: 'var(--shadow-sm)', minWidth: '4.5rem' }}
+            title="מחולל דוחות מתקדם"
+          >
+            <span style={{ fontSize: '1.2rem', lineHeight: '1' }}>📊</span> 
+            <span>דוחות</span>
+          </button>
         </div>
       </div>
 

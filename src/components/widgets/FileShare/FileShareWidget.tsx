@@ -25,6 +25,8 @@ interface FileShareWidgetProps {
   hasScanner?: boolean;
   activePartnersCount?: number;
   onOpenScanner?: () => void;
+  onBackToSpace?: () => void;
+  onOpenPartners?: () => void;
 }
 
 export function FileShareWidget({
@@ -32,7 +34,9 @@ export function FileShareWidget({
   hasPartners = false,
   hasScanner = false,
   activePartnersCount = 0,
-  onOpenScanner
+  onOpenScanner,
+  onBackToSpace,
+  onOpenPartners
 }: FileShareWidgetProps) {
   const { user } = useAuth();
   const { spaces, updateFileShareItems, getRoleForSpace, getTokenForSpace } = useSpaces();
@@ -907,23 +911,28 @@ export function FileShareWidget({
             </button>
           )}
 
-          <span style={{ fontSize: '0.74rem', background: 'var(--bg-card, #ffffff)', border: '1px solid var(--border-light)', padding: '3px 9px', borderRadius: '10px', color: 'var(--text-secondary)', fontWeight: 700 }}>
+          <span style={{ fontSize: '0.74rem', background: 'var(--bg-card, #ffffff)', border: '1px solid var(--border-light)', padding: '4px 9px', borderRadius: '10px', color: 'var(--text-secondary)', fontWeight: 700, whiteSpace: 'nowrap' }}>
             {folders.length} תיקיות • {files.length} קבצים
           </span>
-          {isCreator && (
+
+          {(hasPartners || isCreator) && (
             <button
               type="button"
               onClick={() => {
-                setInviteModalScopeFolder(currentFolderItem);
-                setShowInviteModal(true);
+                if (onOpenPartners && activePartnersCount > 0 && !currentFolderItem) {
+                  onOpenPartners();
+                } else {
+                  setInviteModalScopeFolder(currentFolderItem);
+                  setShowInviteModal(true);
+                }
               }}
               style={{
-                background: 'rgba(99, 102, 241, 0.08)',
-                color: 'var(--primary, #4f46e5)',
-                border: '1px solid rgba(99, 102, 241, 0.25)',
+                background: '#ffffff',
+                color: '#334155',
+                border: '1px solid #cbd5e1',
                 padding: '4px 10px',
                 borderRadius: '10px',
-                fontSize: '0.78rem',
+                fontSize: '0.76rem',
                 fontWeight: 700,
                 cursor: 'pointer',
                 display: 'flex',
@@ -931,10 +940,47 @@ export function FileShareWidget({
                 gap: '0.3rem',
                 whiteSpace: 'nowrap'
               }}
-              title="הזמן שותף למרחב או לתיקייה הנוכחית באמצעות תוסף השותפים"
+              title="ניהול שותפים / הזמנת שותף"
             >
               <span>👥</span>
-              <span>הזמן שותף</span>
+              <span>שותפים</span>
+              {activePartnersCount > 0 && (
+                <span style={{
+                  background: '#eff6ff',
+                  color: 'var(--primary, #4f46e5)',
+                  borderRadius: '999px',
+                  padding: '0 5px',
+                  fontSize: '0.68rem',
+                  fontWeight: 800
+                }}>
+                  {activePartnersCount}
+                </span>
+              )}
+            </button>
+          )}
+
+          {onBackToSpace && (
+            <button
+              type="button"
+              onClick={onBackToSpace}
+              style={{
+                background: '#ffffff',
+                color: '#334155',
+                border: '1px solid #cbd5e1',
+                padding: '4px 10px',
+                borderRadius: '10px',
+                fontSize: '0.76rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.3rem',
+                whiteSpace: 'nowrap'
+              }}
+              title="חזור למסך המרחב הראשי"
+            >
+              <span>↩️</span>
+              <span>חזור למרחב</span>
             </button>
           )}
 
