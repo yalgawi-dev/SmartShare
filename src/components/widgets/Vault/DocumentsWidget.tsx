@@ -2991,27 +2991,45 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                         📍 {linkedEvent.title}
                                       </span>
                                     )}
-                                    {doc.linkedDocIds && doc.linkedDocIds.length > 0 && (
-                                      <button
-                                        type="button"
-                                        onClick={(e) => { e.stopPropagation(); setViewLinkedDocsFor(doc); }}
-                                        style={{ fontSize: '0.66rem', color: '#047857', background: '#ecfdf5', border: '1px solid #a7f3d0', padding: '1px 5px', borderRadius: '4px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}
-                                        title="לחץ לצפייה בחשבוניות / מסמכים מקושרים"
-                                      >
-                                        💳 {doc.linkedDocIds.length} מקושרים
-                                      </button>
-                                    )}
-                                    {(() => {
-                                      const payingParents = activeDocuments.filter(d => d.linkedDocIds?.includes(doc.id));
-                                      if (payingParents.length === 0) return null;
+                                    {doc.linkedDocIds && doc.linkedDocIds.length > 0 && (() => {
+                                      const targetNums = (doc.linkedDocIds || [])
+                                        .map(targetId => {
+                                          const idx = filteredDocs.findIndex(d => d.id === targetId);
+                                          return idx >= 0 ? `#${idx + 1}` : null;
+                                        })
+                                        .filter(Boolean);
+                                      const numsLabel = targetNums.length > 0 ? targetNums.join(', ') : `${doc.linkedDocIds.length} מסמכים`;
+
                                       return (
                                         <button
                                           type="button"
-                                          onClick={(e) => { e.stopPropagation(); setViewLinkedDocsFor(payingParents[0]); }}
-                                          style={{ fontSize: '0.66rem', color: '#b45309', background: '#fef3c7', border: '1px solid #fde68a', padding: '1px 5px', borderRadius: '4px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}
-                                          title={`משולם ע"י / מקושר ל: ${payingParents.map(p => p.title).join(', ')}`}
+                                          onClick={(e) => { e.stopPropagation(); setViewLinkedDocsFor(doc); }}
+                                          style={{ fontSize: '0.66rem', color: '#1d4ed8', background: '#eff6ff', border: '1px solid #93c5fd', padding: '1px 5px', borderRadius: '4px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}
+                                          title={`לחץ לצפייה במסמכים מקושרים: ${numsLabel}`}
                                         >
-                                          ✅ משולם ע"י {payingParents[0].title.slice(0, 10)}...
+                                          🔗 מוצמד ל-{numsLabel}
+                                        </button>
+                                      );
+                                    })()}
+                                    {(() => {
+                                      const parentDocs = activeDocuments.filter(d => d.linkedDocIds?.includes(doc.id));
+                                      if (parentDocs.length === 0) return null;
+                                      const parentNums = parentDocs
+                                        .map(p => {
+                                          const idx = filteredDocs.findIndex(d => d.id === p.id);
+                                          return idx >= 0 ? `#${idx + 1}` : null;
+                                        })
+                                        .filter(Boolean);
+                                      const parentLabel = parentNums.length > 0 ? parentNums.join(', ') : parentDocs[0].title.slice(0, 10);
+
+                                      return (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => { e.stopPropagation(); setViewLinkedDocsFor(parentDocs[0]); }}
+                                          style={{ fontSize: '0.66rem', color: '#b45309', background: '#fef3c7', border: '1px solid #fde68a', padding: '1px 5px', borderRadius: '4px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}
+                                          title={`מוצמד מתוך מסמך: ${parentDocs.map(p => p.title).join(', ')}`}
+                                        >
+                                          📎 מוצמד מ-{parentLabel}
                                         </button>
                                       );
                                     })()}
@@ -3733,10 +3751,10 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                         }
                                       });
                                     }}
-                                    style={{ fontSize: '0.82rem', fontWeight: 800, color: '#1e293b', cursor: 'pointer', display: 'flex', alignItems: 'flex-start', gap: '5px', wordBreak: 'break-word', lineHeight: 1.25 }}
-                                    title="לחץ לשינוי שם"
+                                    style={{ fontSize: '0.82rem', fontWeight: 800, color: '#1e293b', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', minWidth: 0, lineHeight: 1.3 }}
+                                    title={`לחץ לשינוי שם: ${doc.title}`}
                                   >
-                                    <span style={{ flex: 1, minWidth: 0, wordBreak: 'break-word', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{doc.title}</span>
+                                    <span style={{ flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{doc.title}</span>
                                     {(() => {
                                       const isRawPdf = Boolean(doc.rawPdfUrl || doc.type === 'pdf' || (doc.url && doc.url.toLowerCase().includes('.pdf')));
                                       const isWebp = !isRawPdf && (doc.type === 'document' || doc.type === 'image' || (doc.url && doc.url.toLowerCase().includes('.webp')) || (doc.thumbnailUrl && doc.thumbnailUrl.toLowerCase().includes('.webp')));
@@ -3749,8 +3767,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                           background: isRawPdf ? '#fee2e2' : isWebp ? '#dbeafe' : '#f1f5f9',
                                           color: isRawPdf ? '#b91c1c' : isWebp ? '#1d4ed8' : '#334155',
                                           border: isRawPdf ? '1px solid #fca5a5' : isWebp ? '1px solid #bfdbfe' : '1px solid #cbd5e1',
-                                          flexShrink: 0,
-                                          marginTop: '1px'
+                                          flexShrink: 0
                                         }}>
                                           {isRawPdf ? 'PDF' : isWebp ? 'WEBP' : 'FILE'}
                                         </span>
@@ -3774,59 +3791,77 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                         👁️ נצפה לאחרונה
                                       </span>
                                     )}
-                                    {doc.linkedDocIds && doc.linkedDocIds.length > 0 && (
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          if (isMultiSelect) return;
-                                          e.stopPropagation();
-                                          setViewLinkedDocsFor(doc);
-                                        }}
-                                        style={{
-                                          background: '#ecfdf5',
-                                          color: '#047857',
-                                          border: '1px solid #a7f3d0',
-                                          padding: '1px 6px',
-                                          borderRadius: '4px',
-                                          fontWeight: 800,
-                                          fontSize: '0.62rem',
-                                          cursor: 'pointer',
-                                          display: 'inline-flex',
-                                          alignItems: 'center',
-                                          gap: '3px'
-                                        }}
-                                        title="לחץ לצפייה במסמכים / חשבוניות המקושרים"
-                                      >
-                                        💳 {doc.linkedDocIds.length} מקושרים
-                                      </button>
-                                    )}
-                                    {(() => {
-                                      const payingParents = activeDocuments.filter(d => d.linkedDocIds?.includes(doc.id));
-                                      if (payingParents.length === 0) return null;
+                                    {doc.linkedDocIds && doc.linkedDocIds.length > 0 && (() => {
+                                      const targetNums = (doc.linkedDocIds || [])
+                                        .map(targetId => {
+                                          const idx = filteredDocs.findIndex(d => d.id === targetId);
+                                          return idx >= 0 ? `#${idx + 1}` : null;
+                                        })
+                                        .filter(Boolean);
+                                      const numsLabel = targetNums.length > 0 ? targetNums.join(', ') : `${doc.linkedDocIds.length} מסמכים`;
+
                                       return (
                                         <button
                                           type="button"
                                           onClick={(e) => {
                                             if (isMultiSelect) return;
                                             e.stopPropagation();
-                                            setViewLinkedDocsFor(payingParents[0]);
+                                            setViewLinkedDocsFor(doc);
+                                          }}
+                                          style={{
+                                            background: '#eff6ff',
+                                            color: '#1d4ed8',
+                                            border: '1px solid #93c5fd',
+                                            padding: '1px 6px',
+                                            borderRadius: '5px',
+                                            fontWeight: 800,
+                                            fontSize: '0.64rem',
+                                            cursor: 'pointer',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '3px'
+                                          }}
+                                          title={`לחץ לצפייה במסמכים מקושרים: ${numsLabel}`}
+                                        >
+                                          🔗 מוצמד ל-{numsLabel}
+                                        </button>
+                                      );
+                                    })()}
+                                    {(() => {
+                                      const parentDocs = activeDocuments.filter(d => d.linkedDocIds?.includes(doc.id));
+                                      if (parentDocs.length === 0) return null;
+                                      const parentNums = parentDocs
+                                        .map(p => {
+                                          const idx = filteredDocs.findIndex(d => d.id === p.id);
+                                          return idx >= 0 ? `#${idx + 1}` : null;
+                                        })
+                                        .filter(Boolean);
+                                      const parentLabel = parentNums.length > 0 ? parentNums.join(', ') : parentDocs[0].title.slice(0, 8);
+
+                                      return (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            if (isMultiSelect) return;
+                                            e.stopPropagation();
+                                            setViewLinkedDocsFor(parentDocs[0]);
                                           }}
                                           style={{
                                             background: '#fef3c7',
                                             color: '#b45309',
                                             border: '1px solid #fde68a',
                                             padding: '1px 6px',
-                                            borderRadius: '4px',
+                                            borderRadius: '5px',
                                             fontWeight: 800,
-                                            fontSize: '0.62rem',
+                                            fontSize: '0.64rem',
                                             cursor: 'pointer',
                                             display: 'inline-flex',
                                             alignItems: 'center',
                                             gap: '3px'
                                           }}
-                                          title={`משולם ע"י / מקושר ל: ${payingParents.map(p => p.title).join(', ')}`}
+                                          title={`מוצמד מתוך מסמך: ${parentDocs.map(p => p.title).join(', ')}`}
                                         >
-                                          ✅ משולם ע"י {payingParents[0].title.slice(0, 8)}...
+                                          📎 מוצמד מ-{parentLabel}
                                         </button>
                                       );
                                     })()}

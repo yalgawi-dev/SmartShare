@@ -481,6 +481,11 @@ export const LinkedDocsPreviewModal: React.FC<LinkedDocsPreviewModalProps> = ({
 
   const linkedIds = parentDoc.linkedDocIds || [];
   const linkedDocs = allDocs.filter(d => linkedIds.includes(d.id) && !d.deletedAt);
+  // Total linked cluster: parent doc first, followed by all target linked docs
+  const docCluster = [parentDoc, ...linkedDocs];
+
+  const parentIdx = allDocs.findIndex(d => d.id === parentDoc.id);
+  const parentNum = parentIdx >= 0 ? `#${parentIdx + 1}` : (parentDoc.docNumber ? `#${parentDoc.docNumber}` : '#1');
 
   return (
     <div
@@ -513,17 +518,17 @@ export const LinkedDocsPreviewModal: React.FC<LinkedDocsPreviewModalProps> = ({
         }}
       >
         {/* Header */}
-        <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ padding: '1.1rem 1.4rem', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
             <div style={{ width: '38px', height: '38px', borderRadius: '12px', background: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.25rem' }}>
-              💳
+              🔗
             </div>
             <div>
-              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#0f172a' }}>
-                חשבוניות ומסמכים מקושרים
+              <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#0f172a' }}>
+                מסמכים מוצמדים ומקושרים
               </h3>
-              <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '2px' }}>
-                אישור: <span style={{ fontWeight: 700, color: '#1e293b' }}>{parentDoc.title}</span> ({linkedDocs.length} מקושרים)
+              <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '2px' }}>
+                צמד/קבוצת מסמכים מקושרים ({docCluster.length} מסמכים)
               </div>
             </div>
           </div>
@@ -537,73 +542,141 @@ export const LinkedDocsPreviewModal: React.FC<LinkedDocsPreviewModalProps> = ({
         </div>
 
         {/* Content list */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '1rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-          {linkedDocs.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '2.5rem 1rem', color: '#94a3b8' }}>
-              <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📎</div>
-              <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#475569' }}>אין חשבוניות מקושרות למסמך זה</div>
-              <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '4px' }}>לחץ על הכפתור למטה כדי לבחור חשבוניות לשיוך</div>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '1rem 1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          {/* SECTION 1: PARENT / PRIMARY DOC */}
+          <div>
+            <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#2563eb', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span>📌</span>
+              <span>מסמך ראשי / מקשר (המצמיד):</span>
             </div>
-          ) : (
-            linkedDocs.map((doc, idx) => (
-              <div
-                key={doc.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '0.75rem 1rem',
-                  borderRadius: '16px',
-                  background: '#f8fafc',
-                  border: '1px solid #e2e8f0',
-                  gap: '0.75rem'
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', minWidth: 0 }}>
-                  <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: '#e0f2fe', color: '#0369a1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem', fontWeight: 800 }}>
-                    #{doc.docNumber || idx + 1}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '0.75rem 1rem',
+                borderRadius: '16px',
+                background: '#eff6ff',
+                border: '1.5px solid #93c5fd',
+                gap: '0.75rem'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', minWidth: 0 }}>
+                <div style={{ width: '34px', height: '34px', borderRadius: '10px', background: '#2563eb', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.92rem', fontWeight: 800, flexShrink: 0 }}>
+                  {parentNum}
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#1e3a8a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {parentDoc.title}
                   </div>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {doc.title}
-                    </div>
-                    <div style={{ fontSize: '0.72rem', color: '#64748b', display: 'flex', gap: '0.5rem', marginTop: '2px' }}>
-                      <span>📅 {new Date(doc.createdAt).toLocaleDateString('he-IL')}</span>
-                      {doc.fileSize && <span>⚖️ {formatFileSize(doc.fileSize)}</span>}
-                    </div>
+                  <div style={{ fontSize: '0.72rem', color: '#64748b', display: 'flex', gap: '0.5rem', marginTop: '2px' }}>
+                    <span>📅 {new Date(parentDoc.createdAt).toLocaleDateString('he-IL')}</span>
+                    {parentDoc.fileSize && <span>⚖️ {formatFileSize(parentDoc.fileSize)}</span>}
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => onOpenDoc(doc, linkedDocs)}
+              </div>
+              <button
+                type="button"
+                onClick={() => onOpenDoc(parentDoc, docCluster)}
+                style={{
+                  padding: '0.45rem 0.85rem',
+                  background: '#2563eb',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '10px',
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  boxShadow: '0 2px 8px rgba(37, 99, 235, 0.25)'
+                }}
+              >
+                👁️ הצג מסמך
+              </button>
+            </div>
+          </div>
+
+          {/* CONNECTOR DIVIDER */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0.1rem 0.5rem' }}>
+            <div style={{ flex: 1, height: '1px', background: '#e2e8f0' }} />
+            <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#64748b', background: '#f8fafc', padding: '2px 8px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+              🔗 מסמכים מוצמדים אליו ({linkedDocs.length})
+            </span>
+            <div style={{ flex: 1, height: '1px', background: '#e2e8f0' }} />
+          </div>
+
+          {/* SECTION 2: LINKED TARGET DOCS */}
+          {linkedDocs.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '1.8rem 1rem', color: '#94a3b8', background: '#f8fafc', borderRadius: '16px', border: '1px dashed #cbd5e1' }}>
+              <div style={{ fontSize: '1.8rem', marginBottom: '0.3rem' }}>📎</div>
+              <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#475569' }}>אין מסמכים מוצמדים כעת</div>
+              <div style={{ fontSize: '0.76rem', color: '#64748b', marginTop: '4px' }}>לחץ על הכפתור למטה כדי להצמיד מסמכים</div>
+            </div>
+          ) : (
+            linkedDocs.map((doc) => {
+              const docIdx = allDocs.findIndex(d => d.id === doc.id);
+              const docNum = docIdx >= 0 ? `#${docIdx + 1}` : (doc.docNumber ? `#${doc.docNumber}` : '#');
+
+              return (
+                <div
+                  key={doc.id}
                   style={{
-                    padding: '0.45rem 0.85rem',
-                    background: '#2563eb',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '10px',
-                    fontSize: '0.78rem',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                    boxShadow: '0 2px 8px rgba(37, 99, 235, 0.25)'
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '0.75rem 1rem',
+                    borderRadius: '16px',
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    gap: '0.75rem'
                   }}
                 >
-                  👁️ הצג מסמך
-                </button>
-              </div>
-            ))
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', minWidth: 0 }}>
+                    <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: '#e0f2fe', color: '#0369a1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem', fontWeight: 800, flexShrink: 0 }}>
+                      {docNum}
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {doc.title}
+                      </div>
+                      <div style={{ fontSize: '0.72rem', color: '#64748b', display: 'flex', gap: '0.5rem', marginTop: '2px' }}>
+                        <span>📅 {new Date(doc.createdAt).toLocaleDateString('he-IL')}</span>
+                        {doc.fileSize && <span>⚖️ {formatFileSize(doc.fileSize)}</span>}
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onOpenDoc(doc, docCluster)}
+                    style={{
+                      padding: '0.45rem 0.85rem',
+                      background: '#0284c7',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '10px',
+                      fontSize: '0.78rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      boxShadow: '0 2px 8px rgba(2, 132, 199, 0.25)'
+                    }}
+                  >
+                    👁️ הצג מסמך
+                  </button>
+                </div>
+              );
+            })
           )}
         </div>
 
         {/* Footer */}
-        <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid #f1f5f9', display: 'flex', gap: '0.75rem', background: '#ffffff' }}>
+        <div style={{ padding: '0.9rem 1.4rem', borderTop: '1px solid #f1f5f9', display: 'flex', gap: '0.75rem', background: '#ffffff' }}>
           <button
             type="button"
             onClick={() => onEditLinks(parentDoc)}
             style={{
               flex: 1,
-              padding: '0.75rem',
+              padding: '0.7rem',
               background: '#f8fafc',
               color: '#0f172a',
               border: '1.5px solid #cbd5e1',
@@ -613,13 +686,13 @@ export const LinkedDocsPreviewModal: React.FC<LinkedDocsPreviewModalProps> = ({
               cursor: 'pointer'
             }}
           >
-            ✏️ ערוך שיוך חשבוניות
+            ✏️ ערוך הצמדת מסמכים
           </button>
           <button
             type="button"
             onClick={onClose}
             style={{
-              padding: '0.75rem 1.5rem',
+              padding: '0.7rem 1.4rem',
               background: '#2563eb',
               color: 'white',
               border: 'none',
