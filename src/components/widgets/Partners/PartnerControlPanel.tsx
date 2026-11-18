@@ -7,6 +7,7 @@ import { useSpaces } from '../../../app/context/SpacesContext';
 import { useAuth } from '../../../app/context/AuthContext';
 import { resolveUserSpaceIdentity, buildInviteReminderMessage } from '../../../utils/partnerUtils';
 import ConfirmModal from '../../common/ConfirmModal';
+import { APP_VERSION } from '@/constants/version';
 
 class ErrorBoundary extends React.Component<any, { hasError: boolean, error: any }> {
   constructor(props: any) { super(props); this.state = { hasError: false, error: null }; }
@@ -69,7 +70,9 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
     declinePendingInvite,
     togglePendingInviteRetroactive,
     toggleMemberRetroactive,
-    updateFileShareItems
+    updateFileShareItems,
+    updateShelf,
+    updateDocumentFolder
   } = useSpaces() as any;
   const { user } = useAuth();
 
@@ -274,7 +277,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
                       : (viewMode === 'creator' || viewMode === 'peer' ? `מרכז פעולות - ${memberName}` : `מרכז פעולות - ${space.createdBy || 'מנהל המרחב'}`))
                   }
                 </h3>
-                <span style={{ fontSize: '0.65rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '8px', fontWeight: 'bold' }}>v3.5.52</span>
+                <span style={{ fontSize: '0.65rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '8px', fontWeight: 'bold' }}>{APP_VERSION}</span>
                 
                 {!isGroup && <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: (() => {
                   if (isInvite) return '#f59e0b';
@@ -1001,22 +1004,203 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
               }
 
               const fileShareFolders = (space.fileShareItems || []).filter((i: any) => i.type === 'folder' && !i.deletedAt);
-              if (fileShareFolders.length === 0) {
+              const vaultShelves = (space.shelves || []).filter((s: any) => !s.deletedAt);
+              const vaultFolders = (space.documentFolders || []).filter((f: any) => !f.deletedAt);
+
+              if (fileShareFolders.length === 0 && vaultShelves.length === 0 && vaultFolders.length === 0) {
                 return (
                   <div style={{ padding: '1.5rem', textAlign: 'center', background: '#f8fafc', borderRadius: '14px', border: '1px dashed #cbd5e1' }}>
                     <span style={{ fontSize: '1.5rem' }}>📂</span>
                     <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.85rem', color: '#64748b' }}>
-                      לא קיימות תיקיות במרחב זה. ניתן להוסיף תיקיות במרחב הקבצים.
+                      לא קיימות תיקיות במרחב זה. ניתן להוסיף נושאים ותיקיות במחסן המסמכים או בקיר השיתוף.
                     </p>
                   </div>
                 );
               }
 
               const partnerId = member.userId;
+              const allActivePartnerIds = Array.from(
+                new Set([
+                  ...(space.members || []).filter((m: any) => m.isActive !== false && m.status !== 'removed' && m.userId && m.userId !== space.creatorId).map((m: any) => m.userId),
+                  ...(space.pendingInvites || []).filter((inv: any) => inv?.token).map((inv: any) => inv.token)
+                ])
+              );
+
+              // Helper: check if this partner currently has access to a Vault Shelf or DocumentFolder
+              // Rule 20: empty allowedPartners means public to everyone (🌐)!
+              const checkHasVaultAccess = (allowedPartners?: string[]) => {
+                const raw = Array.isArray(allowedPartners) ? allowedPartners : [];
+                if (raw.includes('__only_me__') || raw.includes('__creator_vault_secret__')) return false;
+                const clean = raw.filter(id => id && id.trim() !== '' && id !== space.creatorId);
+                if (clean.length === 0) return true; // Open to everyone (🌐)
+                return clean.includes(partnerId);
+              };
+
+              const isVaultItemPublic = (allowedPartners?: string[]) => {
+                const raw = Array.isArray(allowedPartners) ? allowedPartners : [];
+                if (raw.includes('__only_me__') || raw.includes('__creator_vault_secret__')) return false;
+                const clean = raw.filter(id => id && id.trim() !== '' && id !== space.creatorId);
+                return clean.length === 0;
+              };
+
+              const toggleVaultItemAccess = (
+                itemType: 'shelf' | 'folder',
+                itemId: string,
+                currentAllowedPartners?: string[]
+              ) => {
+                const currentlyHasAccess = checkHasVaultAccess(currentAllowedPartners);
+                const raw = Array.isArray(currentAllowedPartners) ? currentAllowedPartners : [];
+                const clean = raw.filter(id => id && id.trim() !== '' && id !== space.creatorId && id !== '__only_me__' && id !== '__creator_vault_secret__');
+
+                let nextAllowed: string[];
+                if (currentlyHasAccess) {
+                  // Revoking access for this partner:
+                  if (clean.length === 0) {
+                    // Was public to everyone: allow all OTHER partners, excluding this partner (or mark manager-only if no other partners exist)
+                    const others = allActivePartnerIds.filter(id => id !== partnerId);
+                    nextAllowed = others.length > 0 ? others : ['__creator_vault_secret__'];
+                  } else {
+                    const remaining = clean.filter(id => id !== partnerId);
+                    nextAllowed = remaining.length > 0 ? remaining : ['__creator_vault_secret__'];
+                  }
+                } else {
+                  // Granting access for this partner:
+                  const combined = Array.from(new Set([...clean, partnerId]));
+                  // If all active partners now have access, reset to [] (public to everyone 🌐)
+                  const allHaveAccess = allActivePartnerIds.every(id => combined.includes(id));
+                  nextAllowed = allHaveAccess ? [] : combined;
+                }
+
+                if (itemType === 'shelf' && typeof updateShelf === 'function') {
+                  updateShelf(space.id, itemId, { allowedPartners: nextAllowed });
+                } else if (itemType === 'folder' && typeof updateDocumentFolder === 'function') {
+                  updateDocumentFolder(space.id, itemId, { allowedPartners: nextAllowed });
+                }
+              };
 
               return (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  {fileShareFolders.map((folder: any) => {
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {/* SECTION 1: VAULT SHELVES & DOCUMENT FOLDERS (מחסן מסמכים - נושאים ותיקיות) */}
+                  {(vaultShelves.length > 0 || vaultFolders.length > 0) && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                      <div style={{ fontSize: '0.8rem', fontWeight: 800, color: '#334155', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f1f5f9', padding: '0.45rem 0.75rem', borderRadius: '10px' }}>
+                        <span>🗂️ נושאים ותיקיות במחסן המסמכים ({vaultFolders.length} תיקיות)</span>
+                        <span style={{ fontSize: '0.68rem', color: '#0369a1', fontWeight: 700 }}>🌐 ברירת מחדל: פתוח</span>
+                      </div>
+
+                      {vaultShelves.map((shelf: any) => {
+                        const shelfFolders = vaultFolders.filter((f: any) => f.shelfId === shelf.id);
+                        const shelfHasAccess = checkHasVaultAccess(shelf.allowedPartners);
+                        const shelfIsPublic = isVaultItemPublic(shelf.allowedPartners);
+
+                        // Recursive renderer for nested Vault folders inside this shelf
+                        const renderVaultFolderTree = (parentId: string | null, depth: number): React.ReactNode => {
+                          const children = shelfFolders.filter((f: any) => (f.parentId || null) === parentId);
+                          if (children.length === 0) return null;
+
+                          return children.map((vFolder: any) => {
+                            const fHasAccess = checkHasVaultAccess(vFolder.allowedPartners);
+                            const fIsPublic = isVaultItemPublic(vFolder.allowedPartners);
+
+                            return (
+                              <div key={vFolder.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginRight: `${depth * 14}px` }}>
+                                <div
+                                  style={{
+                                    background: fHasAccess ? '#eff6ff' : '#fef2f2',
+                                    border: fHasAccess ? '1.5px solid #93c5fd' : '1px solid #fecaca',
+                                    borderRadius: '12px',
+                                    padding: '0.55rem 0.75rem',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    gap: '0.5rem'
+                                  }}
+                                >
+                                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontWeight: 700, fontSize: '0.84rem', color: '#1e293b', minWidth: 0, flex: 1 }}>
+                                    <input
+                                      type="checkbox"
+                                      checked={fHasAccess}
+                                      onChange={() => toggleVaultItemAccess('folder', vFolder.id, vFolder.allowedPartners)}
+                                      style={{ width: '17px', height: '17px', accentColor: '#2563eb', cursor: 'pointer', flexShrink: 0 }}
+                                    />
+                                    <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                      {depth > 0 ? '↳ ' : ''}📁 {vFolder.name}
+                                    </span>
+                                  </label>
+
+                                  <span
+                                    style={{
+                                      fontSize: '0.68rem',
+                                      fontWeight: 800,
+                                      padding: '2px 7px',
+                                      borderRadius: '6px',
+                                      background: fHasAccess ? (fIsPublic ? '#dbeafe' : '#dcfce7') : '#fee2e2',
+                                      color: fHasAccess ? (fIsPublic ? '#1d4ed8' : '#15803d') : '#b91c1c',
+                                      whiteSpace: 'nowrap',
+                                      flexShrink: 0
+                                    }}
+                                  >
+                                    {fHasAccess ? (fIsPublic ? '🌐 פתוח לכולם' : '✓ מורשה אישית') : '🔒 חסום לשותף'}
+                                  </span>
+                                </div>
+                                {renderVaultFolderTree(vFolder.id, depth + 1)}
+                              </div>
+                            );
+                          });
+                        };
+
+                        return (
+                          <div
+                            key={shelf.id}
+                            style={{
+                              border: '1px solid #cbd5e1',
+                              borderRadius: '14px',
+                              padding: '0.7rem',
+                              background: '#ffffff',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '0.45rem'
+                            }}
+                          >
+                            {/* Shelf Header Row */}
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: shelfFolders.length > 0 ? '0.4rem' : '0', borderBottom: shelfFolders.length > 0 ? '1px dashed #e2e8f0' : 'none' }}>
+                              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontWeight: 800, fontSize: '0.88rem', color: '#0f172a' }}>
+                                <input
+                                  type="checkbox"
+                                  checked={shelfHasAccess}
+                                  onChange={() => toggleVaultItemAccess('shelf', shelf.id, shelf.allowedPartners)}
+                                  style={{ width: '18px', height: '18px', accentColor: '#059669', cursor: 'pointer' }}
+                                />
+                                <span>{shelf.icon || '🗂️'} נושא: {shelf.name}</span>
+                              </label>
+                              <span style={{ fontSize: '0.68rem', fontWeight: 800, color: shelfHasAccess ? '#059669' : '#dc2626', background: shelfHasAccess ? '#ecfdf5' : '#fef2f2', padding: '2px 7px', borderRadius: '6px' }}>
+                                {shelfHasAccess ? (shelfIsPublic ? '🌐 פתוח לכולם' : '✓ מורשה') : '🔒 נושא חסום'}
+                              </span>
+                            </div>
+
+                            {/* Folders inside this Shelf */}
+                            {shelfFolders.length > 0 ? (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', paddingRight: '0.35rem' }}>
+                                {renderVaultFolderTree(null, 0)}
+                              </div>
+                            ) : (
+                              <div style={{ fontSize: '0.74rem', color: '#94a3b8', paddingRight: '1.6rem' }}>
+                                אין תתי-תיקיות בנושא זה (ההרשאה חלה על מסמכי הנושא)
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* SECTION 2: FILESHARE WALL FOLDERS (קיר שיתוף קבצים) */}
+                  {fileShareFolders.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                      <div style={{ fontSize: '0.8rem', fontWeight: 800, color: '#334155', background: '#f1f5f9', padding: '0.45rem 0.75rem', borderRadius: '10px' }}>
+                        📤 תיקיות בקיר שיתוף קבצים ({fileShareFolders.length})
+                      </div>
+                      {fileShareFolders.map((folder: any) => {
                     const allowed = Array.isArray(folder.allowedPartners) ? folder.allowedPartners : [];
                     const isChecked = allowed.includes(partnerId);
                     const folderPartners = Array.isArray(folder.folderPartners) ? folder.folderPartners : [];
@@ -1168,6 +1352,8 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
                       </div>
                     );
                   })}
+                    </div>
+                  )}
                 </div>
               );
             })()}
