@@ -218,7 +218,7 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
       }
     };
 
-    // Helper: Compute Paper Luminance & Uniformity
+    // Helper:Compute Paper vs Outside Background Contrast & Uniformity
     const getPaperUniformityScore = (quad: Point[]): number => {
       try {
         let mask = new cv.Mat.zeros(gray.rows, gray.cols, cv.CV_8UC1);
@@ -239,14 +239,29 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
         let meanLum = meanStd.doubleAt(0, 0);
         let stdDev = stdDevMat.doubleAt(0, 0);
 
-        mask.delete(); ptsVector.delete(); matPts.delete(); meanStd.delete(); stdDevMat.delete();
+        // Compute outside background mean luminance to strongly reward bright paper on dark background!
+        let invMask = new cv.Mat();
+        cv.bitwise_not(mask, invMask);
+        let outMeanStd = new cv.Mat();
+        let outStdDevMat = new cv.Mat();
+        cv.meanStdDev(gray, outMeanStd, outStdDevMat, invMask);
+        let outMeanLum = outMeanStd.doubleAt(0, 0);
 
-        // Paper luminance & uniformity:
-        // Even in indoor lighting (where paper is ~110-150), paper is lighter and more uniform than background textures
-        if (meanLum >= 130 && stdDev <= 60) return 2.2;
-        if (meanLum >= 95 && stdDev <= 65) return 1.5;
-        if (meanLum < 70) return 0.3; // Only penalize extremely dark surfaces (black chairs/shadows)
-        return 1.0;
+        mask.delete(); invMask.delete(); ptsVector.delete(); matPts.delete();
+        meanStd.delete(); stdDevMat.delete(); outMeanStd.delete(); outStdDevMat.delete();
+
+        const lumDiff = meanLum - outMeanLum; // Positive when paper is brighter than dark desk/background
+
+        // Strong boost when inside quad is bright paper and outside is significantly darker!
+        let contrastMultiplier = 1.0;
+        if (lumDiff > 35) contrastMultiplier = 2.6;
+        else if (lumDiff > 18) contrastMultiplier = 1.8;
+        else if (lumDiff < -15) contrastMultiplier = 0.25; // Quad is darker than outside -> not a white paper!
+
+        if (meanLum >= 130 && stdDev <= 60) return 2.2 * contrastMultiplier;
+        if (meanLum >= 95 && stdDev <= 65) return 1.5 * contrastMultiplier;
+        if (meanLum < 70) return 0.2;
+        return 1.0 * contrastMultiplier;
       } catch (e) {
         return 1.0;
       }
@@ -411,16 +426,25 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
 
     adaptContours.delete(); adaptHierarchy.delete(); adaptClosed.delete(); M2b.delete(); adaptMat.delete(); adaptBlurred.delete();
 
-    // --- PASS 3: HSV Saturation Paper Boundary Pass ---
+    // --- PASS 3: HSV Saturation + Value Paper Boundary Pass ---
+    // Note: Dark gray/black desks also have low saturation (S < 25)!
+    // A true paper mask must have BOTH low saturation (S <= 45) AND bright value (V >= 115).
     let hsv = new cv.Mat();
     cv.cvtColor(src, hsv, cv.COLOR_RGBA2RGB);
     cv.cvtColor(hsv, hsv, cv.COLOR_RGB2HSV);
     let hsvPlanes = new cv.MatVector();
     cv.split(hsv, hsvPlanes);
     let satChannel = hsvPlanes.get(1);
+    let valChannel = hsvPlanes.get(2);
+
+    let lowSatMask = new cv.Mat();
+    cv.threshold(satChannel, lowSatMask, 45, 255, cv.THRESH_BINARY_INV);
+
+    let highValMask = new cv.Mat();
+    cv.threshold(valChannel, highValMask, 115, 255, cv.THRESH_BINARY);
 
     let paperMask = new cv.Mat();
-    cv.threshold(satChannel, paperMask, 25, 255, cv.THRESH_BINARY_INV);
+    cv.bitwise_and(lowSatMask, highValMask, paperMask);
 
     let satClosed = new cv.Mat();
     let M3 = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(5, 5));
@@ -431,11 +455,12 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
     cv.findContours(satClosed, satContours, satHierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
 
     for (let i = 0; i < satContours.size(); i++) {
-      collectContourCandidate(satContours.get(i), 1.6);
+      collectContourCandidate(satContours.get(i), 1.8);
     }
 
-    satContours.delete(); satHierarchy.delete(); satClosed.delete(); M3.delete(); paperMask.delete();
-    satChannel.delete(); hsvPlanes.delete(); hsv.delete();
+    satContours.delete(); satHierarchy.delete(); satClosed.delete(); M3.delete();
+    lowSatMask.delete(); highValMask.delete(); paperMask.delete();
+    satChannel.delete(); valChannel.delete(); hsvPlanes.delete(); hsv.delete();
 
     // --- STAGE 2: Advanced Multi-Factor Scoring (v17.7) ---
     let scoredCandidates: { pts: Point[]; score: number }[] = [];
@@ -472,12 +497,24 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
         coverageBonus = 1.2;
       }
 
-      // 6. Close-up vs Far-distance Handling:
-      // Only penalize quads that touch the absolute camera frame edge (> 96% screen area).
-      // Close-up captures (70%-94% screen area) are fully supported with zero penalty!
+      // 6. Close-up vs Frame-Border Penalty:
+      // Penalize quads whose corners hug the outer image border (which means it grabbed the background table/frame instead of the paper!)
+      const frameW = canvas.width;
+      const frameH = canvas.height;
+      const borderMarginX = frameW * 0.015;
+      const borderMarginY = frameH * 0.015;
+      let cornersOnFrameBorder = 0;
+      for (const pt of quad) {
+        if (pt.x <= borderMarginX || pt.x >= frameW - borderMarginX || pt.y <= borderMarginY || pt.y >= frameH - borderMarginY) {
+          cornersOnFrameBorder++;
+        }
+      }
+
       let areaPenalty = 1.0;
-      if (candidate.area > imgArea * 0.96) {
-        areaPenalty = 0.1; // Only penalize the entire viewport rectangle itself
+      if (candidate.area > imgArea * 0.94 || cornersOnFrameBorder >= 3) {
+        areaPenalty = 0.08; // Heavily penalize the outer camera viewport / background rectangle
+      } else if (cornersOnFrameBorder === 2 && candidate.area > imgArea * 0.88) {
+        areaPenalty = 0.25;
       }
 
       let score = (candidate.solidity * 2.0) * candidate.weightFactor * centerWeight * boundaryScore * paperUniformity * truncationPenalty * coverageBonus * areaPenalty;

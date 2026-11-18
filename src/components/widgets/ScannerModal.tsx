@@ -472,7 +472,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
           const p1 = detectedPts[0], p2 = detectedPts[1], p3 = detectedPts[2], p4 = detectedPts[3];
           const polyArea = 0.5 * Math.abs(
             (p1.x * p2.y - p2.x * p1.y) +
-            (p2.x * p3.y - p3.x * p1.y) +
+            (p2.x * p3.y - p3.x * p2.y) +
             (p3.x * p4.y - p4.x * p3.y) +
             (p4.x * p1.y - p1.x * p4.y)
           );
@@ -702,7 +702,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         const p1 = detectedPts[0], p2 = detectedPts[1], p3 = detectedPts[2], p4 = detectedPts[3];
         const polyArea = 0.5 * Math.abs(
           (p1.x * p2.y - p2.x * p1.y) +
-          (p2.x * p3.y - p3.x * p1.y) +
+          (p2.x * p3.y - p3.x * p2.y) +
           (p3.x * p4.y - p4.x * p3.y) +
           (p4.x * p1.y - p1.x * p4.y)
         );
