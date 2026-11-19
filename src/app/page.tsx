@@ -795,9 +795,50 @@ export default function Dashboard() {
                     const totalUnread = (space.members || []).reduce((acc: number, m: any) => acc + ((m.messages || []).filter((msg: any) => msg.from === 'partner' && !msg.readAt).length), 0);
                     const hasExtension = (space.members || []).some((m: any) => m.status === 'extension_requested');
                     const count = totalUnread + (hasExtension ? 1 : 0);
-                    return count > 0 ? (
-                      <span style={{ background: '#ef4444', color: 'white', borderRadius: '12px', padding: '0.1rem 0.5rem', fontSize: '0.7rem', fontWeight: 'bold' }}>{count} עדכונים</span>
-                    ) : null;
+                    
+                    // Unread documents count (added by others within 14 days and not read yet)
+                    let unreadDocsCount = 0;
+                    if (space.features?.includes('documents') && Array.isArray(space.documents)) {
+                      const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
+                      const now = Date.now();
+                      unreadDocsCount = space.documents.filter((d: any) => {
+                        if (!d || d.isActive === false) return false;
+                        if (d.addedBy === user?.id) return false;
+                        if (user?.id && Array.isArray(d.readBy) && d.readBy.includes(user.id)) return false;
+                        const docTime = new Date(d.createdAt).getTime();
+                        return !isNaN(docTime) && (now - docTime < FOURTEEN_DAYS_MS);
+                      }).length;
+                    }
+
+                    return (
+                      <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
+                        {count > 0 && (
+                          <span style={{ background: '#ef4444', color: 'white', borderRadius: '12px', padding: '0.1rem 0.5rem', fontSize: '0.7rem', fontWeight: 'bold' }}>
+                            {count} עדכונים
+                          </span>
+                        )}
+                        {unreadDocsCount > 0 && (
+                          <span 
+                            style={{ 
+                              background: '#2563eb', 
+                              color: 'white', 
+                              borderRadius: '12px', 
+                              padding: '0.1rem 0.55rem', 
+                              fontSize: '0.7rem', 
+                              fontWeight: 800,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '3px',
+                              boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)'
+                            }}
+                            title="מסמכים חדשים שהועלו למרחב"
+                          >
+                            <span>📄</span>
+                            <span>{unreadDocsCount} {unreadDocsCount === 1 ? 'מסמך חדש' : 'מסמכים חדשים'}</span>
+                          </span>
+                        )}
+                      </div>
+                    );
                   })()}
                 </div>
               </div>

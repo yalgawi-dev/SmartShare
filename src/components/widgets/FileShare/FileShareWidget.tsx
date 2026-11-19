@@ -1382,41 +1382,82 @@ export function FileShareWidget({
         {/* EMPTY STATE */}
         {folders.length === 0 && files.length === 0 && !isUploading && (
           <div style={{
-            background: 'var(--bg-card, #ffffff)',
-            borderRadius: '18px',
-            border: '2px dashed var(--border-light)',
-            padding: '2.5rem 1rem',
+            background: 'linear-gradient(180deg, var(--bg-card, #ffffff) 0%, rgba(248, 250, 252, 0.85) 100%)',
+            borderRadius: '20px',
+            border: '2px dashed var(--border-light, #cbd5e1)',
+            padding: '2.5rem 1.25rem',
             textAlign: 'center',
-            color: 'var(--text-secondary)'
+            color: 'var(--text-secondary)',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.03)'
           }}>
-            <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>📂</div>
-            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-              התיקייה ריקה
+            <div style={{
+              width: '64px',
+              height: '64px',
+              borderRadius: '50%',
+              background: '#eff6ff',
+              border: '2px solid #dbeafe',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '2rem',
+              margin: '0 auto 1rem auto',
+              boxShadow: '0 4px 12px rgba(59, 130, 246, 0.12)'
+            }}>
+              📂
+            </div>
+
+            <h3 style={{ margin: '0 0 0.4rem 0', fontSize: '1.1rem', fontWeight: 900, color: 'var(--text-primary)' }}>
+              מרכז שיתוף הקבצים ריק כרגע
             </h3>
-            <p style={{ margin: '0.35rem 0 1rem 0', fontSize: '0.8rem' }}>
-              העלה קבצים מהמכשיר, צור תיקייה או ייבא ישירות קבצים ממרחבים אחרים (ללא שכפול נפח).
+
+            <p style={{ margin: '0 auto 1.25rem auto', maxWidth: '380px', fontSize: '0.85rem', lineHeight: '1.5', color: '#64748b' }}>
+              כאן אתה יכול לרכז מסמכים, תיקיות וקבצים שתרצה לשתף בצורה מאובטחת מקיר אחד – עם שותפי המרחב או באמצעות קישורים חיצוניים.
             </p>
-            <button
-              type="button"
-              onClick={() => setShowImportModal(true)}
-              style={{
-                background: 'rgba(99, 102, 241, 0.08)',
-                color: 'var(--primary)',
-                border: '1.5px solid var(--primary)',
-                borderRadius: '12px',
-                padding: '0.5rem 1rem',
-                fontSize: '0.82rem',
-                fontWeight: 800,
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.4rem',
-                transition: 'all 0.2s',
-                boxShadow: 'var(--shadow-xs)'
-              }}
-            >
-              <span>📥</span> ייבא קובץ קיים ממרחב אחר
-            </button>
+
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem', justifyContent: 'center', alignItems: 'center' }}>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                style={{
+                  background: 'var(--primary, #4f46e5)',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '12px',
+                  padding: '0.6rem 1.15rem',
+                  fontSize: '0.84rem',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.45rem',
+                  boxShadow: '0 2px 8px rgba(79, 70, 229, 0.25)',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <span>📤</span> העלה קבצים לכאן
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowImportModal(true)}
+                style={{
+                  background: 'rgba(99, 102, 241, 0.08)',
+                  color: 'var(--primary, #4f46e5)',
+                  border: '1.5px solid var(--primary, #4f46e5)',
+                  borderRadius: '12px',
+                  padding: '0.55rem 1rem',
+                  fontSize: '0.84rem',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <span>📥</span> ייבא קובץ קיים ממרחב
+              </button>
+            </div>
           </div>
         )}
       </div>

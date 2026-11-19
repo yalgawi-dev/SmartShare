@@ -3,7 +3,7 @@ import { resolveUserSpaceIdentity } from './partnerUtils';
 
 export interface AppNotification {
   id: string;
-  type: 'invoice' | 'dispute' | 'extension' | 'share' | 'system' | 'chat';
+  type: 'invoice' | 'dispute' | 'extension' | 'share' | 'system' | 'chat' | 'document';
   priority: 'high' | 'medium' | 'low';
   title: string;
   text: string;
@@ -15,6 +15,7 @@ export interface AppNotification {
   targetId?: string;
   inviteToken?: string;
   invoiceId?: string;
+  documentId?: string;
 }
 
 export function isAuthenticName(name: any): boolean {
@@ -351,6 +352,46 @@ export function calculateSpaceNotifications(spaces: Space[], user: any): AppNoti
           });
         }
       });
+    }
+
+    // 7. Unread Documents Added by Partners (Single Source of Truth for Document Alerts)
+    if (space.features?.includes('documents') && Array.isArray(space.documents)) {
+      const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
+      const now = Date.now();
+      const unreadDocs = space.documents.filter(doc => {
+        if (!doc || doc.deletedAt) return false;
+        if (doc.addedBy === user?.id || doc.addedBy === myActualId) return false;
+        // Check permissions
+        if (Array.isArray(doc.allowedPartners) && doc.allowedPartners.length > 0) {
+          const hasAccess = isCreator || doc.allowedPartners.includes(user?.id) || doc.allowedPartners.includes(myActualId);
+          if (!hasAccess) return false;
+        }
+        // Read status check (in Firestore or localStorage if user signed in)
+        if (user?.id && Array.isArray(doc.readBy) && doc.readBy.includes(user.id)) return false;
+        // Check age: within 14 days
+        const docTime = new Date(doc.createdAt).getTime();
+        return !isNaN(docTime) && (now - docTime < FOURTEEN_DAYS_MS);
+      });
+
+      if (unreadDocs.length > 0) {
+        // Group by space or show the latest
+        const latestDoc = unreadDocs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+        const uploaderName = latestDoc.addedByName || 'שותף במרחב';
+        notifs.push({
+          id: 'doc-unread-' + space.id + '-' + latestDoc.id,
+          type: 'document',
+          priority: 'medium',
+          title: unreadDocs.length === 1 ? `מסמך חדש מ-${uploaderName}` : `${unreadDocs.length} מסמכים חדשים`,
+          text: unreadDocs.length === 1 
+            ? `${uploaderName} העלה מסמך חדש: "${latestDoc.title || 'ללא כותרת'}"`
+            : `${uploaderName} ושותפים נוספים העלו ${unreadDocs.length} מסמכים חדשים שטרם פתחת.`,
+          spaceId: space.id,
+          spaceName: space.title || 'מרחב',
+          createdAt: latestDoc.createdAt || new Date().toISOString(),
+          actionable: true,
+          documentId: latestDoc.id
+        });
+      }
     }
   });
 

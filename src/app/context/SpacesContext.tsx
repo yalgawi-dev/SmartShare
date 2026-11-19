@@ -2490,6 +2490,22 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
         shelfEvents: updatedEvents
       };
     });
+
+    // Notify other space members via PUSH notification (Real-time PUSH for new documents)
+    const targetSpace = spacesBase.find(s => s.id === spaceId);
+    if (targetSpace && targetSpace.members) {
+      const uploaderName = (doc as any).addedByName || user?.nickname || user?.realName || 'שותף';
+      const docTitle = doc.title || 'מסמך חדש';
+      const title = `${targetSpace.title} 📄`;
+      const body = `${uploaderName} העלה מסמך חדש: "${docTitle}"`;
+      const otherUserIds = targetSpace.members
+        .filter(m => m.userId !== user?.id && (!cleanAllowed.length || cleanAllowed.includes(m.userId)))
+        .map(m => m.userId);
+      if (otherUserIds.length > 0) {
+        triggerPushNotification(otherUserIds, title, body, { url: `/space/${spaceId}` });
+      }
+    }
+
     return docId;
   };
 
@@ -2527,6 +2543,22 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
         shelfEvents: updatedEvents
       };
     });
+
+    // Notify other space members via PUSH notification (Real-time PUSH for new documents linked to timeline)
+    const targetSpace = spacesBase.find(s => s.id === spaceId);
+    if (targetSpace && targetSpace.members) {
+      const uploaderName = (doc as any).addedByName || user?.nickname || user?.realName || 'שותף';
+      const docTitle = doc.title || 'מסמך חדש';
+      const title = `${targetSpace.title} 📄`;
+      const body = `${uploaderName} העלה מסמך חדש לציר הזמן: "${docTitle}"`;
+      const otherUserIds = targetSpace.members
+        .filter(m => m.userId !== user?.id && (!cleanAllowed.length || cleanAllowed.includes(m.userId)))
+        .map(m => m.userId);
+      if (otherUserIds.length > 0) {
+        triggerPushNotification(otherUserIds, title, body, { url: `/space/${spaceId}` });
+      }
+    }
+
     return docId;
   };
 

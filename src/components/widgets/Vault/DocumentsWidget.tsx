@@ -183,7 +183,9 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
 
   const isDocUnread = React.useCallback((doc: any) => {
     if (!doc || doc.addedBy === user?.id) return false;
-    const isRecent = Date.now() - new Date(doc.createdAt).getTime() < 86400000;
+    // Up to 14 days so users never miss documents added while away
+    const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
+    const isRecent = Date.now() - new Date(doc.createdAt).getTime() < FOURTEEN_DAYS_MS;
     if (!isRecent) return false;
     if (locallyReadDocIds.includes(doc.id)) return false;
     if (user?.id && Array.isArray(doc.readBy) && doc.readBy.includes(user.id)) return false;
@@ -218,6 +220,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const currentFolderIdRef = useRef<string | null>(null);
   currentFolderIdRef.current = currentFolderId;
+  const [showRecentFeedOnly, setShowRecentFeedOnly] = useState(false);
   const [linkStationFolder, setLinkStationFolder] = useState<DocumentFolder | null>(null);
   const [privacyTarget, setPrivacyTarget] = useState<{
     type: 'shelf' | 'folder' | 'document';
@@ -2275,6 +2278,43 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                   <span>{showFavoritesOnly ? '⭐' : '☆'}</span>
                 </button>
 
+                {/* 2.5 Recent / Unread Feed Toggle Button */}
+                {(() => {
+                  const unreadShelfDocsCount = shelfDocs.filter(d => isDocUnread(d)).length;
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => setShowRecentFeedOnly(prev => !prev)}
+                      style={{
+                        position: 'relative',
+                        height: '32px',
+                        padding: '0 8px',
+                        borderRadius: '8px',
+                        background: showRecentFeedOnly ? '#eff6ff' : (unreadShelfDocsCount > 0 ? '#fef2f2' : '#ffffff'),
+                        border: showRecentFeedOnly ? '1.5px solid #2563eb' : (unreadShelfDocsCount > 0 ? '1.5px solid #ef4444' : '1px solid #cbd5e1'),
+                        color: showRecentFeedOnly ? '#1d4ed8' : (unreadShelfDocsCount > 0 ? '#dc2626' : '#64748b'),
+                        fontSize: '0.78rem',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        boxShadow: showRecentFeedOnly ? '0 2px 6px rgba(37,99,235,0.2)' : 'none',
+                        transition: 'all 0.15s ease'
+                      }}
+                      title={showRecentFeedOnly ? 'חזור לתצוגת תיקיות רגילה' : 'הצג פיד מסמכים אחרונים בלבד'}
+                    >
+                      <span>🕒</span>
+                      <span>אחרונים</span>
+                      {unreadShelfDocsCount > 0 && !showRecentFeedOnly && (
+                        <span style={{ background: '#ef4444', color: 'white', borderRadius: '10px', padding: '1px 5px', fontSize: '0.64rem', fontWeight: 900 }}>
+                          {unreadShelfDocsCount}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })()}
+
                 {/* 3. View Mode Dropdown Button */}
                 <div ref={vaultViewDropdownRef} style={{ position: 'relative' }}>
                   <button
@@ -2579,9 +2619,12 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             const currentLevelFolders = allShelfFolders.filter(f => currentFolderId ? f.parentId === currentFolderId : !f.parentId);
 
             let filteredDocs = shelfDocs.filter(doc => {
-              // Explorer Hierarchy check: document must reside in the current folder level
-              const matchesFolder = currentFolderId ? doc.folderId === currentFolderId : !doc.folderId;
-              if (!matchesFolder) return false;
+              // If showRecentFeedOnly is active, show all accessible docs in this shelf regardless of folder hierarchy
+              if (!showRecentFeedOnly) {
+                // Explorer Hierarchy check: document must reside in the current folder level
+                const matchesFolder = currentFolderId ? doc.folderId === currentFolderId : !doc.folderId;
+                if (!matchesFolder) return false;
+              }
 
               // Zero-Trust Permission Check:
               if (!canAccessItem({
@@ -2602,6 +2645,11 @@ const handleDeleteDocument = (docId: string, title?: string) => {
               if (filterLinked === 'unlinked') return !isLinked;
               return true;
             });
+
+            if (showRecentFeedOnly) {
+              // Filter to recent docs (last 30 days) or unread
+              filteredDocs = filteredDocs.filter(d => isDocUnread(d) || (Date.now() - new Date(d.createdAt).getTime() < 30 * 24 * 60 * 60 * 1000));
+            }
 
             if (warehouseStationFilter !== 'all') {
               if (warehouseStationFilter === 'unlinked') {
@@ -2640,7 +2688,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             });
 
             if (filteredDocs.length === 0 && currentLevelFolders.length === 0) {
-              const isFiltered = filterLinked !== 'all' || warehouseStationFilter !== 'all';
+              const isFiltered = filterLinked !== 'all' || warehouseStationFilter !== 'all' || showFavoritesOnly || showRecentFeedOnly;
               return (
                 <div style={{
                   display: 'flex',
@@ -2658,10 +2706,12 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                     {isFiltered ? '🔍' : '📂'}
                   </div>
                   <h4 style={{ margin: '0 0 0.3rem 0', color: '#1e293b', fontSize: '1rem', fontWeight: 700 }}>
-                    {isFiltered ? 'אין מסמכים תואמים לסינון' : 'התיקייה ריקה כרגע'}
+                    {showRecentFeedOnly ? 'אין מסמכים חדשים שטרם נקראו' : isFiltered ? 'אין מסמכים תואמים לסינון' : 'התיקייה ריקה כרגע'}
                   </h4>
                   <p style={{ margin: '0 0 0.8rem 0', color: '#64748b', fontSize: '0.82rem', maxWidth: '300px', lineHeight: '1.4' }}>
-                    {isFiltered 
+                    {showRecentFeedOnly
+                      ? 'כל המסמכים במדף זה נקראו ונצפו על ידך.'
+                      : isFiltered 
                       ? 'נסה לבחור תחנה אחרת או לאפס סינון.' 
                       : 'ניתן להעלות מסמכים או ליצור תיקיות באמצעות התפריט התחתון.'}
                   </p>
@@ -2671,6 +2721,8 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                       onClick={() => {
                         setFilterLinked('all');
                         setWarehouseStationFilter('all');
+                        setShowFavoritesOnly(false);
+                        setShowRecentFeedOnly(false);
                       }}
                       style={{
                         background: '#3b82f6',
@@ -2794,8 +2846,20 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                         </span>
                                       )}
                                     </div>
-                                    <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '1px' }}>
-                                      {subfolderCount > 0 ? `${subfolderCount} תתי-תיקיות • ` : ''}{docCount} מסמכים
+                                    <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '1px', display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                                      <span>{subfolderCount > 0 ? `${subfolderCount} תתי-תיקיות • ` : ''}{docCount} מסמכים</span>
+                                      {(() => {
+                                        // Check if folder contains unread documents (recursive / direct)
+                                        const unreadInThisFolder = shelfDocs.filter(d => d.folderId === folder.id && isDocUnread(d)).length;
+                                        if (unreadInThisFolder > 0) {
+                                          return (
+                                            <span style={{ background: '#ef4444', color: '#ffffff', fontSize: '0.66rem', fontWeight: 900, padding: '1px 6px', borderRadius: '10px', boxShadow: '0 2px 4px rgba(239, 68, 68, 0.3)' }}>
+                                              🔴 {unreadInThisFolder} חדש
+                                            </span>
+                                          );
+                                        }
+                                        return null;
+                                      })()}
                                     </div>
                                   </div>
                                 </div>
