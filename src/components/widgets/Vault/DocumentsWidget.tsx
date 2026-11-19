@@ -2209,12 +2209,19 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                 );
               })()}
 
-              {/* Left side (RTL): Compact Icon Actions Toolbar */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-                {/* 1. Sort & Filter Icon Button */}
-                {(() => {
-                  const isFilterActive = (filterLinked !== 'all') || (warehouseStationFilter !== 'all') || (warehouseSortBy !== 'date_desc');
-                  return (
+              {/* Left side (RTL): Compact Icon Actions Toolbar - Shown only when there are at least 2 items or an active filter/view */}
+              {(() => {
+                const totalDocsInShelf = shelfDocs.length;
+                const totalFoldersInShelf = (space.documentFolders || []).filter((f: any) => !f.deletedAt && f.shelfId === activeShelfId).length;
+                const hasMinimalItems = (totalDocsInShelf + totalFoldersInShelf) >= 2;
+                const isFilterActive = (filterLinked !== 'all') || (warehouseStationFilter !== 'all') || (warehouseSortBy !== 'date_desc');
+                const shouldShowToolbar = hasMinimalItems || isFilterActive || showFavoritesOnly || showRecentFeedOnly;
+
+                if (!shouldShowToolbar) return null;
+
+                return (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                    {/* 1. Sort & Filter Icon Button */}
                     <button
                       type="button"
                       onClick={() => setShowSortFilterModal(true)}
@@ -2251,13 +2258,11 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                         }} />
                       )}
                     </button>
-                  );
-                })()}
 
-                {/* 2. Favorites Toggle Icon Button */}
-                <button
-                  type="button"
-                  onClick={() => setShowFavoritesOnly(prev => !prev)}
+                    {/* 2. Favorites Toggle Icon Button */}
+                    <button
+                      type="button"
+                      onClick={() => setShowFavoritesOnly(prev => !prev)}
                   style={{
                     width: '32px',
                     height: '32px',
@@ -2464,8 +2469,10 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                   </button>
                 )}
               </div>
-            </div>
-          )}
+            );
+          })()}
+        </div>
+      )}
 
           {/* MULTI-SELECT FLOATING ACTION BAR - REFACTORED VIA GLOBAL COMPONENT */}
           {isMultiSelect && (() => {
