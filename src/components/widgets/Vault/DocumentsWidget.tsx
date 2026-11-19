@@ -285,42 +285,43 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
       showFeedbackToast('המסמך שויך לקיר השיתוף בהצלחה (ללא שכפול נפח)!');
     } else if (target.type === 'folder') {
       const folder = target.item as DocumentFolder;
+      const isShelf = shelves.some(s => s.id === folder.id);
       const alreadyLinked = existingItems.find(i => !i.deletedAt && i.linkedSourceId === folder.id);
       if (alreadyLinked) {
-        showFeedbackToast('התיקייה כבר משויכת לקיר השיתוף!', 'info');
+        showFeedbackToast(isShelf ? 'הנושא כבר משויך לקיר השיתוף!' : 'התיקייה כבר משויכת לקיר השיתוף!', 'info');
         return;
       }
       // Create root folder pointer and recursively map descendant subfolders and docs with 0 byte duplication
       const newItemsToAppend: FileShareItem[] = [];
       const folderIdMap: Record<string, string> = {};
 
-      const mapFolderRecursive = (vFolder: DocumentFolder, wallParentId: string | null) => {
-        const wallFolderId = `wall_fld_${vFolder.id}_${now}`;
-        folderIdMap[vFolder.id] = wallFolderId;
+      if (isShelf) {
+        // Shelf is root container for all its folders and direct docs
+        const wallShelfFolderId = `wall_shelf_${folder.id}_${now}`;
         newItemsToAppend.push({
-          id: wallFolderId,
+          id: wallShelfFolderId,
           spaceId: space.id,
-          name: vFolder.name,
+          name: folder.name,
           type: 'folder',
-          parentId: wallParentId,
+          parentId: null,
           createdAt: now,
           createdBy: user?.id || 'user',
           creatorName: user?.realName || user?.nickname || 'משתמש',
-          allowedPartners: vFolder.allowedPartners || [],
-          linkedSourceId: vFolder.id,
-          linkedSourceType: 'vault_folder'
+          allowedPartners: folder.allowedPartners || [],
+          linkedSourceId: folder.id,
+          linkedSourceType: 'vault_shelf' as any
         });
 
-        // Docs inside this folder
-        const childDocs = documents.filter(d => !d.deletedAt && d.folderId === vFolder.id);
-        childDocs.forEach(d => {
+        // Add direct docs in shelf
+        const shelfDirectDocs = documents.filter(d => !d.deletedAt && d.shelfId === folder.id && !d.folderId);
+        shelfDirectDocs.forEach(d => {
           const isPdf = d.type === 'pdf' || d.url?.toLowerCase().includes('.pdf');
           newItemsToAppend.push({
             id: `wall_doc_${d.id}_${now}`,
             spaceId: space.id,
             name: d.title || 'מסמך',
             type: 'file',
-            parentId: wallFolderId,
+            parentId: wallShelfFolderId,
             url: d.url,
             thumbnailUrl: d.thumbnailUrl || (Array.isArray(d.pages) && d.pages.length > 0 ? d.pages[0] : (!isPdf ? d.url : undefined)),
             pages: d.pages || [d.url],
@@ -335,16 +336,113 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
           });
         });
 
-        // Subfolders
-        const subFolders = (space.documentFolders || []).filter(sf => !sf.deletedAt && sf.parentId === vFolder.id);
-        subFolders.forEach(sf => mapFolderRecursive(sf, wallFolderId));
-      };
+        // Add shelf top-level folders recursively
+        const mapFolderRecursive = (vFolder: DocumentFolder, wallParentId: string | null) => {
+          const wallFolderId = `wall_fld_${vFolder.id}_${now}`;
+          folderIdMap[vFolder.id] = wallFolderId;
+          newItemsToAppend.push({
+            id: wallFolderId,
+            spaceId: space.id,
+            name: vFolder.name,
+            type: 'folder',
+            parentId: wallParentId,
+            createdAt: now,
+            createdBy: user?.id || 'user',
+            creatorName: user?.realName || user?.nickname || 'משתמש',
+            allowedPartners: vFolder.allowedPartners || [],
+            linkedSourceId: vFolder.id,
+            linkedSourceType: 'vault_folder'
+          });
 
-      mapFolderRecursive(folder, null);
-      if (updateFileShareItems) {
-        await updateFileShareItems(space.id, [...existingItems, ...newItemsToAppend]);
+          // Docs inside this folder
+          const childDocs = documents.filter(d => !d.deletedAt && d.folderId === vFolder.id);
+          childDocs.forEach(d => {
+            const isPdf = d.type === 'pdf' || d.url?.toLowerCase().includes('.pdf');
+            newItemsToAppend.push({
+              id: `wall_doc_${d.id}_${now}`,
+              spaceId: space.id,
+              name: d.title || 'מסמך',
+              type: 'file',
+              parentId: wallFolderId,
+              url: d.url,
+              thumbnailUrl: d.thumbnailUrl || (Array.isArray(d.pages) && d.pages.length > 0 ? d.pages[0] : (!isPdf ? d.url : undefined)),
+              pages: d.pages || [d.url],
+              fileType: isPdf ? 'pdf' : 'image',
+              size: 0,
+              createdAt: now,
+              createdBy: user?.id || 'user',
+              creatorName: user?.realName || user?.nickname || 'משתמש',
+              allowedPartners: d.allowedPartners || [],
+              linkedSourceId: d.id,
+              linkedSourceType: 'vault_doc'
+            });
+          });
+
+          // Subfolders
+          const subFolders = (space.documentFolders || []).filter(sf => !sf.deletedAt && sf.parentId === vFolder.id);
+          subFolders.forEach(sf => mapFolderRecursive(sf, wallFolderId));
+        };
+
+        const shelfTopFolders = (space.documentFolders || []).filter(f => !f.deletedAt && f.shelfId === folder.id && !f.parentId);
+        shelfTopFolders.forEach(f => mapFolderRecursive(f, wallShelfFolderId));
+
+        if (updateFileShareItems) {
+          await updateFileShareItems(space.id, [...existingItems, ...newItemsToAppend]);
+        }
+        showFeedbackToast(`הנושא "${folder.name}" וכל מסמכיו שויכו לקיר השיתוף (0 נפח כפול)!`);
+      } else {
+        const mapFolderRecursive = (vFolder: DocumentFolder, wallParentId: string | null) => {
+          const wallFolderId = `wall_fld_${vFolder.id}_${now}`;
+          folderIdMap[vFolder.id] = wallFolderId;
+          newItemsToAppend.push({
+            id: wallFolderId,
+            spaceId: space.id,
+            name: vFolder.name,
+            type: 'folder',
+            parentId: wallParentId,
+            createdAt: now,
+            createdBy: user?.id || 'user',
+            creatorName: user?.realName || user?.nickname || 'משתמש',
+            allowedPartners: vFolder.allowedPartners || [],
+            linkedSourceId: vFolder.id,
+            linkedSourceType: 'vault_folder'
+          });
+
+          // Docs inside this folder
+          const childDocs = documents.filter(d => !d.deletedAt && d.folderId === vFolder.id);
+          childDocs.forEach(d => {
+            const isPdf = d.type === 'pdf' || d.url?.toLowerCase().includes('.pdf');
+            newItemsToAppend.push({
+              id: `wall_doc_${d.id}_${now}`,
+              spaceId: space.id,
+              name: d.title || 'מסמך',
+              type: 'file',
+              parentId: wallFolderId,
+              url: d.url,
+              thumbnailUrl: d.thumbnailUrl || (Array.isArray(d.pages) && d.pages.length > 0 ? d.pages[0] : (!isPdf ? d.url : undefined)),
+              pages: d.pages || [d.url],
+              fileType: isPdf ? 'pdf' : 'image',
+              size: 0,
+              createdAt: now,
+              createdBy: user?.id || 'user',
+              creatorName: user?.realName || user?.nickname || 'משתמש',
+              allowedPartners: d.allowedPartners || [],
+              linkedSourceId: d.id,
+              linkedSourceType: 'vault_doc'
+            });
+          });
+
+          // Subfolders
+          const subFolders = (space.documentFolders || []).filter(sf => !sf.deletedAt && sf.parentId === vFolder.id);
+          subFolders.forEach(sf => mapFolderRecursive(sf, wallFolderId));
+        };
+
+        mapFolderRecursive(folder, null);
+        if (updateFileShareItems) {
+          await updateFileShareItems(space.id, [...existingItems, ...newItemsToAppend]);
+        }
+        showFeedbackToast(`התיקייה "${folder.name}" ותכולתה שויכו לקיר השיתוף (0 נפח כפול)!`);
       }
-      showFeedbackToast(`התיקייה "${folder.name}" ותכולתה שויכו לקיר השיתוף (0 נפח כפול)!`);
     }
   };
 
@@ -4519,7 +4617,14 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           item={externalShareItem}
           space={space}
           spaceTitle={space.title || 'המרחב שלי'}
-          folderFiles={externalShareItem.type === 'folder' ? documents.filter(d => !d.deletedAt && d.folderId === externalShareItem.id).map(d => {
+          folderFiles={externalShareItem.type === 'folder' ? documents.filter(d => {
+            if (d.deletedAt) return false;
+            const isShelf = shelves.some(s => s.id === externalShareItem.id);
+            if (isShelf) {
+              return d.shelfId === externalShareItem.id;
+            }
+            return d.folderId === externalShareItem.id;
+          }).map(d => {
             const isPdf = d.type === 'pdf' || d.url?.toLowerCase().includes('.pdf');
             return {
               id: d.id,
@@ -4537,11 +4642,24 @@ const handleDeleteDocument = (docId: string, title?: string) => {
               creatorName: d.addedByName || user?.realName || 'משתמש'
             };
           }) : undefined}
-          allSpaceFolders={(space.documentFolders || []).filter(f => !f.deletedAt).map(f => ({
-            id: f.id,
-            name: f.name,
-            parentId: f.parentId || null
-          }))}
+          allSpaceFolders={(() => {
+            const baseFolders = (space.documentFolders || []).filter(f => !f.deletedAt).map(f => ({
+              id: f.id,
+              name: f.name,
+              parentId: f.parentId || null
+            }));
+            const isShelf = shelves.some(s => s.id === externalShareItem.id);
+            if (isShelf) {
+              // Add shelf's top folders with shelf as their parent
+              const shelfFolders = (space.documentFolders || []).filter(f => !f.deletedAt && f.shelfId === externalShareItem.id).map(f => ({
+                id: f.id,
+                name: f.name,
+                parentId: f.parentId || externalShareItem.id
+              }));
+              return shelfFolders;
+            }
+            return baseFolders;
+          })()}
           allSpaceFiles={documents.filter(d => !d.deletedAt).map(d => {
             const isPdf = d.type === 'pdf' || d.url?.toLowerCase().includes('.pdf');
             return {
@@ -4564,7 +4682,10 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           businessCard={space.features?.includes('business_card') ? space.settings?.businessCard : undefined}
           onClose={() => setExternalShareItem(null)}
           onSaved={(newConfig?: ShareLinkConfig) => {
-            if (externalShareItem.type === 'folder') {
+            const isShelf = shelves.some(s => s.id === externalShareItem.id);
+            if (isShelf) {
+              updateShelf(space.id, externalShareItem.id, { shareLink: newConfig || null } as any);
+            } else if (externalShareItem.type === 'folder') {
               updateDocumentFolder(space.id, externalShareItem.id, { shareLink: newConfig || null } as any);
             } else {
               updateDocument(space.id, externalShareItem.id, { shareLink: newConfig || null } as any);
@@ -5139,7 +5260,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                       </button>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
                     {(() => {
                       const pInfo = getPrivacyInfo(shelf.allowedPartners);
                       return (
@@ -5173,6 +5294,32 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                         </button>
                       );
                     })()}
+                    {hasFileShare && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenExternalShareModal({ type: 'folder', item: shelf as any });
+                          }}
+                          style={{ background: '#eff6ff', border: '1px solid #bfdbfe', color: '#2563eb', width: '28px', height: '28px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.82rem', fontWeight: 'bold' }}
+                          title="קישור שיתוף חיצוני מאובטח לנושא (כולל כל המסמכים שבו)"
+                        >
+                          🔗
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handlePinToSharingWall({ type: 'folder', item: shelf as any });
+                          }}
+                          style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', color: '#059669', width: '28px', height: '28px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.82rem', fontWeight: 'bold' }}
+                          title="שייך נושא לקיר השיתוף המרוכז (ללא שכפול נפח)"
+                        >
+                          📤
+                        </button>
+                      </>
+                    )}
                     <button onClick={(e) => { e.stopPropagation(); setShelfToMove(shelf); }} style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '7px', fontSize: '0.8rem', cursor: 'pointer', padding: '3px 7px' }} title="העבר או שכפל נושא למרחב אחר">📦</button>
                     <button onClick={() => setEditingShelfCoverId(shelf.id)} style={{ background: 'transparent', border: 'none', fontSize: '1.1rem', cursor: 'pointer', padding: 0 }} title="עיצוב מדף">🎨</button>
                     <button onClick={(e) => {
@@ -5212,7 +5359,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                   {!shelf.coverImage && (shelf.icon || '🗂️')}
                 </div>
                 <div style={{ padding: '0.75rem', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', position: 'relative' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.25rem', marginBottom: '0.25rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.25rem', marginBottom: '0.35rem' }}>
                     <div onClick={() => setActiveShelfId(shelf.id)} style={{ fontWeight: 'bold', color: '#1e293b', fontSize: '0.95rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{shelf.name}</div>
                     <button 
                       onClick={(e) => { e.stopPropagation(); handleRenameShelf(shelf.id, shelf.name); }} 
@@ -5222,9 +5369,11 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                       ✏️
                     </button>
                   </div>
-                  <div onClick={() => setActiveShelfId(shelf.id)} style={{ color: '#94a3b8', fontSize: '0.75rem' }}>{shelfDocs.length} מסמכים</div>
-                  <div onClick={() => setActiveShelfId(shelf.id)} style={{ color: '#cbd5e1', fontSize: '0.65rem', marginTop: '0.25rem' }}>נוצר: {new Date(shelf.createdAt).toLocaleDateString('he-IL')}</div>
-                  <div style={{ position: 'absolute', bottom: '0.5rem', left: '0.5rem', display: 'flex', gap: '0.3rem' }}>
+                  <div onClick={() => setActiveShelfId(shelf.id)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#64748b', fontSize: '0.75rem', marginBottom: '0.5rem' }}>
+                    <span style={{ fontWeight: 600 }}>{shelfDocs.length} מסמכים</span>
+                    <span style={{ color: '#94a3b8', fontSize: '0.65rem' }}>{new Date(shelf.createdAt).toLocaleDateString('he-IL')}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', flexWrap: 'wrap', paddingTop: '0.35rem', borderTop: '1px solid #f1f5f9' }}>
                     {(() => {
                       const shelfPrivacy = getPrivacyInfo(shelf.allowedPartners);
                       return (
@@ -5258,6 +5407,32 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                         </button>
                       );
                     })()}
+                    {hasFileShare && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenExternalShareModal({ type: 'folder', item: shelf as any });
+                          }}
+                          style={{ background: '#eff6ff', border: '1px solid #bfdbfe', color: '#2563eb', width: '28px', height: '28px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.82rem', fontWeight: 'bold' }}
+                          title="קישור שיתוף חיצוני מאובטח לנושא (כולל כל המסמכים שבו)"
+                        >
+                          🔗
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handlePinToSharingWall({ type: 'folder', item: shelf as any });
+                          }}
+                          style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', color: '#059669', width: '28px', height: '28px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.82rem', fontWeight: 'bold' }}
+                          title="שייך נושא לקיר השיתוף המרוכז (ללא שכפול נפח)"
+                        >
+                          📤
+                        </button>
+                      </>
+                    )}
                     <button onClick={(e) => { e.stopPropagation(); setShelfToMove(shelf); }} style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', width: '28px', height: '28px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem' }} title="העבר או שכפל נושא למרחב אחר">📦</button>
                     <button onClick={(e) => { e.stopPropagation(); setEditingShelfCoverId(shelf.id); }} style={{ background: '#f1f5f9', border: 'none', width: '28px', height: '28px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="עיצוב">🎨</button>
                     <button onClick={(e) => {
@@ -5414,7 +5589,14 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           item={externalShareItem}
           space={space}
           spaceTitle={space.title || 'המרחב שלי'}
-          folderFiles={externalShareItem.type === 'folder' ? documents.filter(d => !d.deletedAt && d.folderId === externalShareItem.id).map(d => {
+          folderFiles={externalShareItem.type === 'folder' ? documents.filter(d => {
+            if (d.deletedAt) return false;
+            const isShelf = shelves.some(s => s.id === externalShareItem.id);
+            if (isShelf) {
+              return d.shelfId === externalShareItem.id;
+            }
+            return d.folderId === externalShareItem.id;
+          }).map(d => {
             const isPdf = d.type === 'pdf' || d.url?.toLowerCase().includes('.pdf');
             return {
               id: d.id,
@@ -5432,11 +5614,24 @@ const handleDeleteDocument = (docId: string, title?: string) => {
               creatorName: d.addedByName || user?.realName || 'משתמש'
             };
           }) : undefined}
-          allSpaceFolders={(space.documentFolders || []).filter(f => !f.deletedAt).map(f => ({
-            id: f.id,
-            name: f.name,
-            parentId: f.parentId || null
-          }))}
+          allSpaceFolders={(() => {
+            const baseFolders = (space.documentFolders || []).filter(f => !f.deletedAt).map(f => ({
+              id: f.id,
+              name: f.name,
+              parentId: f.parentId || null
+            }));
+            const isShelf = shelves.some(s => s.id === externalShareItem.id);
+            if (isShelf) {
+              // Add shelf's top folders with shelf as their parent
+              const shelfFolders = (space.documentFolders || []).filter(f => !f.deletedAt && f.shelfId === externalShareItem.id).map(f => ({
+                id: f.id,
+                name: f.name,
+                parentId: f.parentId || externalShareItem.id
+              }));
+              return shelfFolders;
+            }
+            return baseFolders;
+          })()}
           allSpaceFiles={documents.filter(d => !d.deletedAt).map(d => {
             const isPdf = d.type === 'pdf' || d.url?.toLowerCase().includes('.pdf');
             return {
@@ -5459,7 +5654,10 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           businessCard={space.features?.includes('business_card') ? space.settings?.businessCard : undefined}
           onClose={() => setExternalShareItem(null)}
           onSaved={(newConfig?: ShareLinkConfig) => {
-            if (externalShareItem.type === 'folder') {
+            const isShelf = shelves.some(s => s.id === externalShareItem.id);
+            if (isShelf) {
+              updateShelf(space.id, externalShareItem.id, { shareLink: newConfig || null } as any);
+            } else if (externalShareItem.type === 'folder') {
               updateDocumentFolder(space.id, externalShareItem.id, { shareLink: newConfig || null } as any);
             } else {
               updateDocument(space.id, externalShareItem.id, { shareLink: newConfig || null } as any);
