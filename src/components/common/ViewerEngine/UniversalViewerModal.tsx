@@ -307,7 +307,7 @@ export default function UniversalViewerModal({
           pointerEvents: 'auto'
         }}
       >
-        {/* Clean Header: Document Title & Count */}
+        {/* Clean Header: Document Title (Sanitized & Free of Raw Filenames/Dates) */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0, flex: 1, overflow: 'hidden' }}>
           <span
             style={{
@@ -321,13 +321,16 @@ export default function UniversalViewerModal({
               whiteSpace: 'nowrap'
             }}
           >
-            #{currentIndex + 1} • {currentDoc.title || 'מסמך'}
+            {(() => {
+              const rawTitle = (currentDoc.title || '').trim();
+              // Clean out technical date stamps like "2026-09-23_" or "2026_09_23_" or ".pdf"
+              const cleaned = rawTitle
+                .replace(/^(\d{4}[-_]\d{2}[-_]\d{2}[-_]?)+/i, '')
+                .replace(/\.(pdf|jpe?g|png|webp)$/i, '')
+                .trim();
+              return cleaned ? `#${currentIndex + 1} • ${cleaned}` : `#${currentIndex + 1} • מסמך`;
+            })()}
           </span>
-          {docs.length > 1 && (
-            <span style={{ color: '#94a3b8', fontSize: '0.8rem', fontWeight: 600, flexShrink: 0 }}>
-              ({currentIndex + 1}/{docs.length})
-            </span>
-          )}
         </div>
 
         {/* Top Controls: Ultra-HD Button & Close */}
@@ -647,23 +650,24 @@ export default function UniversalViewerModal({
                         </div>
                       </TransformComponent>
 
-                      {/* Floating Quick-Zoom Action Controls (Compact horizontal pill in bottom-left margin so document text is never obstructed) */}
+                      {/* Floating Quick-Zoom Action Controls (Fixed in viewport bottom-left margin so it NEVER scrolls with document megilah) */}
                       <div
                         onClick={(e) => e.stopPropagation()}
                         style={{
-                          position: 'absolute',
-                          bottom: '68px',
-                          left: '12px',
+                          position: 'fixed',
+                          bottom: '78px',
+                          left: '16px',
                           display: 'flex',
                           flexDirection: 'row',
                           alignItems: 'center',
                           gap: '4px',
-                          padding: '3px 6px',
+                          padding: '4px 8px',
                           borderRadius: '20px',
-                          background: 'rgba(15, 23, 42, 0.55)',
-                          backdropFilter: 'blur(6px)',
-                          border: '1px solid rgba(255, 255, 255, 0.18)',
-                          zIndex: 200020
+                          background: 'rgba(15, 23, 42, 0.75)',
+                          backdropFilter: 'blur(8px)',
+                          border: '1px solid rgba(255, 255, 255, 0.22)',
+                          boxShadow: '0 4px 15px rgba(0, 0, 0, 0.4)',
+                          zIndex: 200030
                         }}
                       >
                         <button

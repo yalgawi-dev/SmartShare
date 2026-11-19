@@ -693,23 +693,24 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
                 </div>
               </TransformComponent>
 
-              {/* Bottom-Left Compact Horizontal Zoom Pill (+, %, -) - Non-intrusive so document text is never covered */}
+              {/* Bottom-Left Fixed Horizontal Zoom Pill (+, %, -) - Fixed to Viewport so it NEVER scrolls with pages */}
               <div
                 onClick={(e) => e.stopPropagation()}
                 style={{
-                  position: 'absolute',
-                  bottom: '68px',
-                  left: '12px',
+                  position: 'fixed',
+                  bottom: '78px',
+                  left: '16px',
                   display: 'flex',
                   flexDirection: 'row',
                   alignItems: 'center',
                   gap: '4px',
-                  padding: '3px 6px',
+                  padding: '4px 8px',
                   borderRadius: '20px',
-                  background: 'rgba(15, 23, 42, 0.55)',
-                  backdropFilter: 'blur(6px)',
-                  border: '1px solid rgba(255, 255, 255, 0.18)',
-                  zIndex: 200025
+                  background: 'rgba(15, 23, 42, 0.75)',
+                  backdropFilter: 'blur(8px)',
+                  border: '1px solid rgba(255, 255, 255, 0.22)',
+                  boxShadow: '0 4px 15px rgba(0, 0, 0, 0.4)',
+                  zIndex: 200030
                 }}
               >
                 <button
