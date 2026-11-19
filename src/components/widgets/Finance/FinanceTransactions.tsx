@@ -234,17 +234,36 @@ export function FinanceTransactions({
     }
   };
 
-  const handleEditSave = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingInvoice || !space || !updateInvoice) return;
+  const handleEditSave = (e?: React.FormEvent) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!editingInvoice) {
+      alert('שגיאה: לא נבחרה הוצאה לעריכה.');
+      return;
+    }
+    if (!space) {
+      alert('שגיאה: מרחב עבודה אינו פעיל.');
+      return;
+    }
+    if (!updateInvoice) {
+      alert('שגיאה: פונקציית עדכון הוצאה אינה זמינה.');
+      return;
+    }
 
     const newAmount = Number(editForm.amount);
-    const oldAmount = Number(editingInvoice.amount) || 0;
-    const isAmountChanged = Math.abs(newAmount - oldAmount) >= 0.01;
+    if (isNaN(newAmount) || newAmount <= 0) {
+      alert('נא להזין סכום תקין הגדול מ-0.');
+      return;
+    }
 
     // Normalize both dates to YYYY-MM-DD for accurate comparison (prevents '2.11.2026' !== '2026-11-02' false trigger)
     const normEditDate = normalizeToYMD(editForm.date) || editForm.date || '';
     const normOldDate = normalizeToYMD(editingInvoice.date) || editingInvoice.date || '';
+    if (!normEditDate) {
+      alert('נא להזין תאריך הוצאה תקין.');
+      return;
+    }
+    const oldAmount = Number(editingInvoice.amount) || 0;
+    const isAmountChanged = Math.abs(newAmount - oldAmount) >= 0.01;
     const isDateChanged = normEditDate !== normOldDate;
 
     const finalCategory = editForm.category === 'other' 
@@ -253,7 +272,7 @@ export function FinanceTransactions({
     const oldCategory = editingInvoice.category || 'כללי';
     const isCategoryChanged = finalCategory.trim() !== oldCategory.trim();
 
-    const newSupplier = (editForm.supplier || '').trim();
+    const newSupplier = (editForm.supplier || '').trim() || 'כללי';
     const oldSupplier = (editingInvoice.supplier || '').trim();
     const isSupplierChanged = newSupplier !== oldSupplier;
 
@@ -898,7 +917,7 @@ export function FinanceTransactions({
                                     setEditingInvoice(null);
                                   } else {
                                     setEditingInvoice(inv);
-                                    let d = inv.date || '';
+                                    let d = normalizeToYMD(inv.date || '') || inv.date || '';
                                     if (d.includes('.')) {
                                       const parts = d.split('.');
                                       if (parts.length === 3) d = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
@@ -1002,7 +1021,7 @@ export function FinanceTransactions({
                     {/* Edit Form Modal */}
                     {editingInvoice?.id === inv.id && (
                       <div style={{ padding: '1rem', borderTop: '1px solid var(--border-light)', background: 'var(--bg-main)', borderBottomLeftRadius: '16px', borderBottomRightRadius: '16px' }}>
-                        <form onSubmit={handleEditSave} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        <form onSubmit={handleEditSave} noValidate style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                           <h4 style={{ margin: '0 0 0.5rem 0', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                             <span>✏️ עריכת הוצאה</span>
                           </h4>
@@ -1035,24 +1054,23 @@ export function FinanceTransactions({
                                 value={editForm.customCategory} 
                                 onChange={e => setEditForm({ ...editForm, customCategory: e.target.value })} 
                                 style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--primary)', fontSize: '0.95rem', background: 'var(--bg-card)', color: 'var(--text-primary)' }} 
-                                required 
                               />
                             </label>
                           )}
 
                           <label style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                             תאריך ההוצאה
-                            <input type="date" value={editForm.date} onChange={e => setEditForm({...editForm, date: e.target.value})} style={{ padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'var(--bg-card)', color: 'var(--text-primary)' }} required />
+                            <input type="date" value={editForm.date} onChange={e => setEditForm({...editForm, date: e.target.value})} style={{ padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'var(--bg-card)', color: 'var(--text-primary)' }} />
                           </label>
 
                           <label style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                             ספק / שם החנות
-                            <input type="text" placeholder="לדוגמה: שופרסל" value={editForm.supplier} onChange={e => setEditForm({...editForm, supplier: e.target.value})} style={{ padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'var(--bg-card)', color: 'var(--text-primary)' }} required />
+                            <input type="text" placeholder="לדוגמה: שופרסל" value={editForm.supplier} onChange={e => setEditForm({...editForm, supplier: e.target.value})} style={{ padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'var(--bg-card)', color: 'var(--text-primary)' }} />
                           </label>
 
                           <label style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                             סכום (₪)
-                            <input type="number" step="0.01" placeholder="0.00" value={editForm.amount} onChange={e => setEditForm({...editForm, amount: e.target.value})} style={{ padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'var(--bg-card)', color: 'var(--text-primary)' }} required />
+                            <input type="number" step="0.01" placeholder="0.00" value={editForm.amount} onChange={e => setEditForm({...editForm, amount: e.target.value})} style={{ padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'var(--bg-card)', color: 'var(--text-primary)' }} />
                           </label>
 
                           {/* NO-VAT TOGGLE IN TRANSACTION EDIT FORM */}
@@ -1112,8 +1130,8 @@ export function FinanceTransactions({
                                     <span>⚠️</span>
                                     <span>סתירה בין הסכום שהזנת לסריקת ה-OCR המקורית:</span>
                                   </div>
-                                  <div>סכום שפוענח בחשבונית: <strong>₪${ocrAmt?.toLocaleString()}</strong></div>
-                                  <div>סכום שהזנת כעת: <strong>₪${currentInputAmt.toLocaleString()}</strong></div>
+                                  <div>סכום שפוענח בחשבונית: <strong>₪{ocrAmt?.toLocaleString()}</strong></div>
+                                  <div>סכום שהזנת כעת: <strong>₪{currentInputAmt.toLocaleString()}</strong></div>
                                   <div style={{ fontSize: '0.74rem', color: '#b91c1c', marginTop: '0.25rem' }}>
                                     ההוצאה תסומן בחריגה, אישורי השותפים יאופסו, והם יידרשו לבדוק את צילום החשבונית לפני אישור מחדש.
                                   </div>
@@ -1134,7 +1152,13 @@ export function FinanceTransactions({
 
                           <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
                             <button type="button" onClick={() => setEditingInvoice(null)} style={{ flex: 1, padding: '0.6rem', background: 'var(--bg-card)', border: '1px solid var(--border-light)', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, color: 'var(--text-primary)' }}>ביטול</button>
-                            <button type="submit" style={{ flex: 1, padding: '0.6rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>שמור שינויים</button>
+                            <button 
+                              type="button" 
+                              onClick={() => handleEditSave()} 
+                              style={{ flex: 1, padding: '0.6rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
+                            >
+                              שמור שינויים
+                            </button>
                           </div>
                         </form>
                       </div>
