@@ -127,6 +127,7 @@ export default function SpaceReportsPage({ params }: { params: Promise<{ id: str
           space={space}
           invoices={invoices}
           currentUserId={user?.id}
+          onPreviewImage={(url) => setPreviewImage(url)}
         />
       )}
 

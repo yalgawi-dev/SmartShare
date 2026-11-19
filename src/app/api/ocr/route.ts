@@ -80,6 +80,7 @@ Be strict about INVOICE/RECEIPT/BILL — require visible monetary amounts and in
       return NextResponse.json({ classifyResult: null });
     }
 
+    const currentYear = new Date().getFullYear();
     const prompt = `
       Please read this Israeli invoice/receipt carefully.
       Return ONLY a valid JSON object with the following keys. If a field is missing, use null.
@@ -89,8 +90,8 @@ Be strict about INVOICE/RECEIPT/BILL — require visible monetary amounts and in
         "clientName": "Name of the CUSTOMER buying the service (לכבוד / עבור). Do not write the vendor's name here.",
         "amount": Total amount to pay as a NUMBER (סה"כ לתשלום).,
         "vatAmount": The VAT amount as a NUMBER.,
-        "documentType": "String: One of ['חשבונית מס', 'קבלה', 'חשבונית מס קבלה', 'תעודת משלוח', 'הצעת מחיר', 'הזמנת עבודה', 'אחר']. Be precise.", "העתק", or "נאמן למקור".,
-        "date": "Date of invoice in YYYY-MM-DD format",
+        "documentType": "String: One of ['חשבונית מס', 'קבלה', 'חשבונית מס קבלה', 'תעודת משלוח', 'הצעת מחיר', 'הזמנת עבודה', 'אחר']. Be precise.",
+        "date": "Date of invoice in YYYY-MM-DD format. IMPORTANT: Israeli dates are written DD/MM/YY or DD/MM/YYYY. For example, handwritten '12/10/26' means 2026-10-12 (NOT 2021, and NOT month 12). Also beware: the year digits are almost always within 2-3 years of the current year (${currentYear}). Do NOT mistake handwritten '26' for '21'.",
         "isCreditInvoice": true/false (True ONLY if it says "חשבונית זיכוי"),
         "invoiceNumber": "Invoice or Receipt number",
         "vatNumber": "Company VAT Number (ח.פ / ע.מ)"
@@ -214,7 +215,26 @@ Be strict about INVOICE/RECEIPT/BILL — require visible monetary amounts and in
         vatNumber: typeof parsed.vatNumber === 'string' ? parsed.vatNumber : (parsed.vatNumber ? String(parsed.vatNumber) : null),
       };
       
-      // --- POST-PROCESSING: Fix Gemini Hallucinations ---
+      // --- POST-PROCESSING: Fix Date Hallucinations ---
+      if (data.date && typeof data.date === 'string') {
+        const parts = data.date.split('-');
+        if (parts.length === 3) {
+          let [year, month, day] = parts.map(p => parseInt(p, 10));
+          const currentYear = new Date().getFullYear();
+          // If year was misread as 2021 or 201x while we are around 2024-2027, check if last digit was 6/something
+          if (year < currentYear - 3 && year >= 2020) {
+            // e.g. 2021 when current is 2026: often '6' misread as '1' in handwritten Hebrew dates
+            const lastDigit = year % 10;
+            if (lastDigit === 1 && currentYear % 10 === 6) {
+              year = currentYear;
+            }
+          }
+          // Validate month & day bounds
+          if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+            data.date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+          }
+        }
+      }
       if (data.clientName && data.vendor && typeof data.clientName === 'string' && typeof data.vendor === 'string') {
         const cName = data.clientName.trim().toLowerCase();
         const vName = data.vendor.trim().toLowerCase();

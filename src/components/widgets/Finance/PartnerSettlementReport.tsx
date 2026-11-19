@@ -8,9 +8,10 @@ interface PartnerSettlementReportProps {
   space: any;
   invoices: any[];
   currentUserId?: string;
+  onPreviewImage?: (url: string) => void;
 }
 
-export function PartnerSettlementReport({ space, invoices, currentUserId }: PartnerSettlementReportProps) {
+export function PartnerSettlementReport({ space, invoices, currentUserId, onPreviewImage }: PartnerSettlementReportProps) {
   const [statusFilter, setStatusFilter] = useState<'all' | 'debtors' | 'creditors' | 'balanced'>('all');
   const [expandedPartners, setExpandedPartners] = useState<Record<string, boolean>>({});
   const [isSummaryExpanded, setIsSummaryExpanded] = useState<boolean>(false);
@@ -276,12 +277,13 @@ export function PartnerSettlementReport({ space, invoices, currentUserId }: Part
                     <th style={{ padding: '0.6rem 0.85rem', textAlign: 'left' }}>חלקו ({p.sharePercent}%)</th>
                     <th style={{ padding: '0.6rem 0.85rem', textAlign: 'left' }}>השפעה על המאזן</th>
                     <th style={{ padding: '0.6rem 0.85rem' }}>הסבר שקוף</th>
+                    <th style={{ padding: '0.6rem 0.85rem', textAlign: 'center' }}>מסמך</th>
                   </tr>
                 </thead>
                 <tbody>
                   {txs.length === 0 ? (
                     <tr>
-                      <td colSpan={7} style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                      <td colSpan={8} style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
                         לא נמצאו עסקאות התואמות את החיפוש
                       </td>
                     </tr>
@@ -337,6 +339,32 @@ export function PartnerSettlementReport({ space, invoices, currentUserId }: Part
                           <td style={{ padding: '0.65rem 0.85rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                             {t.explanation}
                           </td>
+                          <td style={{ padding: '0.65rem 0.85rem', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                            {t.attachmentUrl ? (
+                              <button
+                                type="button"
+                                onClick={() => onPreviewImage ? onPreviewImage(t.attachmentUrl!) : window.open(t.attachmentUrl, '_blank')}
+                                style={{
+                                  background: 'transparent',
+                                  border: '1px solid var(--border-light)',
+                                  borderRadius: '8px',
+                                  padding: '0.25rem 0.55rem',
+                                  cursor: 'pointer',
+                                  fontSize: '0.75rem',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '0.25rem',
+                                  color: 'var(--primary)',
+                                  fontWeight: '600'
+                                }}
+                                title="צפה בחשבונית המקורית"
+                              >
+                                <span>📄</span> צפה
+                              </button>
+                            ) : (
+                              <span style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>-</span>
+                            )}
+                          </td>
                         </tr>
                       );
                     })
@@ -362,7 +390,7 @@ export function PartnerSettlementReport({ space, invoices, currentUserId }: Part
                     }}>
                       {isDebtor ? `-₪${Math.abs(p.balance).toLocaleString()}` : isCreditor ? `+₪${p.balance.toLocaleString()}` : '₪0'}
                     </td>
-                    <td style={{ padding: '0.75rem 0.85rem', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                    <td colSpan={2} style={{ padding: '0.75rem 0.85rem', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
                       {isDebtor ? `חייב לשותפים סך נטו של ₪${Math.abs(p.balance).toLocaleString()}` : isCreditor ? `זכאי לקבל מהשותפים סך נטו של ₪${p.balance.toLocaleString()}` : 'חשבון מאוזן'}
                     </td>
                   </tr>

@@ -13,6 +13,8 @@ export interface SettlementTransactionRow {
   netImpact: number;
   impactType: 'credit' | 'debit' | 'neutral';
   explanation: string;
+  attachmentUrl?: string;
+  hasAttachment?: boolean;
 }
 
 export interface PartnerSettlementSummary {
@@ -238,7 +240,9 @@ export function computeSettlementReport(space: any, invoices: any[], currentUser
         partnerShareAmount: Math.round(relativePart),
         netImpact: Math.round(netImpact),
         impactType,
-        explanation
+        explanation,
+        attachmentUrl: inv.attachmentUrl || (inv.hasAttachment ? inv.imageUrl : undefined),
+        hasAttachment: Boolean(inv.attachmentUrl || inv.hasAttachment || inv.imageUrl)
       });
     });
   });
