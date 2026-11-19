@@ -49,6 +49,8 @@ export interface Invoice {
   approvalsReceived: number;
   approvedBy?: string[];
   vatRate: number; 
+  /** When true, expense has NO VAT component (e.g. מס שבח, מס רכישה, היטל השבחה). Amount is full net expense. */
+  isNoVat?: boolean;
   category: string; 
   hasAttachment: boolean; 
   attachmentUrl?: string;

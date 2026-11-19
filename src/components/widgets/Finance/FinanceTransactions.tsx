@@ -54,7 +54,7 @@ export function FinanceTransactions({
   const [externalShareInvoiceItem, setExternalShareInvoiceItem] = useState<FileShareItem | null>(null);
   const [deletionRequestModal, setDeletionRequestModal] = useState<{ isOpen: boolean; invoice: any; reason: string }>({ isOpen: false, invoice: null, reason: '' });
   const [editingInvoice, setEditingInvoice] = useState<any>(null);
-  const [editForm, setEditForm] = useState({ amount: '', supplier: '', date: '', category: 'כללי', customCategory: '' });
+  const [editForm, setEditForm] = useState({ amount: '', supplier: '', date: '', category: 'כללי', customCategory: '', isNoVat: false });
   const [editPayerId, setEditPayerId] = useState<string>('');
   const [editSplitMode, setEditSplitMode] = useState<PayerSplitMode>('single');
   const [editPayerSplits, setEditPayerSplits] = useState<Record<string, number>>({});
@@ -257,6 +257,10 @@ export function FinanceTransactions({
     const oldSupplier = (editingInvoice.supplier || '').trim();
     const isSupplierChanged = newSupplier !== oldSupplier;
 
+    const newIsNoVat = Boolean(editForm.isNoVat);
+    const oldIsNoVat = Boolean(editingInvoice.isNoVat);
+    const isNoVatChanged = newIsNoVat !== oldIsNoVat;
+
     const oldSplitMode: PayerSplitMode = editingInvoice.payerSplitMode || 'single';
     const isSplitChanged =
       editSplitMode !== oldSplitMode ||
@@ -265,7 +269,7 @@ export function FinanceTransactions({
 
     // 1. ABSOLUTE ZERO-ACTION GUARD:
     // If user clicked 'עריכה' and saved with identical values (no field was modified):
-    if (!isAmountChanged && !isDateChanged && !isCategoryChanged && !isSupplierChanged && !isSplitChanged) {
+    if (!isAmountChanged && !isDateChanged && !isCategoryChanged && !isSupplierChanged && !isSplitChanged && !isNoVatChanged) {
       // Zero changes occurred! DO NOT reset approvals, DO NOT write audit logs, DO NOT notify partners!
       setEditingInvoice(null);
       return;
@@ -340,7 +344,7 @@ export function FinanceTransactions({
     } else {
       // Cosmetic change only (supplier spelling or category changed, but amount and date are untouched):
       // Keep existing approvals intact! DO NOT reset status!
-      logReason = `עודכנו פרטים כלליים: ${isSupplierChanged ? `ספק: "${newSupplier}" (היה "${oldSupplier}")` : ''}${isCategoryChanged ? ` | קטגוריה: "${finalCategory}"` : ''}`;
+      logReason = `עודכנו פרטים כלליים: ${isSupplierChanged ? `ספק: "${newSupplier}" (היה "${oldSupplier}")` : ''}${isCategoryChanged ? ` | קטגוריה: "${finalCategory}"` : ''}${isNoVatChanged ? ` | סטטוס מע״מ עודכן ל-${newIsNoVat ? 'ללא מע״מ' : 'כולל מע״מ'}` : ''}`;
     }
     
     updateInvoice(
@@ -351,6 +355,7 @@ export function FinanceTransactions({
         supplier: newSupplier,
         date: editForm.date,
         category: finalCategory,
+        isNoVat: newIsNoVat,
         isOcrMismatched: isContradictingOcr,
         ...payerUpdates,
         ...approvalUpdates
@@ -908,7 +913,8 @@ export function FinanceTransactions({
                                         supplier: inv.supplier || '',
                                         date: d,
                                         category: isStandard ? (inv.category || 'כללי') : (inv.category ? 'other' : 'כללי'),
-                                        customCategory: !isStandard && inv.category ? inv.category : ''
+                                        customCategory: !isStandard && inv.category ? inv.category : '',
+                                        isNoVat: Boolean(inv.isNoVat)
                                       });
                                       setEditPayerId(inv.payerId === 'me' ? (space?.creatorId || 'me') : (inv.payerId || space?.creatorId || 'me'));
                                       setEditSplitMode(inv.payerSplitMode || (inv.payerSplits && Object.keys(inv.payerSplits).length > 0 ? 'custom_split' : 'single'));
@@ -1048,6 +1054,37 @@ export function FinanceTransactions({
                             סכום (₪)
                             <input type="number" step="0.01" placeholder="0.00" value={editForm.amount} onChange={e => setEditForm({...editForm, amount: e.target.value})} style={{ padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'var(--bg-card)', color: 'var(--text-primary)' }} required />
                           </label>
+
+                          {/* NO-VAT TOGGLE IN TRANSACTION EDIT FORM */}
+                          <div
+                            onClick={() => setEditForm(prev => ({ ...prev, isNoVat: !prev.isNoVat }))}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              padding: '0.5rem 0.75rem',
+                              borderRadius: '10px',
+                              background: editForm.isNoVat ? '#f0fdf4' : 'var(--bg-card)',
+                              border: editForm.isNoVat ? '1.5px solid #86efac' : '1px solid var(--border-light)',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', margin: 0, fontSize: '0.84rem', fontWeight: 700, color: editForm.isNoVat ? '#15803d' : 'var(--text-primary)' }}>
+                              <input
+                                type="checkbox"
+                                checked={editForm.isNoVat}
+                                onChange={e => setEditForm({ ...editForm, isNoVat: e.target.checked })}
+                                onClick={e => e.stopPropagation()}
+                                style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#16a34a' }}
+                              />
+                              <span>הוצאה ללא מע״מ (פטור ממע״מ / מיסי מקרקעין)</span>
+                            </label>
+                            {editForm.isNoVat && (
+                              <span style={{ fontSize: '0.7rem', fontWeight: 800, background: '#dcfce7', color: '#166534', padding: '1px 6px', borderRadius: '6px' }}>
+                                ללא מע״מ
+                              </span>
+                            )}
+                          </div>
 
                           {allPartnerOptions.length > 1 && inv.type !== 'transfer' && inv.type !== 'income' && (
                             <PayerSplitEditor
@@ -1331,6 +1368,11 @@ export function FinanceTransactions({
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', overflow: 'hidden' }}>
                               <div title={isActuallyApproved ? 'מאושר' : inv.status === 'pending' ? 'ממתין' : 'נדחה'} style={{ width: '8px', height: '8px', borderRadius: '50%', background: isActuallyApproved ? '#10b981' : inv.status === 'pending' ? '#f59e0b' : '#ef4444', flexShrink: 0 }} />
                               <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{inv.supplier || (inv.type === 'income' ? inv.clientName : '') || '---'}</span>
+                              {inv.isNoVat && (
+                                <span title="ללא מע״מ" style={{ fontSize: '0.65rem', background: '#dcfce7', color: '#166534', padding: '0 4px', borderRadius: '4px', fontWeight: 800, flexShrink: 0 }}>
+                                  🛡️
+                                </span>
+                              )}
                             </div>
                           </td>
                           <td style={{ padding: '0.8rem 0.4rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{formatDisplayDate(inv.date)}</td>
@@ -1393,6 +1435,11 @@ export function FinanceTransactions({
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <h4 style={{ margin: '0 0 0.1rem 0', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                         <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%', display: 'inline-block' }}>{inv.supplier}</span>
+                        {inv.isNoVat && (
+                          <span title="הוצאה ללא מע״מ (פטור ממע״מ / מיסי מקרקעין)" style={{ background: '#f0fdf4', color: '#16a34a', padding: '0.1rem 0.45rem', borderRadius: '12px', fontSize: '0.68rem', display: 'inline-flex', alignItems: 'center', gap: '0.2rem', whiteSpace: 'nowrap', border: '1px solid #bbf7d0', fontWeight: 800 }}>
+                            🛡️ ללא מע״מ
+                          </span>
+                        )}
                         {inv.source === 'inbox' && (
                           <span title="הגיע ממחסן - עבר אוטומציה" style={{ background: '#fef3c7', color: '#d97706', padding: '0.1rem 0.4rem', borderRadius: '12px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '0.2rem', whiteSpace: 'nowrap', border: '1px solid #fde68a' }}>
                             🗃️ ממחסן

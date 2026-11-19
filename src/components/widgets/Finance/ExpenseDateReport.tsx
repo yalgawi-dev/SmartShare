@@ -11,6 +11,7 @@ interface ExpenseDateReportProps {
 
 import { HEBREW_MONTHS, formatYMD, getDaysInMonth, normalizeToYMD } from '@/utils/dateUtils';
 import { downloadCSV, generateInvoicesCSV } from '@/utils/csvExportUtils';
+import { calculateExpenseVat } from '@/utils/vatUtils';
 
 export function ExpenseDateReport({ invoices, spaceTitle, spaceId, onPreviewImage }: ExpenseDateReportProps) {
   const [preset, setPreset] = useState<string>('all');
@@ -101,6 +102,9 @@ export function ExpenseDateReport({ invoices, spaceTitle, spaceId, onPreviewImag
       monthName: string;
       invoices: any[];
       totalAmount: number;
+      totalNetAmount: number;
+      totalVatAmount: number;
+      noVatCount: number;
       filesCount: number;
     }[] = [];
 
@@ -116,7 +120,20 @@ export function ExpenseDateReport({ invoices, spaceTitle, spaceId, onPreviewImag
 
     sortedKeys.forEach(key => {
       const invs = map.get(key)!;
-      const total = invs.reduce((sum, i) => sum + (Number(i.amount) || 0), 0);
+      let total = 0;
+      let totalNet = 0;
+      let totalVat = 0;
+      let noVatCount = 0;
+
+      invs.forEach(i => {
+        const amt = Number(i.amount) || 0;
+        const v = calculateExpenseVat(amt, Boolean(i.isNoVat), i.vatRate || 18);
+        total += v.totalAmount;
+        totalNet += v.beforeVatAmount;
+        totalVat += v.vatAmount;
+        if (i.isNoVat) noVatCount++;
+      });
+
       const files = invs.filter(i => i.hasAttachment && i.attachmentUrl).length;
       
       let year = 0;
@@ -137,6 +154,9 @@ export function ExpenseDateReport({ invoices, spaceTitle, spaceId, onPreviewImag
         monthName,
         invoices: invs,
         totalAmount: total,
+        totalNetAmount: Number(totalNet.toFixed(2)),
+        totalVatAmount: Number(totalVat.toFixed(2)),
+        noVatCount,
         filesCount: files
       });
     });
@@ -144,9 +164,30 @@ export function ExpenseDateReport({ invoices, spaceTitle, spaceId, onPreviewImag
     return groups;
   }, [filteredInvoices]);
 
-  const totalAmount = useMemo(() => {
-    return filteredInvoices.reduce((acc, inv) => acc + (Number(inv.amount) || 0), 0);
+  const vatSummary = useMemo(() => {
+    let gross = 0;
+    let net = 0;
+    let vat = 0;
+    let noVatExpensesCount = 0;
+
+    filteredInvoices.forEach(inv => {
+      const amt = Number(inv.amount) || 0;
+      const v = calculateExpenseVat(amt, Boolean(inv.isNoVat), inv.vatRate || 18);
+      gross += v.totalAmount;
+      net += v.beforeVatAmount;
+      vat += v.vatAmount;
+      if (inv.isNoVat) noVatExpensesCount++;
+    });
+
+    return {
+      gross: Number(gross.toFixed(2)),
+      net: Number(net.toFixed(2)),
+      vat: Number(vat.toFixed(2)),
+      noVatExpensesCount
+    };
   }, [filteredInvoices]);
+
+  const totalAmount = vatSummary.gross;
 
   const invoicesCount = filteredInvoices.length;
   const avgAmount = invoicesCount > 0 ? Math.round(totalAmount / invoicesCount) : 0;
@@ -315,6 +356,23 @@ export function ExpenseDateReport({ invoices, spaceTitle, spaceId, onPreviewImag
           <div style={{ fontSize: '2rem', fontWeight: '900', color: 'var(--primary)', lineHeight: '1.2', marginTop: '0.2rem' }}>
             ₪{totalAmount.toLocaleString()}
           </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.35rem', flexWrap: 'wrap', fontSize: '0.78rem' }}>
+            <span style={{ color: 'var(--text-secondary)' }}>
+              סכום נטו (לפני מע״מ): <strong style={{ color: 'var(--text-primary)' }}>₪{vatSummary.net.toLocaleString()}</strong>
+            </span>
+            <span style={{ color: '#94a3b8' }}>•</span>
+            <span style={{ color: 'var(--text-secondary)' }}>
+              סך מע״מ: <strong style={{ color: '#3b82f6' }}>₪{vatSummary.vat.toLocaleString()}</strong>
+            </span>
+            {vatSummary.noVatExpensesCount > 0 && (
+              <>
+                <span style={{ color: '#94a3b8' }}>•</span>
+                <span style={{ background: '#dcfce7', color: '#166534', padding: '1px 7px', borderRadius: '8px', fontWeight: 800 }}>
+                  🛡️ {vatSummary.noVatExpensesCount} הוצאות ללא מע״מ
+                </span>
+              </>
+            )}
+          </div>
         </div>
 
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
@@ -447,7 +505,9 @@ export function ExpenseDateReport({ invoices, spaceTitle, spaceId, onPreviewImag
                         <thead>
                           <tr style={{ background: 'rgba(0,0,0,0.02)', borderBottom: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>
                             <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>ספק</th>
-                            <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>סכום</th>
+                            <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>סכום כולל</th>
+                            <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>לפני מע״מ</th>
+                            <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>מע״מ</th>
                             <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>משלם</th>
                             <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>תאריך</th>
                             <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>קטגוריה</th>
@@ -458,6 +518,7 @@ export function ExpenseDateReport({ invoices, spaceTitle, spaceId, onPreviewImag
                           {group.invoices.map((inv, idx) => {
                             const ymd = normalizeToYMD(inv.date || inv.createdAt);
                             const displayDate = ymd ? ymd.split('-').reverse().join('.') : (inv.date || '---');
+                            const vatCalc = calculateExpenseVat(Number(inv.amount) || 0, Boolean(inv.isNoVat), inv.vatRate || 18);
 
                             return (
                               <tr 
@@ -465,10 +526,27 @@ export function ExpenseDateReport({ invoices, spaceTitle, spaceId, onPreviewImag
                                 style={{ borderBottom: '1px solid var(--border-light)', background: 'var(--bg-card)' }}
                               >
                                 <td style={{ padding: '0.75rem 1rem', color: 'var(--text-primary)', fontWeight: 'bold', textAlign: 'right' }}>
-                                  {inv.supplier || 'ספק כללי'}
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                                    <span>{inv.supplier || 'ספק כללי'}</span>
+                                    {inv.isNoVat && (
+                                      <span title="הוצאה ללא מע״מ (פטור ממע״מ / מיסי מקרקעין)" style={{ background: '#dcfce7', color: '#166534', padding: '1px 6px', borderRadius: '6px', fontSize: '0.68rem', fontWeight: 800 }}>
+                                        🛡️ ללא מע״מ
+                                      </span>
+                                    )}
+                                  </div>
                                 </td>
                                 <td style={{ padding: '0.75rem 1rem', fontWeight: 'bold', color: 'var(--primary)', whiteSpace: 'nowrap', textAlign: 'right' }}>
-                                  ₪{(Number(inv.amount) || 0).toLocaleString()}
+                                  ₪{vatCalc.totalAmount.toLocaleString()}
+                                </td>
+                                <td style={{ padding: '0.75rem 1rem', color: 'var(--text-primary)', whiteSpace: 'nowrap', textAlign: 'right', fontWeight: 600 }}>
+                                  ₪{vatCalc.beforeVatAmount.toLocaleString()}
+                                </td>
+                                <td style={{ padding: '0.75rem 1rem', whiteSpace: 'nowrap', textAlign: 'right' }}>
+                                  {inv.isNoVat ? (
+                                    <span style={{ color: '#16a34a', fontWeight: 700, fontSize: '0.78rem' }}>0 ₪ (פטור)</span>
+                                  ) : (
+                                    <span style={{ color: '#2563eb', fontWeight: 700 }}>₪{vatCalc.vatAmount.toLocaleString()}</span>
+                                  )}
                                 </td>
                                 <td style={{ padding: '0.75rem 1rem', color: 'var(--text-secondary)', textAlign: 'right' }}>
                                   {inv.payerName || '---'}
@@ -521,17 +599,20 @@ export function ExpenseDateReport({ invoices, spaceTitle, spaceId, onPreviewImag
                         <tfoot>
                           <tr style={{ background: 'rgba(99, 102, 241, 0.06)', borderTop: '2px solid var(--border-light)', fontWeight: 'bold' }}>
                             <td style={{ padding: '0.85rem 1rem', color: 'var(--text-primary)', textAlign: 'right' }}>
-                              סה"כ לחודש זה:
+                              סה"כ לחודש זה ({group.invoices.length} הוצאות):
                             </td>
                             <td style={{ padding: '0.85rem 1rem', color: 'var(--primary)', fontSize: '1rem', whiteSpace: 'nowrap', textAlign: 'right' }}>
                               ₪{group.totalAmount.toLocaleString()}
                             </td>
-                            <td style={{ padding: '0.85rem 1rem', color: 'var(--text-secondary)', fontSize: '0.82rem', textAlign: 'right' }}>
-                              ({group.invoices.length} הוצאות)
+                            <td style={{ padding: '0.85rem 1rem', color: 'var(--text-primary)', fontSize: '0.92rem', whiteSpace: 'nowrap', textAlign: 'right' }}>
+                              ₪{group.totalNetAmount.toLocaleString()}
                             </td>
-                            <td style={{ padding: '0.85rem 1rem', textAlign: 'right' }}></td>
-                            <td style={{ padding: '0.85rem 1rem', textAlign: 'right' }}></td>
-                            <td style={{ padding: '0.85rem 1rem', textAlign: 'right' }}></td>
+                            <td style={{ padding: '0.85rem 1rem', color: '#2563eb', fontSize: '0.92rem', whiteSpace: 'nowrap', textAlign: 'right' }}>
+                              ₪{group.totalVatAmount.toLocaleString()}
+                            </td>
+                            <td colSpan={4} style={{ padding: '0.85rem 1rem', color: 'var(--text-secondary)', fontSize: '0.8rem', textAlign: 'right' }}>
+                              {group.noVatCount > 0 ? `(כולל ${group.noVatCount} הוצאות ללא מע״מ)` : ''}
+                            </td>
                           </tr>
                         </tfoot>
                       </table>

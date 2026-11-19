@@ -514,6 +514,7 @@ const [isMounted, setIsMounted] = useState(false);
       }
     const supplier = formData.get('supplier') as string;
     const clientName = formData.get('clientName') as string;
+    const isNoVat = formData.get('isNoVat') === 'true';
     const rawSplitMode = (formData.get('payerSplitMode') as 'single' | 'all_by_shares' | 'custom_split') || 'single';
     const rawSplitsJson = (formData.get('payerSplitsJson') as string) || '';
     let parsedPayerSplits: Record<string, number> | undefined = undefined;
@@ -676,6 +677,7 @@ const [isMounted, setIsMounted] = useState(false);
       approvalsReceived: finalApprovalsReceived,
       approvedBy: finalApprovedBy,
       vatRate: space.settings?.defaultVatRate || 18,
+      isNoVat: isNoVat,
       hasAttachment: !!finalAttachmentUrl,
       payerId: payerId,
       ...(parsedPayerSplits ? { payerSplits: parsedPayerSplits, payerSplitMode: rawSplitMode } : { payerSplitMode: 'single' })

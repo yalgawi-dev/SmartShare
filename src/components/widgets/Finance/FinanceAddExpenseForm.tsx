@@ -58,6 +58,7 @@ export function FinanceAddExpenseForm({
 }: FinanceAddExpenseFormProps) {
   const [isCredit, setIsCredit] = React.useState(ocrData?.isCreditInvoice || false);
   const [isStoreCredit, setIsStoreCredit] = React.useState(false);
+  const [isNoVat, setIsNoVat] = React.useState<boolean>(() => Boolean(retroInvoiceToEdit?.isNoVat));
   const [payerSplitMode, setPayerSplitMode] = useState<PayerSplitMode>(() => retroInvoiceToEdit?.payerSplitMode || 'single');
   const [payerSplits, setPayerSplits] = useState<Record<string, number>>(() => retroInvoiceToEdit?.payerSplits || {});
 
@@ -77,6 +78,9 @@ export function FinanceAddExpenseForm({
 
   React.useEffect(() => {
     if (ocrData || retroInvoiceToEdit) {
+      if (retroInvoiceToEdit?.isNoVat !== undefined) {
+        setIsNoVat(Boolean(retroInvoiceToEdit.isNoVat));
+      }
       setFormValues({
         supplier: ocrData?.vendor || retroInvoiceToEdit?.supplier || '',
           clientName: ocrData?.clientName || retroInvoiceToEdit?.clientName || '',
@@ -517,8 +521,93 @@ export function FinanceAddExpenseForm({
           </div>
           
           <div style={{ display: 'flex', gap: '0.5rem', width: '100%', flexWrap: 'wrap' }}>
-            {renderSmartInput('amount', 'number', 'סכום כולל מע״מ (₪)', 'סכום כולל מע״מ', formValues.amount, !!ocrData.amount, true, '0.01')}
-            {renderSmartInput('vatAmount', 'number', 'סכום מע״מ (₪)', 'אופציונלי', formValues.vatAmount, !!ocrData.vatAmount, false, '0.01')}
+            {renderSmartInput(
+              'amount',
+              'number',
+              isNoVat ? 'סכום הוצאה נטו ללא מע״מ (₪)' : 'סכום כולל מע״מ (₪)',
+              isNoVat ? 'סכום הוצאה מלא (ללא מע״מ)' : 'סכום כולל מע״מ',
+              formValues.amount,
+              !!ocrData.amount,
+              true,
+              '0.01'
+            )}
+            {!isNoVat ? (
+              renderSmartInput('vatAmount', 'number', 'סכום מע״מ (₪)', 'אופציונלי', formValues.vatAmount, !!ocrData.vatAmount, false, '0.01')
+            ) : (
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.25rem', minWidth: '130px' }}>
+                <label style={{ fontSize: '0.85rem', color: '#16a34a', fontWeight: 'bold' }}>
+                  סטטוס מע״מ
+                </label>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  padding: '0.875rem',
+                  borderRadius: '12px',
+                  background: '#f0fdf4',
+                  border: '1.5px solid #86efac',
+                  color: '#15803d',
+                  fontSize: '0.88rem',
+                  fontWeight: 700
+                }}>
+                  <span>🛡️</span>
+                  <span>פטור ממע״מ / הוצאה מלאה (0 ₪ מע״מ)</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* NO-VAT CHECKBOX TOGGLE */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            background: isNoVat ? '#f0fdf4' : 'rgba(0,0,0,0.02)',
+            border: isNoVat ? '1.5px solid #86efac' : '1px solid var(--border-light)',
+            borderRadius: '12px',
+            padding: '0.65rem 0.85rem',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease'
+          }}
+          onClick={() => {
+            setIsNoVat(prev => {
+              const next = !prev;
+              if (next) {
+                setFormValues(f => ({ ...f, vatAmount: '' }));
+              }
+              return next;
+            });
+          }}
+          >
+            <input type="hidden" name="isNoVat" value={isNoVat ? 'true' : 'false'} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <input
+                type="checkbox"
+                checked={isNoVat}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setIsNoVat(checked);
+                  if (checked) {
+                    setFormValues(f => ({ ...f, vatAmount: '' }));
+                  }
+                }}
+                onClick={(e) => e.stopPropagation()}
+                style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#16a34a' }}
+              />
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontSize: '0.88rem', fontWeight: 800, color: isNoVat ? '#15803d' : 'var(--text-primary)' }}>
+                  הוצאה ללא מע״מ (פטור ממע״מ / מיסי מקרקעין)
+                </span>
+                <span style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
+                  לדוגמה: מס שבח, מס רכישה, היטל השבחה או קנסות — סכום ההוצאה הוא נטו מלא ללא מרכיב מע״מ.
+                </span>
+              </div>
+            </div>
+            {isNoVat && (
+              <span style={{ fontSize: '0.74rem', fontWeight: 800, background: '#dcfce7', color: '#166534', padding: '2px 8px', borderRadius: '8px' }}>
+                מסומן ללא מע״מ
+              </span>
+            )}
           </div>
           
           <div style={{ display: 'flex', gap: '0.5rem', width: '100%', flexWrap: 'wrap' }}>

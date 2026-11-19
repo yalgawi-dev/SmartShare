@@ -1,5 +1,6 @@
 import { saveAs } from 'file-saver';
 import { normalizeToYMD } from './dateUtils';
+import { calculateExpenseVat } from './vatUtils';
 
 /**
  * Universal, cross-platform CSV download utility.
@@ -70,8 +71,8 @@ export function generateInvoicesCSV(invoices: any[], spaceTitle: string, rangeTi
     return str;
   };
 
-  // 1: ספק, 2: סכום, 3: משלם, 4: תאריך, 5: קטגוריה, 6: מסמך מצורף, 7: סטטוס
-  const headers = ['ספק', 'סכום', 'משלם', 'תאריך', 'קטגוריה', 'מסמך מצורף', 'סטטוס'];
+  // Columns: ספק, סכום כולל, סכום לפני מע"מ, סכום מע"מ, סטטוס מע"מ, משלם, תאריך, קטגוריה, מסמך מצורף, סטטוס
+  const headers = ['ספק', 'סכום כולל', 'סכום לפני מע"מ', 'סכום מע"מ', 'סטטוס מע"מ', 'משלם', 'תאריך', 'קטגוריה', 'מסמך מצורף', 'סטטוס'];
 
   const formatStatus = (status: string) => {
     if (status === 'approved') return 'מאושר';
@@ -86,34 +87,57 @@ export function generateInvoicesCSV(invoices: any[], spaceTitle: string, rangeTi
     return dateStr;
   };
 
-  const rows = (invoices || []).map(inv => [
-    inv.supplier || '',
-    Number(inv.amount || 0),
-    inv.payerName || '',
-    formatDate(inv.date),
-    inv.category || 'כללי',
-    inv.hasAttachment ? 'כן' : 'לא',
-    formatStatus(inv.status)
-  ]);
+  let totalGross = 0;
+  let totalNet = 0;
+  let totalVat = 0;
 
-  const totalAmount = (invoices || []).reduce((sum, inv) => sum + (Number(inv.amount) || 0), 0);
+  const rows = (invoices || []).map(inv => {
+    const rawAmt = Number(inv.amount || 0);
+    const vatCalc = calculateExpenseVat(rawAmt, Boolean(inv.isNoVat), inv.vatRate || 18);
+    totalGross += vatCalc.totalAmount;
+    totalNet += vatCalc.beforeVatAmount;
+    totalVat += vatCalc.vatAmount;
+
+    return [
+      inv.supplier || '',
+      vatCalc.totalAmount,
+      vatCalc.beforeVatAmount,
+      vatCalc.vatAmount,
+      inv.isNoVat ? 'ללא מע״מ (פטור)' : `כולל מע״מ (${vatCalc.vatRate}%)`,
+      inv.payerName || '',
+      formatDate(inv.date),
+      inv.category || 'כללי',
+      inv.hasAttachment ? 'כן' : 'לא',
+      formatStatus(inv.status)
+    ];
+  });
+
+  totalGross = Number(totalGross.toFixed(2));
+  totalNet = Number(totalNet.toFixed(2));
+  totalVat = Number(totalVat.toFixed(2));
 
   // Empty separator row
-  rows.push(['', '', '', '', '', '', '']);
+  rows.push(['', '', '', '', '', '', '', '', '', '']);
 
   // Distinct visual framing line (simulating border / highlight in spreadsheets)
-  const borderLine = ['════════════════', '════════════════', '════════════════', '════════════════', '════════════════', '════════════════', '════════════════'];
+  const borderLine = ['════════════════', '════════════════', '════════════════', '════════════════', '════════════════', '════════════════', '════════════════', '════════════════', '════════════════', '════════════════'];
   rows.push(borderLine);
 
   // Prominent bold summary row:
-  // - Column 1 (ספק): 'סה"כ כולל:' (Clean text without any garbled numbers or trailing 0)
-  // - Column 2 (סכום): totalAmount (Numeric sum positioned directly under the 'סכום' column for calculations)
-  // - Column 3 (משלם): Formatted currency display
-  // - Column 4 (תאריך): Expense count
+  // - Column 1 (ספק): 'סה"כ כולל:'
+  // - Column 2 (סכום כולל): totalGross
+  // - Column 3 (סכום לפני מע"מ): totalNet
+  // - Column 4 (סכום מע"מ): totalVat
+  // - Column 5 (סטטוס מע"מ): 'סיכום מע"מ'
+  // - Column 6 (משלם): Formatted currency display
+  // - Column 7 (תאריך): Expense count
   rows.push([
     'סה"כ כולל:',
-    totalAmount,
-    `₪${totalAmount.toLocaleString('he-IL')}`,
+    totalGross,
+    totalNet,
+    totalVat,
+    'סיכום מע"מ',
+    `₪${totalGross.toLocaleString('he-IL')}`,
     `סה"כ הוצאות: ${invoices.length}`,
     '',
     '',
