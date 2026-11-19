@@ -240,7 +240,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   };
   const [folderToDelete, setFolderToDelete] = useState<{ id: string, name: string } | null>(null);
   const [folderToMove, setFolderToMove] = useState<DocumentFolder | null>(null);
-  const [linkingDoc, setLinkingDoc] = useState<SpaceDocument | null>(null);
+  const [linkingDoc, setLinkingDoc] = useState<{ doc: SpaceDocument; contextDocs?: SpaceDocument[] } | null>(null);
   const [viewLinkedDocsFor, setViewLinkedDocsFor] = useState<{ doc: SpaceDocument; contextDocs?: SpaceDocument[] } | null>(null);
   const [feedbackToast, setFeedbackToast] = useState<{ message: string; type?: 'success' | 'info' } | null>(null);
 
@@ -3115,7 +3115,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                          </button>
                                   <button
                                     type="button"
-                                    onClick={(e) => { e.stopPropagation(); setLinkingDoc(doc); }}
+                                    onClick={(e) => { e.stopPropagation(); setLinkingDoc({ doc, contextDocs: filteredDocs }); }}
                                     title="קשר לחשבוניות / מסמכים מקושרים"
                                     style={{ background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', borderRadius: '6px', padding: '2px 5px', fontSize: '0.72rem', cursor: 'pointer' }}
                                   >
@@ -3751,10 +3751,10 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                         }
                                       });
                                     }}
-                                    style={{ fontSize: '0.82rem', fontWeight: 800, color: '#1e293b', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', minWidth: 0, lineHeight: 1.3 }}
+                                    style={{ fontSize: '0.82rem', fontWeight: 800, color: '#1e293b', cursor: 'pointer', display: 'flex', alignItems: 'flex-start', gap: '5px', minWidth: 0, lineHeight: 1.25 }}
                                     title={`לחץ לשינוי שם: ${doc.title}`}
                                   >
-                                    <span style={{ flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{doc.title}</span>
+                                    <span style={{ flex: 1, minWidth: 0, wordBreak: 'break-word', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{doc.title}</span>
                                     {(() => {
                                       const isRawPdf = Boolean(doc.rawPdfUrl || doc.type === 'pdf' || (doc.url && doc.url.toLowerCase().includes('.pdf')));
                                       const isWebp = !isRawPdf && (doc.type === 'document' || doc.type === 'image' || (doc.url && doc.url.toLowerCase().includes('.webp')) || (doc.thumbnailUrl && doc.thumbnailUrl.toLowerCase().includes('.webp')));
@@ -4029,7 +4029,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                               )}
                                               <button
                                                 type="button"
-                                                onClick={() => { setActiveDocMenuId(null); setLinkingDoc(doc); }}
+                                                onClick={() => { setActiveDocMenuId(null); setLinkingDoc({ doc, contextDocs: filteredDocs }); }}
                                                 style={{ background: 'transparent', border: 'none', padding: '0.35rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#0f766e', display: 'flex', alignItems: 'center', gap: '0.45rem' }}
                                               >
                                                 💳 קשר להוצאה / מסמך
@@ -4701,14 +4701,20 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       {/* DOCUMENT TO DOCUMENT RELATIONAL LINKING MODAL */}
       <LinkDocumentsModal
         isOpen={Boolean(linkingDoc)}
-        doc={linkingDoc}
+        doc={linkingDoc?.doc || null}
         allDocs={activeDocuments}
+        contextDocs={linkingDoc?.contextDocs}
         folders={space.documentFolders || []}
         shelves={space.shelves || []}
         onClose={() => setLinkingDoc(null)}
         onSave={(docId, linkedDocIds) => {
           updateDocument(space.id, docId, { linkedDocIds });
           showFeedbackToast(`קושרו בהצלחה ${linkedDocIds.length} מסמכים!`);
+        }}
+        onPreviewDoc={(targetDoc) => {
+          const pool = linkingDoc?.contextDocs || activeDocuments;
+          const idx = pool.findIndex(d => d.id === targetDoc.id);
+          setPreviewState({ docs: pool, index: idx >= 0 ? idx : 0 });
         }}
       />
 
@@ -4725,7 +4731,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           setViewLinkedDocsFor(null);
         }}
         onEditLinks={(doc) => {
-          setLinkingDoc(doc);
+          setLinkingDoc({ doc, contextDocs: viewLinkedDocsFor?.contextDocs });
           setViewLinkedDocsFor(null);
         }}
       />

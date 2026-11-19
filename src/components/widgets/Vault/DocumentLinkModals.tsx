@@ -8,10 +8,12 @@ interface LinkDocumentsModalProps {
   isOpen: boolean;
   doc: SpaceDocument | null;
   allDocs: SpaceDocument[];
+  contextDocs?: SpaceDocument[];
   folders?: DocumentFolder[];
   shelves?: DocumentShelf[];
   onClose: () => void;
   onSave: (docId: string, linkedDocIds: string[]) => void;
+  onPreviewDoc?: (doc: SpaceDocument) => void;
 }
 
 type ScopeFilter = 'same_folder' | 'nearby' | 'all_shelf';
@@ -20,10 +22,12 @@ export const LinkDocumentsModal: React.FC<LinkDocumentsModalProps> = ({
   isOpen,
   doc,
   allDocs,
+  contextDocs,
   folders = [],
   shelves = [],
   onClose,
-  onSave
+  onSave,
+  onPreviewDoc
 }) => {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -199,15 +203,51 @@ export const LinkDocumentsModal: React.FC<LinkDocumentsModalProps> = ({
       >
         {/* Header */}
         <div style={{ padding: '1.15rem 1.35rem', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0 }}>
-            <div style={{ width: '38px', height: '38px', borderRadius: '12px', background: '#ecfdf5', color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.25rem', flexShrink: 0 }}>
-              💳
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0, flex: 1 }}>
+            {/* Source doc mini preview thumbnail */}
+            <div
+              onClick={() => onPreviewDoc && onPreviewDoc(doc)}
+              style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '12px',
+                background: '#f1f5f9',
+                border: '1.5px solid #cbd5e1',
+                overflow: 'hidden',
+                flexShrink: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: onPreviewDoc ? 'pointer' : 'default',
+                position: 'relative'
+              }}
+              title={onPreviewDoc ? 'לחץ לצפייה מקדימה במסמך המקור' : undefined}
+            >
+              {doc.thumbnailUrl ? (
+                <img src={doc.thumbnailUrl} alt={doc.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (doc.url && !doc.url.toLowerCase().includes('.pdf')) ? (
+                <img src={doc.url} alt={doc.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                <span style={{ fontSize: '1.25rem' }}>📄</span>
+              )}
             </div>
-            <div style={{ minWidth: 0 }}>
-              <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#0f172a' }}>
-                קישור חשבונית לתשלום / מסמך
-              </h3>
-              <div style={{ fontSize: '0.76rem', color: '#64748b', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <h3 style={{ margin: 0, fontSize: '1.02rem', fontWeight: 800, color: '#0f172a' }}>
+                  הצמדת וקישור מסמכים
+                </h3>
+                {(() => {
+                  const numPool = (contextDocs && contextDocs.length > 0) ? contextDocs : allDocs;
+                  const idx = numPool.findIndex(d => d.id === doc.id);
+                  const num = idx >= 0 ? `#${idx + 1}` : (doc.docNumber ? `#${doc.docNumber}` : '');
+                  return num ? (
+                    <span style={{ background: '#2563eb', color: 'white', borderRadius: '6px', padding: '1px 6px', fontSize: '0.72rem', fontWeight: 800 }}>
+                      {num}
+                    </span>
+                  ) : null;
+                })()}
+              </div>
+              <div style={{ fontSize: '0.76rem', color: '#64748b', marginTop: '2px', wordBreak: 'break-word', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                 מסמך מקור: <span style={{ fontWeight: 700, color: '#1e293b' }}>{doc.title}</span>
               </div>
               <div style={{ fontSize: '0.7rem', color: '#0369a1', fontWeight: 700, marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -227,7 +267,7 @@ export const LinkDocumentsModal: React.FC<LinkDocumentsModalProps> = ({
 
         {/* Informative explanation */}
         <div style={{ padding: '0.65rem 1.35rem', background: '#f8fafc', borderBottom: '1px solid #f1f5f9', fontSize: '0.77rem', color: '#475569', lineHeight: 1.4 }}>
-          💡 <strong>מה יוצג לאחר הקישור?</strong> על גבי המסמך יופיע תג ירוק <strong>"💳 מקושר"</strong> ועל החשבונית יופיע <strong>"✅ משולם ע"י..."</strong> — לחיצה על התג תפתח מיד את המסמך המקושר לצפייה משותפת.
+          💡 <strong>מה יוצג לאחר הקישור?</strong> על גבי המסמכים יופיעו תגי הצמדה עם מספרי המסמכים המקושרים (למשל: <strong>🔗 מוצמד ל-#X</strong> ו-<strong>📎 מוצמד מ-#Y</strong>) — לחיצה על התג תפתח מיד חלון המציג את שני המסמכים יחד לצפייה ישירה.
         </div>
 
         {/* Proximity Scope Filter Tabs (Same Folder -> Nearby Folders -> Entire Shelf) */}
@@ -373,6 +413,10 @@ export const LinkDocumentsModal: React.FC<LinkDocumentsModalProps> = ({
             filteredCandidates.map(d => {
               const isSelected = selectedIds.includes(d.id);
               const rel = classifyRelation(d);
+              const numPool = (contextDocs && contextDocs.length > 0) ? contextDocs : allDocs;
+              const candIdx = numPool.findIndex(item => item.id === d.id);
+              const candNum = candIdx >= 0 ? `#${candIdx + 1}` : (d.docNumber ? `#${d.docNumber}` : '');
+
               return (
                 <div
                   key={d.id}
@@ -393,9 +437,50 @@ export const LinkDocumentsModal: React.FC<LinkDocumentsModalProps> = ({
                     <div style={{ width: '22px', height: '22px', borderRadius: '6px', border: isSelected ? '2px solid #10b981' : '2px solid #cbd5e1', background: isSelected ? '#10b981' : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '0.75rem', fontWeight: 800, flexShrink: 0 }}>
                       {isSelected ? '✓' : ''}
                     </div>
+
+                    {/* Mini Thumbnail Card */}
+                    <div
+                      onClick={(e) => {
+                        if (onPreviewDoc) {
+                          e.stopPropagation();
+                          onPreviewDoc(d);
+                        }
+                      }}
+                      style={{
+                        width: '36px',
+                        height: '36px',
+                        borderRadius: '8px',
+                        background: '#f1f5f9',
+                        border: '1px solid #cbd5e1',
+                        overflow: 'hidden',
+                        flexShrink: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: onPreviewDoc ? 'pointer' : 'default',
+                        position: 'relative'
+                      }}
+                      title={onPreviewDoc ? 'לחץ לפתיחת תצוגה מקדימה של המסמך' : undefined}
+                    >
+                      {d.thumbnailUrl ? (
+                        <img src={d.thumbnailUrl} alt={d.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (d.url && !d.url.toLowerCase().includes('.pdf')) ? (
+                        <img src={d.url} alt={d.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <span style={{ fontSize: '1.1rem' }}>📄</span>
+                      )}
+                    </div>
+
                     <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ fontSize: '0.85rem', fontWeight: isSelected ? 800 : 600, color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {d.docNumber ? `#${d.docNumber} • ` : ''}{d.title}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        {candNum && (
+                          <span style={{ background: isSelected ? '#059669' : '#0284c7', color: 'white', borderRadius: '5px', padding: '1px 5px', fontSize: '0.68rem', fontWeight: 800, flexShrink: 0 }}>
+                            {candNum}
+                          </span>
+                        )}
+                        <span style={{ fontSize: '0.85rem', fontWeight: isSelected ? 800 : 700, color: '#1e293b', wordBreak: 'break-word', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.25 }}>
+                          {d.title}
+                        </span>
                       </div>
                       <div style={{ fontSize: '0.69rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '0.45rem', marginTop: '3px', flexWrap: 'wrap' }}>
                         <span style={{ background: rel.badgeBg, color: rel.badgeColor, padding: '1px 6px', borderRadius: '5px', fontWeight: 700, fontSize: '0.65rem' }}>
