@@ -59,7 +59,12 @@
             ".jpeg",
             ".png",
             ".webp",
-            ".pdf"
+            ".pdf",
+            ".dwg",
+            ".dwfx",
+            ".dxf",
+            ".dwf",
+            "model/vnd.dwfx+xps"
           ]
         }
       ]

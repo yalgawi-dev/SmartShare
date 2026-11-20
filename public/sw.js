@@ -8,18 +8,6 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim());
 });
 
-// Robust binary to base64 converter in worker context without memory/stack limits (fallback only for small thumbs)
-function arrayBufferToBase64(buffer) {
-  const bytes = new Uint8Array(buffer);
-  const CHUNK_SIZE = 0x8000; // 32KB chunks safe for JavaScript engines
-  let binary = '';
-  for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
-    const chunk = bytes.subarray(i, Math.min(i + CHUNK_SIZE, bytes.length));
-    binary += String.fromCharCode.apply(null, chunk);
-  }
-  return btoa(binary);
-}
-
 // In-memory stash of active share promises indexed by share ID or newest
 let latestSharedFilesPromise = null;
 
@@ -136,26 +124,8 @@ self.addEventListener('fetch', (event) => {
 
       await saveSharedBlobsToIndexedDB(blobEntries);
 
-      // Also for backward-compatibility with small files under 3MB, generate dataUri fallback
-      const totalSize = files.reduce((acc, f) => acc + (f.size || 0), 0);
-      if (totalSize < 4 * 1024 * 1024) {
-        try {
-          const dataUris = await Promise.all(files.map(async (file) => {
-            const buffer = await file.arrayBuffer();
-            const base64 = arrayBufferToBase64(buffer);
-            const mimeType = file.type || 'image/jpeg';
-            return 'data:' + mimeType + ';base64,' + base64;
-          }));
-
-          const cache = await caches.open('smartshare-shared-cache');
-          await cache.put('/api/last-shared-files', new Response(JSON.stringify(dataUris), {
-            headers: { 'Content-Type': 'application/json' }
-          }));
-        } catch (e) {}
-      }
-
-      // Redirect immediately!
-      return Response.redirect(new URL('/?shared=true', event.request.url).href, 303);
+      // Redirect immediately (zero-wait 303 redirect)!
+      return Response.redirect(new URL('/?shared=true', event.request.url), 303);
     })());
 
     // 4. Notify active windows via message

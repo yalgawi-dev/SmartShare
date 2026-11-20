@@ -226,7 +226,10 @@ export default function CadDocumentViewer({ url, filename = 'drawing.dwg' }: Cad
   };
 
   const handleFit = () => {
-    if (viewerRef.current?.fitToView) {
+    if (viewerRef.current?.resetView) {
+      viewerRef.current.resetView();
+      viewerRef.current.requestRender?.();
+    } else if (viewerRef.current?.fitToView) {
       viewerRef.current.fitToView();
     } else if (viewerRef.current?.fit) {
       viewerRef.current.fit();
@@ -236,6 +239,12 @@ export default function CadDocumentViewer({ url, filename = 'drawing.dwg' }: Cad
   const handleZoom = (factor: number) => {
     if (viewerRef.current?.zoomAtCenter) {
       viewerRef.current.zoomAtCenter(factor);
+      viewerRef.current.requestRender?.();
+    } else if (viewerRef.current?.zoomAroundPoint) {
+      const canvas = containerRef.current?.querySelector('canvas');
+      const cx = (canvas ? canvas.width : window.innerWidth) / 2;
+      const cy = (canvas ? canvas.height : window.innerHeight) / 2;
+      viewerRef.current.zoomAroundPoint(factor, cx, cy);
       viewerRef.current.requestRender?.();
     } else if (viewerRef.current?.handleZoom) {
       const canvas = containerRef.current?.querySelector('canvas');
@@ -273,6 +282,17 @@ export default function CadDocumentViewer({ url, filename = 'drawing.dwg' }: Cad
         }
         .dwfv-toolbar {
           display: none !important;
+          visibility: hidden !important;
+          height: 0 !important;
+          max-height: 0 !important;
+          padding: 0 !important;
+          margin: 0 !important;
+          overflow: hidden !important;
+          border: none !important;
+        }
+        .dwfv-status {
+          display: none !important;
+          visibility: hidden !important;
         }
         .dwfv-workspace {
           flex: 1 1 auto !important;

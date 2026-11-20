@@ -6,7 +6,7 @@ import { useSpaces } from '../../app/context/SpacesContext';
 import { useAuth } from '../../app/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { uploadImageToStorage, uploadBlobToStorage } from '../../lib/firebase';
-import { downscaleBase64, extractPdfPages, analyzePdfStructure, isTrueOriginalPdf, ensurePdfJsLoaded, dataUrlBytes, generatePdfFirstPageThumbnail } from '../../utils/imageOptimizer';
+import { downscaleBase64, extractPdfPages, analyzePdfStructure, isTrueOriginalPdf, dataUrlBytes, generatePdfFirstPageThumbnail } from '../../utils/imageOptimizer';
 import { saveLocalDeviceFile } from '../../utils/localDeviceStorage';
 import InvoiceAttachMatchModal, { ScannedReceiptInput } from './Finance/InvoiceAttachMatchModal';
 import DynamicPdfScrollPreview from './Vault/DynamicPdfScrollPreview';
@@ -69,9 +69,6 @@ export default function SharedFileHandler() {
   const [attachQueueState, setAttachQueueState] = useState<{ spaceId: string; queue: ScannedReceiptInput[] } | null>(null);
   const [zoomedIndex, setZoomedIndex] = useState<number | null>(null);
   const [touchStartX, setTouchStartX] = useState(0);
-  const [timingLog, setTimingLog] = useState<{ step: string; ms: number }[]>([]);
-  const [showTimingModal, setShowTimingModal] = useState(false);
-  const [copiedTiming, setCopiedTiming] = useState(false);
   const timingStartRef = useRef<number>(Date.now());
   const [showChromeUpdateModal, setShowChromeUpdateModal] = useState(false);
   const isCancelledRef = useRef(false);
@@ -220,42 +217,11 @@ export default function SharedFileHandler() {
     // Immediately remove from persistent stores so interval checks never re-trigger
     clearAllShareStores();
 
-    // Instant Modal Launch: Open modal immediately (<100ms) without blocking on full PDF extraction!
+    // Instant Modal Launch: Open modal immediately (<10ms) without running CPU extraction on open!
     setSharedAllPages(null);
     setSharedFiles(files);
     setRouteDestination(files.length > 1 ? 'personal' : 'direct');
     setIsModalOpen(true);
-
-    // Asynchronously check for multi-page documents in background to update page badge smoothly
-    if (files.length === 1) {
-      const firstUri = files[0];
-      const isPdf = typeof firstUri === 'string' && (firstUri.startsWith('data:application/pdf') || firstUri.includes('application/pdf'));
-      if (isPdf) {
-        // Fast probe for multi-page without heavy full extraction on open
-        ensurePdfJsLoaded().then(async (pdfjs) => {
-          if (!pdfjs) return;
-          try {
-            const loadingTask = pdfjs.getDocument({
-              url: firstUri,
-              stopAtErrors: true,
-              disableFontFace: true
-            });
-            const pdf = await loadingTask.promise;
-            // Only extract up to 3 preview pages for display in modal if multi-page, not all 50+ pages!
-            if (pdf.numPages > 1) {
-              const previewPages = await extractPdfPages(firstUri, 1000, 0.75);
-              if (previewPages && previewPages.length > 1) {
-                setSharedAllPages(previewPages);
-              }
-            }
-          } catch (e) {
-            console.warn('Background PDF page count check failed:', e);
-          }
-        }).catch(() => {});
-      }
-    } else {
-      setSharedAllPages(files);
-    }
   }, []);
 
   useEffect(() => {
@@ -815,9 +781,6 @@ export default function SharedFileHandler() {
           tx.objectStore('sharedFiles').delete('latest_shared');
         };
 
-        const tTotalEnd = performance.now();
-        logs.push({ step: '3. סה"כ זמן עיבוד מלא ושמירה מרגע לחיצה על שמור', ms: Math.round(tTotalEnd - tStartProcess) });
-        setTimingLog(logs);
         setIsProcessing(false);
         setIsModalOpen(false);
         setSharedFiles([]);
@@ -2040,105 +2003,6 @@ export default function SharedFileHandler() {
           />
         );
       })()}
-      
-      {/* TIMING MONITOR & BENCHMARK MODAL */}
-      {showTimingModal && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(15, 23, 42, 0.85)', zIndex: 100020,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
-          backdropFilter: 'blur(8px)', direction: 'rtl'
-        }}>
-          <div style={{
-            background: '#ffffff', borderRadius: '24px', padding: '1.5rem',
-            width: '100%', maxWidth: '420px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.45)',
-            border: '2px solid #3b82f6', color: '#1e293b'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.6rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '1.5rem' }}>⏱️</span>
-                <span style={{ fontSize: '1.1rem', fontWeight: 900, color: '#0f172a' }}>דוח ניטור זמנים (Benchmark)</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowTimingModal(false);
-                  setIsModalOpen(false);
-                  setSharedFiles([]);
-                  const targetUrl = `/space/${selectedSpaceId}?tab=documents${selectedShelfId && selectedShelfId !== '__new__' ? `&shelfId=${selectedShelfId}` : ''}${selectedFolderId ? `&folderId=${selectedFolderId}` : ''}`;
-                  router.push(targetUrl);
-                }}
-                style={{ background: 'transparent', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: '#64748b' }}
-              >
-                ✕
-              </button>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: '1.2rem' }}>
-              {timingLog.map((item, idx) => (
-                <div key={idx} style={{
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  background: idx === timingLog.length - 1 ? '#eff6ff' : '#f8fafc',
-                  border: idx === timingLog.length - 1 ? '1.5px solid #3b82f6' : '1px solid #e2e8f0',
-                  padding: '0.65rem 0.8rem', borderRadius: '12px'
-                }}>
-                  <span style={{ fontSize: '0.78rem', fontWeight: idx === timingLog.length - 1 ? 800 : 600, color: '#334155' }}>
-                    {item.step}
-                  </span>
-                  <span style={{
-                    fontSize: '0.85rem', fontWeight: 900,
-                    color: item.ms > 10000 ? '#ef4444' : item.ms > 3000 ? '#f59e0b' : '#10b981',
-                    background: '#ffffff', padding: '2px 8px', borderRadius: '6px',
-                    border: '1px solid #cbd5e1', flexShrink: 0
-                  }}>
-                    {(item.ms / 1000).toFixed(2)} שניות
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button
-                type="button"
-                onClick={() => {
-                  const summaryText = timingLog.map(i => `${i.step}: ${(i.ms / 1000).toFixed(2)}s`).join('\n');
-                  navigator.clipboard.writeText(summaryText);
-                  setCopiedTiming(true);
-                  setTimeout(() => setCopiedTiming(false), 2500);
-                }}
-                style={{
-                  flex: 1, padding: '0.75rem', borderRadius: '14px', border: 'none',
-                  background: copiedTiming ? '#10b981' : '#3b82f6', color: '#ffffff',
-                  fontWeight: 800, fontSize: '0.9rem', cursor: 'pointer', display: 'flex',
-                  alignItems: 'center', justifyContent: 'center', gap: '6px',
-                  boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
-                }}
-              >
-                <span>{copiedTiming ? '✅' : '📋'}</span>
-                <span>{copiedTiming ? 'הועתק ללוח!' : 'העתק דוח זמנים (C)'}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setShowTimingModal(false);
-                  setIsModalOpen(false);
-                  setSharedFiles([]);
-                  const targetUrl = `/space/${selectedSpaceId}?tab=documents${selectedShelfId && selectedShelfId !== '__new__' ? `&shelfId=${selectedShelfId}` : ''}${selectedFolderId ? `&folderId=${selectedFolderId}` : ''}`;
-                  router.push(targetUrl);
-                }}
-                style={{
-                  padding: '0.75rem 1.2rem', borderRadius: '14px', border: '1px solid #cbd5e1',
-                  background: '#f1f5f9', color: '#334155', fontWeight: 800, fontSize: '0.88rem',
-                  cursor: 'pointer'
-                }}
-              >
-                המשך למסמכים
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {zoomedIndex !== null && (
         <div 

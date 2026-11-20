@@ -454,8 +454,8 @@ export default function UniversalViewerModal({
         </div>
       )}
 
-      {/* Navigation Arrow: Previous Document (Only when not zoomed in, so it never covers document text) */}
-      {currentIndex > 0 && currentScale <= 1.05 && (
+      {/* Navigation Arrow: Previous Document (Only when not zoomed in, and NEVER on CAD documents where free panning takes priority) */}
+      {currentIndex > 0 && currentScale <= 1.05 && !isCadDoc && (
         <button
           onClick={handlePrev}
           style={{
@@ -484,8 +484,8 @@ export default function UniversalViewerModal({
         </button>
       )}
 
-      {/* Navigation Arrow: Next Document (Only when not zoomed in, so it never covers document text) */}
-      {currentIndex < docs.length - 1 && currentScale <= 1.05 && (
+      {/* Navigation Arrow: Next Document (Only when not zoomed in, and NEVER on CAD documents where free panning takes priority) */}
+      {currentIndex < docs.length - 1 && currentScale <= 1.05 && !isCadDoc && (
         <button
           onClick={handleNext}
           style={{
