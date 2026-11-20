@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
 import { ScreenContext, getContextSuggestions, queryAssistantBrain } from './assistantKnowledge';
 import { sanitizeAssistantQuery, filterAssistantResponse } from './assistantSecurity';
+import { queryAIAssistant, AIProviderConfig } from './assistantProviderBridge';
 
 interface ChatMessage {
   id: string;
@@ -24,6 +25,8 @@ interface AssistantContextType {
   isSpeaking: boolean;
   speakText: (text: string) => void;
   stopSpeaking: () => void;
+  providerConfig: AIProviderConfig;
+  setProviderConfig: (config: AIProviderConfig) => void;
 }
 
 const AssistantContext = createContext<AssistantContextType | undefined>(undefined);
@@ -45,6 +48,7 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   ]);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [providerConfig, setProviderConfig] = useState<AIProviderConfig>({ provider: 'local_free' });
 
   const updateScreenContext = useCallback((updates: Partial<ScreenContext>) => {
     setScreenContext(prev => ({ ...prev, ...updates }));
@@ -112,9 +116,9 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       return;
     }
 
-    // Process answer from assistant brain
-    const brainResult = queryAssistantBrain(sanitizedText, screenContext);
-    const scrubbedAnswer = filterAssistantResponse(brainResult.answer);
+    // Process answer from assistant brain (Bridge: Free Local vs Premium Cloud)
+    const aiResult = await queryAIAssistant(sanitizedText, screenContext, providerConfig);
+    const scrubbedAnswer = filterAssistantResponse(aiResult.text);
 
     const assistantMsg: ChatMessage = {
       id: `ast_${Date.now()}`,
@@ -124,7 +128,7 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     };
 
     setMessages(prev => [...prev, assistantMsg]);
-  }, [screenContext]);
+  }, [screenContext, providerConfig]);
 
   const suggestedQuestions = useMemo(() => {
     return getContextSuggestions(screenContext);
@@ -144,7 +148,9 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         suggestedQuestions,
         isSpeaking,
         speakText,
-        stopSpeaking
+        stopSpeaking,
+        providerConfig,
+        setProviderConfig
       }}
     >
       {children}
