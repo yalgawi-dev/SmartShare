@@ -1670,7 +1670,7 @@ export default function SharedFileHandler() {
                   <div style={{ marginBottom: '1.25rem', background: '#f8fafc', padding: '0.85rem', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                     <div>
                       <label style={{ fontSize: '0.82rem', fontWeight: '800', color: '#334155', marginBottom: '0.35rem', display: 'block' }}>
-                        בחר מדף יעד במסמכים:
+                        בחר נושא (מדף) יעד במסמכים:
                       </label>
                       <select 
                         value={selectedShelfId} 
@@ -1678,9 +1678,9 @@ export default function SharedFileHandler() {
                         style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.75rem', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '0.9rem', backgroundColor: '#ffffff' }}
                       >
                         {(curSp?.shelves || []).map((sh: any) => (
-                          <option key={sh.id} value={sh.id}>{sh.icon || '📁'} {sh.name}</option>
+                          <option key={sh.id} value={sh.id}>🗂️ נושא: {sh.name}</option>
                         ))}
-                        <option value="__new__">+ צור מדף חדש בשם &quot;כללי&quot;</option>
+                        <option value="__new__">➕ צור נושא (מדף) חדש בשם &quot;כללי&quot;</option>
                       </select>
                     </div>
 
@@ -1688,7 +1688,7 @@ export default function SharedFileHandler() {
                       <div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
                           <label style={{ fontSize: '0.82rem', fontWeight: '800', color: '#334155' }}>
-                            תיקיית יעד במדף:
+                            תת-תיקייה בתוך הנושא:
                           </label>
                           <button
                             type="button"
@@ -1778,7 +1778,7 @@ export default function SharedFileHandler() {
                           onChange={e => setSelectedFolderId(e.target.value || null)}
                           style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.75rem', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '0.9rem', backgroundColor: '#ffffff' }}
                         >
-                          <option value="">📁 ראשי (ללא תיקייה)</option>
+                          <option value="">📁 רמה ראשית של הנושא (ללא תת-תיקייה)</option>
                           {availableFolders.map((f: any) => {
                             const parentF = f.parentId ? availableFolders.find((p: any) => p.id === f.parentId) : null;
                             return (
