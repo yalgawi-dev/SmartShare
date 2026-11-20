@@ -17,6 +17,45 @@ export default function PhoneLoginFlow({ onSuccess, onCancel }: { onSuccess: () 
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   const otpInputRef = useRef<HTMLInputElement | null>(null);
 
+  // Web OTP API: Auto-read and auto-fill SMS code directly from Android / Chrome
+  useEffect(() => {
+    if (step !== 2 || typeof window === 'undefined') return;
+
+    let abortController: AbortController | null = null;
+    if ('OTPCredential' in window || (navigator as any).credentials) {
+      try {
+        abortController = new AbortController();
+        (navigator as any).credentials.get({
+          otp: { transport: ['sms'] },
+          signal: abortController.signal
+        }).then((otpCredential: any) => {
+          if (otpCredential && otpCredential.code) {
+            const extractedCode = String(otpCredential.code).trim();
+            const digitsOnly = extractedCode.replace(/\D/g, '').slice(0, 6);
+            if (digitsOnly.length === 6) {
+              handleOtpChange(digitsOnly);
+              setTimeout(() => {
+                verifyCode(digitsOnly);
+              }, 80);
+            }
+          }
+        }).catch((err: any) => {
+          if (err.name !== 'AbortError') {
+            console.warn('WebOTP auto-read notice:', err);
+          }
+        });
+      } catch (e) {
+        // Fallback silently if not supported
+      }
+    }
+
+    return () => {
+      if (abortController) {
+        abortController.abort();
+      }
+    };
+  }, [step]);
+
   useEffect(() => {
     if (typeof window !== 'undefined' && !(window as any).recaptchaVerifierPhoneLogin) {
       try {
@@ -232,15 +271,18 @@ export default function PhoneLoginFlow({ onSuccess, onCancel }: { onSuccess: () 
                   const match = text.match(/\b(\d{6})\b/) || text.match(/(\d{6})/);
                   if (match && match[1]) {
                     handleOtpChange(match[1]);
+                    setErrorMsg('');
                   } else {
                     const digits = text.replace(/\D/g, '').slice(0, 6);
-                    if (digits.length > 0) {
+                    if (digits.length === 6) {
                       handleOtpChange(digits);
+                      setErrorMsg('');
                     } else {
-                      setErrorMsg('לא נמצא קוד בן 6 ספרות בלוח ההעתקה.');
+                      setErrorMsg('לוח ההעתקה אינו מכיל קוד אימות תקין בן 6 ספרות.');
                     }
                   }
                 } catch {
+                  setErrorMsg('לא ניתן לגשת ללוח ההעתקה. אנא הקלד את הקוד ידנית.');
                   otpInputRef.current?.focus();
                 }
               }}
@@ -262,6 +304,33 @@ export default function PhoneLoginFlow({ onSuccess, onCancel }: { onSuccess: () 
               <span>📋</span>
               <span>הדבק קוד מלוח ההעתקה</span>
             </button>
+          </div>
+
+          {/* Android / Spam SMS Assistant Notice */}
+          <div style={{
+            background: '#FFFBEB',
+            border: '1px solid #FDE68A',
+            color: '#92400E',
+            padding: '10px 14px',
+            borderRadius: '12px',
+            fontSize: '0.85rem',
+            lineHeight: '1.4',
+            textAlign: 'right',
+            direction: 'rtl',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '4px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, color: '#B45309' }}>
+              <span>📱</span>
+              <span>הודעת ה-SMS מתעכבת או לא מופיעה בהתראות?</span>
+            </div>
+            <div style={{ color: '#78350F', fontSize: '0.82rem' }}>
+              במכשירי Android / Galaxy, סינון הספאם של Google לעתים מעביר את הודעת ה-SMS מ-<strong>CloudOTP</strong> ישירות לתיקיית <strong>"ספאם והודעות חסומות"</strong> ללא צלצול או התראה קופצת.
+            </div>
+            <div style={{ color: '#451A03', fontSize: '0.78rem', marginTop: '2px', fontWeight: 600 }}>
+              💡 כנסו לאפליקציית ההודעות (Messages) &larr; תפריט 3 נקודות &larr; "ספאם וחסום".
+            </div>
           </div>
 
           <div style={{ textAlign: 'center', marginTop: '-0.5rem' }}>
