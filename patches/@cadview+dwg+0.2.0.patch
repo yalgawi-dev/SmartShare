@@ -1,0 +1,13 @@
+diff --git a/node_modules/@cadview/dwg/dist/index.js b/node_modules/@cadview/dwg/dist/index.js
+index c8f2583..8a1ada0 100644
+--- a/node_modules/@cadview/dwg/dist/index.js
++++ b/node_modules/@cadview/dwg/dist/index.js
+@@ -39,7 +39,7 @@ async function createLibreDWG(moduleArg = {}) {
+   var ENVIRONMENT_IS_WORKER = !!globalThis.WorkerGlobalScope;
+   var ENVIRONMENT_IS_NODE = globalThis.process?.versions?.node && globalThis.process?.type != "renderer";
+   if (ENVIRONMENT_IS_NODE) {
+-    const { createRequire } = await import('module');
++    const createRequire = undefined;
+     var require2 = createRequire(import.meta.url);
+   }
+   var thisProgram = "./this.program";

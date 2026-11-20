@@ -166,7 +166,7 @@ export function FloatingActionBar({
       
       <input 
         type="file" 
-        accept="image/*,application/pdf" 
+        accept="image/*,application/pdf,.dwg,.dxf,.dwf,.dwfx" 
         style={{ display: 'none' }} 
         ref={fileInputRef}
         onChange={onFileUpload}

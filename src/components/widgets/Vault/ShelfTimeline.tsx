@@ -8,7 +8,6 @@ import { shareDocument, downloadDocument, getDocumentPreviewUrl } from '@/utils/
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import ShareChoiceModal, { ShareChoiceDoc } from './ShareChoiceModal';
 import DynamicPdfScrollPreview from './DynamicPdfScrollPreview';
-import MultiPageViewer from './MultiPageViewer';
 import StationNotesEditor from './StationNotesEditor';
 
 interface ShelfTimelineProps {

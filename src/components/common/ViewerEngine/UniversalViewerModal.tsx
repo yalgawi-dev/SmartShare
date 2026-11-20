@@ -1,11 +1,22 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import dynamic from 'next/dynamic';
 import { createPortal } from 'react-dom';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { downloadDocument } from '@/utils/documentUtils';
 import DynamicPdfScrollPreview from '@/components/widgets/Vault/DynamicPdfScrollPreview';
 import { extractPdfPages } from '@/utils/imageOptimizer';
+
+const CadDocumentViewer = dynamic(() => import('@/components/widgets/Vault/CadDocumentViewer'), {
+  ssr: false,
+  loading: () => (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#93c5fd', gap: '12px' }}>
+      <div style={{ width: '40px', height: '40px', border: '3px solid #3b82f6', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+      <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>טוען מנוע CAD...</span>
+    </div>
+  )
+});
 
 export interface ViewerDocument {
   id?: string;
@@ -111,7 +122,17 @@ export default function UniversalViewerModal({
   const currentDoc = docs[currentIndex] || docs[0];
   if (!currentDoc) return null;
 
-  const isDocPdf = Boolean(
+  const isCadDoc = Boolean(
+    /\.(dwg|dxf|dwf|dwfx)($|\?)/i.test(currentDoc.url || '') ||
+    /\.(dwg|dxf|dwf|dwfx)$/i.test(currentDoc.title || '') ||
+    currentDoc.type === 'cad' ||
+    currentDoc.type === 'dwg' ||
+    currentDoc.type === 'dxf' ||
+    currentDoc.type === 'dwf' ||
+    currentDoc.type === 'dwfx'
+  );
+
+  const isDocPdf = !isCadDoc && Boolean(
     currentDoc.type === 'pdf' ||
     (currentDoc.url && currentDoc.url.toLowerCase().includes('.pdf')) ||
     currentDoc.url?.startsWith('data:application/pdf') ||
@@ -495,6 +516,27 @@ export default function UniversalViewerModal({
         }}
       >
         {(() => {
+          // ── Case 0: CAD Architecture / Engineering Drawings (.dwg, .dxf, .dwf, .dwfx) ───────────
+          if (isCadDoc) {
+            return (
+              <div
+                style={{
+                  width: '96%',
+                  height: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  position: 'relative'
+                }}
+              >
+                <CadDocumentViewer
+                  url={currentDoc.url}
+                  filename={currentDoc.title || currentDoc.name || 'drawing.dwg'}
+                />
+              </div>
+            );
+          }
+
           // ── Case 1: Raw PDF without pre-rendered page images ───────────────
           // Note: When doc.rawPdfUrl exists or doc is PDF, even if temporary preview pages exist,
           // we prefer DynamicPdfScrollPreview if rawPdfUrl is present and there's no custom multi-page array.

@@ -1164,7 +1164,7 @@ export default function SharedFileHandler() {
                 <input
                   type="file"
                   multiple
-                  accept="image/*,application/pdf"
+                  accept="image/*,application/pdf,.dwg,.dxf,.dwf,.dwfx"
                   style={{ display: 'none' }}
                   onChange={async (e) => {
                     const fl = e.target.files;
