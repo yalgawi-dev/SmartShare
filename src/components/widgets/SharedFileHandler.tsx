@@ -24,16 +24,48 @@ export default function SharedFileHandler() {
   const [sharedAllPages, setSharedAllPages] = useState<string[] | null>(null);
   const [isReceivingShare, setIsReceivingShare] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedSpaceId, setSelectedSpaceId] = useState<string>('');
-  const [selectedShelfId, setSelectedShelfId] = useState<string>('');
-  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [selectedSpaceId, setSelectedSpaceId] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = JSON.parse(localStorage.getItem('smartshare_last_share_target') || '{}');
+        return saved.spaceId || '';
+      } catch (e) {}
+    }
+    return '';
+  });
+  const [selectedShelfId, setSelectedShelfId] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = JSON.parse(localStorage.getItem('smartshare_last_share_target') || '{}');
+        return saved.shelfId || '';
+      } catch (e) {}
+    }
+    return '';
+  });
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = JSON.parse(localStorage.getItem('smartshare_last_share_target') || '{}');
+        return typeof saved.folderId !== 'undefined' ? saved.folderId : null;
+      } catch (e) {}
+    }
+    return null;
+  });
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [selectedPayerId, setSelectedPayerId] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
   const [searchQuery, setSearchQuery] = useState('');
-  const [routeDestination, setRouteDestination] = useState<'direct' | 'inbox' | 'personal' | 'vault' | 'fileshare' | 'attach_existing'>('personal');
+  const [routeDestination, setRouteDestination] = useState<'direct' | 'inbox' | 'personal' | 'vault' | 'fileshare' | 'attach_existing'>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = JSON.parse(localStorage.getItem('smartshare_last_share_target') || '{}');
+        if (saved.destination) return saved.destination;
+      } catch (e) {}
+    }
+    return 'personal';
+  });
   const [attachQueueState, setAttachQueueState] = useState<{ spaceId: string; queue: ScannedReceiptInput[] } | null>(null);
   const [zoomedIndex, setZoomedIndex] = useState<number | null>(null);
   const [touchStartX, setTouchStartX] = useState(0);
@@ -419,6 +451,13 @@ export default function SharedFileHandler() {
   useEffect(() => {
     if (isModalOpen && displayedSpaces && displayedSpaces.length > 0) {
       if (!selectedSpaceId || !displayedSpaces.find((s:any) => s.id === selectedSpaceId)) {
+        try {
+          const saved = JSON.parse(localStorage.getItem('smartshare_last_share_target') || '{}');
+          if (saved.spaceId && displayedSpaces.some((s: any) => s.id === saved.spaceId)) {
+            setSelectedSpaceId(saved.spaceId);
+            return;
+          }
+        } catch (e) {}
         const initSpace = displayedSpaces[0];
         setSelectedSpaceId(initSpace.id);
       }
@@ -440,15 +479,19 @@ export default function SharedFileHandler() {
   }, [selectedSpaceId, spaceHasFinance, spaceHasVault, spaceHasFileShare, routeDestination, sharedFiles.length]);
 
   useEffect(() => {
-    setSelectedFolderId(null);
-  }, [selectedSpaceId, selectedShelfId]);
-
-  useEffect(() => {
     if (selectedSpaceId) {
       const sp = activeSpaces.find((s: any) => s.id === selectedSpaceId);
       const sh = sp?.shelves || [];
       if (sh.length > 0) {
         if (!selectedShelfId || !sh.some((x: any) => x.id === selectedShelfId)) {
+          try {
+            const saved = JSON.parse(localStorage.getItem('smartshare_last_share_target') || '{}');
+            if (saved.spaceId === selectedSpaceId && saved.shelfId && sh.some((x: any) => x.id === saved.shelfId)) {
+              setSelectedShelfId(saved.shelfId);
+              if (saved.folderId) setSelectedFolderId(saved.folderId);
+              return;
+            }
+          } catch (e) {}
           setSelectedShelfId(sh[0].id);
         }
       } else {
@@ -460,6 +503,17 @@ export default function SharedFileHandler() {
   const handleProcess = async () => {
     if (routeDestination !== 'personal' && !selectedSpaceId) return;
     if (sharedFiles.length === 0) return;
+
+    // Persist chosen target space, shelf, folder and destination for fast subsequent shares
+    try {
+      localStorage.setItem('smartshare_last_share_target', JSON.stringify({
+        spaceId: selectedSpaceId,
+        shelfId: selectedShelfId,
+        folderId: selectedFolderId,
+        destination: routeDestination
+      }));
+    } catch (e) {}
+
     hasHandledShareRef.current = true;
     isCancelledRef.current = true;
     clearAllShareStores({ keepLatestShared: routeDestination === 'direct' });
@@ -559,7 +613,12 @@ export default function SharedFileHandler() {
           setUploadProgress({ current: currentIdx, total: sharedFiles.length });
           const cleanUri = dataUri.replace(/^"|"$/g, '');
           const correspondingBlob = sharedBlobs[currentIdx - 1];
-          const isPdf = Boolean(
+          const rawFileName = correspondingBlob?.name || correspondingBlob?.blob?.name || '';
+          const lowerName = rawFileName.toLowerCase();
+          const isCad = /\.(dwg|dwfx|dwf|dxf)$/i.test(lowerName) || cleanUri.includes('dwfx') || cleanUri.includes('dwg');
+          const isOffice = /\.(docx?|xlsx?|pptx?|csv|txt)$/i.test(lowerName);
+
+          const isPdf = !isCad && !isOffice && Boolean(
             (correspondingBlob?.blob && (correspondingBlob.blob.type === 'application/pdf' || correspondingBlob.blob.name?.toLowerCase().endsWith('.pdf'))) ||
             correspondingBlob?.type === 'application/pdf' ||
             correspondingBlob?.name?.toLowerCase().endsWith('.pdf') ||
@@ -570,7 +629,33 @@ export default function SharedFileHandler() {
           const spaceOverride = user?.storageConfig?.spaceOverrides?.[selectedSpaceId];
           const effectiveTarget = spaceOverride || user?.storageConfig?.defaultTarget || 'cloud';
 
-          if (isPdf) {
+          if (isCad || isOffice) {
+            // High-speed direct bypass for CAD & Office files (Rule 21 & ADR):
+            // Upload binary blob directly to cloud storage without converting to webp or extracting pages!
+            const blobToUpload = (correspondingBlob?.blob instanceof Blob)
+              ? correspondingBlob.blob
+              : await fetch(cleanUri).then(r => r.blob());
+
+            const extMatch = lowerName.match(/\.(dwg|dwfx|dwf|dxf|docx?|xlsx?|pptx?|csv|txt)$/i);
+            const ext = extMatch ? extMatch[1].toLowerCase() : 'bin';
+            const cleanTitle = rawFileName ? rawFileName.replace(/\.[^/.]+$/, '') : (isCad ? 'שרטוט הנדסי' : 'קובץ מסמך');
+
+            const downloadUrl = await uploadBlobToStorage(
+              blobToUpload,
+              `vault/${selectedSpaceId}/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`
+            );
+
+            addDocument(selectedSpaceId, {
+              shelfId: targetShelfId,
+              folderId: selectedFolderId || undefined,
+              url: downloadUrl,
+              title: cleanTitle,
+              type: 'document',
+              addedBy: user?.id || 'me',
+              storageTarget: effectiveTarget as 'cloud' | 'local' | 'gdrive',
+              fileSize: blobToUpload.size
+            });
+          } else if (isPdf) {
             const blobToUpload = (correspondingBlob?.blob instanceof Blob)
               ? correspondingBlob.blob
               : await fetch(cleanUri).then(r => r.blob());
@@ -734,8 +819,11 @@ export default function SharedFileHandler() {
         logs.push({ step: '3. סה"כ זמן עיבוד מלא ושמירה מרגע לחיצה על שמור', ms: Math.round(tTotalEnd - tStartProcess) });
         setTimingLog(logs);
         setIsProcessing(false);
-        setShowTimingModal(true);
-        // User can inspect timings, click Copy (C), and proceed to space!
+        setIsModalOpen(false);
+        setSharedFiles([]);
+        clearAllShareStores();
+        const targetUrl = `/space/${selectedSpaceId}?tab=documents${targetShelfId && targetShelfId !== '__new__' ? `&shelfId=${targetShelfId}` : ''}${selectedFolderId ? `&folderId=${selectedFolderId}` : ''}`;
+        router.push(targetUrl);
         return;
       } else if (routeDestination === 'fileshare') {
         const currentSpace = activeSpaces.find((s: any) => s.id === selectedSpaceId);
