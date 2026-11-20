@@ -71,7 +71,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'timeline' | 'vault'>('vault');
   const [filterLinked, setFilterLinked] = useState<'all' | 'linked' | 'unlinked'>('all');
-  const [warehouseSortBy, setWarehouseSortBy] = useState<'station' | 'name' | 'date_desc' | 'date_asc'>('station');
+  const [warehouseSortBy, setWarehouseSortBy] = useState<'station' | 'name' | 'date_desc' | 'date_asc'>('date_desc');
   const [warehouseStationFilter, setWarehouseStationFilter] = useState<string>('all');
   const [pendingImport, setPendingImport] = useState<{ docId?: string, url?: string, type?: 'document' | 'image' | 'pdf', allPages?: string[] } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -2719,15 +2719,18 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                 const stationTitleB = evB?.title || 'תתת_ללא תחנה';
                 const cmp = stationTitleA.localeCompare(stationTitleB, 'he');
                 if (cmp !== 0) return cmp;
-                return (a.title || '').localeCompare(b.title || '', 'he');
+                // Stable secondary sort by creation date (NEVER by title to prevent swapping cards on rename!)
+                return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
               }
               if (warehouseSortBy === 'name') {
-                return (a.title || '').localeCompare(b.title || '', 'he');
+                const cmp = (a.title || '').localeCompare(b.title || '', 'he');
+                if (cmp !== 0) return cmp;
+                return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
               }
               if (warehouseSortBy === 'date_asc') {
                 return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
               }
-              // Default date_desc
+              // Default date_desc: newest first
               return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
             });
 
