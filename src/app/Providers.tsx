@@ -7,6 +7,8 @@ import { AuthProvider } from './context/AuthContext';
 import { AuthGuard } from './AuthGuard';
 import { ChatProvider } from './context/ChatContext';
 import { useTelemetryTracker } from '../hooks/useTelemetryTracker';
+import { AssistantProvider } from '../components/common/AssistantEngine/AssistantContext';
+import { GlobalAssistantDrawer } from '../components/common/AssistantEngine/GlobalAssistantDrawer';
 
 function GlobalTelemetryWatcher() {
   useTelemetryTracker();
@@ -21,11 +23,14 @@ export function Providers({ children }: { children: ReactNode }) {
     <AuthProvider>
       <SpacesProvider>
         <ChatProvider>
-          <AuthGuard>
-            <SharedFileHandler />
-            <GlobalTelemetryWatcher />
-            {children}
-          </AuthGuard>
+          <AssistantProvider>
+            <AuthGuard>
+              <SharedFileHandler />
+              <GlobalTelemetryWatcher />
+              {children}
+              <GlobalAssistantDrawer />
+            </AuthGuard>
+          </AssistantProvider>
         </ChatProvider>
       </SpacesProvider>
     </AuthProvider>

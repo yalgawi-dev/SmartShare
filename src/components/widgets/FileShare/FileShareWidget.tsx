@@ -18,6 +18,7 @@ import GlobalMoveModal from '@/components/common/GlobalMoveModal';
 import GlobalRecycleBinModal, { TrashItem } from '@/components/common/GlobalRecycleBinModal';
 import ConfirmModal from '@/components/common/ConfirmModal';
 import { PartnersInviteModal } from '@/components/widgets/Partners/PartnersInviteModal';
+import { useAssistant } from '@/components/common/AssistantEngine/AssistantContext';
 
 interface FileShareWidgetProps {
   space: any;
@@ -40,6 +41,7 @@ export function FileShareWidget({
 }: FileShareWidgetProps) {
   const { user } = useAuth();
   const { spaces, updateFileShareItems, getRoleForSpace, getTokenForSpace } = useSpaces();
+  const { updateScreenContext } = useAssistant();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
@@ -82,7 +84,6 @@ export function FileShareWidget({
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteModalScopeFolder, setInviteModalScopeFolder] = useState<FileShareItem | null>(null);
   const [showRecycleBin, setShowRecycleBin] = useState(false);
-  const [showHelpModal, setShowHelpModal] = useState(false);
 
   // View Mode: grid_medium (125px) / grid_large (175px) / list (Table)
   const [viewMode, setViewMode] = useState<'grid_medium' | 'grid_large' | 'list'>(() => {
@@ -157,6 +158,19 @@ export function FileShareWidget({
     }
     return false;
   }, [isCreator, currentFolderItem, currentUserId, partnerToken]);
+
+  // Synchronize dynamic screen context to Global Assistant Engine
+  useEffect(() => {
+    updateScreenContext({
+      spaceId: space.id,
+      spaceTitle: space.title,
+      currentFolderId,
+      currentFolderName: currentFolderItem?.name,
+      activeWidget: 'fileshare',
+      activeModal: activeShareItem ? 'share' : moveModalState ? 'move' : privacyItem ? 'privacy' : null,
+      userRole: spaceRole
+    });
+  }, [space.id, space.title, currentFolderId, currentFolderItem?.name, activeShareItem, moveModalState, privacyItem, spaceRole, updateScreenContext]);
 
   // Listen to floating dock events (Rule DRY / Single Source of Action)
   useEffect(() => {
@@ -813,29 +827,6 @@ export function FileShareWidget({
                 שיתוף קבצים
               </h2>
               <VersionBadge />
-              <button
-                type="button"
-                onClick={() => setShowHelpModal(true)}
-                style={{
-                  background: '#f1f5f9',
-                  border: '1px solid #cbd5e1',
-                  color: '#475569',
-                  borderRadius: '50%',
-                  width: '24px',
-                  height: '24px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '0.78rem',
-                  fontWeight: 900,
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease',
-                  padding: 0
-                }}
-                title="מדריך שיתוף, תיקיות והרשאות"
-              >
-                ?
-              </button>
             </div>
             <p style={{ margin: 0, fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
               פורטל שיתוף תיקיות ומסמכים מאובטח בקישורים חיצוניים
@@ -2119,137 +2110,6 @@ export function FileShareWidget({
             setInviteModalScopeFolder(null);
           }}
         />
-      )}
-
-      {/* 12. HELP & EXPLANATION MODAL (Rules & Architecture Guide) */}
-      {showHelpModal && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(15, 23, 42, 0.75)',
-            backdropFilter: 'blur(8px)',
-            zIndex: 100000,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '1rem',
-            direction: 'rtl'
-          }}
-          onClick={() => setShowHelpModal(false)}
-        >
-          <div
-            style={{
-              background: 'var(--bg-card, #ffffff)',
-              width: '100%',
-              maxWidth: '480px',
-              borderRadius: '24px',
-              padding: '1.5rem',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '1rem',
-              boxShadow: '0 20px 40px rgba(0,0,0,0.25)',
-              maxHeight: '90vh',
-              overflowY: 'auto'
-            }}
-            onClick={e => e.stopPropagation()}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span style={{ fontSize: '1.4rem' }}>💡</span>
-                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 900, color: 'var(--text-primary)' }}>
-                  מדריך: איך עובד השיתוף וההרשאות?
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowHelpModal(false)}
-                style={{
-                  background: '#f1f5f9',
-                  border: 'none',
-                  borderRadius: '50%',
-                  width: '30px',
-                  height: '30px',
-                  cursor: 'pointer',
-                  fontWeight: 800,
-                  color: '#64748b'
-                }}
-              >
-                ✕
-              </button>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.84rem', color: '#334155', lineHeight: 1.5 }}>
-              {/* Point 1: Single File */}
-              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '0.75rem 0.9rem' }}>
-                <div style={{ fontWeight: 800, color: '#1e40af', marginBottom: '0.2rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <span>📄</span> שיתוף קובץ בודד
-                </div>
-                <div>
-                  הקישור מציג אך ורק את הקובץ שנבחר (PDF, תמונה, תוכנית וכו׳). שאר הקיר, התיקיות והקבצים האחרים חסויים לחלוטין.
-                </div>
-              </div>
-
-              {/* Point 2: Folder Sharing (Direct vs Subtree) */}
-              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '0.75rem 0.9rem' }}>
-                <div style={{ fontWeight: 800, color: '#166534', marginBottom: '0.2rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <span>📁</span> שיתוף תיקייה (ברירת מחדל מול עץ מלא)
-                </div>
-                <div style={{ marginBottom: '0.4rem' }}>
-                  כאשר משתפים תיקייה, עומדות לרשותך שתי אפשרויות בחירה בתוך חלון הקישור:
-                </div>
-                <ul style={{ margin: 0, paddingRight: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                  <li>
-                    <strong>📁 תיקייה זו בלבד (ברירת מחדל):</strong> האורח רואה <u>רק את הקבצים הישירים</u> ששוכבים בתוך התיקייה. תתי-תיקיות פנימיות חסומות.
-                  </li>
-                  <li>
-                    <strong>🌳 כולל תתי-תיקיות (עץ מלא):</strong> האורח רואה את התיקייה ואת כל תתי-התיקיות שמתחתיה (בנים, נכדים וכו׳). <strong>אך לעולם אינו רואה תיקיות אחיות או תיקיות שמעליה!</strong>
-                  </li>
-                </ul>
-              </div>
-
-              {/* Point 3: Wall Sharing */}
-              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '14px', padding: '0.75rem 0.9rem' }}>
-                <div style={{ fontWeight: 800, color: '#15803d', marginBottom: '0.2rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <span>🌐</span> שיתוף כל הקיר (רמת הפרויקט)
-                </div>
-                <div>
-                  שיתוף הקיר יוצר קישור מרוכז לכלל המסמכים. באפשרותך לבחור האם לשתף רק את הקבצים הישירים שברמה הראשית, או להפעיל "עץ מלא" כך שהאורח יקבל גישה לכלל התיקיות והתת-תיקיות בפרויקט.
-                </div>
-              </div>
-
-              {/* Point 4: Personal Links & Tracking */}
-              <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '14px', padding: '0.75rem 0.9rem' }}>
-                <div style={{ fontWeight: 800, color: '#1d4ed8', marginBottom: '0.2rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <span>👥</span> קישורים אישיים ומעקב נמענים
-                </div>
-                <div>
-                  תוכל להוסיף שמות נמענים (למשל: ספק, לקוח, קבלן) – כל אחד יקבל קישור ייחודי עם מעקב צפיות וזמני שהייה, כולל אפשרות חסימה או שיחה בצ׳אט ישיר.
-                </div>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setShowHelpModal(false)}
-              style={{
-                width: '100%',
-                padding: '0.75rem',
-                borderRadius: '12px',
-                border: 'none',
-                background: 'linear-gradient(135deg, #4f46e5, #06b6d4)',
-                color: '#ffffff',
-                fontWeight: 800,
-                fontSize: '0.9rem',
-                cursor: 'pointer',
-                boxShadow: '0 4px 12px rgba(79, 70, 229, 0.25)',
-                marginTop: '0.3rem'
-              }}
-            >
-              הבנתי, תודה!
-            </button>
-          </div>
-        </div>
       )}
 
       {/* FLOATING ACTION FEEDBACK TOAST */}
