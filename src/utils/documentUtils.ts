@@ -547,6 +547,91 @@ export function formatFileSize(bytes?: number): string {
  * - File extensions (e.g., .pdf, .webp, .jpg, .dwg, etc.)
  * - Leading/trailing underscores, hyphens, and whitespace
  */
+/**
+ * Returns document format classification and styling metadata.
+ * Accurately distinguishes CAD drawings (DWG, DXF, DWF, DWFX), PDF documents, WebP images, Office files, and general files.
+ * Adheres to Rule 2 & 4 (DRY Principle - Single Source of Truth).
+ */
+export function getDocumentFormatInfo(doc: { url?: string; rawPdfUrl?: string; type?: string; title?: string; thumbnailUrl?: string }) {
+  const url = (doc.url || '').toLowerCase();
+  const title = (doc.title || '').toLowerCase();
+  const rawPdfUrl = (doc.rawPdfUrl || '').toLowerCase();
+  const type = (doc.type || '').toLowerCase();
+  const thumb = (doc.thumbnailUrl || '').toLowerCase();
+
+  const isCad = /\.(dwg|dxf|dwf|dwfx)($|\?)/i.test(url) ||
+    /\.(dwg|dxf|dwf|dwfx)$/i.test(title) ||
+    ['cad', 'dwg', 'dxf', 'dwf', 'dwfx'].includes(type);
+
+  if (isCad) {
+    let cadExt = 'CAD';
+    const match = (url + ' ' + title).match(/\.(dwg|dxf|dwfx|dwf)/i);
+    if (match) cadExt = match[1].toUpperCase();
+    else if (type && type !== 'document') cadExt = type.toUpperCase();
+
+    return {
+      category: 'cad' as const,
+      tag: cadExt,
+      badgeText: `📐 ${cadExt}`,
+      badgeBg: '#e0e7ff',
+      badgeColor: '#4338ca',
+      badgeBorder: '#c7d2fe',
+      overlayBg: 'rgba(67, 56, 202, 0.92)'
+    };
+  }
+
+  const isRawPdf = Boolean(rawPdfUrl || type === 'pdf' || url.includes('.pdf') || url.startsWith('data:application/pdf'));
+  if (isRawPdf) {
+    return {
+      category: 'pdf' as const,
+      tag: 'PDF',
+      badgeText: '📄 PDF',
+      badgeBg: '#fee2e2',
+      badgeColor: '#b91c1c',
+      badgeBorder: '#fca5a5',
+      overlayBg: 'rgba(220, 38, 38, 0.92)'
+    };
+  }
+
+  const isOffice = /\.(docx?|xlsx?|pptx?|csv|txt)($|\?)/i.test(url) || /\.(docx?|xlsx?|pptx?|csv|txt)$/i.test(title);
+  if (isOffice) {
+    const match = (url + ' ' + title).match(/\.(docx?|xlsx?|pptx?|csv|txt)/i);
+    const officeExt = match ? match[1].toUpperCase() : 'DOC';
+    return {
+      category: 'office' as const,
+      tag: officeExt,
+      badgeText: `📊 ${officeExt}`,
+      badgeBg: '#fef3c7',
+      badgeColor: '#b45309',
+      badgeBorder: '#fde68a',
+      overlayBg: 'rgba(180, 83, 9, 0.92)'
+    };
+  }
+
+  const isWebp = url.includes('.webp') || thumb.includes('.webp') || type === 'document' || type === 'image' || url.startsWith('data:image/webp');
+  if (isWebp) {
+    return {
+      category: 'webp' as const,
+      tag: 'WEBP',
+      badgeText: '🖼️ WEBP',
+      badgeBg: '#dbeafe',
+      badgeColor: '#1d4ed8',
+      badgeBorder: '#bfdbfe',
+      overlayBg: 'rgba(37, 99, 235, 0.92)'
+    };
+  }
+
+  return {
+    category: 'file' as const,
+    tag: 'FILE',
+    badgeText: '📁 קובץ',
+    badgeBg: '#f1f5f9',
+    badgeColor: '#334155',
+    badgeBorder: '#cbd5e1',
+    overlayBg: 'rgba(15, 23, 42, 0.85)'
+  };
+}
+
 export function cleanDisplayTitle(title?: string): string {
   if (!title) return '';
   let cleaned = title.trim();

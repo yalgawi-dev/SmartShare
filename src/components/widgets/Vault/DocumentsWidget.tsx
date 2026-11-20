@@ -13,7 +13,7 @@ import ConfirmModal from '../../common/ConfirmModal';
 import BatchActionToolbar, { BatchToolbarAction } from '../../common/BatchActionToolbar';
 import GlobalMoveModal from '../../common/GlobalMoveModal';
 import GlobalRecycleBinModal, { TrashItem } from '../../common/GlobalRecycleBinModal';
-import { downloadDocument, shareDocument, getDocumentPreviewUrl, formatFileSize, cleanDisplayTitle } from '../../../utils/documentUtils';
+import { downloadDocument, shareDocument, getDocumentPreviewUrl, formatFileSize, cleanDisplayTitle, getDocumentFormatInfo } from '../../../utils/documentUtils';
 import { mergeImagesCleanly } from '../../../utils/imageOptimizer';
 import ShareChoiceModal, { ShareChoiceDoc } from './ShareChoiceModal';
 import DynamicPdfScrollPreview from './DynamicPdfScrollPreview';
@@ -27,7 +27,7 @@ import { CreateShareLinkModal } from '../FileShare/CreateShareLinkModal';
 import { FileShareItem, ShareLinkConfig } from '@/utils/fileShareUtils';
 
 export interface DocumentsWidgetRef {
-  addDocument: (url: string, type: 'document' | 'image' | 'pdf', allPages?: string[], targetEventId?: string, explicitShelfId?: string, bypassDuplicateCheck?: boolean, explicitFolderId?: string | null) => Promise<string | undefined>;
+  addDocument: (url: string, type: 'document' | 'image' | 'pdf', allPages?: string[], targetEventId?: string, explicitShelfId?: string, bypassDuplicateCheck?: boolean, explicitFolderId?: string | null, initialFileName?: string) => Promise<string | undefined>;
   uploadAndLinkDocument?: (shelfId: string, eventId: string, url: string, type: 'document' | 'image' | 'pdf') => Promise<void>;
 }
 
@@ -761,7 +761,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   
   const [editingShelfCoverId, setEditingShelfCoverId] = useState<string | null>(null);
   useImperativeHandle(ref, () => ({
-    addDocument: async (url, type, allPages, targetEventId, explicitShelfId?: string, bypassDuplicateCheck?: boolean, explicitFolderId?: string | null) => {
+    addDocument: async (url, type, allPages, targetEventId, explicitShelfId?: string, bypassDuplicateCheck?: boolean, explicitFolderId?: string | null, initialFileName?: string) => {
       let targetShelfId: string | null = explicitShelfId || null;
       
       if (!targetShelfId && targetEventId && targetEventId !== '__new_station__') {
@@ -792,7 +792,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
         : (targetShelfId === activeShelfId ? (currentFolderIdRef.current ?? currentFolderId) : null);
 
       // Smart Content/Structural Duplicate Detection (strictly content & internal page layout, NEVER by name)
-      const baseAutoTitle = type === 'image' ? 'תמונה סרוקה' : 'מסמך סרוק';
+      const baseAutoTitle = initialFileName ? initialFileName.trim() : (type === 'image' ? 'תמונה סרוקה' : 'מסמך סרוק');
       const resolvedFolderTitle = resolveExplorerUniqueTitle(baseAutoTitle, documents, targetShelfId, targetFolderId);
 
       if (!bypassDuplicateCheck) {
@@ -823,7 +823,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
         }
       }
 
-      return await handleSaveDocument(targetShelfId, url, typeof type !== 'undefined' ? type : 'document', allPages, targetEventId, targetFolderId);
+      return await handleSaveDocument(targetShelfId, url, typeof type !== 'undefined' ? type : 'document', allPages, targetEventId, targetFolderId, initialFileName);
     }
   }), [activeShelfId, currentFolderId, shelves, space.shelfEvents, space.id, addShelf, documents, space.members]);
 
@@ -1002,14 +1002,14 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       setDragOverFolderId(null);
     };
 
-    const handleSaveDocument = async (shelfId: string, url: string, type: 'document' | 'image' | 'pdf', allPages?: string[], targetEventId?: string, folderId?: string | null) => {
+    const handleSaveDocument = async (shelfId: string, url: string, type: 'document' | 'image' | 'pdf', allPages?: string[], targetEventId?: string, folderId?: string | null, initialFileName?: string) => {
       // Determine effective folderId immediately (passed in or live currentFolderId if same shelf)
       const liveFolderId = currentFolderIdRef.current ?? currentFolderId;
       const effectiveFolderId = typeof folderId !== 'undefined' ? folderId : (shelfId === activeShelfId ? liveFolderId : null);
 
       // Optimistic UI update — Windows Explorer-style folder-scoped unique naming
       const tempId = 'temp-' + Date.now();
-      const baseTitle = type === 'image' ? 'תמונה סרוקה' : 'מסמך סרוק';
+      const baseTitle = initialFileName ? initialFileName.trim() : (type === 'image' ? 'תמונה סרוקה' : 'מסמך סרוק');
       const title = resolveExplorerUniqueTitle(baseTitle, documents, shelfId, effectiveFolderId);
       
       let previewUrl = (allPages && allPages.length > 0) ? allPages[0] : (url.startsWith('data:image') ? url : undefined);
@@ -1021,16 +1021,20 @@ const handleDeleteDocument = (docId: string, title?: string) => {
 
         if (url.startsWith('data:image') || url.startsWith('data:application/pdf') || url.startsWith('data:application/') || url.startsWith('data:')) {
           let ext = 'bin';
-          if (url.startsWith('data:application/pdf')) ext = 'pdf';
+          const lowerTitle = title.toLowerCase();
+          const lowerFileName = (initialFileName || '').toLowerCase();
+          if (lowerTitle.endsWith('.dwg') || lowerFileName.endsWith('.dwg')) ext = 'dwg';
+          else if (lowerTitle.endsWith('.dwfx') || lowerFileName.endsWith('.dwfx')) ext = 'dwfx';
+          else if (lowerTitle.endsWith('.dwf') || lowerFileName.endsWith('.dwf')) ext = 'dwf';
+          else if (lowerTitle.endsWith('.dxf') || lowerFileName.endsWith('.dxf')) ext = 'dxf';
+          else if (url.startsWith('data:application/pdf')) ext = 'pdf';
           else if (url.startsWith('data:image/webp')) ext = 'webp';
           else if (url.startsWith('data:image/png')) ext = 'png';
           else if (url.startsWith('data:image/jpeg') || url.startsWith('data:image/jpg')) ext = 'jpg';
-          else if (title.toLowerCase().endsWith('.dwg')) ext = 'dwg';
-          else if (title.toLowerCase().endsWith('.dwfx')) ext = 'dwfx';
-          else if (title.toLowerCase().endsWith('.dwf')) ext = 'dwf';
-          else if (title.toLowerCase().endsWith('.dxf')) ext = 'dxf';
+          else if (url.includes('dwfx')) ext = 'dwfx';
           else if (url.includes('dwg')) ext = 'dwg';
           else if (url.includes('dwf')) ext = 'dwf';
+          else if (url.includes('dxf')) ext = 'dxf';
           const path = `documents/${space.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
           finalUrl = await uploadImageToStorage(url, path);
         }
@@ -3139,20 +3143,19 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                       {cleanDisplayTitle(doc.title)}
                                     </span>
                                     {(() => {
-                                      const isRawPdf = Boolean(doc.rawPdfUrl || doc.type === 'pdf' || (doc.url && doc.url.toLowerCase().includes('.pdf')));
-                                      const isWebp = !isRawPdf && (doc.type === 'document' || doc.type === 'image' || (doc.url && doc.url.toLowerCase().includes('.webp')) || (doc.thumbnailUrl && doc.thumbnailUrl.toLowerCase().includes('.webp')));
+                                      const fmt = getDocumentFormatInfo(doc);
                                       return (
                                         <span style={{
                                           fontSize: '0.6rem',
                                           fontWeight: 800,
                                           padding: '1px 5px',
                                           borderRadius: '4px',
-                                          background: isRawPdf ? '#fee2e2' : isWebp ? '#dbeafe' : '#f1f5f9',
-                                          color: isRawPdf ? '#b91c1c' : isWebp ? '#1d4ed8' : '#334155',
-                                          border: isRawPdf ? '1px solid #fca5a5' : isWebp ? '1px solid #bfdbfe' : '1px solid #cbd5e1',
+                                          background: fmt.badgeBg,
+                                          color: fmt.badgeColor,
+                                          border: `1px solid ${fmt.badgeBorder}`,
                                           flexShrink: 0
                                         }}>
-                                          {isRawPdf ? 'PDF' : isWebp ? 'WEBP' : 'FILE'}
+                                          {fmt.tag}
                                         </span>
                                       );
                                     })()}
@@ -3872,16 +3875,15 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                   </button>
 
                                   {isPdf && !doc.thumbnailUrl && <span style={{ fontSize: '2.5rem' }}>📑</span>}
-                                  {/* File Format Badge (PDF vs WEBP) */}
+                                  {/* File Format Badge (PDF vs WEBP vs CAD) */}
                                   {(() => {
-                                    const isRawPdf = Boolean(doc.rawPdfUrl || doc.type === 'pdf' || (doc.url && doc.url.toLowerCase().includes('.pdf')));
-                                    const isWebp = !isRawPdf && (doc.type === 'document' || doc.type === 'image' || (doc.url && doc.url.toLowerCase().includes('.webp')) || (doc.thumbnailUrl && doc.thumbnailUrl.toLowerCase().includes('.webp')));
+                                    const fmt = getDocumentFormatInfo(doc);
                                     return (
                                       <div style={{
                                         position: 'absolute',
                                         bottom: '4px',
                                         left: '4px',
-                                        background: isRawPdf ? 'rgba(220, 38, 38, 0.92)' : isWebp ? 'rgba(37, 99, 235, 0.92)' : 'rgba(15, 23, 42, 0.85)',
+                                        background: fmt.overlayBg,
                                         color: '#ffffff',
                                         padding: '2px 6px',
                                         borderRadius: '5px',
@@ -3894,7 +3896,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                         gap: '3px',
                                         border: '1px solid rgba(255,255,255,0.3)'
                                       }}>
-                                        <span>{isRawPdf ? '📄 PDF' : isWebp ? '🖼️ WEBP' : '📁 קובץ'}</span>
+                                        <span>{fmt.badgeText}</span>
                                       </div>
                                     );
                                   })()}
@@ -3938,20 +3940,19 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                   >
                                     <span style={{ flex: 1, minWidth: 0, wordBreak: 'break-word', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{cleanDisplayTitle(doc.title)}</span>
                                     {(() => {
-                                      const isRawPdf = Boolean(doc.rawPdfUrl || doc.type === 'pdf' || (doc.url && doc.url.toLowerCase().includes('.pdf')));
-                                      const isWebp = !isRawPdf && (doc.type === 'document' || doc.type === 'image' || (doc.url && doc.url.toLowerCase().includes('.webp')) || (doc.thumbnailUrl && doc.thumbnailUrl.toLowerCase().includes('.webp')));
+                                      const fmt = getDocumentFormatInfo(doc);
                                       return (
                                         <span style={{
                                           fontSize: '0.58rem',
                                           fontWeight: 800,
                                           padding: '1px 4px',
                                           borderRadius: '3px',
-                                          background: isRawPdf ? '#fee2e2' : isWebp ? '#dbeafe' : '#f1f5f9',
-                                          color: isRawPdf ? '#b91c1c' : isWebp ? '#1d4ed8' : '#334155',
-                                          border: isRawPdf ? '1px solid #fca5a5' : isWebp ? '1px solid #bfdbfe' : '1px solid #cbd5e1',
+                                          background: fmt.badgeBg,
+                                          color: fmt.badgeColor,
+                                          border: `1px solid ${fmt.badgeBorder}`,
                                           flexShrink: 0
                                         }}>
-                                          {isRawPdf ? 'PDF' : isWebp ? 'WEBP' : 'FILE'}
+                                          {fmt.tag}
                                         </span>
                                       );
                                     })()}

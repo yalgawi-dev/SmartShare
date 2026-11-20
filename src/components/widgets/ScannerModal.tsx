@@ -34,7 +34,7 @@ interface ClassifyResult {
 
 interface ScannerModalProps {
   onClose: () => void;
-  onComplete?: (imageDataUrl: string, ocrDataUrl?: string, allPages?: string[], routingType?: 'receipt' | 'document' | 'image' | 'receipt_batch') => void;
+  onComplete?: (imageDataUrl: string, ocrDataUrl?: string, allPages?: string[], routingType?: 'receipt' | 'document' | 'image' | 'receipt_batch', initialFileName?: string) => void;
   hasVault?: boolean;
   hasFinance?: boolean;
   standalone?: boolean;
@@ -616,6 +616,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         }
 
         const primaryUrl = processedUrls[0];
+        const primaryFileName = fileList[0]?.name;
         const category = defaultCategory || (hasFinance && !hasVault ? 'receipt' : 'document');
 
         if (!isClosingRef.current) {
@@ -624,7 +625,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         }
 
         setTimeout(() => {
-          onComplete(primaryUrl, undefined, processedUrls, category as any);
+          onComplete(primaryUrl, undefined, processedUrls, category as any, primaryFileName);
           setIsProcessing(false);
         }, 50);
         return;

@@ -1435,7 +1435,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
             editingDocTitle={editingDocumentInfo?.title}
             isMultiDocMerge={Boolean(editingDocumentInfo?.sourceDocIds && editingDocumentInfo.sourceDocIds.length > 1)}
             initialStep={editingDocumentInfo?.initialStep}
-            onComplete={async (url, _, allPages, routingType) => { 
+            onComplete={async (url, _, allPages, routingType, initialFileName) => { 
                 setIsScannerOpen(false); 
                 if (editingDocumentInfo) {
                   const currentEditing = editingDocumentInfo;
@@ -1567,7 +1567,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
                         } 
                       }));
                     }
-                    documentsRef.current?.addDocument(url, routingType, allPages, targetEventId || undefined, targetShelfId, false, targetFolderId).then(docId => {
+                    documentsRef.current?.addDocument(url, routingType, allPages, targetEventId || undefined, targetShelfId, false, targetFolderId, initialFileName).then(docId => {
                       if (!targetEventId || !docId) {
                         window.dispatchEvent(new CustomEvent('smartshare:doc_upload_finished'));
                         return;
