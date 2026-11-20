@@ -244,8 +244,15 @@ export default function UniversalViewerModal({
     }
   };
 
-  // Touch Swipe Handlers (Active when scale <= 1.05 so it doesn't break pan/zoom)
+  // Touch Swipe Handlers (Disabled completely for CAD drawings and interactive PDFs so pan/zoom never accidentally jumps)
   const onTouchStart = (e: React.TouchEvent) => {
+    // Zero swipe jumping: CAD blueprints and multi-page vector documents require 100% stable touch pan/zoom
+    if (isCadDoc || isDocPdf) {
+      touchStartXRef.current = null;
+      touchStartYRef.current = null;
+      return;
+    }
+
     if (e.touches.length === 1 && currentScale <= 1.05) {
       touchStartXRef.current = e.touches[0].clientX;
       touchStartYRef.current = e.touches[0].clientY;
@@ -257,6 +264,8 @@ export default function UniversalViewerModal({
   };
 
   const onTouchMove = (e: React.TouchEvent) => {
+    if (isCadDoc || isDocPdf) return;
+
     if (touchStartXRef.current !== null && e.touches.length === 1 && currentScale <= 1.05) {
       const currentX = e.touches[0].clientX;
       const currentY = e.touches[0].clientY;
@@ -270,6 +279,13 @@ export default function UniversalViewerModal({
   };
 
   const onTouchEnd = () => {
+    if (isCadDoc || isDocPdf) {
+      touchStartXRef.current = null;
+      touchStartYRef.current = null;
+      touchDeltaXRef.current = 0;
+      return;
+    }
+
     if (touchStartXRef.current !== null && currentScale <= 1.05) {
       const deltaX = touchDeltaXRef.current;
       const swipeThreshold = 50; // px
@@ -515,6 +531,9 @@ export default function UniversalViewerModal({
           if (isCadDoc) {
             return (
               <div
+                onTouchStart={(e) => e.stopPropagation()}
+                onTouchMove={(e) => e.stopPropagation()}
+                onTouchEnd={(e) => e.stopPropagation()}
                 style={{
                   width: '96%',
                   height: '100%',
