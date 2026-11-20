@@ -37,11 +37,13 @@ export interface GlobalMoveModalProps {
   onCreateSubfolder?: (name: string, parentId: string | null, shelfId?: string | null) => Promise<string | void> | string | void;
   rootLabel?: string;
   rootDescription?: string;
+  disableShelves?: boolean;
 }
 
 export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
   isOpen,
   onClose,
+  itemCount = 1,
   subtitle,
   currentFolderId,
   currentShelfId,
@@ -52,6 +54,9 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
   folders,
   onConfirmMove,
   onConfirmCrossSpace,
+  rootLabel,
+  rootDescription,
+  disableShelves = false,
 }) => {
   const { spaces } = useSpaces();
   const { user } = useAuth();
@@ -104,6 +109,7 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
 
   // Active shelves in the selected space - sorted with current shelf FIRST
   const availableShelves = useMemo(() => {
+    if (disableShelves) return [];
     let rawShelves: ShelfTargetItem[] = [];
     if (isCurrentSpace && Array.isArray(shelves) && shelves.length > 0) {
       rawShelves = shelves;
@@ -119,9 +125,9 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
       if (b.id === currentShelfId) return 1;
       return 0;
     });
-  }, [isCurrentSpace, shelves, activeSpaceObj, currentShelfId]);
+  }, [disableShelves, isCurrentSpace, shelves, activeSpaceObj, currentShelfId]);
 
-  const hasShelves = availableShelves.length > 0;
+  const hasShelves = !disableShelves && availableShelves.length > 0;
 
   // Selected shelf object
   const currentShelfObj = useMemo(() => {
@@ -142,7 +148,7 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
   const activeSpaceFolders = useMemo<FolderTargetItem[]>(() => {
     let pool: FolderTargetItem[] = [];
     if (isCurrentSpace) {
-      pool = folders;
+      pool = (folders || []).filter((f: any) => !f.deletedAt);
     } else if (activeSpaceObj) {
       const docFolders = (activeSpaceObj.documentFolders || [])
         .filter((f: any) => !f.deletedAt)
@@ -527,8 +533,8 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
         {/* 6. Folder Tree (Natural Windows Explorer View) */}
         <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '5px', minHeight: '160px', maxHeight: '250px', border: '1.5px solid #e2e8f0', borderRadius: '12px', padding: '8px', background: '#f8fafc', marginBottom: '14px' }}>
           
-          {/* Top-Level Shelf Item */}
-          {currentShelfObj && (
+          {/* Top-Level Shelf Item OR Root Option when shelves are disabled */}
+          {currentShelfObj ? (
             <div
               onClick={() => setSelectedFolderId(null)}
               style={{
@@ -562,6 +568,52 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
                   height: '18px',
                   borderRadius: '50%',
                   border: isShelfDirectSelected ? '5px solid #2563eb' : '2px solid #cbd5e1',
+                  background: '#fff'
+                }} />
+              </div>
+            </div>
+          ) : (
+            /* Root level option (when not using shelves, e.g. FileShare wall root) */
+            <div
+              onClick={() => setSelectedFolderId(null)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '9px 12px',
+                borderRadius: '12px',
+                background: selectedFolderId === null ? '#eff6ff' : (!currentFolderId && isCurrentSpace) ? '#fffbeb' : '#ffffff',
+                border: selectedFolderId === null ? '2px solid #2563eb' : (!currentFolderId && isCurrentSpace) ? '1.5px dashed #f59e0b' : '1px solid #cbd5e1',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                boxShadow: selectedFolderId === null ? '0 2px 8px rgba(37,99,235,0.12)' : 'none'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                <span style={{ fontSize: '1.2rem' }}>🌐</span>
+                <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                  <span style={{ fontSize: '0.9rem', fontWeight: 800, color: selectedFolderId === null ? '#1d4ed8' : '#0f172a' }}>
+                    {rootLabel || 'קיר השיתוף (רמה ראשית)'}
+                  </span>
+                  {rootDescription && (
+                    <span style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                      {rootDescription}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {!currentFolderId && isCurrentSpace && (
+                  <span style={{ fontSize: '0.68rem', background: '#fef3c7', color: '#b45309', border: '1px solid #fcd34d', padding: '1px 6px', borderRadius: '5px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '3px' }}>
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444', display: 'inline-block' }} />
+                    אתה כאן
+                  </span>
+                )}
+                <div style={{
+                  width: '18px',
+                  height: '18px',
+                  borderRadius: '50%',
+                  border: selectedFolderId === null ? '5px solid #2563eb' : '2px solid #cbd5e1',
                   background: '#fff'
                 }} />
               </div>

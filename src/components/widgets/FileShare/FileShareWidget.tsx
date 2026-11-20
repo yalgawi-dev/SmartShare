@@ -1881,7 +1881,8 @@ export function FileShareWidget({
           getDescendantFolderIds(id).forEach(descId => invalidFolderIds.add(descId));
         });
 
-        const availableFolders = allItems.filter(i => i.type === 'folder' && !invalidFolderIds.has(i.id));
+        // Exclude deleted folders and invalid descendant folders
+        const availableFolders = allItems.filter(i => i.type === 'folder' && !i.deletedAt && !invalidFolderIds.has(i.id));
 
         return (
           <GlobalMoveModal
@@ -1891,6 +1892,9 @@ export function FileShareWidget({
             currentSpaceId={space.id}
             currentFolderId={moveModalState.currentFolderId}
             canCopy={true}
+            disableShelves={true}
+            rootLabel="🌐 קיר השיתוף (רמה ראשית)"
+            rootDescription="העבר פריטים לתיקייה הראשית של קיר השיתוף"
             folders={availableFolders.map(f => ({ id: f.id, name: f.name, parentId: f.parentId }))}
             onClose={() => setMoveModalState(null)}
             onConfirmMove={handleConfirmMoveItems}
@@ -1924,8 +1928,6 @@ export function FileShareWidget({
               setIsMultiSelect(false);
               setMoveModalState(null);
             }}
-            rootLabel="תיקייה ראשית (ללא תיקייה)"
-            rootDescription="ברמה הראשית של שיתוף הקבצים"
           />
         );
       })()}
