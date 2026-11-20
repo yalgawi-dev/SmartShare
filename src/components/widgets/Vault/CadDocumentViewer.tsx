@@ -81,6 +81,71 @@ export default function CadDocumentViewer({ url, filename = 'drawing.dwg' }: Cad
           await dwfViewer.load(buffer, { fileName: filename });
           viewerRef.current = dwfViewer;
 
+          // Attach mobile touch pinch-to-zoom & two-finger pan handlers to the overlay canvas
+          const overlayCanvas = containerRef.current.querySelector<HTMLCanvasElement>('.dwfv-overlay-canvas');
+          if (overlayCanvas) {
+            let initialDist = 0;
+            let lastTouchX = 0;
+            let lastTouchY = 0;
+
+            const getTouchDistance = (t1: Touch, t2: Touch) => {
+              const dx = t1.clientX - t2.clientX;
+              const dy = t1.clientY - t2.clientY;
+              return Math.hypot(dx, dy);
+            };
+
+            const onTouchStart = (e: TouchEvent) => {
+              if (e.touches.length === 2) {
+                e.preventDefault();
+                initialDist = getTouchDistance(e.touches[0], e.touches[1]);
+                lastTouchX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+                lastTouchY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+              }
+            };
+
+            const onTouchMove = (e: TouchEvent) => {
+              if (e.touches.length === 2 && initialDist > 0) {
+                e.preventDefault();
+                const newDist = getTouchDistance(e.touches[0], e.touches[1]);
+                const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+                const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+                const factor = newDist / initialDist;
+
+                if (Math.abs(factor - 1) > 0.02) {
+                  const rect = overlayCanvas.getBoundingClientRect();
+                  const dpr = (dwfViewer as any).currentDpr || window.devicePixelRatio || 1;
+                  const cx = (midX - rect.left) * dpr;
+                  const cy = (midY - rect.top) * dpr;
+                  if ((dwfViewer as any).zoomAroundPoint) {
+                    (dwfViewer as any).zoomAroundPoint(factor, cx, cy);
+                  } else if ((dwfViewer as any).zoomAtCenter) {
+                    (dwfViewer as any).zoomAtCenter(factor);
+                  }
+                  initialDist = newDist;
+                }
+
+                const dx = (midX - lastTouchX) * ((dwfViewer as any).currentDpr || 1);
+                const dy = (midY - lastTouchY) * ((dwfViewer as any).currentDpr || 1);
+                if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+                  (dwfViewer as any).panX = ((dwfViewer as any).panX || 0) + dx;
+                  (dwfViewer as any).panY = ((dwfViewer as any).panY || 0) + dy;
+                  lastTouchX = midX;
+                  lastTouchY = midY;
+                }
+
+                (dwfViewer as any).requestRender?.();
+              }
+            };
+
+            const onTouchEnd = () => {
+              initialDist = 0;
+            };
+
+            overlayCanvas.addEventListener('touchstart', onTouchStart, { passive: false });
+            overlayCanvas.addEventListener('touchmove', onTouchMove, { passive: false });
+            overlayCanvas.addEventListener('touchend', onTouchEnd);
+          }
+
           // Request fit after DOM layout settles to prevent blank canvas
           setTimeout(() => {
             if (!isCancelled && viewerRef.current?.fit) {
@@ -172,6 +237,11 @@ export default function CadDocumentViewer({ url, filename = 'drawing.dwg' }: Cad
     if (viewerRef.current?.zoomAtCenter) {
       viewerRef.current.zoomAtCenter(factor);
       viewerRef.current.requestRender?.();
+    } else if (viewerRef.current?.handleZoom) {
+      const canvas = containerRef.current?.querySelector('canvas');
+      const w = canvas ? canvas.width : window.innerWidth;
+      const h = canvas ? canvas.height : window.innerHeight;
+      viewerRef.current.handleZoom(w / 2, h / 2, factor);
     }
   };
 
@@ -202,13 +272,7 @@ export default function CadDocumentViewer({ url, filename = 'drawing.dwg' }: Cad
           flex-direction: column !important;
         }
         .dwfv-toolbar {
-          direction: ltr !important;
-          background: rgba(255, 255, 255, 0.9) !important;
-          backdrop-filter: blur(8px) !important;
-          padding: 6px 12px !important;
-          font-size: 0.8rem !important;
-          border-bottom: 1px solid rgba(0, 0, 0, 0.1) !important;
-          z-index: 10 !important;
+          display: none !important;
         }
         .dwfv-workspace {
           flex: 1 1 auto !important;
@@ -252,6 +316,48 @@ export default function CadDocumentViewer({ url, filename = 'drawing.dwg' }: Cad
           direction: 'ltr'
         }}
       >
+        <button
+          type="button"
+          onClick={() => handleZoom(1.3)}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: 'white',
+            padding: '6px 10px',
+            borderRadius: '8px',
+            fontSize: '0.95rem',
+            fontWeight: 800,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+          title="הגדל (Zoom In)"
+        >
+          <span>➕</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleZoom(0.77)}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: 'white',
+            padding: '6px 10px',
+            borderRadius: '8px',
+            fontSize: '0.95rem',
+            fontWeight: 800,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+          title="הקטן (Zoom Out)"
+        >
+          <span>➖</span>
+        </button>
+
         <button
           type="button"
           onClick={handleFit}
