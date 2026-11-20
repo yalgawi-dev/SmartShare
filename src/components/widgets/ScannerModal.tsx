@@ -589,11 +589,56 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     const fileList = Array.from(files);
     e.target.value = '';
 
+    // Check if the imported file is a CAD drawing, vector PDF (e.g. garmushka/contract), or office document
+    // These documents MUST NOT pass through cropping, downscaling or image binarization!
+    const isDigitalBypassDoc = (file: File) => {
+      const name = file.name.toLowerCase();
+      const isCad = /\.(dwg|dxf|dwf|dwfx)$/i.test(name);
+      const isOffice = /\.(docx?|xlsx?|pptx?|csv|txt)$/i.test(name);
+      const isPdf = file.type === 'application/pdf' || name.endsWith('.pdf');
+      return isCad || isOffice || isPdf;
+    };
+
+    // If importing single/multi digital non-raster files and onComplete is provided, bypass scanner completely!
+    const hasDigitalFiles = fileList.some(isDigitalBypassDoc);
+    if (hasDigitalFiles && onComplete) {
+      setIsProcessing(true);
+      try {
+        const processedUrls: string[] = [];
+        for (const file of fileList) {
+          const reader = new FileReader();
+          const dataUrl = await new Promise<string>((resolve, reject) => {
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+          processedUrls.push(dataUrl);
+        }
+
+        const primaryUrl = processedUrls[0];
+        const category = defaultCategory || (hasFinance && !hasVault ? 'receipt' : 'document');
+
+        if (!isClosingRef.current) {
+          isClosingRef.current = true;
+          window.history.back();
+        }
+
+        setTimeout(() => {
+          onComplete(primaryUrl, undefined, processedUrls, category as any);
+          setIsProcessing(false);
+        }, 50);
+        return;
+      } catch (err) {
+        console.error('Failed reading digital file for direct bypass:', err);
+        setIsProcessing(false);
+      }
+    }
+
     setActiveSource('upload');
     setScannerMode('upload');
     setIsEditingFromReview(false);
 
-    // URL.createObjectURL is instantaneous and RAM-friendly; PDFs are expanded to page images.
+    // URL.createObjectURL is instantaneous and RAM-friendly for standard photos/receipt scans
     const urls: string[] = [];
     for (const file of fileList) {
       const objUrl = URL.createObjectURL(file);

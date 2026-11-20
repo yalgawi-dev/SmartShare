@@ -1001,8 +1001,18 @@ const handleDeleteDocument = (docId: string, title?: string) => {
         let finalUrl = url;
         let finalThumbnailUrl = previewUrl;
 
-        if (url.startsWith('data:image') || url.startsWith('data:application/pdf')) {
-          const ext = url.startsWith('data:application/pdf') ? 'pdf' : (url.startsWith('data:image/webp') ? 'webp' : 'jpg');
+        if (url.startsWith('data:image') || url.startsWith('data:application/pdf') || url.startsWith('data:application/') || url.startsWith('data:')) {
+          let ext = 'bin';
+          if (url.startsWith('data:application/pdf')) ext = 'pdf';
+          else if (url.startsWith('data:image/webp')) ext = 'webp';
+          else if (url.startsWith('data:image/png')) ext = 'png';
+          else if (url.startsWith('data:image/jpeg') || url.startsWith('data:image/jpg')) ext = 'jpg';
+          else if (title.toLowerCase().endsWith('.dwg')) ext = 'dwg';
+          else if (title.toLowerCase().endsWith('.dwfx')) ext = 'dwfx';
+          else if (title.toLowerCase().endsWith('.dwf')) ext = 'dwf';
+          else if (title.toLowerCase().endsWith('.dxf')) ext = 'dxf';
+          else if (url.includes('dwg')) ext = 'dwg';
+          else if (url.includes('dwf')) ext = 'dwf';
           const path = `documents/${space.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
           finalUrl = await uploadImageToStorage(url, path);
         }
