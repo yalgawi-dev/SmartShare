@@ -23,6 +23,102 @@ export const GlobalAssistantDrawer: React.FC = () => {
   const [isListening, setIsListening] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
+  // DRAGGABLE POSITION STATE (Persisted across pages)
+  const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
+  const dragRef = useRef<{
+    isDragging: boolean;
+    hasDragged: boolean;
+    startX: number;
+    startY: number;
+    initX: number;
+    initY: number;
+  }>({
+    isDragging: false,
+    hasDragged: false,
+    startX: 0,
+    startY: 0,
+    initX: 0,
+    initY: 0
+  });
+
+  // Load saved position on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('smartshare_assistant_pos');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (typeof parsed.x === 'number' && typeof parsed.y === 'number') {
+            const maxX = Math.max(0, window.innerWidth - 65);
+            const maxY = Math.max(0, window.innerHeight - 65);
+            setPosition({
+              x: Math.min(Math.max(10, parsed.x), maxX),
+              y: Math.min(Math.max(10, parsed.y), maxY)
+            });
+            return;
+          }
+        }
+        // Default initial position: Bottom right above floating bar
+        setPosition({
+          x: Math.max(10, window.innerWidth - 75),
+          y: Math.max(10, window.innerHeight - 150)
+        });
+      } catch (e) {
+        console.warn('Error reading assistant pos', e);
+      }
+    }
+  }, []);
+
+  // Drag handlers using window pointer listeners
+  const handlePointerDown = (e: React.PointerEvent) => {
+    // Only drag with primary pointer button
+    if (e.button !== 0) return;
+    const currentX = position?.x ?? (window.innerWidth - 75);
+    const currentY = position?.y ?? (window.innerHeight - 150);
+
+    dragRef.current = {
+      isDragging: true,
+      hasDragged: false,
+      startX: e.clientX,
+      startY: e.clientY,
+      initX: currentX,
+      initY: currentY
+    };
+
+    const handlePointerMove = (moveEvt: PointerEvent) => {
+      if (!dragRef.current.isDragging) return;
+      const dx = moveEvt.clientX - dragRef.current.startX;
+      const dy = moveEvt.clientY - dragRef.current.startY;
+      if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
+        dragRef.current.hasDragged = true;
+      }
+      const newX = Math.min(Math.max(10, dragRef.current.initX + dx), window.innerWidth - 65);
+      const newY = Math.min(Math.max(10, dragRef.current.initY + dy), window.innerHeight - 65);
+      setPosition({ x: newX, y: newY });
+    };
+
+    const handlePointerUp = () => {
+      if (dragRef.current.isDragging) {
+        dragRef.current.isDragging = false;
+        setPosition(pos => {
+          if (pos && typeof window !== 'undefined') {
+            try {
+              localStorage.setItem('smartshare_assistant_pos', JSON.stringify(pos));
+            } catch (_) {}
+          }
+          return pos;
+        });
+      }
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
+  };
+
   // Auto-scroll chat to bottom
   useEffect(() => {
     if (isOpen) {
@@ -87,36 +183,46 @@ export const GlobalAssistantDrawer: React.FC = () => {
 
   return (
     <>
-      {/* FLOATING ACTION ORB (Always available across all screens) */}
+      {/* FLOATING ACTION ORB (Draggable, always available across all screens) */}
       <div
+        onPointerDown={handlePointerDown}
         style={{
           position: 'fixed',
-          bottom: '24px',
-          right: '24px',
+          left: position ? `${position.x}px` : 'auto',
+          top: position ? `${position.y}px` : 'auto',
+          right: position ? 'auto' : '24px',
+          bottom: position ? 'auto' : '150px',
           zIndex: 99999,
-          direction: 'rtl'
+          direction: 'rtl',
+          touchAction: 'none',
+          userSelect: 'none'
         }}
       >
         <button
           type="button"
-          onClick={toggleOpen}
+          onClick={() => {
+            // Only trigger click if user didn't drag
+            if (!dragRef.current.hasDragged) {
+              toggleOpen();
+            }
+          }}
           style={{
             width: '54px',
             height: '54px',
             borderRadius: '50%',
             background: 'linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%)',
-            border: '2px solid #ffffff',
+            border: '2.5px solid #ffffff',
             color: '#ffffff',
             fontSize: '1.4rem',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            cursor: 'pointer',
-            boxShadow: '0 8px 24px rgba(79, 70, 229, 0.4)',
-            transition: 'all 0.2s ease',
+            cursor: 'grab',
+            boxShadow: '0 8px 24px rgba(79, 70, 229, 0.45)',
+            transition: 'transform 0.15s ease',
             transform: isOpen ? 'scale(0.92)' : 'scale(1)'
           }}
-          title="עוזר אישי ומדריך חכם"
+          title="עוזר אישי חכם (גרור כדי להזיז לכל מקום)"
         >
           {isOpen ? '✕' : '🤖'}
         </button>
@@ -127,8 +233,10 @@ export const GlobalAssistantDrawer: React.FC = () => {
         <div
           style={{
             position: 'fixed',
-            bottom: '88px',
-            right: '24px',
+            left: position ? Math.min(Math.max(10, position.x - 320), window.innerWidth - 380) : 'auto',
+            top: position ? Math.min(Math.max(10, position.y - 530), window.innerHeight - 540) : 'auto',
+            bottom: position ? 'auto' : '88px',
+            right: position ? 'auto' : '24px',
             width: 'calc(100vw - 48px)',
             maxWidth: '380px',
             height: '520px',

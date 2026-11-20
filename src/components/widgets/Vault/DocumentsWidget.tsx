@@ -24,6 +24,7 @@ import { APP_VERSION } from '@/constants/version';
 import { findDuplicateInSpace, computeImageDHash, resolveExplorerUniqueTitle, DuplicateMatch } from '@/utils/duplicateDetection';
 import { DuplicateWarningModal } from './DuplicateWarningModal';
 import { CreateShareLinkModal } from '../FileShare/CreateShareLinkModal';
+import { ImportExistingFileModal } from '../FileShare/ImportExistingFileModal';
 import { FileShareItem, ShareLinkConfig } from '@/utils/fileShareUtils';
 
 export interface DocumentsWidgetRef {
@@ -111,6 +112,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   // Custom modal states (replacing browser alert/prompt/confirm)
   const [activeDocMenuId, setActiveDocMenuId] = useState<string | null>(null);
   const [noteDocId, setNoteDocId] = useState<string | null>(null);
+  const [showVaultImportModal, setShowVaultImportModal] = useState(false);
   const hasFinance = (space.features || []).includes('finance');
   const hasFileShare = (space.features || []).includes('fileshare');
   const showTimeline = !!space.settings?.showVaultTimeline;
@@ -594,9 +596,15 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
     };
     window.addEventListener('smartshare:open_new_shelf_prompt', newShelfPromptHandler);
 
+    const vaultImportHandler = () => {
+      setShowVaultImportModal(true);
+    };
+    window.addEventListener('smartshare:vault_import', vaultImportHandler);
+
     return () => {
       window.removeEventListener('smartshare:add_folder', folderHandler);
       window.removeEventListener('smartshare:open_new_shelf_prompt', newShelfPromptHandler);
+      window.removeEventListener('smartshare:vault_import', vaultImportHandler);
     };
   }, [space.id, activeShelfId, shelves, currentFolderId, addDocumentFolder, addShelf]);
 
@@ -5796,6 +5804,53 @@ const handleDeleteDocument = (docId: string, title?: string) => {
 
 
       {renderSharedConfirmAndPromptModals()}
+
+      {/* IMPORT EXISTING FILE MODAL (Single Source of Truth - Zero Storage Duplication) */}
+      <ImportExistingFileModal
+        isOpen={showVaultImportModal}
+        currentSpaceId={space.id}
+        currentFolderId={currentFolderId}
+        onClose={() => setShowVaultImportModal(false)}
+        onImport={async (importedItem: FileShareItem) => {
+          // If in a shelf, add to that shelf. If in outer shelves view, add to the first shelf or prompt
+          let targetShelfId = activeShelfId;
+          if (!targetShelfId) {
+            const firstShelf = (shelves || []).find(s => !s.deletedAt);
+            if (firstShelf) {
+              targetShelfId = firstShelf.id;
+            } else {
+              // Create default shelf if none exists
+              const newShelfId = `shelf_${Date.now()}`;
+              addShelf(space.id, {
+                id: newShelfId,
+                name: 'כללי',
+                icon: '🗂️',
+                createdAt: new Date().toISOString()
+              });
+              targetShelfId = newShelfId;
+            }
+          }
+
+          const isPdf = importedItem.fileType === 'pdf' || importedItem.url.toLowerCase().includes('.pdf');
+          const docType = isPdf ? 'pdf' : (importedItem.fileType === 'image' ? 'image' : 'document');
+          
+          addDocument(space.id, {
+            title: importedItem.name,
+            type: docType,
+            url: importedItem.url,
+            shelfId: targetShelfId,
+            folderId: currentFolderId || null,
+            pages: importedItem.pages || (importedItem.url ? [importedItem.url] : []),
+            thumbnailUrl: importedItem.thumbnailUrl,
+            fileSize: importedItem.size,
+            addedBy: user?.id || '',
+            addedByName: user?.realName || user?.nickname || 'שותף',
+            allowedPartners: []
+          });
+
+          showFeedbackToast(`המסמך "${importedItem.name}" יובא בהצלחה!`);
+        }}
+      />
 
       {/* DOCUMENT NOTE MODAL */}
       {renderDocNoteModal()}

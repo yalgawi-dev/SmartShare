@@ -445,43 +445,82 @@ export function FloatingActionBar({
               </button>
             )}
 
-            {/* When viewing Vault Shelves (Documents only space without finance) - Add Shelf Action Button */}
+            {/* When viewing Vault Shelves (Documents only space without finance) - Add Shelf & Import Action Buttons */}
             {!hasFinance && hasVault && !isInShelf && !hasFileShare && (
-              <button 
-                onClick={() => {
-                  window.dispatchEvent(new CustomEvent('smartshare:open_new_shelf_prompt'));
-                }} 
-                style={{ background: 'transparent', border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer', color: '#2563eb', minWidth: '42px', transition: 'all 0.2s', flex: 1 }}
-                title="צור נושא / מדף חדש"
-              >
-                <span style={{ fontSize: '1.2rem' }}>🗂️⁺</span>
-                <span style={{ fontSize: '0.6rem', fontWeight: '800', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '55px' }}>נושא חדש</span>
-              </button>
+              <div style={{ display: 'flex', gap: '0.1rem', flex: 1, width: '100%', alignItems: 'center' }}>
+                <button 
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent('smartshare:open_new_shelf_prompt'));
+                  }} 
+                  style={{ background: 'transparent', border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer', color: '#2563eb', minWidth: '42px', transition: 'all 0.2s', flex: 1 }}
+                  title="צור נושא / מדף חדש"
+                >
+                  <span style={{ fontSize: '1.2rem' }}>🗂️⁺</span>
+                  <span style={{ fontSize: '0.6rem', fontWeight: '800', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '55px' }}>נושא חדש</span>
+                </button>
+
+                <button 
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent('smartshare:vault_import'));
+                  }} 
+                  style={{ background: 'transparent', border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer', color: '#7c3aed', minWidth: '42px', transition: 'all 0.2s', flex: 1 }}
+                  title="ייבא מסמך ממרחב אחר (ללא שכפול נפח)"
+                >
+                  <span style={{ fontSize: '1.2rem' }}>📥</span>
+                  <span style={{ fontSize: '0.6rem', fontWeight: '800', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '55px' }}>ייבוא</span>
+                </button>
+              </div>
             )}
 
-            {/* When INSIDE Vault Shelf in Documents Space - Folder Creation & Upload Tools */}
+            {/* When INSIDE Vault Shelf in Documents Space - Back, Folder Creation, Upload & Import Tools */}
             {!hasFinance && hasVault && isInShelf && (
               <div style={{ display: 'flex', gap: '0.1rem', flex: 1, width: '100%', alignItems: 'center' }}>
+                <button 
+                  type="button"
+                  onClick={() => {
+                    const stepEvent = new CustomEvent('smartshare:navigate_back_one_step', {
+                      detail: { handled: false },
+                    });
+                    window.dispatchEvent(stepEvent);
+                  }} 
+                  style={{ background: 'rgba(59, 130, 246, 0.08)', border: '1px solid #bfdbfe', padding: '0.5rem 0.1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer', color: '#1d4ed8', minWidth: '38px', transition: 'all 0.2s', flex: 1 }}
+                  title="חזור אחורה לנושאים"
+                >
+                  <span style={{ fontSize: '1.2rem' }}>↩️</span>
+                  <span style={{ fontSize: '0.6rem', fontWeight: '800', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '50px' }}>חזרה</span>
+                </button>
+
                 <button 
                   onClick={() => {
                     window.dispatchEvent(new CustomEvent('smartshare:add_folder'));
                   }} 
-                  style={{ background: 'transparent', border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer', color: '#0284c7', minWidth: '42px', transition: 'all 0.2s', flex: 1 }}
+                  style={{ background: 'transparent', border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer', color: '#0284c7', minWidth: '38px', transition: 'all 0.2s', flex: 1 }}
                   title="צור תיקייה חדשה בתוך הנושא"
                 >
                   <span style={{ fontSize: '1.2rem' }}>📁⁺</span>
-                  <span style={{ fontSize: '0.6rem', fontWeight: '800', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '55px' }}>תיקייה</span>
+                  <span style={{ fontSize: '0.6rem', fontWeight: '800', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '50px' }}>תיקייה</span>
                 </button>
 
                 <button 
                   onClick={() => {
                     fileInputRef.current?.click();
                   }} 
-                  style={{ background: 'transparent', border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer', color: '#2563eb', minWidth: '42px', transition: 'all 0.2s', flex: 1 }}
+                  style={{ background: 'transparent', border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer', color: '#2563eb', minWidth: '38px', transition: 'all 0.2s', flex: 1 }}
                   title="העלה קובץ מהמכשיר"
                 >
                   <span style={{ fontSize: '1.2rem' }}>📤</span>
-                  <span style={{ fontSize: '0.6rem', fontWeight: '800', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '55px' }}>העלאה</span>
+                  <span style={{ fontSize: '0.6rem', fontWeight: '800', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '50px' }}>העלאה</span>
+                </button>
+
+                <button 
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent('smartshare:vault_import'));
+                  }} 
+                  style={{ background: 'transparent', border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer', color: '#7c3aed', minWidth: '38px', transition: 'all 0.2s', flex: 1 }}
+                  title="ייבא מסמך ממרחב אחר (ללא שכפול נפח)"
+                >
+                  <span style={{ fontSize: '1.2rem' }}>📥</span>
+                  <span style={{ fontSize: '0.6rem', fontWeight: '800', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '50px' }}>ייבוא</span>
                 </button>
               </div>
             )}
