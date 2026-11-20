@@ -53,6 +53,8 @@ export default function SharedFileHandler() {
   });
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
+  const [isCreatingShelf, setIsCreatingShelf] = useState(false);
+  const [newShelfName, setNewShelfName] = useState('');
   const [selectedPayerId, setSelectedPayerId] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
@@ -480,13 +482,52 @@ export default function SharedFileHandler() {
       }));
     } catch (e) {}
 
+    // Auto-create shelf if user typed a new shelf name or chose __new__
+    let effectiveShelfId = selectedShelfId;
+    if (routeDestination === 'vault') {
+      const currentSpace = activeSpaces.find((s: any) => s.id === selectedSpaceId);
+      const existingShelves = currentSpace?.shelves || [];
+
+      if (isCreatingShelf && newShelfName.trim() && selectedSpaceId) {
+        try {
+          const createdShelfId = addShelf(selectedSpaceId, {
+            name: newShelfName.trim(),
+            allowedPartners: []
+          });
+          if (createdShelfId) {
+            effectiveShelfId = createdShelfId;
+            setSelectedShelfId(createdShelfId);
+          }
+        } catch (err) {
+          console.warn('Failed auto-creating custom shelf on submit:', err);
+        }
+      } else if (!effectiveShelfId || effectiveShelfId === '__new__') {
+        if (existingShelves.length > 0 && effectiveShelfId !== '__new__') {
+          effectiveShelfId = existingShelves[0].id;
+        } else {
+          try {
+            const createdShelfId = addShelf(selectedSpaceId, {
+              name: 'כללי',
+              allowedPartners: []
+            });
+            if (createdShelfId) {
+              effectiveShelfId = createdShelfId;
+              setSelectedShelfId(createdShelfId);
+            }
+          } catch (err) {
+            console.warn('Failed auto-creating shelf on submit:', err);
+          }
+        }
+      }
+    }
+
     // Auto-create folder if user typed a new folder name without clicking "צור"
     let effectiveFolderId = selectedFolderId;
-    if (isCreatingFolder && newFolderName.trim() && selectedSpaceId && selectedShelfId) {
+    if (isCreatingFolder && newFolderName.trim() && selectedSpaceId && effectiveShelfId && effectiveShelfId !== '__new__') {
       try {
         const createdId = addDocumentFolder(selectedSpaceId, {
           name: newFolderName.trim(),
-          shelfId: selectedShelfId,
+          shelfId: effectiveShelfId,
           parentId: selectedFolderId || undefined,
           allowedPartners: []
         });
@@ -574,7 +615,7 @@ export default function SharedFileHandler() {
         // הועבר בהצלחה
         router.push('/space/' + selectedSpaceId);
       } else if (routeDestination === 'vault') {
-        let targetShelfId = selectedShelfId;
+        let targetShelfId = effectiveShelfId || selectedShelfId;
         const currentSpace = activeSpaces.find((s: any) => s.id === selectedSpaceId);
         const existingShelves = currentSpace?.shelves || [];
         
@@ -1684,37 +1725,166 @@ export default function SharedFileHandler() {
                   }}>
                     {/* שלב 1: בחירת נושא */}
                     <div>
-                      <label style={{ fontSize: '0.85rem', fontWeight: '800', color: '#1e293b', marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span>🗂️</span>
-                        <span>1. לאיזה נושא לשמור את המסמך?</span>
-                      </label>
-                      <select 
-                        value={selectedShelfId} 
-                        onChange={e => {
-                          setSelectedShelfId(e.target.value);
-                          setSelectedFolderId(null);
-                          setIsCreatingFolder(false);
-                          setNewFolderName('');
-                        }}
-                        style={{ 
-                          width: '100%', 
-                          boxSizing: 'border-box', 
-                          padding: '0.7rem 0.85rem', 
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                        <label style={{ fontSize: '0.85rem', fontWeight: '800', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span>🗂️</span>
+                          <span>1. לאיזה נושא לשמור את המסמך?</span>
+                        </label>
+                        {!isCreatingShelf && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsCreatingShelf(true);
+                              setNewShelfName('');
+                            }}
+                            style={{
+                              background: '#eff6ff',
+                              color: '#2563eb',
+                              border: '1px solid #bfdbfe',
+                              borderRadius: '8px',
+                              padding: '3px 10px',
+                              fontSize: '0.75rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}
+                          >
+                            ➕ נושא חדש
+                          </button>
+                        )}
+                      </div>
+
+                      {/* תצוגת יצירת נושא חדש מותאם אישית */}
+                      {isCreatingShelf ? (
+                        <div style={{ 
+                          background: '#f0fdf4', 
+                          padding: '0.75rem', 
                           borderRadius: '12px', 
-                          border: '1.5px solid #cbd5e1', 
-                          fontSize: '0.92rem', 
-                          fontWeight: 600,
-                          backgroundColor: '#f8fafc',
-                          color: '#0f172a',
-                          outline: 'none',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        {shelves.map((sh: any) => (
-                          <option key={sh.id} value={sh.id}>📂 {sh.name}</option>
-                        ))}
-                        <option value="__new__">➕ פתח נושא חדש בשם &quot;כללי&quot;</option>
-                      </select>
+                          border: '1.5px solid #86efac',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '0.5rem'
+                        }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#15803d' }}>
+                              ✨ פתיחת נושא (מדף) חדש במסמכים:
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsCreatingShelf(false);
+                                setNewShelfName('');
+                              }}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                color: '#64748b',
+                                fontSize: '0.75rem',
+                                cursor: 'pointer',
+                                fontWeight: 600,
+                                textDecoration: 'underline'
+                              }}
+                            >
+                              ✕ ביטול
+                            </button>
+                          </div>
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            <input
+                              type="text"
+                              value={newShelfName}
+                              onChange={e => setNewShelfName(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  if (newShelfName.trim() && selectedSpaceId) {
+                                    const createdShelfId = addShelf(selectedSpaceId, {
+                                      name: newShelfName.trim(),
+                                      allowedPartners: []
+                                    });
+                                    if (createdShelfId) setSelectedShelfId(createdShelfId);
+                                    setNewShelfName('');
+                                    setIsCreatingShelf(false);
+                                  }
+                                }
+                              }}
+                              placeholder="לדוגמה: ביטוחים, חשבונות, חוזים..."
+                              autoFocus
+                              style={{
+                                flex: 1,
+                                padding: '0.55rem 0.75rem',
+                                borderRadius: '10px',
+                                border: '1.5px solid #16a34a',
+                                fontSize: '0.88rem',
+                                outline: 'none',
+                                backgroundColor: '#ffffff'
+                              }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (newShelfName.trim() && selectedSpaceId) {
+                                  const createdShelfId = addShelf(selectedSpaceId, {
+                                    name: newShelfName.trim(),
+                                    allowedPartners: []
+                                  });
+                                  if (createdShelfId) setSelectedShelfId(createdShelfId);
+                                  setNewShelfName('');
+                                  setIsCreatingShelf(false);
+                                }
+                              }}
+                              disabled={!newShelfName.trim()}
+                              style={{
+                                background: newShelfName.trim() ? '#16a34a' : '#94a3b8',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: '10px',
+                                padding: '0 14px',
+                                fontWeight: 800,
+                                cursor: newShelfName.trim() ? 'pointer' : 'not-allowed',
+                                fontSize: '0.85rem',
+                              }}
+                            >
+                              צור נושא
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <select 
+                          value={selectedShelfId} 
+                          onChange={e => {
+                            const val = e.target.value;
+                            if (val === '__new__') {
+                              setIsCreatingShelf(true);
+                              setNewShelfName('');
+                            } else {
+                              setSelectedShelfId(val);
+                              setSelectedFolderId(null);
+                              setIsCreatingFolder(false);
+                              setNewFolderName('');
+                            }
+                          }}
+                          style={{ 
+                            width: '100%', 
+                            boxSizing: 'border-box', 
+                            padding: '0.7rem 0.85rem', 
+                            borderRadius: '12px', 
+                            border: '1.5px solid #cbd5e1', 
+                            fontSize: '0.92rem', 
+                            fontWeight: 600,
+                            backgroundColor: '#f8fafc',
+                            color: '#0f172a',
+                            outline: 'none',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {shelves.map((sh: any) => (
+                            <option key={sh.id} value={sh.id}>📂 {sh.name}</option>
+                          ))}
+                          <option value="__new__">➕ פתח נושא חדש...</option>
+                        </select>
+                      )}
                     </div>
 
                     {/* שלב 2: מיקום בתוך הנושא (תיקייה) */}
