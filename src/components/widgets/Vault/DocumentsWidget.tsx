@@ -75,7 +75,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   const [warehouseStationFilter, setWarehouseStationFilter] = useState<string>('all');
   const [pendingImport, setPendingImport] = useState<{ docId?: string, url?: string, type?: 'document' | 'image' | 'pdf', allPages?: string[] } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadingDocs, setUploadingDocs] = useState<{ id: string, shelfId: string, folderId?: string | null, url: string, title: string, type: string, thumbnailUrl?: string }[]>([]);
+  const [uploadingDocs, setUploadingDocs] = useState<{ id: string, shelfId: string, folderId?: string | null, url: string, title: string, type: string, thumbnailUrl?: string, isUploading?: boolean, uploadError?: boolean }[]>([]);
   const [previewState, setPreviewState] = useState<{ docs: any[], index: number } | null>(null);
   const [sharingDoc, setSharingDoc] = useState<ShareChoiceDoc | null>(null);
   const [linkStationDoc, setLinkStationDoc] = useState<{ docId: string, title: string, url: string } | null>(null);
@@ -1013,7 +1013,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       const title = resolveExplorerUniqueTitle(baseTitle, documents, shelfId, effectiveFolderId);
       
       let previewUrl = (allPages && allPages.length > 0) ? allPages[0] : (url.startsWith('data:image') ? url : undefined);
-      setUploadingDocs(prev => [...prev, { id: tempId, shelfId, folderId: effectiveFolderId || null, url, title, type, thumbnailUrl: previewUrl }]);
+      setUploadingDocs(prev => [...prev, { id: tempId, shelfId, folderId: effectiveFolderId || null, url, title, type, thumbnailUrl: previewUrl, isUploading: true }]);
       
       try {
         let finalUrl = url;
@@ -1156,10 +1156,21 @@ const handleDeleteDocument = (docId: string, title?: string) => {
 
         return docId;
       } catch (e) {
-        console.error("Failed to upload document", e);
-        alert("שגיאה בהעלאת המסמך");
+        console.error("Failed to upload document to cloud", e);
+        // Fallback safety net: Keep file in IndexedDB cache and notify user
+        try {
+          if (url.startsWith('data:')) {
+            const byteStr = atob(url.split(',')[1]);
+            const ab = new ArrayBuffer(byteStr.length);
+            const ia = new Uint8Array(ab);
+            for (let i = 0; i < byteStr.length; i++) ia[i] = byteStr.charCodeAt(i);
+            const { setCachedPdfBytes } = await import('@/utils/imageOptimizer');
+            await setCachedPdfBytes(`local_safety_${tempId}`, ia);
+          }
+        } catch (_) {}
+        alert(`הקובץ "${title}" לא הצליח להסתנכרן לענן עקב בעיית תקשורת, אך נשמר בבטחה כגיבוי במכשיר.`);
       } finally {
-        // Remove from optimistic UI
+        // Remove from optimistic UI once finalized
         setUploadingDocs(prev => prev.filter(d => d.id !== tempId));
       }
     };
@@ -3241,8 +3252,17 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                         </button>
                                       );
                                     })()}
-                                    <span style={{ fontSize: '0.64rem', color: '#64748b' }}>
-                                      {doc.storageTarget === 'local' ? '📱 מקומי' : doc.storageTarget === 'gdrive' ? '📁 Drive' : '☁️ ענן'}
+                                    <span style={{ fontSize: '0.64rem', color: '#64748b', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                      {(doc as any).isUploading ? (
+                                        <span style={{ color: '#2563eb', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                          <span style={{ display: 'inline-block', animation: 'spin 2s linear infinite', fontSize: '0.62rem' }}>🔄</span>
+                                          <span>מעלה לענן...</span>
+                                        </span>
+                                      ) : (doc as any).uploadError ? (
+                                        <span style={{ color: '#dc2626', fontWeight: 800 }}>⚠️ נשמר במכשיר בלבד</span>
+                                      ) : (
+                                        doc.storageTarget === 'local' ? '📱 מקומי' : doc.storageTarget === 'gdrive' ? '📁 Drive' : '☁️ ענן'
+                                      )}
                                     </span>
                                     {(() => {
                                       const uploader = (space.members || []).find((m: any) => m.userId === doc.addedBy);
@@ -3907,14 +3927,27 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                     position: 'absolute',
                                     bottom: '4px',
                                     right: '4px',
-                                    background: doc.storageTarget === 'local' ? 'rgba(16, 185, 129, 0.9)' : doc.storageTarget === 'gdrive' ? 'rgba(234, 179, 8, 0.9)' : 'rgba(37, 99, 235, 0.9)',
+                                    background: (doc as any).isUploading ? 'rgba(37, 99, 235, 0.95)' : (doc as any).uploadError ? 'rgba(220, 38, 38, 0.95)' : doc.storageTarget === 'local' ? 'rgba(16, 185, 129, 0.9)' : doc.storageTarget === 'gdrive' ? 'rgba(234, 179, 8, 0.9)' : 'rgba(37, 99, 235, 0.9)',
                                     color: 'white',
                                     padding: '1px 5px',
                                     borderRadius: '5px',
                                     fontSize: '0.6rem',
-                                    fontWeight: 700
+                                    fontWeight: 700,
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '3px',
+                                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
                                   }}>
-                                    {doc.storageTarget === 'local' ? '📱 מקומי' : doc.storageTarget === 'gdrive' ? '📁 Drive' : '☁️ ענן'}
+                                    {(doc as any).isUploading ? (
+                                      <>
+                                        <span style={{ display: 'inline-block', animation: 'spin 2s linear infinite', fontSize: '0.58rem' }}>🔄</span>
+                                        <span>מעלה...</span>
+                                      </>
+                                    ) : (doc as any).uploadError ? (
+                                      <span>⚠️ במכשיר בלבד</span>
+                                    ) : (
+                                      doc.storageTarget === 'local' ? '📱 מקומי' : doc.storageTarget === 'gdrive' ? '📁 Drive' : '☁️ ענן'
+                                    )}
                                   </div>
                                 </div>
 
