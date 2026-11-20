@@ -689,28 +689,25 @@ export default function AuthWall() {
             {/* Android / Spam SMS Assistant Notice */}
             <div style={{
               background: '#FFFBEB',
-              border: '1px solid #FDE68A',
-              color: '#92400E',
-              padding: '10px 14px',
-              borderRadius: '12px',
-              fontSize: '0.85rem',
-              lineHeight: '1.4',
+              border: '1px solid #FCD34D',
+              borderRadius: '14px',
+              padding: '12px 14px',
               textAlign: 'right',
               direction: 'rtl',
               marginBottom: '14px',
               display: 'flex',
               flexDirection: 'column',
-              gap: '4px'
+              gap: '6px'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, color: '#B45309' }}>
-                <span>📱</span>
-                <span>הודעת ה-SMS מתעכבת או לא מופיעה בהתראות?</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 800, color: '#B45309', fontSize: '0.92rem' }}>
+                <span>📩</span>
+                <span>לא קיבלת הודעה? היא מחכה בספאם:</span>
               </div>
-              <div style={{ color: '#78350F', fontSize: '0.82rem' }}>
-                במכשירי Android / Galaxy, סינון הספאם של Google לעתים מעביר את הודעת ה-SMS מ-<strong>CloudOTP</strong> ישירות לתיקיית <strong>"ספאם והודעות חסומות"</strong> ללא צלצול או התראה קופצת.
-              </div>
-              <div style={{ color: '#451A03', fontSize: '0.78rem', marginTop: '2px', fontWeight: 600 }}>
-                💡 כנסו לאפליקציית ההודעות (Messages) &larr; תפריט 3 נקודות &larr; "ספאם וחסום".
+              <div style={{ color: '#78350F', fontSize: '0.85rem', lineHeight: '1.5' }}>
+                1. פתח את אפליקציית <strong>ההודעות (Messages)</strong> בטלפון.<br/>
+                2. לחץ למעלה על <strong>תמונת הפרופיל שלך (העיגול של גוגל)</strong>.<br/>
+                3. בחר באפשרות <strong>🛡️ שיחות חסומות וספאם</strong>.<br/>
+                4. שם תמצא מיד את הקוד שנשלח!
               </div>
             </div>
 
