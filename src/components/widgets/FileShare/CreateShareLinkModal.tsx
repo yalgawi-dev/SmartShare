@@ -350,8 +350,14 @@ export function CreateShareLinkModal({
                 ...currentItems[idx],
                 shareLink: newConfig
               };
-              await updateDoc(spaceDocRef, sanitizeFirestoreData({ fileShareItems: currentItems }));
+            } else {
+              // Synthetic item (e.g. wall_${item.spaceId})
+              currentItems.push({
+                ...item,
+                shareLink: newConfig
+              });
             }
+            await updateDoc(spaceDocRef, sanitizeFirestoreData({ fileShareItems: currentItems }));
           }
         } catch (dbErr) {
           console.warn('Direct space update failed, falling back to onSaved:', dbErr);
