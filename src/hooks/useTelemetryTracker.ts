@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
-import { addActiveSeconds, recordSpaceEnter, prepareSyncPayload, getLocalTelemetry } from '../utils/telemetryTracker';
+import { addActiveSeconds, recordSpaceEnter, recordTelemetrySession, prepareSyncPayload, getLocalTelemetry } from '../utils/telemetryTracker';
 import { useAuth } from '../app/context/AuthContext';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -17,6 +17,7 @@ export function useTelemetryTracker(currentSpaceId?: string, currentSpaceTitle?:
   const pathname = usePathname();
   const { user } = useAuth();
   const lastActiveTimestampRef = useRef<number>(Date.now());
+  const sessionStartTimestampRef = useRef<number>(Date.now());
   const isTabVisibleRef = useRef<boolean>(true);
   const lastFirestoreSyncRef = useRef<number>(Date.now());
 
@@ -50,18 +51,30 @@ export function useTelemetryTracker(currentSpaceId?: string, currentSpaceTitle?:
 
     isTabVisibleRef.current = document.visibilityState === 'visible';
     lastActiveTimestampRef.current = Date.now();
+    sessionStartTimestampRef.current = Date.now();
 
     const handleVisibilityChange = () => {
       const now = Date.now();
       if (document.visibilityState === 'visible') {
         isTabVisibleRef.current = true;
         lastActiveTimestampRef.current = now;
+        sessionStartTimestampRef.current = now;
       } else {
         // Tab went to background, commit elapsed seconds
         if (isTabVisibleRef.current) {
           const elapsedSec = Math.round((now - lastActiveTimestampRef.current) / 1000);
+          const totalSessionSec = Math.round((now - sessionStartTimestampRef.current) / 1000);
           if (elapsedSec > 0 && elapsedSec < 600) {
             addActiveSeconds(elapsedSec, currentSpaceId, currentSpaceTitle);
+          }
+          if (totalSessionSec >= 5 && totalSessionSec < 43200) {
+            recordTelemetrySession({
+              enteredAt: new Date(sessionStartTimestampRef.current).toISOString(),
+              leftAt: new Date(now).toISOString(),
+              durationSeconds: totalSessionSec,
+              spaceId: currentSpaceId,
+              spaceTitle: currentSpaceTitle
+            });
           }
         }
         isTabVisibleRef.current = false;
@@ -99,8 +112,18 @@ export function useTelemetryTracker(currentSpaceId?: string, currentSpaceTitle?:
       if (isTabVisibleRef.current) {
         const now = Date.now();
         const elapsedSec = Math.round((now - lastActiveTimestampRef.current) / 1000);
+        const totalSessionSec = Math.round((now - sessionStartTimestampRef.current) / 1000);
         if (elapsedSec > 0 && elapsedSec < 60) {
           addActiveSeconds(elapsedSec, currentSpaceId, currentSpaceTitle);
+        }
+        if (totalSessionSec >= 5 && totalSessionSec < 43200) {
+          recordTelemetrySession({
+            enteredAt: new Date(sessionStartTimestampRef.current).toISOString(),
+            leftAt: new Date(now).toISOString(),
+            durationSeconds: totalSessionSec,
+            spaceId: currentSpaceId,
+            spaceTitle: currentSpaceTitle
+          });
         }
         syncToFirestore();
       }

@@ -61,6 +61,7 @@ export default function AdminUsersPage() {
   const [storageSearchQuery, setStorageSearchQuery] = useState('');
   const [storageSortBy, setStorageSortBy] = useState<'storageDesc' | 'storageAsc' | 'spaces' | 'name'>('storageDesc');
   const [isFeaturesBreakdownOpen, setIsFeaturesBreakdownOpen] = useState(false);
+  const [isDwellBreakdownOpen, setIsDwellBreakdownOpen] = useState(false);
   const [editingStorageQuota, setEditingStorageQuota] = useState<number>(500);
   const [editingOcrQuota, setEditingOcrQuota] = useState<number>(50);
   const [isSavingQuota, setIsSavingQuota] = useState(false);
@@ -2574,7 +2575,22 @@ export default function AdminUsersPage() {
                   const badge = getEngagementBadge(t?.actions, storageDetails);
 
                   return (
-                    <div style={{ background: '#f0f9ff', border: '1.5px solid #bae6fd', padding: '0.85rem', borderRadius: '14px', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                    <div 
+                      onClick={() => setIsDwellBreakdownOpen(true)}
+                      title="לחץ לפתיחת ניתוח גרפים והתפלגות זמנים מפורטת"
+                      style={{ 
+                        background: '#f0f9ff', 
+                        border: '1.5px solid #bae6fd', 
+                        padding: '0.85rem', 
+                        borderRadius: '14px', 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        gap: '0.65rem',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                        boxShadow: '0 2px 4px rgba(2,132,199,0.08)'
+                      }}
+                    >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#0369a1', display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <span>⏱️</span> זמן שהייה ומעורבות
@@ -2582,9 +2598,14 @@ export default function AdminUsersPage() {
                             {badge.label}
                           </span>
                         </div>
-                        <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#0284c7', background: '#e0f2fe', padding: '3px 10px', borderRadius: '8px' }}>
-                          {formatDurationHe(totalSec)}
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#0284c7', background: '#e0f2fe', padding: '3px 10px', borderRadius: '8px' }}>
+                            {formatDurationHe(totalSec)}
+                          </span>
+                          <span style={{ fontSize: '0.72rem', background: '#0284c7', color: '#ffffff', padding: '2px 7px', borderRadius: '6px', fontWeight: 800 }}>
+                            גרף 📊
+                          </span>
+                        </div>
                       </div>
 
                       {/* Action Breakdown Badges */}
@@ -3051,6 +3072,218 @@ export default function AdminUsersPage() {
                   </div>
                 </div>
               )}
+
+              {/* DWELL TIME & ENGAGEMENT ANALYSIS MODAL */}
+              {isDwellBreakdownOpen && (() => {
+                const t = selectedUserForAnalysis.telemetry;
+                const totalSec = t?.totalActiveSeconds || 0;
+                const userSpaces = t?.spaces ? Object.values(t.spaces) as any[] : [];
+                userSpaces.sort((a, b) => (b.seconds || 0) - (a.seconds || 0));
+                const sessions = Array.isArray(t?.recentSessions) ? t.recentSessions : [];
+                const maxSpaceSeconds = Math.max(...userSpaces.map(s => s.seconds || 0), 1);
+
+                return (
+                  <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+                    backdropFilter: 'blur(4px)',
+                    zIndex: 99999,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '1rem'
+                  }}>
+                    <div style={{
+                      background: '#ffffff',
+                      borderRadius: '20px',
+                      width: '100%',
+                      maxWidth: '680px',
+                      maxHeight: '90vh',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      padding: '1.25rem',
+                      boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
+                      direction: 'rtl'
+                    }}>
+                      {/* Header */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1.5px solid #f1f5f9', paddingBottom: '0.85rem', marginBottom: '1rem' }}>
+                        <div>
+                          <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: '#0369a1', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                            <span>⏱️</span> התפלגות זמני שהייה ופעילות
+                          </h3>
+                          <span style={{ fontSize: '0.78rem', color: '#64748b' }}>
+                            משתמש: <strong>{selectedUserForAnalysis.realName || selectedUserForAnalysis.nickname || selectedUserForAnalysis.name}</strong> • סה&quot;כ זמן פעיל: <strong style={{ color: '#0284c7' }}>{formatDurationHe(totalSec)}</strong>
+                          </span>
+                        </div>
+                        <button 
+                          onClick={() => setIsDwellBreakdownOpen(false)}
+                          style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '32px', height: '32px', fontSize: '1.2rem', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        >
+                          ×
+                        </button>
+                      </div>
+
+                      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1.25rem', paddingRight: '4px' }}>
+                        {/* Section 1: Visual Distribution Graph per Space */}
+                        <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
+                          <div style={{ fontSize: '0.86rem', fontWeight: 800, color: '#1e293b', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span>📊</span> התפלגות גרפית לפי מרחבים:
+                          </div>
+
+                          {userSpaces.length > 0 ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                              {userSpaces.map((sp: any) => {
+                                const percentage = totalSec > 0 ? Math.round(((sp.seconds || 0) / totalSec) * 100) : 0;
+                                const barWidth = Math.max(8, Math.round(((sp.seconds || 0) / maxSpaceSeconds) * 100));
+
+                                return (
+                                  <div key={sp.id} style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem' }}>
+                                      <span style={{ fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        <span>📁</span> {sp.title}
+                                        <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 500 }}>
+                                          ({sp.visits || 0} כניסות)
+                                        </span>
+                                      </span>
+                                      <span style={{ fontWeight: 800, color: '#0284c7' }}>
+                                        {formatDurationHe(sp.seconds)} ({percentage}%)
+                                      </span>
+                                    </div>
+                                    {/* Visual Bar */}
+                                    <div style={{ width: '100%', height: '10px', background: '#e2e8f0', borderRadius: '5px', overflow: 'hidden' }}>
+                                      <div style={{
+                                        width: `${barWidth}%`,
+                                        height: '100%',
+                                        background: 'linear-gradient(90deg, #38bdf8, #0284c7)',
+                                        borderRadius: '5px',
+                                        transition: 'width 0.4s ease'
+                                      }} />
+                                    </div>
+                                    {sp.lastVisitAt && (
+                                      <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>
+                                        כניסה אחרונה: {new Date(sp.lastVisitAt).toLocaleDateString('he-IL')} בשעה {new Date(sp.lastVisitAt).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div style={{ fontSize: '0.8rem', color: '#64748b', textAlign: 'center', padding: '1rem' }}>
+                              אין עדיין נתוני כניסה למרחבים עבור משתמש זה.
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Section 2: Detailed Table of Sessions (When entered, how long stayed, etc.) */}
+                        <div style={{ background: '#ffffff', borderRadius: '14px', border: '1px solid #e2e8f0', padding: '0.85rem' }}>
+                          <div style={{ fontSize: '0.86rem', fontWeight: 800, color: '#1e293b', marginBottom: '0.6rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span>📋</span> טבלת סשנים וכניסות אחרונות
+                            </div>
+                            <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600 }}>
+                              {sessions.length > 0 ? `${sessions.length} סשנים אחרונים` : 'רישום סשנים חדש'}
+                            </span>
+                          </div>
+
+                          {sessions.length > 0 ? (
+                            <div style={{ overflowX: 'auto' }}>
+                              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem', textAlign: 'right' }}>
+                                <thead>
+                                  <tr style={{ background: '#f8fafc', borderBottom: '1.5px solid #e2e8f0', color: '#475569' }}>
+                                    <th style={{ padding: '6px 8px' }}>זמן כניסה</th>
+                                    <th style={{ padding: '6px 8px' }}>משך שהייה</th>
+                                    <th style={{ padding: '6px 8px' }}>מרחב שנצפה</th>
+                                    <th style={{ padding: '6px 8px' }}>זמן יציאה / סיום</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {sessions.map((sess: any) => {
+                                    const enteredDate = sess.enteredAt ? new Date(sess.enteredAt) : null;
+                                    const leftDate = sess.leftAt ? new Date(sess.leftAt) : null;
+                                    return (
+                                      <tr key={sess.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                        <td style={{ padding: '6px 8px', fontWeight: 700, color: '#1e293b' }}>
+                                          {enteredDate ? `${enteredDate.toLocaleDateString('he-IL')} ${enteredDate.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}` : '-'}
+                                        </td>
+                                        <td style={{ padding: '6px 8px', fontWeight: 800, color: '#0284c7' }}>
+                                          {formatDurationHe(sess.durationSeconds)}
+                                        </td>
+                                        <td style={{ padding: '6px 8px', color: '#475569' }}>
+                                          📁 {sess.spaceTitle || 'מרחב כללי'}
+                                        </td>
+                                        <td style={{ padding: '6px 8px', color: '#64748b', fontSize: '0.72rem' }}>
+                                          {leftDate ? leftDate.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }) : '-'}
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          ) : (
+                            <div style={{ padding: '1rem', textAlign: 'center', background: '#f8fafc', borderRadius: '10px', fontSize: '0.78rem', color: '#64748b' }}>
+                              סשנים מפורטים נרשמים מעתה בזמן אמת בעת כניסה ויציאה מהאפליקציה.
+                              <br />
+                              <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                                סה&quot;כ זמני השהייה המצטברים לפי מרחבים מוצגים במלואם בגרף למעלה!
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Section 3: Action Breakdown Insights */}
+                        <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '0.85rem', borderRadius: '14px', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                          <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#166534', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span>⚡</span> מדד אינטראקציה ופרודוקטיביות
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '6px' }}>
+                            <div style={{ background: '#ffffff', padding: '6px 10px', borderRadius: '8px', border: '1px solid #dcfce7', textAlign: 'center' }}>
+                              <div style={{ fontSize: '0.68rem', color: '#4b5563' }}>חשבוניות נוצרו</div>
+                              <div style={{ fontSize: '1rem', fontWeight: 800, color: '#15803d' }}>{t?.actions?.invoicesCreated || 0}</div>
+                            </div>
+                            <div style={{ background: '#ffffff', padding: '6px 10px', borderRadius: '8px', border: '1px solid #dcfce7', textAlign: 'center' }}>
+                              <div style={{ fontSize: '0.68rem', color: '#4b5563' }}>חשבוניות אושרו</div>
+                              <div style={{ fontSize: '1rem', fontWeight: 800, color: '#15803d' }}>{t?.actions?.invoicesApproved || 0}</div>
+                            </div>
+                            <div style={{ background: '#ffffff', padding: '6px 10px', borderRadius: '8px', border: '1px solid #dcfce7', textAlign: 'center' }}>
+                              <div style={{ fontSize: '0.68rem', color: '#4b5563' }}>מסמכים שהועלו</div>
+                              <div style={{ fontSize: '1rem', fontWeight: 800, color: '#15803d' }}>{t?.actions?.docsUploaded || 0}</div>
+                            </div>
+                            <div style={{ background: '#ffffff', padding: '6px 10px', borderRadius: '8px', border: '1px solid #dcfce7', textAlign: 'center' }}>
+                              <div style={{ fontSize: '0.68rem', color: '#4b5563' }}>סריקות OCR</div>
+                              <div style={{ fontSize: '1rem', fontWeight: 800, color: '#15803d' }}>{t?.actions?.ocrScans || 0}</div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Close Button */}
+                      <button
+                        onClick={() => setIsDwellBreakdownOpen(false)}
+                        style={{
+                          width: '100%',
+                          padding: '0.75rem',
+                          background: '#0284c7',
+                          color: '#ffffff',
+                          border: 'none',
+                          borderRadius: '12px',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                          marginTop: '1rem',
+                          fontSize: '0.9rem'
+                        }}
+                      >
+                        סגור ניתוח זמנים
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         );

@@ -8,6 +8,15 @@
  * - Batched / Piggyback Sync: Only returns aggregated payload when eligible (e.g. once per session/day)
  */
 
+export interface TelemetrySessionItem {
+  id: string;
+  enteredAt: string;
+  leftAt?: string;
+  durationSeconds: number;
+  spaceId?: string;
+  spaceTitle?: string;
+}
+
 export interface SpaceTelemetryItem {
   id: string;
   title?: string;
@@ -19,6 +28,7 @@ export interface SpaceTelemetryItem {
 export interface UserTelemetryPayload {
   totalActiveSeconds: number;
   spaces: Record<string, SpaceTelemetryItem>;
+  recentSessions?: TelemetrySessionItem[]; // Detailed session logs
   actions: {
     invoicesCreated: number;
     invoicesApproved: number;
@@ -48,6 +58,7 @@ export function getLocalTelemetry(): UserTelemetryPayload {
       return {
         totalActiveSeconds: parsed.totalActiveSeconds || 0,
         spaces: parsed.spaces || {},
+        recentSessions: Array.isArray(parsed.recentSessions) ? parsed.recentSessions : [],
         actions: {
           invoicesCreated: parsed.actions?.invoicesCreated || 0,
           invoicesApproved: parsed.actions?.invoicesApproved || 0,
@@ -65,6 +76,7 @@ export function getLocalTelemetry(): UserTelemetryPayload {
   return {
     totalActiveSeconds: 0,
     spaces: {},
+    recentSessions: [],
     actions: { invoicesCreated: 0, invoicesApproved: 0, docsUploaded: 0, ocrScans: 0, chatMessages: 0 }
   };
 }
@@ -124,6 +136,36 @@ export function recordSpaceEnter(spaceId: string, spaceTitle?: string) {
   current.spaces[spaceId].lastVisitAt = new Date().toISOString();
   if (spaceTitle) current.spaces[spaceId].title = spaceTitle;
 
+  saveLocalTelemetry(current);
+}
+
+/**
+ * Record a completed session chunk (enteredAt, leftAt, duration)
+ */
+export function recordTelemetrySession(session: {
+  enteredAt: string;
+  leftAt?: string;
+  durationSeconds: number;
+  spaceId?: string;
+  spaceTitle?: string;
+}) {
+  if (session.durationSeconds < 5) return; // Ignore accidental sub-5s blips
+  const current = getLocalTelemetry();
+  if (!Array.isArray(current.recentSessions)) {
+    current.recentSessions = [];
+  }
+
+  const newSession: TelemetrySessionItem = {
+    id: `sess_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+    enteredAt: session.enteredAt,
+    leftAt: session.leftAt || new Date().toISOString(),
+    durationSeconds: session.durationSeconds,
+    spaceId: session.spaceId,
+    spaceTitle: session.spaceTitle || 'מרחב ראשי'
+  };
+
+  // Keep up to 30 most recent sessions to avoid bloated document size
+  current.recentSessions = [newSession, ...current.recentSessions].slice(0, 30);
   saveLocalTelemetry(current);
 }
 
