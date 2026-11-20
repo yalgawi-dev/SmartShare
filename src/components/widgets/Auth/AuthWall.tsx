@@ -48,7 +48,29 @@ export default function AuthWall() {
             const extractedCode = String(otpCredential.code).trim();
             const digitsOnly = extractedCode.replace(/\D/g, '').slice(0, 6);
             if (digitsOnly.length === 6) {
+              // 1. Update React state
               handleOtpChange(digitsOnly);
+
+              // 2. Also inject directly into native DOM input and fire native input event for 100% sync
+              if (masterOtpInputRef.current) {
+                try {
+                  const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+                    window.HTMLInputElement.prototype,
+                    'value'
+                  )?.set;
+                  if (nativeInputValueSetter) {
+                    nativeInputValueSetter.call(masterOtpInputRef.current, digitsOnly);
+                  } else {
+                    masterOtpInputRef.current.value = digitsOnly;
+                  }
+                  masterOtpInputRef.current.dispatchEvent(new Event('input', { bubbles: true }));
+                } catch (domErr) {
+                  console.warn('DOM sync fallback notice:', domErr);
+                }
+              }
+
+              // 3. Clear any error and trigger verification
+              setErrorMsg('');
               setTimeout(() => {
                 handleVerify(digitsOnly);
               }, 80);
@@ -229,12 +251,12 @@ export default function AuthWall() {
     }
   };
 
-  const handleOtpChange = (value: string) => {
+  const handleOtpChange = (value: string, shouldAutoVerify: boolean = true) => {
     setErrorMsg('');
     const digitsOnly = value.replace(/\D/g, '').slice(0, 6);
     setOtpValue(digitsOnly);
 
-    if (digitsOnly.length === 6) {
+    if (shouldAutoVerify && digitsOnly.length === 6) {
       setTimeout(() => {
         handleVerify(digitsOnly);
       }, 50);
@@ -605,16 +627,32 @@ export default function AuthWall() {
                     const match = text.match(/\b(\d{6})\b/) || text.match(/(\d{6})/);
                     if (match && match[1]) {
                       const detected = match[1];
-                      handleOtpChange(detected);
-                      // Clear stale error if present
+                      // Populate the input and state WITHOUT auto-verifying blindly
+                      handleOtpChange(detected, false);
+                      if (masterOtpInputRef.current) {
+                        try {
+                          const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+                          if (nativeSetter) nativeSetter.call(masterOtpInputRef.current, detected);
+                          else masterOtpInputRef.current.value = detected;
+                          masterOtpInputRef.current.dispatchEvent(new Event('input', { bubbles: true }));
+                        } catch (e) {}
+                      }
                       setErrorMsg('');
                     } else {
                       const digits = text.replace(/\D/g, '').slice(0, 6);
                       if (digits.length === 6) {
-                        handleOtpChange(digits);
+                        handleOtpChange(digits, false);
+                        if (masterOtpInputRef.current) {
+                          try {
+                            const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+                            if (nativeSetter) nativeSetter.call(masterOtpInputRef.current, digits);
+                            else masterOtpInputRef.current.value = digits;
+                            masterOtpInputRef.current.dispatchEvent(new Event('input', { bubbles: true }));
+                          } catch (e) {}
+                        }
                         setErrorMsg('');
                       } else {
-                        setErrorMsg('לוח ההעתקה אינו מכיל קוד אימות תקין בן 6 ספרות.');
+                        setErrorMsg('לוח ההעתקה אינו מכיל קוד אימות תקין בן 6 ספרות. בדוק אם העתקת את קוד ה-SMS האחרון.');
                       }
                     }
                   } catch {

@@ -34,6 +34,25 @@ export default function PhoneLoginFlow({ onSuccess, onCancel }: { onSuccess: () 
             const digitsOnly = extractedCode.replace(/\D/g, '').slice(0, 6);
             if (digitsOnly.length === 6) {
               handleOtpChange(digitsOnly);
+
+              if (otpInputRef.current) {
+                try {
+                  const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+                    window.HTMLInputElement.prototype,
+                    'value'
+                  )?.set;
+                  if (nativeInputValueSetter) {
+                    nativeInputValueSetter.call(otpInputRef.current, digitsOnly);
+                  } else {
+                    otpInputRef.current.value = digitsOnly;
+                  }
+                  otpInputRef.current.dispatchEvent(new Event('input', { bubbles: true }));
+                } catch (domErr) {
+                  console.warn('DOM sync fallback notice:', domErr);
+                }
+              }
+
+              setErrorMsg('');
               setTimeout(() => {
                 verifyCode(digitsOnly);
               }, 80);
@@ -118,11 +137,11 @@ export default function PhoneLoginFlow({ onSuccess, onCancel }: { onSuccess: () 
     }
   };
 
-  const handleOtpChange = (value: string) => {
+  const handleOtpChange = (value: string, shouldAutoVerify: boolean = true) => {
     setErrorMsg('');
     const digitsOnly = value.replace(/\D/g, '').slice(0, 6);
     setOtpValue(digitsOnly);
-    if (digitsOnly.length === 6) {
+    if (shouldAutoVerify && digitsOnly.length === 6) {
       setTimeout(() => {
         verifyCode(digitsOnly);
       }, 50);
@@ -270,15 +289,32 @@ export default function PhoneLoginFlow({ onSuccess, onCancel }: { onSuccess: () 
                   const text = await navigator.clipboard.readText();
                   const match = text.match(/\b(\d{6})\b/) || text.match(/(\d{6})/);
                   if (match && match[1]) {
-                    handleOtpChange(match[1]);
+                    const detected = match[1];
+                    handleOtpChange(detected, false);
+                    if (otpInputRef.current) {
+                      try {
+                        const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+                        if (nativeSetter) nativeSetter.call(otpInputRef.current, detected);
+                        else otpInputRef.current.value = detected;
+                        otpInputRef.current.dispatchEvent(new Event('input', { bubbles: true }));
+                      } catch (e) {}
+                    }
                     setErrorMsg('');
                   } else {
                     const digits = text.replace(/\D/g, '').slice(0, 6);
                     if (digits.length === 6) {
-                      handleOtpChange(digits);
+                      handleOtpChange(digits, false);
+                      if (otpInputRef.current) {
+                        try {
+                          const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+                          if (nativeSetter) nativeSetter.call(otpInputRef.current, digits);
+                          else otpInputRef.current.value = digits;
+                          otpInputRef.current.dispatchEvent(new Event('input', { bubbles: true }));
+                        } catch (e) {}
+                      }
                       setErrorMsg('');
                     } else {
-                      setErrorMsg('לוח ההעתקה אינו מכיל קוד אימות תקין בן 6 ספרות.');
+                      setErrorMsg('לוח ההעתקה אינו מכיל קוד אימות תקין בן 6 ספרות. בדוק אם העתקת את קוד ה-SMS האחרון.');
                     }
                   }
                 } catch {
