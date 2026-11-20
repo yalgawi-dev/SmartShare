@@ -81,6 +81,9 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   const { openChat } = useChat();
   const space = spaces.find(s => s.id === id);
 
+  // Hook up user active dwell time and space visit tracking
+  useTelemetryTracker(id, space?.title || 'מרחב');
+
 
   
   const [isEditingTitle, setIsEditingTitle] = useState(false);

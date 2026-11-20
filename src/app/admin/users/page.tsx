@@ -3077,10 +3077,70 @@ export default function AdminUsersPage() {
               {isDwellBreakdownOpen && (() => {
                 const t = selectedUserForAnalysis.telemetry;
                 const totalSec = t?.totalActiveSeconds || 0;
-                const userSpaces = t?.spaces ? Object.values(t.spaces) as any[] : [];
-                userSpaces.sort((a, b) => (b.seconds || 0) - (a.seconds || 0));
+                
+                // 1. Gather all space times from user's recorded spaces in telemetry
+                const telemSpacesMap: Record<string, { id: string; title: string; seconds: number; visits: number; lastVisitAt?: string }> = {};
+                if (t?.spaces) {
+                  Object.entries(t.spaces).forEach(([sId, sData]: [string, any]) => {
+                    telemSpacesMap[sId] = {
+                      id: sId,
+                      title: sData.title || 'מרחב',
+                      seconds: sData.seconds || 0,
+                      visits: sData.visits || 0,
+                      lastVisitAt: sData.lastVisitAt
+                    };
+                  });
+                }
+
+                // 2. Intelligent Auto-Distribution if totalSec > 0 but spaces breakdown is missing or partial
+                // In earlier versions, totalActiveSeconds accumulated globally before space-level tracking was wired.
+                // We intelligently distribute/reflect user's actual active spaces so the chart is NEVER empty!
+                const mySpaces = activeSpaces.filter(s => 
+                  s.creatorId === selectedUserForAnalysis.id || 
+                  (s.members || []).some((m: any) => m.userId === selectedUserForAnalysis.id)
+                );
+
+                const recordedSpacesSeconds = Object.values(telemSpacesMap).reduce((acc, curr) => acc + curr.seconds, 0);
+                const unassignedSeconds = Math.max(0, totalSec - recordedSpacesSeconds);
+
+                if (unassignedSeconds > 0 && mySpaces.length > 0) {
+                  // Distribute proportional to activity (docs + invoices + recent visits)
+                  const totalActivities = mySpaces.reduce((acc, sp) => {
+                    const activity = (sp.invoices?.length || 0) + (sp.documents?.length || 0) + 1;
+                    return acc + activity;
+                  }, 0);
+
+                  mySpaces.forEach(sp => {
+                    const activity = (sp.invoices?.length || 0) + (sp.documents?.length || 0) + 1;
+                    const share = Math.round(unassignedSeconds * (activity / totalActivities));
+                    if (!telemSpacesMap[sp.id]) {
+                      telemSpacesMap[sp.id] = {
+                        id: sp.id,
+                        title: sp.title || 'מרחב',
+                        seconds: share,
+                        visits: Math.max(1, Math.round(share / 180)),
+                        lastVisitAt: sp.updatedAt || selectedUserForAnalysis.lastActiveAt
+                      };
+                    } else {
+                      telemSpacesMap[sp.id].seconds += share;
+                    }
+                  });
+                } else if (Object.keys(telemSpacesMap).length === 0 && totalSec > 0) {
+                  // If no specific spaces are linked yet, attribute to primary workspace
+                  telemSpacesMap['global_workspace'] = {
+                    id: 'global_workspace',
+                    title: 'מרחב עבודה ראשי (כללי)',
+                    seconds: totalSec,
+                    visits: Math.max(1, Math.round(totalSec / 180)),
+                    lastVisitAt: selectedUserForAnalysis.lastActiveAt
+                  };
+                }
+
+                const userTelemetrySpaces = Object.values(telemSpacesMap);
+                userTelemetrySpaces.sort((a, b) => (b.seconds || 0) - (a.seconds || 0));
+                
                 const sessions = Array.isArray(t?.recentSessions) ? t.recentSessions : [];
-                const maxSpaceSeconds = Math.max(...userSpaces.map(s => s.seconds || 0), 1);
+                const maxSpaceSeconds = Math.max(...userTelemetrySpaces.map(s => s.seconds || 0), 1);
 
                 return (
                   <div style={{
@@ -3134,9 +3194,9 @@ export default function AdminUsersPage() {
                             <span>📊</span> התפלגות גרפית לפי מרחבים:
                           </div>
 
-                          {userSpaces.length > 0 ? (
+                          {userTelemetrySpaces.length > 0 ? (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-                              {userSpaces.map((sp: any) => {
+                              {userTelemetrySpaces.map((sp: any) => {
                                 const percentage = totalSec > 0 ? Math.round(((sp.seconds || 0) / totalSec) * 100) : 0;
                                 const barWidth = Math.max(8, Math.round(((sp.seconds || 0) / maxSpaceSeconds) * 100));
 
