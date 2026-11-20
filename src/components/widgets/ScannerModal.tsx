@@ -1276,8 +1276,8 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
 
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: '#000', zIndex: 100000, display: 'flex', flexDirection: 'column', color: 'white' }}>
-      {/* Hidden File Picker mounted unconditionally for fast trigger */}
-      <input ref={galleryInputRef} type="file" accept="image/*,application/pdf" multiple onChange={handleGalleryImport} style={{ display: 'none' }} />
+      {/* Hidden File Picker mounted unconditionally for fast trigger: supports all documents & files (Downloads, Drive, Gallery) */}
+      <input ref={galleryInputRef} type="file" accept="*/*,image/*,application/pdf,.pdf,.doc,.docx,.xls,.xlsx,.dwg,.dxf,.dwf,.dwfx" multiple onChange={handleGalleryImport} style={{ display: 'none' }} />
 
       {/* Header */}
       <div style={{ padding: '0.45rem 0.8rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.85)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>

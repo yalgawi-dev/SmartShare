@@ -1213,7 +1213,7 @@ export function FileShareWidget({
         ref={fileInputRef}
         type="file" 
         multiple 
-        accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.dwg,.dxf,.dwf,.dwfx"
+        accept="*/*,image/*,application/pdf,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.dwg,.dxf,.dwf,.dwfx"
         onChange={handleFileUpload} 
         style={{ display: 'none' }}
       />
