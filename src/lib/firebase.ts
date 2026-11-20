@@ -127,24 +127,18 @@ export const uploadImageToStorage = async (
       cacheControl: 'public, max-age=31536000, immutable'
     };
 
-    // Convert dataURL to pure binary Blob so uploadBytes is used without Base64 network overhead
+    // Convert dataURL to pure binary Blob via native fetch (safe, streaming, zero-atob)
     try {
-      const byteString = atob(dataUrl.split(',')[1]);
-      const mimeString = dataUrl.split(',')[0].split(':')[1].split(';')[0];
-      const ab = new ArrayBuffer(byteString.length);
-      const ia = new Uint8Array(ab);
-      for (let i = 0; i < byteString.length; i++) {
-        ia[i] = byteString.charCodeAt(i);
+      const res = await fetch(dataUrl);
+      const binaryBlob = await res.blob();
+      return await uploadBlobToStorage(binaryBlob, resolvedPath, onProgress);
+    } catch (blobConversionErr) {
+      console.warn("fetch(dataUrl) blob conversion fallback to uploadBytesResumable/uploadString:", blobConversionErr);
+      if (onProgress) {
+        return await uploadBlobToStorage(new Blob([dataUrl], { type: contentType }), resolvedPath, onProgress);
       }
-      const binaryBlob = new Blob([ab], { type: mimeString });
-      const snapshot = await uploadBytes(storageRef, binaryBlob, metadata);
-      const downloadURL = await getDownloadURL(snapshot.ref);
-      return downloadURL;
-    } catch {
-      // Graceful fallback to uploadString if Blob conversion fails
       const snapshot = await uploadString(storageRef, dataUrl, 'data_url', metadata);
-      const downloadURL = await getDownloadURL(snapshot.ref);
-      return downloadURL;
+      return await getDownloadURL(snapshot.ref);
     }
   } catch (error) {
     console.error("Error uploading image to Storage:", error);
