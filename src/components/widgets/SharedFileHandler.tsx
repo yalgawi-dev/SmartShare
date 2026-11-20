@@ -1665,129 +1665,243 @@ export default function SharedFileHandler() {
               {/* Sub-step A: Shelf/Folder Picker if Vault Selected */}
               {routeDestination === 'vault' && selectedSpaceId && (() => {
                 const curSp = activeSpaces.find((s: any) => s.id === selectedSpaceId);
+                const shelves = curSp?.shelves || [];
+                const currentShelf = shelves.find((sh: any) => sh.id === selectedShelfId);
+                const currentShelfName = currentShelf?.name || 'הנושא הנבחר';
                 const availableFolders = (curSp?.documentFolders || []).filter((f: any) => !f.deletedAt && f.shelfId === selectedShelfId);
+                
                 return (
-                  <div style={{ marginBottom: '1.25rem', background: '#f8fafc', padding: '0.85rem', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  <div style={{ 
+                    marginBottom: '1.25rem', 
+                    background: '#ffffff', 
+                    padding: '1rem', 
+                    borderRadius: '16px', 
+                    border: '1.5px solid #e2e8f0', 
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    gap: '1rem' 
+                  }}>
+                    {/* שלב 1: בחירת נושא */}
                     <div>
-                      <label style={{ fontSize: '0.82rem', fontWeight: '800', color: '#334155', marginBottom: '0.35rem', display: 'block' }}>
-                        בחר נושא (מדף) יעד במסמכים:
+                      <label style={{ fontSize: '0.85rem', fontWeight: '800', color: '#1e293b', marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span>🗂️</span>
+                        <span>1. לאיזה נושא לשמור את המסמך?</span>
                       </label>
                       <select 
                         value={selectedShelfId} 
-                        onChange={e => setSelectedShelfId(e.target.value)}
-                        style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.75rem', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '0.9rem', backgroundColor: '#ffffff' }}
+                        onChange={e => {
+                          setSelectedShelfId(e.target.value);
+                          setSelectedFolderId(null);
+                          setIsCreatingFolder(false);
+                          setNewFolderName('');
+                        }}
+                        style={{ 
+                          width: '100%', 
+                          boxSizing: 'border-box', 
+                          padding: '0.7rem 0.85rem', 
+                          borderRadius: '12px', 
+                          border: '1.5px solid #cbd5e1', 
+                          fontSize: '0.92rem', 
+                          fontWeight: 600,
+                          backgroundColor: '#f8fafc',
+                          color: '#0f172a',
+                          outline: 'none',
+                          cursor: 'pointer'
+                        }}
                       >
-                        {(curSp?.shelves || []).map((sh: any) => (
-                          <option key={sh.id} value={sh.id}>🗂️ נושא: {sh.name}</option>
+                        {shelves.map((sh: any) => (
+                          <option key={sh.id} value={sh.id}>📂 {sh.name}</option>
                         ))}
-                        <option value="__new__">➕ צור נושא (מדף) חדש בשם &quot;כללי&quot;</option>
+                        <option value="__new__">➕ פתח נושא חדש בשם &quot;כללי&quot;</option>
                       </select>
                     </div>
 
+                    {/* שלב 2: מיקום בתוך הנושא (תיקייה) */}
                     {selectedShelfId !== '__new__' && (
-                      <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-                          <label style={{ fontSize: '0.82rem', fontWeight: '800', color: '#334155' }}>
-                            תת-תיקייה בתוך הנושא:
+                      <div style={{ 
+                        borderTop: '1px dashed #cbd5e1', 
+                        paddingTop: '0.85rem' 
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.45rem' }}>
+                          <label style={{ fontSize: '0.82rem', fontWeight: '800', color: '#334155', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <span>📁</span>
+                            <span>2. תיקייה פנימית בתוך &quot;{currentShelfName}&quot;:</span>
                           </label>
-                          <button
-                            type="button"
-                            onClick={() => setIsCreatingFolder(v => !v)}
-                            style={{
-                              background: isCreatingFolder ? '#fee2e2' : '#eff6ff',
-                              color: isCreatingFolder ? '#dc2626' : '#2563eb',
-                              border: isCreatingFolder ? '1px solid #fca5a5' : '1px solid #bfdbfe',
-                              borderRadius: '7px',
-                              padding: '2px 8px',
-                              fontSize: '0.75rem',
-                              fontWeight: 700,
-                              cursor: 'pointer',
-                            }}
-                          >
-                            {isCreatingFolder ? '✕ ביטול' : '➕ תיקייה חדשה'}
-                          </button>
+                          {!isCreatingFolder && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsCreatingFolder(true);
+                                setNewFolderName('');
+                              }}
+                              style={{
+                                background: '#eff6ff',
+                                color: '#2563eb',
+                                border: '1px solid #bfdbfe',
+                                borderRadius: '8px',
+                                padding: '3px 10px',
+                                fontSize: '0.75rem',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                              }}
+                            >
+                              ➕ צור תיקייה חדשה
+                            </button>
+                          )}
                         </div>
 
-                        {isCreatingFolder && (
-                          <div style={{ display: 'flex', gap: '6px', marginBottom: '0.5rem' }}>
-                            <input
-                              type="text"
-                              value={newFolderName}
-                              onChange={e => setNewFolderName(e.target.value)}
-                              onKeyDown={e => {
-                                if (e.key === 'Enter') {
-                                  e.preventDefault();
+                        {/* תצוגת יצירת תיקייה חדשה */}
+                        {isCreatingFolder ? (
+                          <div style={{ 
+                            background: '#eff6ff', 
+                            padding: '0.75rem', 
+                            borderRadius: '12px', 
+                            border: '1.5px solid #93c5fd',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '0.5rem'
+                          }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#1d4ed8' }}>
+                                ✨ יצירת תיקייה חדשה בתוך הנושא:
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setIsCreatingFolder(false);
+                                  setNewFolderName('');
+                                }}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  color: '#64748b',
+                                  fontSize: '0.75rem',
+                                  cursor: 'pointer',
+                                  fontWeight: 600,
+                                  textDecoration: 'underline'
+                                }}
+                              >
+                                ✕ ביטול
+                              </button>
+                            </div>
+                            <div style={{ display: 'flex', gap: '6px' }}>
+                              <input
+                                type="text"
+                                value={newFolderName}
+                                onChange={e => setNewFolderName(e.target.value)}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    if (newFolderName.trim() && selectedSpaceId && selectedShelfId) {
+                                      const createdId = addDocumentFolder(selectedSpaceId, {
+                                        name: newFolderName.trim(),
+                                        shelfId: selectedShelfId,
+                                        parentId: undefined,
+                                        allowedPartners: []
+                                      });
+                                      if (createdId) setSelectedFolderId(createdId);
+                                      setNewFolderName('');
+                                      setIsCreatingFolder(false);
+                                    }
+                                  }
+                                }}
+                                placeholder="הקלד שם לתיקייה..."
+                                autoFocus
+                                style={{
+                                  flex: 1,
+                                  padding: '0.55rem 0.75rem',
+                                  borderRadius: '10px',
+                                  border: '1.5px solid #3b82f6',
+                                  fontSize: '0.88rem',
+                                  outline: 'none',
+                                  backgroundColor: '#ffffff'
+                                }}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
                                   if (newFolderName.trim() && selectedSpaceId && selectedShelfId) {
                                     const createdId = addDocumentFolder(selectedSpaceId, {
                                       name: newFolderName.trim(),
                                       shelfId: selectedShelfId,
-                                      parentId: selectedFolderId || undefined,
+                                      parentId: undefined,
                                       allowedPartners: []
                                     });
                                     if (createdId) setSelectedFolderId(createdId);
                                     setNewFolderName('');
                                     setIsCreatingFolder(false);
                                   }
-                                }
-                              }}
-                              placeholder="שם תיקייה חדשה..."
-                              autoFocus
-                              style={{
-                                flex: 1,
-                                padding: '0.45rem 0.65rem',
-                                borderRadius: '8px',
-                                border: '1.5px solid #3b82f6',
-                                fontSize: '0.84rem',
-                                outline: 'none',
-                              }}
-                            />
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (newFolderName.trim() && selectedSpaceId && selectedShelfId) {
-                                  const createdId = addDocumentFolder(selectedSpaceId, {
-                                    name: newFolderName.trim(),
-                                    shelfId: selectedShelfId,
-                                    parentId: selectedFolderId || undefined,
-                                    allowedPartners: []
-                                  });
-                                  if (createdId) setSelectedFolderId(createdId);
-                                  setNewFolderName('');
-                                  setIsCreatingFolder(false);
-                                }
-                              }}
-                              disabled={!newFolderName.trim()}
-                              style={{
-                                background: newFolderName.trim() ? '#2563eb' : '#94a3b8',
-                                color: '#fff',
-                                border: 'none',
-                                borderRadius: '8px',
-                                padding: '0 12px',
-                                fontWeight: 700,
-                                cursor: newFolderName.trim() ? 'pointer' : 'not-allowed',
-                                fontSize: '0.8rem',
-                              }}
-                            >
-                              צור
-                            </button>
+                                }}
+                                disabled={!newFolderName.trim()}
+                                style={{
+                                  background: newFolderName.trim() ? '#2563eb' : '#94a3b8',
+                                  color: '#fff',
+                                  border: 'none',
+                                  borderRadius: '10px',
+                                  padding: '0 14px',
+                                  fontWeight: 800,
+                                  cursor: newFolderName.trim() ? 'pointer' : 'not-allowed',
+                                  fontSize: '0.85rem',
+                                }}
+                              >
+                                אשר
+                              </button>
+                            </div>
+                            <div style={{ fontSize: '0.72rem', color: '#475569' }}>
+                              💡 המסמך יישמר ישירות בתוך התיקייה החדשה שתיצור.
+                            </div>
                           </div>
+                        ) : (
+                          /* תצוגת בחירה רגילה: אם אין תיקיות מציגים כרטיס נקי, אם יש מציגים בחירה ברורה */
+                          availableFolders.length === 0 ? (
+                            <div style={{ 
+                              padding: '0.7rem 0.85rem', 
+                              borderRadius: '10px', 
+                              backgroundColor: '#f1f5f9', 
+                              border: '1px solid #e2e8f0',
+                              fontSize: '0.82rem',
+                              color: '#475569',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between'
+                            }}>
+                              <span>📂 המסמך יישמר ישירות בתוך <strong>&quot;{currentShelfName}&quot;</strong></span>
+                              <span style={{ fontSize: '0.72rem', color: '#64748b' }}>(ללא תיקייה פנימית)</span>
+                            </div>
+                          ) : (
+                            <div>
+                              <select 
+                                value={selectedFolderId || ''} 
+                                onChange={e => setSelectedFolderId(e.target.value || null)}
+                                style={{ 
+                                  width: '100%', 
+                                  boxSizing: 'border-box', 
+                                  padding: '0.65rem 0.75rem', 
+                                  borderRadius: '10px', 
+                                  border: '1.5px solid #cbd5e1', 
+                                  fontSize: '0.88rem', 
+                                  backgroundColor: '#ffffff',
+                                  color: '#1e293b',
+                                  fontWeight: 500
+                                }}
+                              >
+                                <option value="">📂 ישירות בתוך &quot;{currentShelfName}&quot; (ללא תיקייה פנימית)</option>
+                                {availableFolders.map((f: any) => {
+                                  const parentF = f.parentId ? availableFolders.find((p: any) => p.id === f.parentId) : null;
+                                  return (
+                                    <option key={f.id} value={f.id}>
+                                      📁 {parentF ? parentF.name + ' > ' : ''}{f.name}
+                                    </option>
+                                  );
+                                })}
+                              </select>
+                            </div>
+                          )
                         )}
-
-                        <select 
-                          value={selectedFolderId || ''} 
-                          onChange={e => setSelectedFolderId(e.target.value || null)}
-                          style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.75rem', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '0.9rem', backgroundColor: '#ffffff' }}
-                        >
-                          <option value="">📁 רמה ראשית של הנושא (ללא תת-תיקייה)</option>
-                          {availableFolders.map((f: any) => {
-                            const parentF = f.parentId ? availableFolders.find((p: any) => p.id === f.parentId) : null;
-                            return (
-                              <option key={f.id} value={f.id}>
-                                📁 {parentF ? parentF.name + ' > ' : ''}{f.name}
-                              </option>
-                            );
-                          })}
-                        </select>
                       </div>
                     )}
                   </div>
