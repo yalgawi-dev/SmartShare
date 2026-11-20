@@ -1,5 +1,7 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
+import { getCachedPdfBytes, setCachedPdfBytes } from '@/utils/imageOptimizer';
+import 'dwf-viewer/styles.css';
 
 interface CadDocumentViewerProps {
   url: string;
@@ -9,6 +11,7 @@ interface CadDocumentViewerProps {
 /**
  * CadDocumentViewer - Lazy-loaded client-side CAD engine for DWG, DXF, DWF & DWFx.
  * 100% Free, Zero-Server, runs via WebAssembly and HTML5 Canvas / WebGL.
+ * Features IndexedDB binary caching for instant re-opening without re-downloading.
  */
 export default function CadDocumentViewer({ url, filename = 'drawing.dwg' }: CadDocumentViewerProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -17,7 +20,7 @@ export default function CadDocumentViewer({ url, filename = 'drawing.dwg' }: Cad
   const [activeLayers, setActiveLayers] = useState<{ name: string; visible: boolean; color?: string }[]>([]);
   const [showLayerDrawer, setShowLayerDrawer] = useState(false);
   const [currentTool, setCurrentTool] = useState<'pan' | 'measure' | 'select'>('pan');
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [theme, setTheme] = useState<'dark' | 'light'>('light');
   const viewerRef = useRef<any>(null);
 
   const lowerName = filename.toLowerCase();
@@ -31,10 +34,34 @@ export default function CadDocumentViewer({ url, filename = 'drawing.dwg' }: Cad
         setIsLoading(true);
         setErrorMsg(null);
 
-        // Fetch CAD file bytes
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`שגיאה בהורדת קובץ השרטוט (${res.status})`);
-        const buffer = await res.arrayBuffer();
+        // 1. Try to load CAD file bytes from IndexedDB cache first
+        let buffer: ArrayBuffer | null = null;
+        try {
+          const cachedBytes = await getCachedPdfBytes(url);
+          if (cachedBytes && cachedBytes.length > 0) {
+            const rawBuffer = cachedBytes.buffer.slice(
+              cachedBytes.byteOffset,
+              cachedBytes.byteOffset + cachedBytes.byteLength
+            );
+            buffer = rawBuffer instanceof ArrayBuffer ? rawBuffer : new Uint8Array(cachedBytes).buffer as ArrayBuffer;
+          }
+        } catch (e) {
+          console.warn('[CadDocumentViewer] Cache read error, falling back to network:', e);
+        }
+
+        // 2. Fetch from network if not cached
+        if (!buffer) {
+          const res = await fetch(url);
+          if (!res.ok) throw new Error(`שגיאה בהורדת קובץ השרטוט (${res.status})`);
+          buffer = await res.arrayBuffer();
+
+          // Save to IndexedDB cache in background
+          try {
+            await setCachedPdfBytes(url, new Uint8Array(buffer));
+          } catch (e) {
+            console.warn('[CadDocumentViewer] Failed to cache CAD bytes:', e);
+          }
+        }
 
         if (isCancelled) return;
 
@@ -44,9 +71,25 @@ export default function CadDocumentViewer({ url, filename = 'drawing.dwg' }: Cad
           if (isCancelled || !containerRef.current) return;
 
           containerRef.current.innerHTML = '';
-          const dwfViewer = new DwfViewer(containerRef.current);
+          const dwfViewer = new DwfViewer(containerRef.current, {
+            background: theme === 'dark' ? '#0f172a' : '#ffffff',
+            preferWebgl: true,
+            preferWasm: false,
+            lineWeightMode: 'adaptive'
+          });
+
           await dwfViewer.load(buffer, { fileName: filename });
           viewerRef.current = dwfViewer;
+
+          // Request fit after DOM layout settles to prevent blank canvas
+          setTimeout(() => {
+            if (!isCancelled && viewerRef.current?.fit) {
+              try {
+                viewerRef.current.fit();
+              } catch {}
+            }
+          }, 100);
+
           setIsLoading(false);
         } else {
           // Render DWG / DXF via @cadview/core + @cadview/dwg
@@ -63,7 +106,7 @@ export default function CadDocumentViewer({ url, filename = 'drawing.dwg' }: Cad
           containerRef.current.appendChild(canvas);
 
           const viewer = new CadViewer(canvas, {
-            theme: 'dark',
+            theme: theme === 'dark' ? 'dark' : 'light',
             formatConverters: [dwgConverter]
           });
 
@@ -89,11 +132,16 @@ export default function CadDocumentViewer({ url, filename = 'drawing.dwg' }: Cad
 
     return () => {
       isCancelled = true;
-      if (viewerRef.current?.destroy) {
+      if (viewerRef.current?.dispose) {
+        try {
+          viewerRef.current.dispose();
+        } catch {}
+      } else if (viewerRef.current?.destroy) {
         try {
           viewerRef.current.destroy();
         } catch {}
       }
+      viewerRef.current = null;
     };
   }, [url, filename, isDwf]);
 
@@ -115,6 +163,15 @@ export default function CadDocumentViewer({ url, filename = 'drawing.dwg' }: Cad
   const handleFit = () => {
     if (viewerRef.current?.fitToView) {
       viewerRef.current.fitToView();
+    } else if (viewerRef.current?.fit) {
+      viewerRef.current.fit();
+    }
+  };
+
+  const handleZoom = (factor: number) => {
+    if (viewerRef.current?.zoomAtCenter) {
+      viewerRef.current.zoomAtCenter(factor);
+      viewerRef.current.requestRender?.();
     }
   };
 
@@ -135,8 +192,45 @@ export default function CadDocumentViewer({ url, filename = 'drawing.dwg' }: Cad
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%', background: theme === 'dark' ? '#0f172a' : '#f8fafc', overflow: 'hidden' }}>
+      {/* Scoped CSS for DWF/DWFx full container fit and clean toolbar styling */}
+      <style jsx global>{`
+        .dwfv-root {
+          height: 100% !important;
+          width: 100% !important;
+          background: transparent !important;
+          display: flex !important;
+          flex-direction: column !important;
+        }
+        .dwfv-toolbar {
+          direction: ltr !important;
+          background: rgba(255, 255, 255, 0.9) !important;
+          backdrop-filter: blur(8px) !important;
+          padding: 6px 12px !important;
+          font-size: 0.8rem !important;
+          border-bottom: 1px solid rgba(0, 0, 0, 0.1) !important;
+          z-index: 10 !important;
+        }
+        .dwfv-workspace {
+          flex: 1 1 auto !important;
+          height: 100% !important;
+          min-height: 0 !important;
+        }
+        .dwfv-stage {
+          position: relative !important;
+          width: 100% !important;
+          height: 100% !important;
+          background: #f1f5f9 !important;
+        }
+        .dwfv-canvas {
+          position: absolute !important;
+          inset: 0 !important;
+          width: 100% !important;
+          height: 100% !important;
+        }
+      `}</style>
+
       {/* CAD Canvas / View Container */}
-      <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+      <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative' }} />
 
       {/* Floating Toolbar Controls */}
       <div
