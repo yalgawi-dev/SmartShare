@@ -705,7 +705,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   // Silent background preloader for active shelf documents (0ms perceived load time)
   React.useEffect(() => {
     if (!activeShelfId || typeof window === 'undefined') return;
-    const activeShelfDocs = documents.filter(d => d.shelfId === activeShelfId);
+    const activeShelfDocs = activeDocuments.filter(d => d.shelfId === activeShelfId);
     if (activeShelfDocs.length === 0) return;
 
     const urlsToPreload: string[] = [];
@@ -5309,7 +5309,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       {viewMode === 'feed' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
           {filteredShelves.map(shelf => {
-            const shelfDocs = documents.filter(d => d.shelfId === shelf.id);
+            const shelfDocs = activeDocuments.filter(d => d.shelfId === shelf.id);
             const isPrivate = (shelf.allowedPartners || []).filter(pid => pid && pid.trim() !== '' && pid !== space.creatorId).length > 0;
             const hasNewRemoteDoc = shelfDocs.some(d => isDocUnread(d));
             const hasRecentDoc = shelfDocs.some(d => (Date.now() - new Date(d.createdAt).getTime() < 60000)); // Just added (1 min)
@@ -5405,7 +5405,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                     <button onClick={() => setEditingShelfCoverId(shelf.id)} style={{ background: 'transparent', border: 'none', fontSize: '1.1rem', cursor: 'pointer', padding: 0 }} title="עיצוב מדף">🎨</button>
                     <button onClick={(e) => {
                       e.stopPropagation();
-                      const docCount = documents.filter(d => d.shelfId === shelf.id).length;
+                      const docCount = activeDocuments.filter(d => d.shelfId === shelf.id).length;
                       setShelfToDelete({ id: shelf.id, name: shelf.name, count: docCount });
                     }} style={{ background: 'transparent', border: 'none', fontSize: '1.1rem', cursor: 'pointer', padding: 0 }} title="מחק מדף">🗑️</button>
                   </div>
@@ -5421,7 +5421,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       {viewMode === 'grid' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '1rem', padding: '0 1rem' }}>
           {filteredShelves.map(shelf => {
-            const shelfDocs = documents.filter(d => d.shelfId === shelf.id);
+            const shelfDocs = activeDocuments.filter(d => d.shelfId === shelf.id);
             const hasNewRemoteDoc = shelfDocs.some(d => isDocUnread(d));
             const hasRecentDoc = shelfDocs.some(d => (Date.now() - new Date(d.createdAt).getTime() < 60000)); // Just added (1 min)
             const highlightStyle = hasRecentDoc ? { border: '2px solid #3b82f6', boxShadow: '0 0 20px rgba(59,130,246,0.6)' } : (shelf.highlightColor ? { border: '2px solid ' + shelf.highlightColor, boxShadow: '0 0 15px ' + shelf.highlightColor + '40' } : { border: '1px solid #f1f5f9' });
@@ -5518,7 +5518,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                     <button onClick={(e) => { e.stopPropagation(); setEditingShelfCoverId(shelf.id); }} style={{ background: '#f1f5f9', border: 'none', width: '28px', height: '28px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="עיצוב">🎨</button>
                     <button onClick={(e) => {
                       e.stopPropagation();
-                      const docCount = documents.filter(d => d.shelfId === shelf.id).length;
+                      const docCount = activeDocuments.filter(d => d.shelfId === shelf.id).length;
                       setShelfToDelete({ id: shelf.id, name: shelf.name, count: docCount });
                     }} style={{ background: '#fef2f2', border: 'none', width: '28px', height: '28px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444' }} title="מחק מדף">🗑️</button>
                   </div>
@@ -5532,7 +5532,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       {viewMode === 'circles' && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem', justifyContent: 'flex-start', padding: '0 1rem' }}>
           {filteredShelves.map(shelf => {
-            const shelfDocs = documents.filter(d => d.shelfId === shelf.id);
+            const shelfDocs = activeDocuments.filter(d => d.shelfId === shelf.id);
             const isPrivate = (shelf.allowedPartners || []).filter(pid => pid && pid.trim() !== '' && pid !== space.creatorId).length > 0;
             const hasNewRemoteDoc = shelfDocs.some(d => isDocUnread(d));
             const hasRecentDoc = shelfDocs.some(d => (Date.now() - new Date(d.createdAt).getTime() < 60000)); // Just added (1 min)
@@ -5544,7 +5544,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                 <button onClick={(e) => { e.stopPropagation(); setEditingShelfCoverId(shelf.id); }} style={{ position: 'absolute', top: 0, left: 0, background: 'white', border: '1px solid #e2e8f0', borderRadius: '50%', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', zIndex: 10, cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }} title="עיצוב">🎨</button>
                 <button onClick={(e) => {
                   e.stopPropagation();
-                  const docCount = documents.filter(d => d.shelfId === shelf.id).length;
+                  const docCount = activeDocuments.filter(d => d.shelfId === shelf.id).length;
                   setShelfToDelete({ id: shelf.id, name: shelf.name, count: docCount });
                 }} style={{ position: 'absolute', top: 0, right: 0, background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '50%', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', zIndex: 10, cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }} title="מחק מדף">🗑️</button>
                 {hasNewRemoteDoc && (

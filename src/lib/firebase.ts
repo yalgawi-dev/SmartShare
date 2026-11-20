@@ -55,7 +55,7 @@ export const uploadImageToStorage = async (inputDataUrl: string, path: string): 
     }
   }
 
-  if (!inputDataUrl.startsWith('data:image') && !inputDataUrl.startsWith('data:application/pdf')) {
+  if (!inputDataUrl.startsWith('data:image') && !inputDataUrl.startsWith('data:application/pdf') && !inputDataUrl.startsWith('data:')) {
     // If it's already a URL (e.g. from a previous upload or an external link), just return it
     return inputDataUrl;
   }
@@ -77,10 +77,13 @@ export const uploadImageToStorage = async (inputDataUrl: string, path: string): 
 
   const storageRef = ref(storage, resolvedPath);
   try {
-    const isPdf = dataUrl.startsWith('data:application/pdf');
-    const isWebp = dataUrl.startsWith('data:image/webp');
-    const isPng = dataUrl.startsWith('data:image/png');
-    const contentType = isPdf ? 'application/pdf' : (isWebp ? 'image/webp' : (isPng ? 'image/png' : 'image/jpeg'));
+    const isPdf = dataUrl.startsWith('data:application/pdf') || resolvedPath.endsWith('.pdf');
+    const isWebp = dataUrl.startsWith('data:image/webp') || resolvedPath.endsWith('.webp');
+    const isPng = dataUrl.startsWith('data:image/png') || resolvedPath.endsWith('.png');
+    const isCad = /\.(dwg|dwfx|dwf|dxf)$/i.test(resolvedPath);
+    const contentType = isCad
+      ? 'application/octet-stream'
+      : (isPdf ? 'application/pdf' : (isWebp ? 'image/webp' : (isPng ? 'image/png' : 'image/jpeg')));
 
     // High performance cloud caching: immutable for 1 year (0ms subsequent loads)
     const metadata = {
