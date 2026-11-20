@@ -570,8 +570,35 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
       });
     };
     window.addEventListener('smartshare:add_folder', folderHandler);
-    return () => window.removeEventListener('smartshare:add_folder', folderHandler);
-  }, [space.id, activeShelfId, shelves, currentFolderId, addDocumentFolder]);
+
+    const newShelfPromptHandler = () => {
+      setPromptInput('');
+      setCustomPrompt({
+        isOpen: true,
+        title: 'יצירת נושא (מדף) חדש',
+        placeholder: 'שם הנושא (לדוגמה: חוזים, תוכניות, קבלות)',
+        defaultValue: '',
+        onSave: (name: string) => {
+          if (name.trim()) {
+            const newId = `shelf_${Date.now()}`;
+            addShelf(space.id, {
+              id: newId,
+              name: name.trim(),
+              icon: '🗂️',
+              createdAt: new Date().toISOString()
+            });
+            setActiveShelfId(newId);
+          }
+        }
+      });
+    };
+    window.addEventListener('smartshare:open_new_shelf_prompt', newShelfPromptHandler);
+
+    return () => {
+      window.removeEventListener('smartshare:add_folder', folderHandler);
+      window.removeEventListener('smartshare:open_new_shelf_prompt', newShelfPromptHandler);
+    };
+  }, [space.id, activeShelfId, shelves, currentFolderId, addDocumentFolder, addShelf]);
 
   React.useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -5285,6 +5312,51 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           נושאים
           <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>{APP_VERSION}</span>
         </h2>
+
+        {/* Add New Shelf / Topic Button */}
+        <button
+          type="button"
+          onClick={() => {
+            setPromptInput('');
+            setCustomPrompt({
+              isOpen: true,
+              title: 'יצירת נושא (מדף) חדש',
+              placeholder: 'שם הנושא (לדוגמה: חוזים, תוכניות, קבלות)',
+              defaultValue: '',
+              onSave: (name) => {
+                const newId = `shelf_${Date.now()}`;
+                addShelf(space.id, {
+                  id: newId,
+                  name,
+                  icon: '🗂️',
+                  createdAt: new Date().toISOString()
+                });
+                setActiveShelfId(newId);
+              }
+            });
+          }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.3rem',
+            padding: '0.5rem 0.8rem',
+            background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+            color: '#ffffff',
+            border: 'none',
+            borderRadius: '12px',
+            fontWeight: 800,
+            fontSize: '0.82rem',
+            cursor: 'pointer',
+            boxShadow: '0 2px 8px rgba(37,99,235,0.25)',
+            whiteSpace: 'nowrap',
+            flexShrink: 0
+          }}
+          title="צור נושא / מדף חדש"
+        >
+          <span>➕</span>
+          <span>נושא חדש</span>
+        </button>
+
         <input 
           type="text" 
           placeholder="חיפוש נושאים..." 
