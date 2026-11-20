@@ -6,6 +6,8 @@ import { RecaptchaVerifier, ConfirmationResult } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { COUNTRIES } from '@/utils/countries';
 import { APP_VERSION } from '@/constants/version';
+import OtpCodeField from '@/components/auth/otp/OtpCodeField';
+import { markOtpRejected } from '@/components/auth/otp/otpPolicy';
 
 export default function AuthWall() {
   const { loginWithPhone, loginWithGoogle, loginWithApple, isLoaded, user, updateProfile } = useAuth();
@@ -20,78 +22,6 @@ export default function AuthWall() {
   const [errorMsg, setErrorMsg] = useState('');
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
 
-  // Ref for OTP input so it auto-focuses on step 2
-  const masterOtpInputRef = React.useRef<HTMLInputElement | null>(null);
-
-  // Auto-focus master input on entering step 2
-  useEffect(() => {
-    if (step === 2) {
-      setTimeout(() => {
-        masterOtpInputRef.current?.focus();
-      }, 100);
-    }
-  }, [step]);
-
-  // Web OTP API: Auto-read and auto-fill SMS code directly from Android / Chrome
-  useEffect(() => {
-    if (step !== 2 || typeof window === 'undefined') return;
-
-    let abortController: AbortController | null = null;
-    if ('OTPCredential' in window || (navigator as any).credentials) {
-      try {
-        abortController = new AbortController();
-        (navigator as any).credentials.get({
-          otp: { transport: ['sms'] },
-          signal: abortController.signal
-        }).then((otpCredential: any) => {
-          if (otpCredential && otpCredential.code) {
-            const extractedCode = String(otpCredential.code).trim();
-            const digitsOnly = extractedCode.replace(/\D/g, '').slice(0, 6);
-            if (digitsOnly.length === 6) {
-              // 1. Update React state
-              handleOtpChange(digitsOnly);
-
-              // 2. Also inject directly into native DOM input and fire native input event for 100% sync
-              if (masterOtpInputRef.current) {
-                try {
-                  const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
-                    window.HTMLInputElement.prototype,
-                    'value'
-                  )?.set;
-                  if (nativeInputValueSetter) {
-                    nativeInputValueSetter.call(masterOtpInputRef.current, digitsOnly);
-                  } else {
-                    masterOtpInputRef.current.value = digitsOnly;
-                  }
-                  masterOtpInputRef.current.dispatchEvent(new Event('input', { bubbles: true }));
-                } catch (domErr) {
-                  console.warn('DOM sync fallback notice:', domErr);
-                }
-              }
-
-              // 3. Clear any error and trigger verification
-              setErrorMsg('');
-              setTimeout(() => {
-                handleVerify(digitsOnly);
-              }, 80);
-            }
-          }
-        }).catch((err: any) => {
-          if (err.name !== 'AbortError') {
-            console.warn('WebOTP auto-read notice:', err);
-          }
-        });
-      } catch (e) {
-        // Fallback silently if not supported
-      }
-    }
-
-    return () => {
-      if (abortController) {
-        abortController.abort();
-      }
-    };
-  }, [step]);
 
   useEffect(() => {
     // If user is logged in but missing realName, move to Step 3 (profile completion + backup email)
@@ -251,16 +181,9 @@ export default function AuthWall() {
     }
   };
 
-  const handleOtpChange = (value: string, shouldAutoVerify: boolean = true) => {
+  const handleOtpChange = (code: string) => {
     setErrorMsg('');
-    const digitsOnly = value.replace(/\D/g, '').slice(0, 6);
-    setOtpValue(digitsOnly);
-
-    if (shouldAutoVerify && digitsOnly.length === 6) {
-      setTimeout(() => {
-        handleVerify(digitsOnly);
-      }, 50);
-    }
+    setOtpValue(code);
   };
 
   
@@ -333,7 +256,8 @@ export default function AuthWall() {
       const code = err.code || '';
       const msg = err.message || '';
       if (code === 'auth/invalid-verification-code') {
-        setErrorMsg('קוד האימות שגוי. אנא נסה שוב. (קוד: ' + code + ')');
+        markOtpRejected(typeof directCode === 'string' ? directCode : otpValue);
+        setErrorMsg('הקוד שגוי. בדוק שהעתקת את הקוד מההודעה האחרונה.');
       } else if (code === 'auth/code-expired') {
         setErrorMsg('קוד האימות פג תוקף. לחץ על "לא קיבלת קוד? שלח שוב" לקבלת קוד חדש. (קוד: ' + code + ')');
       } else if (code === 'auth/session-expired') {
@@ -602,114 +526,17 @@ export default function AuthWall() {
               <b dir="ltr">{countryCode} {phone}</b>
             </div>
             
-            <div className="otp-container-relative" dir="ltr" style={{ flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-              <input
-                ref={masterOtpInputRef}
-                id="otp-code-input"
-                name="otp"
-                type="tel"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                pattern="[0-9]*"
-                maxLength={6}
-                value={otpValue}
-                onChange={(e) => handleOtpChange(e.target.value)}
-                onInput={(e) => handleOtpChange((e.target as HTMLInputElement).value)}
-                autoFocus
-                placeholder="000000"
-                className="single-otp-input"
-              />
-              <button
-                type="button"
-                onClick={async () => {
-                  try {
-                    const text = await navigator.clipboard.readText();
-                    const match = text.match(/\b(\d{6})\b/) || text.match(/(\d{6})/);
-                    if (match && match[1]) {
-                      const detected = match[1];
-                      // Populate the input and state WITHOUT auto-verifying blindly
-                      handleOtpChange(detected, false);
-                      if (masterOtpInputRef.current) {
-                        try {
-                          const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
-                          if (nativeSetter) nativeSetter.call(masterOtpInputRef.current, detected);
-                          else masterOtpInputRef.current.value = detected;
-                          masterOtpInputRef.current.dispatchEvent(new Event('input', { bubbles: true }));
-                        } catch (e) {}
-                      }
-                      setErrorMsg('');
-                    } else {
-                      const digits = text.replace(/\D/g, '').slice(0, 6);
-                      if (digits.length === 6) {
-                        handleOtpChange(digits, false);
-                        if (masterOtpInputRef.current) {
-                          try {
-                            const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
-                            if (nativeSetter) nativeSetter.call(masterOtpInputRef.current, digits);
-                            else masterOtpInputRef.current.value = digits;
-                            masterOtpInputRef.current.dispatchEvent(new Event('input', { bubbles: true }));
-                          } catch (e) {}
-                        }
-                        setErrorMsg('');
-                      } else {
-                        setErrorMsg('לוח ההעתקה אינו מכיל קוד אימות תקין בן 6 ספרות. בדוק אם העתקת את קוד ה-SMS האחרון.');
-                      }
-                    }
-                  } catch {
-                    setErrorMsg('לא ניתן לגשת ללוח ההעתקה. אנא הקלד את הקוד ידנית.');
-                    masterOtpInputRef.current?.focus();
-                  }
-                }}
-                style={{
-                  background: '#EFF6FF',
-                  border: '1px solid #BFDBFE',
-                  color: '#1D4ED8',
-                  padding: '6px 14px',
-                  borderRadius: '10px',
-                  fontSize: '0.84rem',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  direction: 'rtl'
-                }}
-              >
-                <span>📋</span>
-                <span>הדבק קוד מלוח ההעתקה</span>
-              </button>
-            </div>
-
-            {errorMsg && (
-              <div className="auth-error">
-                {errorMsg}
-              </div>
-            )}
-
-            {/* Android / Spam SMS Assistant Notice */}
-            <div style={{
-              background: '#FFFBEB',
-              border: '1px solid #FCD34D',
-              borderRadius: '14px',
-              padding: '12px 14px',
-              textAlign: 'right',
-              direction: 'rtl',
-              marginBottom: '14px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '6px'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 800, color: '#B45309', fontSize: '0.92rem' }}>
-                <span>📩</span>
-                <span>לא קיבלת הודעה? היא מחכה בספאם:</span>
-              </div>
-              <div style={{ color: '#78350F', fontSize: '0.85rem', lineHeight: '1.5' }}>
-                1. פתח את אפליקציית <strong>ההודעות (Messages)</strong> בטלפון.<br/>
-                2. לחץ למעלה על <strong>תמונת הפרופיל שלך (העיגול של גוגל)</strong>.<br/>
-                3. בחר באפשרות <strong>🛡️ שיחות חסומות וספאם</strong>.<br/>
-                4. שם תמצא מיד את הקוד שנשלח!
-              </div>
-            </div>
+            <OtpCodeField
+              inputId="otp-code-input"
+              value={otpValue}
+              onChange={handleOtpChange}
+              onComplete={handleVerify}
+              onError={setErrorMsg}
+              disabled={isSubmitting}
+              inputClassName="single-otp-input"
+            >
+              {errorMsg && <div className="auth-error">{errorMsg}</div>}
+            </OtpCodeField>
 
             <div style={{ textAlign: 'center', marginBottom: '16px' }}>
               <button 
