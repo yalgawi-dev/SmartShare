@@ -600,19 +600,16 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     };
 
     // If importing single/multi digital non-raster files and onComplete is provided, bypass scanner completely!
+    // ADR Section 1 & 2: Use direct Binary Blob / ObjectURL to eliminate Base64 conversion overhead and mobile memory exhaustion.
     const hasDigitalFiles = fileList.some(isDigitalBypassDoc);
     if (hasDigitalFiles && onComplete) {
       setIsProcessing(true);
       try {
         const processedUrls: string[] = [];
         for (const file of fileList) {
-          const reader = new FileReader();
-          const dataUrl = await new Promise<string>((resolve, reject) => {
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = reject;
-            reader.readAsDataURL(file);
-          });
-          processedUrls.push(dataUrl);
+          // Native ObjectURL for instant zero-RAM preview and upload
+          const objectUrl = URL.createObjectURL(file);
+          processedUrls.push(objectUrl);
         }
 
         const primaryUrl = processedUrls[0];
@@ -630,7 +627,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         }, 50);
         return;
       } catch (err) {
-        console.error('Failed reading digital file for direct bypass:', err);
+        console.error('Failed processing digital file for direct bypass:', err);
         setIsProcessing(false);
       }
     }

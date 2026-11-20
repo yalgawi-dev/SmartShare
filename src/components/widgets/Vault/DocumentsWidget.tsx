@@ -75,7 +75,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   const [warehouseStationFilter, setWarehouseStationFilter] = useState<string>('all');
   const [pendingImport, setPendingImport] = useState<{ docId?: string, url?: string, type?: 'document' | 'image' | 'pdf', allPages?: string[] } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadingDocs, setUploadingDocs] = useState<{ id: string, shelfId: string, folderId?: string | null, url: string, title: string, type: string, thumbnailUrl?: string, isUploading?: boolean, uploadError?: boolean }[]>([]);
+  const [uploadingDocs, setUploadingDocs] = useState<{ id: string, shelfId: string, folderId?: string | null, url: string, title: string, type: string, thumbnailUrl?: string, isUploading?: boolean, uploadError?: boolean, progress?: number }[]>([]);
   const [previewState, setPreviewState] = useState<{ docs: any[], index: number } | null>(null);
   const [sharingDoc, setSharingDoc] = useState<ShareChoiceDoc | null>(null);
   const [linkStationDoc, setLinkStationDoc] = useState<{ docId: string, title: string, url: string } | null>(null);
@@ -1013,13 +1013,17 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       const title = resolveExplorerUniqueTitle(baseTitle, documents, shelfId, effectiveFolderId);
       
       let previewUrl = (allPages && allPages.length > 0) ? allPages[0] : (url.startsWith('data:image') ? url : undefined);
-      setUploadingDocs(prev => [...prev, { id: tempId, shelfId, folderId: effectiveFolderId || null, url, title, type, thumbnailUrl: previewUrl, isUploading: true }]);
+      setUploadingDocs(prev => [...prev, { id: tempId, shelfId, folderId: effectiveFolderId || null, url, title, type, thumbnailUrl: previewUrl, isUploading: true, progress: 5 }]);
       
       try {
         let finalUrl = url;
         let finalThumbnailUrl = previewUrl;
 
-        if (url.startsWith('data:image') || url.startsWith('data:application/pdf') || url.startsWith('data:application/') || url.startsWith('data:')) {
+        const updateProgress = (pct: number) => {
+          setUploadingDocs(prev => prev.map(d => d.id === tempId ? { ...d, progress: pct } : d));
+        };
+
+        if (url.startsWith('data:') || url.startsWith('blob:')) {
           let ext = 'bin';
           const lowerTitle = title.toLowerCase();
           const lowerFileName = (initialFileName || '').toLowerCase();
@@ -1027,19 +1031,19 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           else if (lowerTitle.endsWith('.dwfx') || lowerFileName.endsWith('.dwfx')) ext = 'dwfx';
           else if (lowerTitle.endsWith('.dwf') || lowerFileName.endsWith('.dwf')) ext = 'dwf';
           else if (lowerTitle.endsWith('.dxf') || lowerFileName.endsWith('.dxf')) ext = 'dxf';
-          else if (url.startsWith('data:application/pdf')) ext = 'pdf';
-          else if (url.startsWith('data:image/webp')) ext = 'webp';
-          else if (url.startsWith('data:image/png')) ext = 'png';
-          else if (url.startsWith('data:image/jpeg') || url.startsWith('data:image/jpg')) ext = 'jpg';
+          else if (url.startsWith('data:application/pdf') || lowerTitle.endsWith('.pdf')) ext = 'pdf';
+          else if (url.startsWith('data:image/webp') || lowerTitle.endsWith('.webp')) ext = 'webp';
+          else if (url.startsWith('data:image/png') || lowerTitle.endsWith('.png')) ext = 'png';
+          else if (url.startsWith('data:image/jpeg') || url.startsWith('data:image/jpg') || lowerTitle.endsWith('.jpg')) ext = 'jpg';
           else if (url.includes('dwfx')) ext = 'dwfx';
           else if (url.includes('dwg')) ext = 'dwg';
           else if (url.includes('dwf')) ext = 'dwf';
           else if (url.includes('dxf')) ext = 'dxf';
           const path = `documents/${space.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
-          finalUrl = await uploadImageToStorage(url, path);
+          finalUrl = await uploadImageToStorage(url, path, updateProgress);
         }
 
-        if (previewUrl && previewUrl.startsWith('data:image')) {
+        if (previewUrl && (previewUrl.startsWith('data:image') || previewUrl.startsWith('blob:'))) {
           const thumbExt = previewUrl.startsWith('data:image/webp') ? 'webp' : 'jpg';
           const thumbPath = `documents/${space.id}/thumb_${Date.now()}-${Math.random().toString(36).substring(7)}.${thumbExt}`;
           finalThumbnailUrl = await uploadImageToStorage(previewUrl, thumbPath);
@@ -1050,7 +1054,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
         if (allPages && allPages.length > 1) {
           finalPages = await Promise.all(
             allPages.map(async (pageUrl, idx) => {
-              if (pageUrl.startsWith('data:')) {
+              if (pageUrl.startsWith('data:') || pageUrl.startsWith('blob:')) {
                 const pageExt = pageUrl.startsWith('data:application/pdf') ? 'pdf' : (pageUrl.startsWith('data:image/webp') ? 'webp' : 'jpg');
                 const pagePath = `documents/${space.id}/page_${Date.now()}_${idx}_${Math.random().toString(36).substring(7)}.${pageExt}`;
                 return await uploadImageToStorage(pageUrl, pagePath);
@@ -1159,7 +1163,13 @@ const handleDeleteDocument = (docId: string, title?: string) => {
         console.error("Failed to upload document to cloud", e);
         // Fallback safety net: Keep file in IndexedDB cache and notify user
         try {
-          if (url.startsWith('data:')) {
+          if (url.startsWith('blob:')) {
+            const resp = await fetch(url);
+            const blobData = await resp.blob();
+            const ab = await blobData.arrayBuffer();
+            const { setCachedPdfBytes } = await import('@/utils/imageOptimizer');
+            await setCachedPdfBytes(`local_safety_${tempId}`, new Uint8Array(ab));
+          } else if (url.startsWith('data:')) {
             const byteStr = atob(url.split(',')[1]);
             const ab = new ArrayBuffer(byteStr.length);
             const ia = new Uint8Array(ab);
@@ -1167,8 +1177,10 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             const { setCachedPdfBytes } = await import('@/utils/imageOptimizer');
             await setCachedPdfBytes(`local_safety_${tempId}`, ia);
           }
-        } catch (_) {}
-        alert(`הקובץ "${title}" לא הצליח להסתנכרן לענן עקב בעיית תקשורת, אך נשמר בבטחה כגיבוי במכשיר.`);
+        } catch (backupErr) {
+          console.warn("Safety backup to IndexedDB also failed:", backupErr);
+        }
+        alert(`הקובץ "${title}" לא הצליח להסתנכרן לענן עקב בעיית תקשורת, אך נשמר בבטחה כגיבוי מקומי במכשיר.`);
       } finally {
         // Remove from optimistic UI once finalized
         setUploadingDocs(prev => prev.filter(d => d.id !== tempId));
@@ -3254,9 +3266,9 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                     })()}
                                     <span style={{ fontSize: '0.64rem', color: '#64748b', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
                                       {(doc as any).isUploading ? (
-                                        <span style={{ color: '#2563eb', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                                          <span style={{ display: 'inline-block', animation: 'spin 2s linear infinite', fontSize: '0.62rem' }}>🔄</span>
-                                          <span>מעלה לענן...</span>
+                                        <span style={{ color: '#2563eb', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                          <span style={{ display: 'inline-block', animation: 'pulse 1.2s infinite ease-in-out', fontSize: '0.72rem' }}>☁️</span>
+                                          <span>מעלה {(doc as any).progress ? `${(doc as any).progress}%` : '...'}</span>
                                         </span>
                                       ) : (doc as any).uploadError ? (
                                         <span style={{ color: '#dc2626', fontWeight: 800 }}>⚠️ נשמר במכשיר בלבד</span>
@@ -3940,8 +3952,8 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                   }}>
                                     {(doc as any).isUploading ? (
                                       <>
-                                        <span style={{ display: 'inline-block', animation: 'spin 2s linear infinite', fontSize: '0.58rem' }}>🔄</span>
-                                        <span>מעלה...</span>
+                                        <span style={{ display: 'inline-block', animation: 'pulse 1.2s infinite ease-in-out', fontSize: '0.65rem' }}>☁️</span>
+                                        <span>{(doc as any).progress ? `${(doc as any).progress}%` : 'מעלה...'}</span>
                                       </>
                                     ) : (doc as any).uploadError ? (
                                       <span>⚠️ במכשיר בלבד</span>
@@ -3949,6 +3961,11 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                       doc.storageTarget === 'local' ? '📱 מקומי' : doc.storageTarget === 'gdrive' ? '📁 Drive' : '☁️ ענן'
                                     )}
                                   </div>
+                                  {(doc as any).isUploading && typeof (doc as any).progress === 'number' && (
+                                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '3px', background: 'rgba(255,255,255,0.4)' }}>
+                                      <div style={{ height: '100%', width: `${(doc as any).progress}%`, background: '#2563eb', transition: 'width 0.2s ease-out' }} />
+                                    </div>
+                                  )}
                                 </div>
 
                                 {!isMultiSelect && (

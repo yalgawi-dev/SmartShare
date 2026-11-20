@@ -32,24 +32,60 @@ export const storage = getStorage(app);
 import { GoogleAuthProvider } from "firebase/auth";
 export const googleProvider = new GoogleAuthProvider();
 
-import { ref, uploadString, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import { ref, uploadString, uploadBytes, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 
-export const uploadBlobToStorage = async (blob: Blob, path: string): Promise<string> => {
+export const uploadBlobToStorage = async (
+  blob: Blob,
+  path: string,
+  onProgress?: (percent: number) => void
+): Promise<string> => {
   const storageRef = ref(storage, path);
   const metadata = {
     contentType: blob.type || 'application/octet-stream',
     cacheControl: 'public, max-age=31536000, immutable'
   };
+
+  if (onProgress) {
+    return new Promise((resolve, reject) => {
+      const uploadTask = uploadBytesResumable(storageRef, blob, metadata);
+      uploadTask.on(
+        'state_changed',
+        (snapshot) => {
+          if (snapshot.totalBytes > 0) {
+            const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+            onProgress(progress);
+          }
+        },
+        (error) => {
+          console.error('uploadBytesResumable error:', error);
+          reject(error);
+        },
+        async () => {
+          try {
+            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+            resolve(downloadURL);
+          } catch (e) {
+            reject(e);
+          }
+        }
+      );
+    });
+  }
+
   const snapshot = await uploadBytes(storageRef, blob, metadata);
   return await getDownloadURL(snapshot.ref);
 };
 
-export const uploadImageToStorage = async (inputDataUrl: string, path: string): Promise<string> => {
+export const uploadImageToStorage = async (
+  inputDataUrl: string,
+  path: string,
+  onProgress?: (percent: number) => void
+): Promise<string> => {
   if (inputDataUrl.startsWith('blob:')) {
     try {
       const res = await fetch(inputDataUrl);
       const blob = await res.blob();
-      return await uploadBlobToStorage(blob, path);
+      return await uploadBlobToStorage(blob, path, onProgress);
     } catch (blobErr) {
       console.warn("Failed uploading blob URL directly:", blobErr);
     }
