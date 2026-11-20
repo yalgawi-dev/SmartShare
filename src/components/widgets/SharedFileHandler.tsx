@@ -803,7 +803,12 @@ export default function SharedFileHandler() {
           setUploadProgress({ current: currentIdx, total: sharedFiles.length });
           const cleanUri = dataUri.replace(/^"|"$/g, '');
           const correspondingBlob = sharedBlobs[currentIdx - 1];
-          const isPdf = Boolean(
+          const rawName = correspondingBlob?.name || correspondingBlob?.blob?.name || '';
+          const lowerName = rawName.toLowerCase();
+          const isCad = /\.(dwg|dwfx|dwf|dxf)$/i.test(lowerName) || cleanUri.includes('dwfx') || cleanUri.includes('dwg') || cleanUri.includes('dxf');
+          const isOffice = /\.(docx?|xlsx?|pptx?|csv|txt)$/i.test(lowerName);
+
+          const isPdf = !isCad && !isOffice && Boolean(
             (correspondingBlob?.blob && (correspondingBlob.blob.type === 'application/pdf' || correspondingBlob.blob.name?.toLowerCase().endsWith('.pdf'))) ||
             correspondingBlob?.type === 'application/pdf' ||
             correspondingBlob?.name?.toLowerCase().endsWith('.pdf') ||
@@ -816,8 +821,28 @@ export default function SharedFileHandler() {
           let pagesArr: string[] | undefined = undefined;
           let calculatedSize = 0;
           let savedAsRawPdf = false;
+          let assignedFileType: 'pdf' | 'image' | 'doc' | 'sheet' | 'other' = 'image';
 
-          if (isPdf) {
+          if (isCad || isOffice) {
+            // Direct native binary upload for CAD and Office into FileShare
+            const blobToUpload = (correspondingBlob?.blob instanceof Blob)
+              ? correspondingBlob.blob
+              : await fetch(cleanUri).then(r => r.blob()).catch(() => null);
+
+            const extMatch = lowerName.match(/\.(dwg|dwfx|dwf|dxf|docx?|xlsx?|pptx?|csv|txt)$/i);
+            const ext = extMatch ? extMatch[1].toLowerCase() : (isCad ? 'dwfx' : 'bin');
+            calculatedSize = blobToUpload ? blobToUpload.size : 0;
+            if (blobToUpload) {
+              fileUrl = await uploadBlobToStorage(
+                blobToUpload,
+                `fileshare/${selectedSpaceId}/${Date.now()}-${currentIdx}-${Math.random().toString(36).substring(7)}.${ext}`
+              );
+            } else {
+              fileUrl = cleanUri;
+            }
+            assignedFileType = isOffice ? 'doc' : 'other';
+          } else if (isPdf) {
+            assignedFileType = 'pdf';
             const blobToUpload = (correspondingBlob?.blob instanceof Blob)
               ? correspondingBlob.blob
               : await fetch(cleanUri).then(r => r.blob()).catch(() => null);
@@ -905,11 +930,13 @@ export default function SharedFileHandler() {
             thumbUrl = fileUrl;
           }
 
-          const rawName = correspondingBlob?.name || correspondingBlob?.blob?.name || (isPdf ? `מסמך ששותף ${currentIdx}` : `תמונה ששותפה ${currentIdx}`);
-          const baseName = rawName.replace(/\.(pdf|webp|jpg|jpeg|png)$/i, '');
-          const finalFileName = isPdf
-            ? (savedAsRawPdf ? `${baseName}.pdf` : `${baseName}.webp`)
-            : `${baseName}.webp`;
+          const fallbackName = rawName || (isCad ? `שרטוט_${currentIdx}.dwfx` : isPdf ? `מסמך ששותף ${currentIdx}` : `תמונה ששותפה ${currentIdx}`);
+          const baseName = fallbackName.replace(/\.(dwg|dwfx|dwf|dxf|pdf|webp|jpg|jpeg|png)$/i, '');
+          const finalFileName = isCad
+            ? (rawName || `${baseName}.dwfx`)
+            : isPdf
+              ? (savedAsRawPdf ? `${baseName}.pdf` : `${baseName}.webp`)
+              : `${baseName}.webp`;
 
           newFileItems.push({
             id: `file_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
@@ -919,7 +946,7 @@ export default function SharedFileHandler() {
             url: fileUrl,
             thumbnailUrl: thumbUrl,
             pages: pagesArr,
-            fileType: savedAsRawPdf ? 'pdf' : 'image',
+            fileType: assignedFileType,
             size: calculatedSize,
             parentId: selectedFolderId || null,
             createdAt: Date.now(),

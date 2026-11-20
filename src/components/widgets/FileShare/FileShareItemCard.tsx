@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { FileShareItem, formatFileSize } from '@/utils/fileShareUtils';
+import { getDocumentFormatInfo } from '@/utils/documentUtils';
 import PdfThumbnail from '@/components/shared/PdfThumbnail';
 
 interface FileShareItemCardProps {
@@ -125,9 +126,19 @@ export function FileShareItemCard({
 
   const privacyBadge = getPrivacyBadge();
 
-  // Preview thumbnail detection
-  const isPdf = item.fileType === 'pdf' || (item.url && item.url.toLowerCase().includes('.pdf'));
-  const previewUrl = item.thumbnailUrl || (Array.isArray(item.pages) && item.pages.length > 0 ? item.pages[0] : (!isPdf && item.url ? item.url : ''));
+  // Unified document format detection via getDocumentFormatInfo (Rule 2 - DRY Single Source of Truth)
+  const formatInfo = getDocumentFormatInfo({
+    url: item.url,
+    rawPdfUrl: item.rawPdfUrl,
+    type: item.fileType,
+    title: item.name,
+    thumbnailUrl: item.thumbnailUrl
+  });
+
+  const isPdf = formatInfo.category === 'pdf';
+  const isCad = formatInfo.category === 'cad';
+  const isImg = formatInfo.category === 'webp' || (item.url && item.url.match(/\.(jpg|jpeg|png|webp|gif)/i));
+  const previewUrl = item.thumbnailUrl || (Array.isArray(item.pages) && item.pages.length > 0 ? item.pages[0] : (isImg && item.url ? item.url : ''));
 
   // FOLDER CARD VIEW (Uniform with Vault Folders)
   if (isFolder) {
@@ -480,36 +491,38 @@ export function FileShareItemCard({
   // FILE / DOCUMENT CARD VIEW (Identical Flagship Layout to Vault Document Card)
   if (viewMode === 'list') {
     return (
-      <div
-        onTouchStart={startLongPress}
-        onTouchMove={cancelLongPress}
-        onTouchEnd={cancelLongPress}
-        onMouseDown={startLongPress}
-        onMouseUp={cancelLongPress}
-        onClick={() => {
-          if (isLongPressTriggeredRef.current) {
-            isLongPressTriggeredRef.current = false;
-            return;
-          }
-          if (isMultiSelect && onToggleSelect) onToggleSelect(item);
-          else onOpen(item);
-        }}
-        style={{
-          display: 'grid',
-          gridTemplateColumns: isMultiSelect ? '26px 36px 30px 38px 1fr 90px 105px' : '36px 30px 38px 1fr 90px 105px',
-          alignItems: 'center',
-          gap: '0.45rem',
-          padding: '0.4rem 0.6rem',
-          background: isSelected ? '#eff6ff' : (item.isFavorite ? '#fffbeb' : '#ffffff'),
-          border: isSelected ? '1.5px solid #3b82f6' : (item.isFavorite ? '1.5px solid #f59e0b' : '1px solid #e2e8f0'),
-          borderRadius: '10px',
-          cursor: 'pointer',
-          transition: 'background 0.15s ease, box-shadow 0.2s ease',
-          boxShadow: item.isFavorite ? '0 2px 6px rgba(245,158,11,0.15)' : '0 1px 2px rgba(0,0,0,0.02)'
-        }}
-        onMouseEnter={(e) => { if (!isSelected && !item.isFavorite) e.currentTarget.style.background = '#f8fafc'; }}
-        onMouseLeave={(e) => { if (!isSelected && !item.isFavorite) e.currentTarget.style.background = '#ffffff'; }}
-      >
+      <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: '2px' }}>
+        <div
+          onTouchStart={startLongPress}
+          onTouchMove={cancelLongPress}
+          onTouchEnd={cancelLongPress}
+          onMouseDown={startLongPress}
+          onMouseUp={cancelLongPress}
+          onClick={() => {
+            if (isLongPressTriggeredRef.current) {
+              isLongPressTriggeredRef.current = false;
+              return;
+            }
+            if (isMultiSelect && onToggleSelect) onToggleSelect(item);
+            else onOpen(item);
+          }}
+          style={{
+            display: 'grid',
+            gridTemplateColumns: isMultiSelect ? '26px 36px 30px 38px minmax(130px, 1fr) 95px 125px' : '36px 30px 38px minmax(130px, 1fr) 95px 125px',
+            minWidth: isMultiSelect ? '475px' : '445px',
+            alignItems: 'center',
+            gap: '0.45rem',
+            padding: '0.4rem 0.6rem',
+            background: isSelected ? '#eff6ff' : (item.isFavorite ? '#fffbeb' : '#ffffff'),
+            border: isSelected ? '1.5px solid #3b82f6' : (item.isFavorite ? '1.5px solid #f59e0b' : '1px solid #e2e8f0'),
+            borderRadius: '10px',
+            cursor: 'pointer',
+            transition: 'background 0.15s ease, box-shadow 0.2s ease',
+            boxShadow: item.isFavorite ? '0 2px 6px rgba(245,158,11,0.15)' : '0 1px 2px rgba(0,0,0,0.02)'
+          }}
+          onMouseEnter={(e) => { if (!isSelected && !item.isFavorite) e.currentTarget.style.background = '#f8fafc'; }}
+          onMouseLeave={(e) => { if (!isSelected && !item.isFavorite) e.currentTarget.style.background = '#ffffff'; }}
+        >
         {isMultiSelect && (
           <div style={{ textAlign: 'center' }}>
             <input
@@ -568,8 +581,17 @@ export function FileShareItemCard({
           flexShrink: 0,
           border: '1px solid #e2e8f0'
         }}>
-          {previewUrl ? (
-            <img src={previewUrl} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          {previewUrl && !isCad ? (
+            <img
+              src={previewUrl}
+              alt={item.name}
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+              }}
+            />
+          ) : isCad ? (
+            <span style={{ fontSize: '1.2rem' }}>📐</span>
           ) : isPdf ? (
             <span style={{ fontSize: '1.2rem' }}>📑</span>
           ) : (
@@ -608,8 +630,8 @@ export function FileShareItemCard({
           <span>{new Date(item.createdAt).toLocaleDateString('he-IL')}</span>
           {item.size ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span style={{ fontSize: '0.62rem', background: isPdf ? '#fef2f2' : '#eff6ff', color: isPdf ? '#dc2626' : '#2563eb', padding: '1px 5px', borderRadius: '4px', fontWeight: 800, border: `1px solid ${isPdf ? '#fecaca' : '#bfdbfe'}` }}>
-                {isPdf ? 'PDF' : (item.url?.toLowerCase().includes('.webp') ? 'WEBP' : 'IMG')}
+              <span style={{ fontSize: '0.62rem', background: formatInfo.badgeBg, color: formatInfo.badgeColor, padding: '1px 5px', borderRadius: '4px', fontWeight: 800, border: `1px solid ${formatInfo.badgeBorder}` }}>
+                {formatInfo.tag}
               </span>
               <span style={{ fontSize: '0.62rem', background: '#f1f5f9', color: '#334155', padding: '1px 5px', borderRadius: '4px', fontWeight: 700, border: '1px solid #e2e8f0' }} title="גודל הקובץ">
                 ⚖️ {formatFileSize(item.size)}
@@ -666,6 +688,7 @@ export function FileShareItemCard({
           </button>
         </div>
       </div>
+    </div>
     );
   }
 
@@ -882,8 +905,8 @@ export function FileShareItemCard({
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.66rem', color: '#64748b' }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
             <span>{new Date(item.createdAt).toLocaleDateString('he-IL')}</span>
-            <span style={{ fontSize: '0.6rem', background: isPdf ? '#fef2f2' : '#eff6ff', color: isPdf ? '#dc2626' : '#2563eb', padding: '1px 4px', borderRadius: '4px', fontWeight: 800, border: `1px solid ${isPdf ? '#fecaca' : '#bfdbfe'}` }}>
-              {isPdf ? 'PDF' : (item.url?.toLowerCase().includes('.webp') ? 'WEBP' : 'IMG')}
+            <span style={{ fontSize: '0.6rem', background: formatInfo.badgeBg, color: formatInfo.badgeColor, padding: '1px 4px', borderRadius: '4px', fontWeight: 800, border: `1px solid ${formatInfo.badgeBorder}` }}>
+              {formatInfo.tag}
             </span>
             {item.size ? (
               <span style={{ fontSize: '0.6rem', background: '#f1f5f9', color: '#334155', padding: '1px 4px', borderRadius: '4px', fontWeight: 700, border: '1px solid #e2e8f0' }}>

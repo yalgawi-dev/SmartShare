@@ -1013,28 +1013,49 @@ export function FileShareWidget({
             </button>
           )}
 
-          {onBackToSpace && (
+          {/* Share Entire Wall / Project Link */}
+          {allItems.length > 0 && (
             <button
               type="button"
-              onClick={onBackToSpace}
+              onClick={() => {
+                // If inside a folder, share that folder. If on root wall, share root project/wall
+                if (currentFolderItem) {
+                  setActiveShareItem(currentFolderItem);
+                } else {
+                  // Find or create synthetic root wall item for public sharing
+                  const rootFolder: FileShareItem = (allItems.find(i => i.id === '__root_wall__' || i.id === `wall_${space.id}`) as FileShareItem) || {
+                    id: `wall_${space.id}`,
+                    spaceId: space.id,
+                    name: space.title || 'שיתוף כל הקיר',
+                    type: 'folder',
+                    parentId: null,
+                    createdAt: Date.now(),
+                    createdBy: currentUserId,
+                    creatorName: user?.realName || user?.nickname || 'שותף',
+                    allowedPartners: []
+                  };
+                  setActiveShareItem(rootFolder);
+                }
+              }}
               style={{
-                background: '#ffffff',
-                color: '#334155',
-                border: '1px solid #cbd5e1',
+                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                color: '#ffffff',
+                border: 'none',
                 padding: '4px 10px',
                 borderRadius: '10px',
                 fontSize: '0.76rem',
-                fontWeight: 700,
+                fontWeight: 800,
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.3rem',
-                whiteSpace: 'nowrap'
+                whiteSpace: 'nowrap',
+                boxShadow: '0 2px 6px rgba(16, 185, 129, 0.28)'
               }}
-              title="חזור למסך המרחב הראשי"
+              title="צור או נהל קישור שיתוף חיצוני לכל הקיר / פרויקט"
             >
-              <span>↩️</span>
-              <span>חזור למרחב</span>
+              <span>🌐</span>
+              <span>שתף קיר</span>
             </button>
           )}
 
@@ -1265,25 +1286,28 @@ export function FileShareWidget({
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         {/* Table Header when in List View */}
         {viewMode === 'list' && (folders.length > 0 || files.length > 0) && (
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: isMultiSelect ? '26px 36px 30px 38px 1fr 90px 105px' : '36px 30px 38px 1fr 90px 105px',
-            alignItems: 'center',
-            gap: '0.45rem',
-            padding: '0.35rem 0.6rem',
-            background: '#f1f5f9',
-            borderRadius: '8px',
-            fontSize: '0.72rem',
-            fontWeight: 800,
-            color: '#475569'
-          }}>
-            {isMultiSelect && <span style={{ textAlign: 'center' }}>בחר</span>}
-            <span style={{ textAlign: 'center' }}>מס'</span>
-            <span style={{ textAlign: 'center' }} title="מועדף / רלוונטי">⭐</span>
-            <span>תצוגה</span>
-            <span>שם הפריט</span>
-            <span style={{ textAlign: 'right' }}>תאריך / משקל</span>
-            <span style={{ textAlign: 'center' }}>פעולות</span>
+          <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: '2px' }}>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: isMultiSelect ? '26px 36px 30px 38px minmax(130px, 1fr) 95px 125px' : '36px 30px 38px minmax(130px, 1fr) 95px 125px',
+              minWidth: isMultiSelect ? '475px' : '445px',
+              alignItems: 'center',
+              gap: '0.45rem',
+              padding: '0.35rem 0.6rem',
+              background: '#f1f5f9',
+              borderRadius: '8px',
+              fontSize: '0.72rem',
+              fontWeight: 800,
+              color: '#475569'
+            }}>
+              {isMultiSelect && <span style={{ textAlign: 'center' }}>בחר</span>}
+              <span style={{ textAlign: 'center' }}>מס'</span>
+              <span style={{ textAlign: 'center' }} title="מועדף / רלוונטי">⭐</span>
+              <span>תצוגה</span>
+              <span>שם הפריט</span>
+              <span style={{ textAlign: 'right' }}>תאריך / משקל</span>
+              <span style={{ textAlign: 'center' }}>פעולות</span>
+            </div>
           </div>
         )}
 
