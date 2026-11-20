@@ -472,24 +472,9 @@ export function FloatingActionBar({
               </div>
             )}
 
-            {/* When INSIDE Vault Shelf in Documents Space - Back, Folder Creation, Upload & Import Tools */}
+            {/* When INSIDE Vault Shelf in Documents Space - Folder Creation & Upload Tools */}
             {!hasFinance && hasVault && isInShelf && (
               <div style={{ display: 'flex', gap: '0.1rem', flex: 1, width: '100%', alignItems: 'center' }}>
-                <button 
-                  type="button"
-                  onClick={() => {
-                    const stepEvent = new CustomEvent('smartshare:navigate_back_one_step', {
-                      detail: { handled: false },
-                    });
-                    window.dispatchEvent(stepEvent);
-                  }} 
-                  style={{ background: 'rgba(59, 130, 246, 0.08)', border: '1px solid #bfdbfe', padding: '0.5rem 0.1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer', color: '#1d4ed8', minWidth: '38px', transition: 'all 0.2s', flex: 1 }}
-                  title="חזור אחורה לנושאים"
-                >
-                  <span style={{ fontSize: '1.2rem' }}>↩️</span>
-                  <span style={{ fontSize: '0.6rem', fontWeight: '800', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '50px' }}>חזרה</span>
-                </button>
-
                 <button 
                   onClick={() => {
                     window.dispatchEvent(new CustomEvent('smartshare:add_folder'));

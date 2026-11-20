@@ -5100,6 +5100,53 @@ const handleDeleteDocument = (docId: string, title?: string) => {
         onClose={() => setBatchDeleteConfirm(false)}
       />
 
+      {/* IMPORT EXISTING FILE MODAL (Single Source of Truth - Zero Storage Duplication) */}
+      <ImportExistingFileModal
+        isOpen={showVaultImportModal}
+        currentSpaceId={space.id}
+        currentFolderId={currentFolderId}
+        onClose={() => setShowVaultImportModal(false)}
+        onImport={async (importedItem: FileShareItem) => {
+          // If in a shelf, add to that shelf. If in outer shelves view, add to the first shelf or prompt
+          let targetShelfId = activeShelfId;
+          if (!targetShelfId) {
+            const firstShelf = (shelves || []).find(s => !s.deletedAt);
+            if (firstShelf) {
+              targetShelfId = firstShelf.id;
+            } else {
+              // Create default shelf if none exists
+              const newShelfId = `shelf_${Date.now()}`;
+              addShelf(space.id, {
+                id: newShelfId,
+                name: 'כללי',
+                icon: '🗂️',
+                createdAt: new Date().toISOString()
+              });
+              targetShelfId = newShelfId;
+            }
+          }
+
+          const isPdf = importedItem.fileType === 'pdf' || importedItem.url.toLowerCase().includes('.pdf');
+          const docType = isPdf ? 'pdf' : (importedItem.fileType === 'image' ? 'image' : 'document');
+          
+          addDocument(space.id, {
+            title: importedItem.name,
+            type: docType,
+            url: importedItem.url,
+            shelfId: targetShelfId,
+            folderId: currentFolderId || null,
+            pages: importedItem.pages || (importedItem.url ? [importedItem.url] : []),
+            thumbnailUrl: importedItem.thumbnailUrl,
+            fileSize: importedItem.size,
+            addedBy: user?.id || '',
+            addedByName: user?.realName || user?.nickname || 'שותף',
+            allowedPartners: []
+          });
+
+          showFeedbackToast(`המסמך "${importedItem.name}" יובא בהצלחה!`);
+        }}
+      />
+
       {renderSharedConfirmAndPromptModals()}
       {/* SORT & FILTER MODAL */}
       {showSortFilterModal && (
