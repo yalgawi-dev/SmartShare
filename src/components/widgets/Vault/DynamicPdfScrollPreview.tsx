@@ -118,7 +118,17 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
         setTotalPageCount(numPages);
 
         // If we already had cached pages and it covers all pages, we're done loading!
+        // But do NOT return early without setting up pdfDocRef.current and isWideBlueprintRef!
+        // (Otherwise zoom focus slicing and sharpen mechanisms won't work on cached files!)
         if (cachedPages && cachedPages.length >= numPages) {
+          try {
+            const firstPage = await pdf.getPage(1);
+            const unscaledViewport = firstPage.getViewport({ scale: 1.0 });
+            const currentMax = Math.max(unscaledViewport.width, unscaledViewport.height);
+            const currentMin = Math.min(unscaledViewport.width, unscaledViewport.height);
+            const aspectRatio = currentMax / Math.max(1, currentMin);
+            isWideBlueprintRef.current = aspectRatio >= 1.3 || currentMax > 1200;
+          } catch (_) {}
           return;
         }
 
@@ -129,7 +139,7 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
           const currentMin = Math.min(unscaledViewport.width, unscaledViewport.height);
           const aspectRatio = currentMax / Math.max(1, currentMin);
           if (pageNum === 1) {
-            isWideBlueprintRef.current = aspectRatio >= 2.2;
+            isWideBlueprintRef.current = aspectRatio >= 1.3 || currentMax > 1200;
           }
 
           // For blueprints / megilot / CAD (aspect ratio >= 2.5): guarantee short axis is at least 2200px
@@ -772,6 +782,30 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
                   }}
                 >
                   −
+                </button>
+                {/* Manual Sharpness Trigger Button */}
+                <button
+                  type="button"
+                  onClick={handleRenderFocusedRegion}
+                  disabled={isSlicing}
+                  title="חדד אזור מוצג (Focus Slicing)"
+                  style={{
+                    padding: '2px 7px',
+                    borderRadius: '8px',
+                    background: regionSlice ? 'rgba(16, 185, 129, 0.85)' : 'rgba(59, 130, 246, 0.85)',
+                    border: 'none',
+                    color: '#ffffff',
+                    fontSize: '0.68rem',
+                    fontWeight: 800,
+                    cursor: isSlicing ? 'wait' : 'pointer',
+                    userSelect: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '2px'
+                  }}
+                >
+                  <span>{isSlicing ? '⏳' : (regionSlice ? '✓' : '🎯')}</span>
+                  <span>{isSlicing ? 'מחדד...' : 'חדד'}</span>
                 </button>
               </div>
             </>
