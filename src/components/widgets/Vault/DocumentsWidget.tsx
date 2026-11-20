@@ -615,6 +615,23 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   }, [shelves]);
 
   React.useEffect(() => {
+    const handleBackStep = (e: any) => {
+      if (activeShelfId) {
+        if (currentFolderId) {
+          // If inside a folder in shelf, go up to shelf root
+          setCurrentFolderId(null);
+        } else {
+          // If in shelf root, exit shelf back to shelves list
+          setActiveShelfId(null);
+        }
+        if (e?.detail) e.detail.handled = true;
+      }
+    };
+    window.addEventListener('smartshare:navigate_back_one_step', handleBackStep);
+    return () => window.removeEventListener('smartshare:navigate_back_one_step', handleBackStep);
+  }, [activeShelfId, currentFolderId]);
+
+  React.useEffect(() => {
     const handleSwitchSubTab = (e: any) => {
       if (e?.detail === 'timeline' || e?.detail === 'vault') {
         setActiveTab(e.detail);

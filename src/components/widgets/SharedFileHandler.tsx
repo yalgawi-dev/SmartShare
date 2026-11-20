@@ -480,6 +480,25 @@ export default function SharedFileHandler() {
       }));
     } catch (e) {}
 
+    // Auto-create folder if user typed a new folder name without clicking "צור"
+    let effectiveFolderId = selectedFolderId;
+    if (isCreatingFolder && newFolderName.trim() && selectedSpaceId && selectedShelfId) {
+      try {
+        const createdId = addDocumentFolder(selectedSpaceId, {
+          name: newFolderName.trim(),
+          shelfId: selectedShelfId,
+          parentId: selectedFolderId || undefined,
+          allowedPartners: []
+        });
+        if (createdId) {
+          effectiveFolderId = createdId;
+          setSelectedFolderId(createdId);
+        }
+      } catch (err) {
+        console.warn('Failed auto-creating folder on submit:', err);
+      }
+    }
+
     hasHandledShareRef.current = true;
     isCancelledRef.current = true;
     clearAllShareStores({ keepLatestShared: routeDestination === 'direct' });
@@ -613,7 +632,7 @@ export default function SharedFileHandler() {
 
             addDocument(selectedSpaceId, {
               shelfId: targetShelfId,
-              folderId: selectedFolderId || undefined,
+              folderId: effectiveFolderId || undefined,
               url: downloadUrl,
               title: cleanTitle,
               type: 'document',
@@ -708,7 +727,7 @@ export default function SharedFileHandler() {
 
             addDocument(selectedSpaceId, {
               shelfId: targetShelfId,
-              folderId: selectedFolderId || undefined,
+              folderId: effectiveFolderId || undefined,
               url: rawPdfDownloadUrl || finalThumb,
               rawPdfUrl: rawPdfDownloadUrl,
               thumbnailUrl: finalThumb,
@@ -761,7 +780,7 @@ export default function SharedFileHandler() {
 
             addDocument(selectedSpaceId, {
               shelfId: targetShelfId,
-              folderId: selectedFolderId || undefined,
+              folderId: effectiveFolderId || undefined,
               url: publicUrl,
               thumbnailUrl: docThumbnailUrl,
               pages: docPages,
@@ -785,7 +804,7 @@ export default function SharedFileHandler() {
         setIsModalOpen(false);
         setSharedFiles([]);
         clearAllShareStores();
-        const targetUrl = `/space/${selectedSpaceId}?tab=documents${targetShelfId && targetShelfId !== '__new__' ? `&shelfId=${targetShelfId}` : ''}${selectedFolderId ? `&folderId=${selectedFolderId}` : ''}`;
+        const targetUrl = `/space/${selectedSpaceId}?tab=documents${targetShelfId && targetShelfId !== '__new__' ? `&shelfId=${targetShelfId}` : ''}${effectiveFolderId ? `&folderId=${effectiveFolderId}` : ''}`;
         router.push(targetUrl);
         return;
       } else if (routeDestination === 'fileshare') {
