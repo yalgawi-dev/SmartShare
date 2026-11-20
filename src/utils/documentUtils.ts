@@ -539,3 +539,30 @@ export function formatFileSize(bytes?: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
+
+/**
+ * Cleans technical prefixes and suffixes from a document title for display and editing.
+ * Removes:
+ * - Technical dates in DD_MM_YYYY, DD-MM-YYYY, YYYY_MM_DD, or YYYY-MM-DD format (e.g., "23_09_2026 מיחזרה..." -> "מיחזרה...")
+ * - File extensions (e.g., .pdf, .webp, .jpg, .dwg, etc.)
+ * - Leading/trailing underscores, hyphens, and whitespace
+ */
+export function cleanDisplayTitle(title?: string): string {
+  if (!title) return '';
+  let cleaned = title.trim();
+  
+  // 1. Strip date prefix: DD_MM_YYYY or DD-MM-YYYY or DD.MM.YYYY
+  cleaned = cleaned.replace(/^(\d{1,2}[-_.]\d{1,2}[-_.]\d{2,4}[-_.\s]*)+/i, '');
+  
+  // 2. Strip date prefix: YYYY_MM_DD or YYYY-MM-DD or YYYY.MM.DD
+  cleaned = cleaned.replace(/^(\d{4}[-_.]\d{1,2}[-_.]\d{1,2}[-_.\s]*)+/i, '');
+  
+  // 3. Strip common file extension suffixes
+  cleaned = cleaned.replace(/\.(pdf|jpe?g|png|webp|dwg|dxf|dwf|dwfx|docx?|xlsx?)$/i, '');
+  
+  // 4. Strip leftover leading punctuation / separators
+  cleaned = cleaned.replace(/^[-_.\s]+/, '').trim();
+  
+  return cleaned || title.trim();
+}
+

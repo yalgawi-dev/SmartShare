@@ -13,7 +13,7 @@ import ConfirmModal from '../../common/ConfirmModal';
 import BatchActionToolbar, { BatchToolbarAction } from '../../common/BatchActionToolbar';
 import GlobalMoveModal from '../../common/GlobalMoveModal';
 import GlobalRecycleBinModal, { TrashItem } from '../../common/GlobalRecycleBinModal';
-import { downloadDocument, shareDocument, getDocumentPreviewUrl, formatFileSize } from '../../../utils/documentUtils';
+import { downloadDocument, shareDocument, getDocumentPreviewUrl, formatFileSize, cleanDisplayTitle } from '../../../utils/documentUtils';
 import { mergeImagesCleanly } from '../../../utils/imageOptimizer';
 import ShareChoiceModal, { ShareChoiceDoc } from './ShareChoiceModal';
 import DynamicPdfScrollPreview from './DynamicPdfScrollPreview';
@@ -872,6 +872,24 @@ const shareMultipleDocuments = async (docIds: string[]) => {
     setIsSharingBatch(false);
   }
 };
+
+  // Unified helper to open rename modal for any document
+  const openRenameDocModal = (doc: SpaceDocument) => {
+    const cleanTitle = cleanDisplayTitle(doc.title);
+    setPromptInput(cleanTitle);
+    setCustomPrompt({
+      isOpen: true,
+      title: 'שינוי שם מסמך',
+      placeholder: 'הזן שם מסמך...',
+      defaultValue: cleanTitle,
+      onSave: (val) => {
+        const trimmed = val.trim();
+        if (trimmed) {
+          updateDocument(space.id, doc.id, { title: trimmed });
+        }
+      }
+    });
+  };
 
 const handleRenameShelf = (shelfId: string, currentName: string) => {
   setPromptInput(currentName);
@@ -1766,10 +1784,14 @@ const handleDeleteDocument = (docId: string, title?: string) => {
               value={promptInput}
               onChange={(e) => setPromptInput(e.target.value)}
               placeholder={customPrompt.placeholder}
+              onFocus={(e) => e.target.select()}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && promptInput.trim()) {
-                  customPrompt.onSave(promptInput.trim());
-                  setCustomPrompt(null);
+                if (e.key === 'Enter') {
+                  const val = promptInput.trim();
+                  if (val) {
+                    customPrompt.onSave(val);
+                    setCustomPrompt(null);
+                  }
                 }
               }}
               style={{ width: '100%', padding: '0.85rem 1rem', borderRadius: '14px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '1rem', boxSizing: 'border-box', marginBottom: '1.25rem' }}
@@ -1785,8 +1807,9 @@ const handleDeleteDocument = (docId: string, title?: string) => {
               <button 
                 type="button"
                 onClick={() => {
-                  if (promptInput.trim()) {
-                    customPrompt.onSave(promptInput.trim());
+                  const val = promptInput.trim();
+                  if (val) {
+                    customPrompt.onSave(val);
                     setCustomPrompt(null);
                   }
                 }}
@@ -3113,7 +3136,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                 <div style={{ minWidth: 0 }}>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                     <span style={{ fontWeight: 700, fontSize: '0.82rem', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                      {doc.title}
+                                      {cleanDisplayTitle(doc.title)}
                                     </span>
                                     {(() => {
                                       const isRawPdf = Boolean(doc.rawPdfUrl || doc.type === 'pdf' || (doc.url && doc.url.toLowerCase().includes('.pdf')));
@@ -3267,18 +3290,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                   </button>
                                   <button
                                     type="button"
-                                    onClick={() => {
-                                      setPromptInput(doc.title);
-                                      setCustomPrompt({
-                                        isOpen: true,
-                                        title: 'שינוי שם מסמך',
-                                        placeholder: 'הזן שם מסמך...',
-                                        defaultValue: doc.title,
-                                        onSave: (val) => {
-                                          if (val.trim()) updateDocument(space.id, doc.id, { title: val.trim() });
-                                        }
-                                      });
-                                    }}
+                                    onClick={() => openRenameDocModal(doc)}
                                     title="שנה שם"
                                     style={{ background: '#f8fafc', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '2px 5px', fontSize: '0.72rem', cursor: 'pointer' }}
                                   >
@@ -3919,21 +3931,12 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                     onClick={(e) => {
                                       if (isMultiSelect) return;
                                       e.stopPropagation();
-                                      setPromptInput(doc.title);
-                                      setCustomPrompt({
-                                        isOpen: true,
-                                        title: 'שינוי שם מסמך',
-                                        placeholder: 'הזן שם מסמך...',
-                                        defaultValue: doc.title,
-                                        onSave: (val) => {
-                                          if (val.trim()) updateDocument(space.id, doc.id, { title: val.trim() });
-                                        }
-                                      });
+                                      openRenameDocModal(doc);
                                     }}
                                     style={{ fontSize: '0.82rem', fontWeight: 800, color: '#1e293b', cursor: 'pointer', display: 'flex', alignItems: 'flex-start', gap: '5px', minWidth: 0, lineHeight: 1.25 }}
-                                    title={`לחץ לשינוי שם: ${doc.title}`}
+                                    title={`לחץ לשינוי שם: ${cleanDisplayTitle(doc.title)}`}
                                   >
-                                    <span style={{ flex: 1, minWidth: 0, wordBreak: 'break-word', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{doc.title}</span>
+                                    <span style={{ flex: 1, minWidth: 0, wordBreak: 'break-word', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{cleanDisplayTitle(doc.title)}</span>
                                     {(() => {
                                       const isRawPdf = Boolean(doc.rawPdfUrl || doc.type === 'pdf' || (doc.url && doc.url.toLowerCase().includes('.pdf')));
                                       const isWebp = !isRawPdf && (doc.type === 'document' || doc.type === 'image' || (doc.url && doc.url.toLowerCase().includes('.webp')) || (doc.thumbnailUrl && doc.thumbnailUrl.toLowerCase().includes('.webp')));
@@ -4272,14 +4275,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                                 type="button"
                                                 onClick={() => {
                                                   setActiveDocMenuId(null);
-                                                  setPromptInput(doc.title);
-                                                  setCustomPrompt({
-                                                    isOpen: true,
-                                                    title: 'שינוי שם מסמך',
-                                                    placeholder: 'הזן שם מסמך...',
-                                                    defaultValue: doc.title,
-                                                    onSave: (val) => { if (val.trim()) updateDocument(space.id, doc.id, { title: val.trim() }); }
-                                                  });
+                                                  openRenameDocModal(doc);
                                                 }}
                                                 style={{ background: 'transparent', border: 'none', padding: '0.35rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#334155', display: 'flex', alignItems: 'center', gap: '0.45rem' }}
                                               >

@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { createPortal } from 'react-dom';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
-import { downloadDocument } from '@/utils/documentUtils';
+import { downloadDocument, cleanDisplayTitle } from '@/utils/documentUtils';
 import DynamicPdfScrollPreview from '@/components/widgets/Vault/DynamicPdfScrollPreview';
 import { extractPdfPages } from '@/utils/imageOptimizer';
 
@@ -343,12 +343,7 @@ export default function UniversalViewerModal({
             }}
           >
             {(() => {
-              const rawTitle = (currentDoc.title || '').trim();
-              // Clean out technical date stamps like "2026-09-23_" or "2026_09_23_" or ".pdf"
-              const cleaned = rawTitle
-                .replace(/^(\d{4}[-_]\d{2}[-_]\d{2}[-_]?)+/i, '')
-                .replace(/\.(pdf|jpe?g|png|webp)$/i, '')
-                .trim();
+              const cleaned = cleanDisplayTitle(currentDoc.title);
               return cleaned ? `#${currentIndex + 1} • ${cleaned}` : `#${currentIndex + 1} • מסמך`;
             })()}
           </span>
