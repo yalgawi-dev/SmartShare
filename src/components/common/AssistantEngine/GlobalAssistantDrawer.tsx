@@ -245,6 +245,7 @@ export const GlobalAssistantDrawer: React.FC = () => {
     <>
       {/* FLOATING ACTION ORB (Draggable, always available across all screens) */}
       <div
+        data-assistant-drawer="true"
         onPointerDown={handlePointerDown}
         style={{
           position: 'fixed',
@@ -293,6 +294,7 @@ export const GlobalAssistantDrawer: React.FC = () => {
         const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
         return (
         <div
+          data-assistant-drawer="true"
           style={{
             position: 'fixed',
             left: isMobile ? '12px' : (position ? Math.min(Math.max(16, position.x - 340), window.innerWidth - 400) : 'auto'),

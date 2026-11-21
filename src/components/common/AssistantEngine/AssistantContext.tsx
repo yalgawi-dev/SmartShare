@@ -6,7 +6,7 @@ import { ScreenContext, getContextSuggestions } from './assistantKnowledge';
 import { sanitizeAssistantQuery, filterAssistantResponse } from './assistantSecurity';
 import { queryAIAssistant, AIProviderConfig } from './assistantProviderBridge';
 import { logAssistantLearningEvent } from './assistantLearning';
-import { buildLiveAssistantSnapshot } from './assistantSnapshot';
+import { executeLiveAssistantTools } from './assistantLiveTools';
 import { normalizeTextForHebrewTTS } from './assistantTtsUtils';
 import { useAuth } from '@/app/context/AuthContext';
 import { useSpaces } from '@/app/context/SpacesContext';
@@ -378,8 +378,8 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       return;
     }
 
-    // Process answer from assistant brain (Bridge: Free Local vs Gemini Live AI)
-    const liveData = buildLiveAssistantSnapshot(user, spaces, allUsers);
+    // Execute live data tools & DOM introspection directly through the Unified Zero-Trust Firewall
+    const liveData = executeLiveAssistantTools(user, spaces, allUsers, screenContext, sanitizedText);
     const recentHistory = messages
       .filter(m => m.id !== 'welcome')
       .slice(-6)
