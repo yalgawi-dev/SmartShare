@@ -1,7 +1,8 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
-import { ScreenContext, getContextSuggestions, queryAssistantBrain } from './assistantKnowledge';
+import React, { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
+import { ScreenContext, getContextSuggestions } from './assistantKnowledge';
 import { sanitizeAssistantQuery, filterAssistantResponse } from './assistantSecurity';
 import { queryAIAssistant, AIProviderConfig } from './assistantProviderBridge';
 
@@ -32,11 +33,27 @@ interface AssistantContextType {
 const AssistantContext = createContext<AssistantContextType | undefined>(undefined);
 
 export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const pathname = usePathname() || '/';
   const [screenContext, setScreenContext] = useState<ScreenContext>({
-    route: '/',
+    route: pathname,
     activeWidget: 'general',
     userRole: 'partner'
   });
+
+  // Shadow the user automatically across every Next.js route transition
+  useEffect(() => {
+    setScreenContext(prev => {
+      if (prev.route === pathname) return prev;
+      return {
+        ...prev,
+        route: pathname,
+        activeModal: null,
+        currentFolderId: pathname.startsWith('/space/') ? prev.currentFolderId : null,
+        currentFolderName: pathname.startsWith('/space/') ? prev.currentFolderName : undefined,
+        activeWidget: pathname.startsWith('/space/') ? prev.activeWidget : 'general'
+      };
+    });
+  }, [pathname]);
 
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
