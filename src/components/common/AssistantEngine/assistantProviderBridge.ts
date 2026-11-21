@@ -4,6 +4,7 @@
 import { auth } from '@/lib/firebase';
 import { ScreenContext, queryAssistantBrain } from './assistantKnowledge';
 import type { KnowledgeNode } from './assistantMatcher';
+import type { LiveAssistantSnapshot } from './assistantSnapshot';
 
 export type AIProviderType = 'local_free' | 'cloud_llm';
 
@@ -34,7 +35,8 @@ export interface AIQueryResponse {
 export async function queryAIAssistant(
   query: string,
   context: ScreenContext,
-  config: AIProviderConfig = { provider: 'local_free' }
+  config: AIProviderConfig = { provider: 'local_free' },
+  liveData?: LiveAssistantSnapshot
 ): Promise<AIQueryResponse> {
   let fallbackReason: string | undefined;
 
@@ -61,7 +63,8 @@ export async function queryAIAssistant(
               currentFolderName: context.currentFolderName,
               activeModal: context.activeModal,
               userRole: context.userRole
-            }
+            },
+            liveData
           })
         });
 

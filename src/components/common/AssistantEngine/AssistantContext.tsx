@@ -6,6 +6,9 @@ import { ScreenContext, getContextSuggestions } from './assistantKnowledge';
 import { sanitizeAssistantQuery, filterAssistantResponse } from './assistantSecurity';
 import { queryAIAssistant, AIProviderConfig } from './assistantProviderBridge';
 import { logAssistantLearningEvent } from './assistantLearning';
+import { buildLiveAssistantSnapshot } from './assistantSnapshot';
+import { useAuth } from '@/app/context/AuthContext';
+import { useSpaces } from '@/app/context/SpacesContext';
 
 interface ChatMessage {
   id: string;
@@ -43,6 +46,8 @@ const AssistantContext = createContext<AssistantContextType | undefined>(undefin
 
 export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const pathname = usePathname() || '/';
+  const { user } = useAuth();
+  const { spaces } = useSpaces();
   const [screenContext, setScreenContext] = useState<ScreenContext>({
     route: pathname,
     activeWidget: 'general',
@@ -145,8 +150,9 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       return;
     }
 
-    // Process answer from assistant brain (Bridge: Free Local vs Premium Cloud)
-    const aiResult = await queryAIAssistant(sanitizedText, screenContext, providerConfig);
+    // Process answer from assistant brain (Bridge: Free Local vs Gemini Live AI)
+    const liveData = buildLiveAssistantSnapshot(user, spaces);
+    const aiResult = await queryAIAssistant(sanitizedText, screenContext, providerConfig, liveData);
     const scrubbedAnswer = filterAssistantResponse(aiResult.text);
 
     if (aiResult.confidence === 'low') {
@@ -170,7 +176,7 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     };
 
     setMessages(prev => [...prev, assistantMsg]);
-  }, [screenContext, providerConfig]);
+  }, [screenContext, providerConfig, user, spaces]);
 
   const submitFeedback = useCallback((messageId: string, rating: 'helpful' | 'not_helpful') => {
     setMessages(prev => prev.map(m => {
