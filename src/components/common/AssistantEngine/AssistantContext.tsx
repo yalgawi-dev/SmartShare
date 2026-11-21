@@ -8,6 +8,7 @@ import { queryAIAssistant, AIProviderConfig } from './assistantProviderBridge';
 import { logAssistantLearningEvent } from './assistantLearning';
 import { executeLiveAssistantTools } from './assistantLiveTools';
 import { normalizeTextForHebrewTTS } from './assistantTtsUtils';
+import { detectBugReportIntent } from './assistantBugReporter';
 import { useAuth } from '@/app/context/AuthContext';
 import { useSpaces } from '@/app/context/SpacesContext';
 
@@ -23,6 +24,7 @@ interface ChatMessage {
   confidence?: 'high' | 'medium' | 'low';
   followUps?: string[];
   feedback?: 'helpful' | 'not_helpful';
+  isBugIntent?: boolean;
 }
 
 interface AssistantContextType {
@@ -404,7 +406,8 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       queryText: sanitizedText,
       nodeId: aiResult.nodeId,
       confidence: aiResult.confidence,
-      followUps: aiResult.suggestions?.map(s => s.sampleQuestion).filter(Boolean).slice(0, 3)
+      followUps: aiResult.suggestions?.map(s => s.sampleQuestion).filter(Boolean).slice(0, 3),
+      isBugIntent: detectBugReportIntent(sanitizedText)
     };
 
     setMessages(prev => [...prev, assistantMsg]);

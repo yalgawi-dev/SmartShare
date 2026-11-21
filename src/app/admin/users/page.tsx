@@ -37,12 +37,24 @@ import { calculateUserStorageDetails } from '../../../utils/userStorageCalculato
 import Link from 'next/link';
 import { db } from '../../../lib/firebase';
 import { doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { AdminBugReportsModal } from '@/components/admin/AdminBugReportsModal';
+import { fetchAllBugReportsForAdmin } from '@/components/common/AssistantEngine/assistantBugReporter';
 
 export default function AdminUsersPage() {
   const { user, allUsers, blockUser, toggleAdmin, updateUserByAdmin, updateAllUsersQuotasByAdmin, deleteUserDoc } = useAuth();
   const { spaces, deleteSpace, permanentlyDeleteSpace, restoreSpace } = useSpaces() as any;
 
   const [activeTab, setActiveTab] = useState<'users' | 'analytics' | 'spaces' | 'system'>('users');
+  const [isBugReportsModalOpen, setIsBugReportsModalOpen] = useState(false);
+  const [newBugReportsCount, setNewBugReportsCount] = useState(0);
+
+  useEffect(() => {
+    if (user?.isAdmin) {
+      fetchAllBugReportsForAdmin()
+        .then((list) => setNewBugReportsCount(list.filter((r) => r.status === 'new').length))
+        .catch(() => {});
+    }
+  }, [user?.isAdmin]);
   const [selectedUserForAnalysis, setSelectedUserForAnalysis] = useState<any | null>(null);
   const [showPartnersInModal, setShowPartnersInModal] = useState(false);
   const [filterByPartnerId, setFilterByPartnerId] = useState<string | null>(null);
@@ -626,8 +638,51 @@ export default function AdminUsersPage() {
               <VersionBadge />
             </div>
           </div>
+
+          {/* User Bug Reports Button with Live Unread Badge */}
+          <button
+            type="button"
+            onClick={() => setIsBugReportsModalOpen(true)}
+            style={{
+              background: newBugReportsCount > 0 ? 'linear-gradient(135deg, #be123c, #e11d48)' : '#fff1f2',
+              color: newBugReportsCount > 0 ? '#ffffff' : '#be123c',
+              border: '1.5px solid #fda4af',
+              borderRadius: '12px',
+              padding: '0.45rem 0.85rem',
+              fontSize: '0.82rem',
+              fontWeight: 900,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              boxShadow: newBugReportsCount > 0 ? '0 4px 12px rgba(225, 29, 72, 0.3)' : 'none'
+            }}
+            title="צפה בדיווחי תקלות ממשתמשים (צילומי מסך וסרטונים)"
+          >
+            <span>🐞 תקלות משתמשים</span>
+            {newBugReportsCount > 0 && (
+              <span
+                style={{
+                  background: '#ffffff',
+                  color: '#be123c',
+                  borderRadius: '999px',
+                  padding: '1px 7px',
+                  fontSize: '0.73rem',
+                  fontWeight: 900
+                }}
+              >
+                {newBugReportsCount}
+              </span>
+            )}
+          </button>
         </div>
       </div>
+
+      <AdminBugReportsModal
+        isOpen={isBugReportsModalOpen}
+        onClose={() => setIsBugReportsModalOpen(false)}
+        onCountChange={setNewBugReportsCount}
+      />
 
       {/* Global Admin Breaking Announcement Configuration Card */}
       <div style={{ padding: '0.75rem 1rem 0 1rem' }}>

@@ -2,7 +2,14 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useAssistant } from './AssistantContext';
+import { useAuth } from '@/app/context/AuthContext';
 import { APP_VERSION } from '@/constants/version';
+import {
+  BUG_VIDEO_MAX_SECONDS,
+  captureLiveScreenBlob,
+  LiveBugVideoRecorder,
+  submitBugReportToAdmin
+} from './assistantBugReporter';
 
 export const GlobalAssistantDrawer: React.FC = () => {
   const {
@@ -24,12 +31,163 @@ export const GlobalAssistantDrawer: React.FC = () => {
     stopSpeaking,
     clearChat
   } = useAssistant();
+  const { user } = useAuth();
 
   const [inputVal, setInputVal] = useState('');
   const [isListening, setIsListening] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const recognitionRef = useRef<any>(null);
   const baseInputRef = useRef<string>('');
+
+  // BUG REPORTING & SCREEN CAPTURE / 35s VIDEO RECORDER STATE
+  const [isBugComposerOpen, setIsBugComposerOpen] = useState(false);
+  const [bugDescription, setBugDescription] = useState('');
+  const [bugMediaBlob, setBugMediaBlob] = useState<Blob | null>(null);
+  const [bugMediaPreviewUrl, setBugMediaPreviewUrl] = useState<string | null>(null);
+  const [bugMediaType, setBugMediaType] = useState<'screenshot' | 'video' | 'none'>('none');
+  const [bugVideoDurationSec, setBugVideoDurationSec] = useState<number>(0);
+  const [isHidingForCapture, setIsHidingForCapture] = useState(false);
+  const [isRecordingBugVideo, setIsRecordingBugVideo] = useState(false);
+  const [recordingRemainingSec, setRecordingRemainingSec] = useState(BUG_VIDEO_MAX_SECONDS);
+  const [isUploadingBugReport, setIsUploadingBugReport] = useState(false);
+  const [bugUploadProgress, setBugUploadProgress] = useState(0);
+  const [bugSentSuccess, setBugSentSuccess] = useState(false);
+  const videoRecorderRef = useRef<LiveBugVideoRecorder | null>(null);
+  const galleryInputRef = useRef<HTMLInputElement | null>(null);
+
+  const setBugMediaWithPreview = (blob: Blob | null, type: 'screenshot' | 'video' | 'none', durationSec = 0) => {
+    if (bugMediaPreviewUrl) {
+      URL.revokeObjectURL(bugMediaPreviewUrl);
+    }
+    setBugMediaBlob(blob);
+    setBugMediaType(type);
+    setBugVideoDurationSec(durationSec);
+    setBugMediaPreviewUrl(blob ? URL.createObjectURL(blob) : null);
+  };
+
+  const openBugComposerWithDefaultNote = (initialNote?: string) => {
+    if (initialNote) {
+      setBugDescription(initialNote);
+    } else if (!bugDescription) {
+      const lastUserMsg = [...messages].reverse().find((m) => m.sender === 'user');
+      if (lastUserMsg?.text) setBugDescription(lastUserMsg.text);
+    }
+    setBugSentSuccess(false);
+    setIsBugComposerOpen(true);
+    setIsOpen(true);
+  };
+
+  // 1. Hide Assistant -> Capture Instant WebP Screenshot (<30ms) -> Reopen Assistant
+  const handleTakeBugScreenshot = async (initialNote?: string) => {
+    stopSpeaking();
+    if (initialNote) setBugDescription(initialNote);
+    else if (!bugDescription) {
+      const lastUserMsg = [...messages].reverse().find((m) => m.sender === 'user');
+      if (lastUserMsg?.text) setBugDescription(lastUserMsg.text);
+    }
+
+    setIsHidingForCapture(true);
+    await new Promise((r) => setTimeout(r, 220));
+    try {
+      const blob = await captureLiveScreenBlob();
+      setBugMediaWithPreview(blob, 'screenshot', 0);
+    } catch (err) {
+      console.warn('Screenshot capture error:', err);
+    } finally {
+      setIsHidingForCapture(false);
+      setBugSentSuccess(false);
+      setIsBugComposerOpen(true);
+      setIsOpen(true);
+    }
+  };
+
+  // 2. Hide Assistant -> Record 35s Countdown Live Video + Voice + Touch -> Reopen Assistant
+  const handleStartBugVideoRecording = async (initialNote?: string) => {
+    stopSpeaking();
+    if (initialNote) setBugDescription(initialNote);
+    else if (!bugDescription) {
+      const lastUserMsg = [...messages].reverse().find((m) => m.sender === 'user');
+      if (lastUserMsg?.text) setBugDescription(lastUserMsg.text);
+    }
+
+    setIsHidingForCapture(true);
+    setIsRecordingBugVideo(true);
+    setRecordingRemainingSec(BUG_VIDEO_MAX_SECONDS);
+
+    await new Promise((r) => setTimeout(r, 180));
+    const recorder = new LiveBugVideoRecorder();
+    videoRecorderRef.current = recorder;
+
+    try {
+      await recorder.start(
+        (remaining) => {
+          setRecordingRemainingSec(remaining);
+        },
+        (videoBlob, durationSec) => {
+          setIsRecordingBugVideo(false);
+          setIsHidingForCapture(false);
+          setBugMediaWithPreview(videoBlob, 'video', durationSec);
+          setBugSentSuccess(false);
+          setIsBugComposerOpen(true);
+          setIsOpen(true);
+          videoRecorderRef.current = null;
+        }
+      );
+    } catch (err: any) {
+      setIsRecordingBugVideo(false);
+      setIsHidingForCapture(false);
+      setIsBugComposerOpen(true);
+      setIsOpen(true);
+      alert(err?.message || 'לא ניתן להתחיל הקלטת וידאו במכשיר זה.');
+    }
+  };
+
+  const handleStopBugVideoRecording = () => {
+    if (videoRecorderRef.current) {
+      videoRecorderRef.current.stop();
+    }
+  };
+
+  const handleAttachGalleryFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const isVid = file.type.startsWith('video/');
+    setBugMediaWithPreview(file, isVid ? 'video' : 'screenshot', 0);
+    setIsBugComposerOpen(true);
+    e.target.value = '';
+  };
+
+  const handleSubmitBugReport = async () => {
+    if (isUploadingBugReport) return;
+    setIsUploadingBugReport(true);
+    setBugUploadProgress(1);
+    try {
+      await submitBugReportToAdmin({
+        user,
+        screenContext,
+        description: bugDescription || 'דיווח תקלה דרך הסוכן האישי',
+        recentMessages: messages.map((m) => ({ sender: m.sender, text: m.text })),
+        mediaBlob: bugMediaBlob,
+        mediaType: bugMediaType,
+        mediaDurationSec: bugVideoDurationSec,
+        onUploadProgress: (pct) => setBugUploadProgress(Math.max(1, pct))
+      });
+      setBugUploadProgress(100);
+      setBugSentSuccess(true);
+      setTimeout(() => {
+        setIsBugComposerOpen(false);
+        setBugSentSuccess(false);
+        setBugDescription('');
+        setBugMediaWithPreview(null, 'none', 0);
+      }, 1800);
+    } catch (err) {
+      console.error('Failed submitting bug report:', err);
+      alert('אירעה שגיאה בשליחת הדיווח. אנא נסה שוב.');
+    } finally {
+      setIsUploadingBugReport(false);
+      setBugUploadProgress(0);
+    }
+  };
 
   // DRAGGABLE POSITION STATE (Persisted across pages)
   const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
@@ -243,7 +401,77 @@ export const GlobalAssistantDrawer: React.FC = () => {
 
   return (
     <>
-      {/* FLOATING ACTION ORB (Draggable, always available across all screens) */}
+      <input
+        ref={galleryInputRef}
+        type="file"
+        accept="image/*,video/*"
+        style={{ display: 'none' }}
+        onChange={handleAttachGalleryFile}
+      />
+
+      {/* FLOATING 35s COUNTDOWN VIDEO RECORDER HUD (Shown while Assistant is hidden during bug recording) */}
+      {isRecordingBugVideo && (
+        <div
+          data-bug-recorder-hud="true"
+          style={{
+            position: 'fixed',
+            top: '14px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 100001,
+            background: 'rgba(15, 23, 42, 0.92)',
+            backdropFilter: 'blur(8px)',
+            color: '#ffffff',
+            padding: '8px 14px',
+            borderRadius: '999px',
+            boxShadow: '0 10px 25px rgba(239, 68, 68, 0.38)',
+            border: '2px solid #ef4444',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            direction: 'rtl',
+            fontSize: '0.80rem',
+            fontWeight: 700
+          }}
+        >
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#fca5a5' }}>
+            <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ef4444', display: 'inline-block' }} />
+            מקליט מסך וקול
+          </span>
+          <span
+            style={{
+              background: recordingRemainingSec <= 10 ? '#dc2626' : '#334155',
+              color: '#ffffff',
+              padding: '2px 9px',
+              borderRadius: '999px',
+              fontFamily: 'monospace',
+              fontSize: '0.88rem',
+              fontWeight: 900
+            }}
+          >
+            ⏱️ 00:{String(recordingRemainingSec).padStart(2, '0')}
+          </span>
+          <button
+            type="button"
+            onClick={handleStopBugVideoRecording}
+            style={{
+              background: '#ef4444',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '999px',
+              padding: '4px 12px',
+              fontSize: '0.76rem',
+              fontWeight: 800,
+              cursor: 'pointer'
+            }}
+          >
+            ⏹️ סיים ושלח
+          </button>
+        </div>
+      )}
+
+      {/* FLOATING ACTION ORB (Hidden while capturing screenshot or recording bug video) */}
+      {!isHidingForCapture && !isRecordingBugVideo && (
       <div
         data-assistant-drawer="true"
         onPointerDown={handlePointerDown}
@@ -288,9 +516,10 @@ export const GlobalAssistantDrawer: React.FC = () => {
           {isOpen ? '✕' : '🤖'}
         </button>
       </div>
+      )}
 
-      {/* ASSISTANT SLIDE-OVER DRAWER */}
-      {isOpen && (() => {
+      {/* ASSISTANT SLIDE-OVER DRAWER (Hidden while capturing screenshot or recording bug video) */}
+      {isOpen && !isHidingForCapture && !isRecordingBugVideo && (() => {
         const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
         return (
         <div
@@ -357,7 +586,29 @@ export const GlobalAssistantDrawer: React.FC = () => {
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              {/* Playback Speed Selector (0.85x / 1.0x / 1.25x / 1.5x) */}
+              {/* Report Bug to Admin Quick Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (isBugComposerOpen) setIsBugComposerOpen(false);
+                  else openBugComposerWithDefaultNote();
+                }}
+                style={{
+                  background: isBugComposerOpen ? '#ef4444' : 'rgba(239,68,68,0.28)',
+                  border: '1px solid rgba(255,255,255,0.45)',
+                  borderRadius: '8px',
+                  color: '#ffffff',
+                  padding: '3px 7px',
+                  fontSize: '0.70rem',
+                  fontWeight: 800,
+                  cursor: 'pointer'
+                }}
+                title="דווח על תקלה למנהל המערכת (צילום מסך או סרטון 35 שניות)"
+              >
+                🐞 תקלה
+              </button>
+
+              {/* Playback Speed Selector (0.85x / 1.0x / 1.15x / 1.35x / 1.5x) */}
               <button
                 type="button"
                 onClick={() => {
@@ -478,6 +729,177 @@ export const GlobalAssistantDrawer: React.FC = () => {
             )}
           </div>
 
+          {/* BUG REPORT COMPOSER PANEL (Auto-attaches user profile, black-box DOM telemetry, screenshot or 35s video) */}
+          {isBugComposerOpen && (
+            <div
+              style={{
+                padding: '10px 12px',
+                background: '#fff1f2',
+                borderBottom: '2px solid #fecdd3',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+                fontSize: '0.76rem'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontWeight: 900, color: '#9f1239', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  🐞 דיווח תקלה חכם למנהל המערכת
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsBugComposerOpen(false)}
+                  style={{ background: 'transparent', border: 'none', color: '#9f1239', cursor: 'pointer', fontWeight: 800 }}
+                >
+                  ✕ סגור
+                </button>
+              </div>
+
+              {/* Auto-attached User Card Summary */}
+              <div style={{ background: '#ffffff', padding: '5px 8px', borderRadius: '8px', border: '1px solid #fecdd3', fontSize: '0.69rem', color: '#475569' }}>
+                👤 <strong>{user?.realName || user?.nickname || 'אורח'}</strong> • 📱 {user?.phone || 'ללא טלפון'} • 📍 {screenContext.spaceTitle || 'דף ראשי'} ({APP_VERSION})
+              </div>
+
+              {/* Screen Capture / 35s Video Recording Controls */}
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => handleTakeBugScreenshot()}
+                  style={{
+                    flex: 1,
+                    background: '#ffffff',
+                    border: '1.5px solid #f43f5e',
+                    color: '#be123c',
+                    padding: '6px 8px',
+                    borderRadius: '8px',
+                    fontSize: '0.73rem',
+                    fontWeight: 800,
+                    cursor: 'pointer'
+                  }}
+                >
+                  📸 צלם מסך חי
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleStartBugVideoRecording()}
+                  style={{
+                    flex: 1,
+                    background: '#e11d48',
+                    border: 'none',
+                    color: '#ffffff',
+                    padding: '6px 8px',
+                    borderRadius: '8px',
+                    fontSize: '0.73rem',
+                    fontWeight: 800,
+                    cursor: 'pointer'
+                  }}
+                >
+                  🎥 הקלט סרטון (00:{BUG_VIDEO_MAX_SECONDS})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => galleryInputRef.current?.click()}
+                  style={{
+                    background: '#ffffff',
+                    border: '1px solid #cbd5e1',
+                    color: '#334155',
+                    padding: '6px 8px',
+                    borderRadius: '8px',
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                  title="צרף צילום מסך או סרטון מהמכשיר"
+                >
+                  📎 מהמכשיר
+                </button>
+              </div>
+
+              {/* Attached Media Preview */}
+              {bugMediaPreviewUrl && (
+                <div style={{ position: 'relative', background: '#0f172a', borderRadius: '10px', overflow: 'hidden', maxHeight: '130px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {bugMediaType === 'video' ? (
+                    <video src={bugMediaPreviewUrl} controls style={{ maxHeight: '125px', maxWidth: '100%' }} />
+                  ) : (
+                    <img src={bugMediaPreviewUrl} alt="צילום תקלה" style={{ maxHeight: '125px', maxWidth: '100%', objectFit: 'contain' }} />
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setBugMediaWithPreview(null, 'none', 0)}
+                    style={{
+                      position: 'absolute',
+                      top: '5px',
+                      left: '5px',
+                      background: 'rgba(239,68,68,0.9)',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '6px',
+                      padding: '2px 7px',
+                      fontSize: '0.68rem',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    🗑️ הסר
+                  </button>
+                </div>
+              )}
+
+              {/* User Note Input */}
+              <textarea
+                value={bugDescription}
+                onChange={(e) => setBugDescription(e.target.value)}
+                placeholder="תאר בקצרה מה קרה בתקלה..."
+                rows={2}
+                style={{
+                  width: '100%',
+                  borderRadius: '8px',
+                  border: '1px solid #fda4af',
+                  padding: '6px 8px',
+                  fontSize: '0.76rem',
+                  fontFamily: 'inherit',
+                  resize: 'none'
+                }}
+              />
+
+              {/* Real Cloud Upload Progress Bar (Rule 21) */}
+              {isUploadingBugReport && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.70rem', fontWeight: 800, color: '#be123c' }}>
+                    <span>☁️ מעלה חבילת דיווח לענן...</span>
+                    <span>{bugUploadProgress}%</span>
+                  </div>
+                  <div style={{ height: '6px', background: '#fecdd3', borderRadius: '999px', overflow: 'hidden' }}>
+                    <div style={{ width: `${bugUploadProgress}%`, height: '100%', background: '#e11d48', transition: 'width 0.15s ease' }} />
+                  </div>
+                </div>
+              )}
+
+              {bugSentSuccess ? (
+                <div style={{ background: '#dcfce7', color: '#166534', padding: '7px', borderRadius: '8px', textAlign: 'center', fontWeight: 800 }}>
+                  ✅ הדיווח נשלח בהצלחה למנהל המערכת עם כל הפרטים!
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  disabled={isUploadingBugReport}
+                  onClick={handleSubmitBugReport}
+                  style={{
+                    background: '#be123c',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '9px',
+                    padding: '7px 12px',
+                    fontSize: '0.78rem',
+                    fontWeight: 900,
+                    cursor: isUploadingBugReport ? 'wait' : 'pointer'
+                  }}
+                >
+                  🚀 שלח חבילת תקלה לאדמין
+                </button>
+              )}
+            </div>
+          )}
+
           {/* Messages Container */}
           <div
             style={{
@@ -507,6 +929,76 @@ export const GlobalAssistantDrawer: React.FC = () => {
                 }}
               >
                 {m.text}
+
+                {/* Automatic Bug Detection Action Card inside the Assistant Reply */}
+                {m.sender === 'assistant' && m.isBugIntent && (
+                  <div
+                    style={{
+                      marginTop: '9px',
+                      padding: '8px 10px',
+                      background: '#fff1f2',
+                      border: '1px solid #fecdd3',
+                      borderRadius: '10px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '6px'
+                    }}
+                  >
+                    <div style={{ fontSize: '0.73rem', fontWeight: 800, color: '#9f1239' }}>
+                      🛠️ זיהיתי שנתקלת בתקלה! רוצה לשלוח אותה לטיפול האדמין?
+                    </div>
+                    <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        onClick={() => handleTakeBugScreenshot(m.queryText)}
+                        style={{
+                          background: '#ffffff',
+                          border: '1px solid #f43f5e',
+                          color: '#be123c',
+                          borderRadius: '7px',
+                          padding: '4px 8px',
+                          fontSize: '0.71rem',
+                          fontWeight: 800,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        📸 צלם מסך
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleStartBugVideoRecording(m.queryText)}
+                        style={{
+                          background: '#e11d48',
+                          border: 'none',
+                          color: '#ffffff',
+                          borderRadius: '7px',
+                          padding: '4px 8px',
+                          fontSize: '0.71rem',
+                          fontWeight: 800,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        🎥 הקלט סרטון (00:{BUG_VIDEO_MAX_SECONDS})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openBugComposerWithDefaultNote(m.queryText)}
+                        style={{
+                          background: '#ffe4e6',
+                          border: '1px solid #fda4af',
+                          color: '#9f1239',
+                          borderRadius: '7px',
+                          padding: '4px 8px',
+                          fontSize: '0.71rem',
+                          fontWeight: 800,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        📩 פתח דיווח
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Follow-up suggestions from connected neural edges */}
                 {m.sender === 'assistant' && m.followUps && m.followUps.length > 0 && (
