@@ -52,7 +52,7 @@ const AssistantContext = createContext<AssistantContextType | undefined>(undefin
 
 export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const pathname = usePathname() || '/';
-  const { user } = useAuth();
+  const { user, allUsers } = useAuth();
   const { spaces } = useSpaces();
 
   // Extract spaceId from pathname if on /space/[id]
@@ -379,8 +379,12 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
 
     // Process answer from assistant brain (Bridge: Free Local vs Gemini Live AI)
-    const liveData = buildLiveAssistantSnapshot(user, spaces);
-    const aiResult = await queryAIAssistant(sanitizedText, screenContext, providerConfig, liveData);
+    const liveData = buildLiveAssistantSnapshot(user, spaces, allUsers);
+    const recentHistory = messages
+      .filter(m => m.id !== 'welcome')
+      .slice(-6)
+      .map(m => ({ sender: m.sender, text: m.text }));
+    const aiResult = await queryAIAssistant(sanitizedText, screenContext, providerConfig, liveData, recentHistory);
     const scrubbedAnswer = filterAssistantResponse(aiResult.text);
 
     if (aiResult.confidence === 'low') {
@@ -414,7 +418,7 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         prefetchAudio(scrubbedAnswer);
       }
     }
-  }, [screenContext, providerConfig, user, spaces, autoSpeak, speakText, prefetchAudio]);
+  }, [screenContext, providerConfig, user, spaces, allUsers, messages, autoSpeak, speakText, prefetchAudio]);
 
   const submitFeedback = useCallback((messageId: string, rating: 'helpful' | 'not_helpful') => {
     setMessages(prev => prev.map(m => {

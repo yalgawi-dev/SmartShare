@@ -36,7 +36,8 @@ export async function queryAIAssistant(
   query: string,
   context: ScreenContext,
   config: AIProviderConfig = { provider: 'local_free' },
-  liveData?: LiveAssistantSnapshot
+  liveData?: LiveAssistantSnapshot,
+  history?: Array<{ sender: 'user' | 'assistant'; text: string }>
 ): Promise<AIQueryResponse> {
   let fallbackReason: string | undefined;
 
@@ -55,6 +56,7 @@ export async function queryAIAssistant(
           },
           body: JSON.stringify({
             query,
+            history: (history || []).slice(-6),
             context: {
               route: context.route,
               spaceId: context.spaceId,

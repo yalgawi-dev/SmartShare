@@ -1,5 +1,6 @@
 import { SMARTSHARE_GRAPH } from './assistantGraph';
 import { canAccessItem } from '@/utils/permissionUtils';
+import { getSharedContactsForUser } from '@/utils/partnerUtils';
 
 export interface VaultItemAccess {
   name: string;
@@ -13,6 +14,7 @@ export interface LiveSpaceSnapshot {
   role: 'creator' | 'member';
   creatorName: string;
   features: string[];
+  membersCount: number;
   members: Array<{
     name: string;
     sharePercentage: number;
@@ -21,6 +23,7 @@ export interface LiveSpaceSnapshot {
     netBalance: number;
     statusText: string;
   }>;
+  pendingInvites: string[];
   settlements: string[];
   totalExpenses: number;
   totalDisputed: number;
@@ -37,6 +40,11 @@ export interface LiveSpaceSnapshot {
     shelves: VaultItemAccess[];
     folders: VaultItemAccess[];
     documentsCount: number;
+    recentDocuments: Array<{
+      title: string;
+      folderName?: string;
+      visibility: 'open_all' | 'restricted';
+    }>;
   };
 }
 
@@ -46,6 +54,28 @@ export interface LiveAssistantSnapshot {
   appVersion: string;
   appMapSummary: string;
   spacesCount: number;
+  createdByMeSpacesCount: number;
+  joinedAsPartnerSpacesCount: number;
+  mySharedPartnersCount: number;
+  mySharedPartners: Array<{
+    name: string;
+    sharedSpaces: string[];
+  }>;
+  adminSystemStats?: {
+    totalUsersRecordsInDB: number;
+    identifiedRegisteredUsersCount: number;
+    anonymousGuestsCount: number;
+    activeUsersLast24hCount: number;
+    activeUsersLast7dCount: number;
+    pwaInstalledUsersCount: number;
+    totalSystemActiveSpacesCount: number;
+    registeredUsersList: Array<{
+      name: string;
+      isAdmin: boolean;
+      pwaInstalled: boolean;
+      lastActiveAt?: string;
+    }>;
+  };
   spaces: LiveSpaceSnapshot[];
 }
 
@@ -57,7 +87,7 @@ const TREASURY_MEMBER_ID = '__space_treasury__';
  * targetId/targetName, sharePercentage, sharesSnapshot, excludedMembers,
  * store credits, incomes, and approved transfers) + pairwise settlements.
  */
-export function buildLiveAssistantSnapshot(user: any, spaces: any[]): LiveAssistantSnapshot {
+export function buildLiveAssistantSnapshot(user: any, spaces: any[], allUsers?: any[]): LiveAssistantSnapshot {
   const uid = user?.id || '';
   const userName =
     user?.realName && !GUEST_PLACEHOLDERS.includes(user.realName)
@@ -368,12 +398,32 @@ export function buildLiveAssistantSnapshot(user: any, spaces: any[]): LiveAssist
     const accessibleShelves = Array.isArray(space.shelves)
       ? space.shelves.filter(canCurrentUserSeeVaultItem).map((s: any) => mapAccess(s, 'title'))
       : [];
+    const folderNameById = new Map<string, string>();
+    if (Array.isArray(space.documentFolders)) {
+      for (const f of space.documentFolders) {
+        if (f?.id) folderNameById.set(f.id, f.name || f.title || 'תיקייה');
+      }
+    }
     const accessibleFolders = Array.isArray(space.documentFolders)
       ? space.documentFolders.filter(canCurrentUserSeeVaultItem).slice(0, 40).map((f: any) => mapAccess(f, 'name'))
       : [];
-    const accessibleDocsCount = Array.isArray(space.documents)
-      ? space.documents.filter((d: any) => !d?.deletedAt && canCurrentUserSeeVaultItem(d)).length
-      : 0;
+    const accessibleDocs = Array.isArray(space.documents)
+      ? space.documents.filter((d: any) => !d?.deletedAt && canCurrentUserSeeVaultItem(d))
+      : [];
+    const recentDocuments = accessibleDocs.slice(-15).reverse().map((d: any) => {
+      const rawAllowed = Array.isArray(d?.allowedPartners)
+        ? d.allowedPartners.filter((pid: string) => pid && pid.trim() !== '' && pid !== creatorId)
+        : [];
+      return {
+        title: d?.title || d?.name || 'מסמך',
+        folderName: d?.folderId ? folderNameById.get(d.folderId) : undefined,
+        visibility: (rawAllowed.length > 0 ? 'restricted' : 'open_all') as 'open_all' | 'restricted'
+      };
+    });
+
+    const pendingInvites = Array.isArray(space.pendingInvites)
+      ? space.pendingInvites.map((inv: any) => inv?.name || 'מוזמן ממתין').filter(Boolean)
+      : [];
 
     return {
       id: space.id,
@@ -381,7 +431,9 @@ export function buildLiveAssistantSnapshot(user: any, spaces: any[]): LiveAssist
       role: isCreatorMe ? 'creator' : 'member',
       creatorName,
       features: space.features || [],
+      membersCount: members.length,
       members,
+      pendingInvites,
       settlements,
       totalExpenses: Math.round(totalExpenses * 100) / 100,
       totalDisputed: Math.round(totalDisputed * 100) / 100,
@@ -391,10 +443,56 @@ export function buildLiveAssistantSnapshot(user: any, spaces: any[]): LiveAssist
       vault: {
         shelves: accessibleShelves,
         folders: accessibleFolders,
-        documentsCount: accessibleDocsCount
+        documentsCount: accessibleDocs.length,
+        recentDocuments
       }
     };
   });
+
+  // 1. Exact Shared Partners / Contacts of the current user (Single Source of Truth: partnerUtils)
+  const sharedContacts = getSharedContactsForUser(user, spaces || [], allUsers);
+  const mySharedPartners = sharedContacts.map((c) => ({
+    name: c.name,
+    sharedSpaces: (c.spaces || []).map((sp) => sp.title)
+  }));
+
+  const createdByMeSpacesCount = mappedSpaces.filter((s) => s.role === 'creator').length;
+  const joinedAsPartnerSpacesCount = mappedSpaces.filter((s) => s.role === 'member').length;
+
+  // 2. System-Wide Admin User Telemetry (ONLY if the current user is a System Admin!)
+  let adminSystemStats: LiveAssistantSnapshot['adminSystemStats'] = undefined;
+  if (user?.isAdmin && Array.isArray(allUsers) && allUsers.length > 0) {
+    const now = Date.now();
+    const oneDayAgo = now - 24 * 60 * 60 * 1000;
+    const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
+
+    const identifiedUsers = allUsers.filter((u: any) => {
+      const hasName = u?.realName && !GUEST_PLACEHOLDERS.includes(u.realName) && u.realName !== 'אורח';
+      return Boolean(hasName || u?.phone || u?.email);
+    });
+    const active24h = allUsers.filter((u: any) => u?.lastActiveAt && new Date(u.lastActiveAt).getTime() >= oneDayAgo);
+    const active7d = allUsers.filter((u: any) => u?.lastActiveAt && new Date(u.lastActiveAt).getTime() >= sevenDaysAgo);
+    const pwaUsers = allUsers.filter((u: any) => Boolean(u?.pwaInstalled));
+    const totalSystemActiveSpaces = (spaces || []).filter(
+      (s: any) => s && s.status !== 'pending_deletion' && !s.isArchived && s.id !== '__global_announcement__'
+    ).length;
+
+    adminSystemStats = {
+      totalUsersRecordsInDB: allUsers.length,
+      identifiedRegisteredUsersCount: identifiedUsers.length,
+      anonymousGuestsCount: Math.max(0, allUsers.length - identifiedUsers.length),
+      activeUsersLast24hCount: active24h.length,
+      activeUsersLast7dCount: active7d.length,
+      pwaInstalledUsersCount: pwaUsers.length,
+      totalSystemActiveSpacesCount: totalSystemActiveSpaces,
+      registeredUsersList: identifiedUsers.slice(0, 40).map((u: any) => ({
+        name: u.realName || u.nickname || 'משתמש רשום',
+        isAdmin: Boolean(u.isAdmin),
+        pwaInstalled: Boolean(u.pwaInstalled),
+        lastActiveAt: u.lastActiveAt ? new Date(u.lastActiveAt).toLocaleDateString('he-IL') : undefined
+      }))
+    };
+  }
 
   const appMapSummary = SMARTSHARE_GRAPH.nodes
     .map((n) => `- ${n.title}: ${n.explanation.replace(/\n/g, ' ')}`)
@@ -406,6 +504,11 @@ export function buildLiveAssistantSnapshot(user: any, spaces: any[]): LiveAssist
     appVersion: SMARTSHARE_GRAPH.version,
     appMapSummary,
     spacesCount: mappedSpaces.length,
+    createdByMeSpacesCount,
+    joinedAsPartnerSpacesCount,
+    mySharedPartnersCount: mySharedPartners.length,
+    mySharedPartners,
+    adminSystemStats,
     spaces: mappedSpaces
   };
 }
