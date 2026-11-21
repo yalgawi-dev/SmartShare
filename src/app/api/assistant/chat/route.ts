@@ -91,7 +91,11 @@ export async function POST(request: Request) {
      ב. אם המשתמש הוא מנהל מערכת (isAdmin: true) וקיים adminSystemStats: תן לו תשובה מדויקת של מנהל מערכת! ציין כמה משתמשים רשומים מזוהים יש במערכת (identifiedRegisteredUsersCount), כמה פעילים ב-24 השעות האחרונות (activeUsersLast24hCount + שמותיהם ב-activeUsersLast24hNames), כמה פעילים ב-7 הימים האחרונים (activeUsersLast7dCount), כמה התקינו אפליקציית PWA (pwaInstalledUsersCount), וכמה רשומות סה"כ במסד כולל אורחים (totalUsersRecordsInDB).
    - לשאלות על "מרחבים", קרא ישירות מתוך כלי סיכום המרחבים (spacesSummaryTool):
      הצג את totalMyActiveSpacesCount (שמחולק ל-createdByMeSpacesCount מרחבים שהוא יצר בעצמו ו-joinedAsPartnerSpacesCount מרחבים שבהם הוא שותף). אם הוא אדמין ושואל על כלל המרחבים במערכת של כל המשתמשים, הצג את totalSystemActiveSpacesCount.
-5. לשאלות על חובות, מאזנים וחשבוניות: קרא מתוך liveSpacesData את settlements, את statusText של כל חבר, ואת מערך invoices המלא.
+5. לשאלות על חובות, מאזנים, אישורי חשבוניות ושותפים:
+   - קרא מתוך liveSpacesData את settlements, statusText, totalExpenses, ומערך invoices המפורט.
+   - לכל חשבונית במערך invoices יש שדות ברורים ומדויקים: isApproved (האם אושרה), approvalRatioText (למשל 'מאושר (V)' או '1/2 אושר'), waitingForNames (למי מחכים שיאשר), ו-approvedByNames (מי כבר אישר).
+   - כאשר משתמש שואל "כמה חשבוניות שותף X אישר לי מתוך כל החשבוניות": ספור במדויק כמה חשבוניות שולמו על ידי המשתמש (payer) ומתוכן כמה כבר אושרו על ידי X (או מופיעות כ-isApproved: true / approvedByNames מכיל את X), וכמה עדיין ממתינות לאישורו של X (waitingForNames מכיל את X). ענה בדיוק עם שמות ההוצאות והסכומים!
+   - חוק מאזנים והתחשבנות: סך ההוצאות (totalExpenses) והמאזנים מחושבים מכלל ההוצאות הפעילות (ללא הוצאות שנמחקו). שים לב שגם חשבונית הממתינה לאישור שותף נכללת במאזן ובסה"כ עד שתידחה או תאושר.
 6. לשאלות על תיקיות, מדפים, מסמכים והרשאות: קרא מתוך vault ב-liveSpacesData (כולל הנתיב המלא folderPath/path והרשאת visibility: 'open_all' פתוח לכולם מול 'restricted' מוגבל ל-allowedPartnerNames).
 7. לשאלות הדרכה או "איפה לוחצים במסך הנוכחי": היעזר גם בסריקת המסך החיה (liveScreenDOM.visibleButtonsAndActions) ובמפת האפליקציה.
 8. דיווח תקלות למנהל המערכת: אם המשתמש מתאר תקלה, באג או משהו שאינו עובד כשורה, עזור לו בקצרה והזכר לו שהוא יכול ללחוץ על כפתורי דיווח התקלה שמופיעים מתחת להודעה (או על סמל החיפושית בכותרת) כדי לצלם מסך או להקליט סרטון מסך קצר שיישלח אוטומטית למנהל המערכת עם כל הפרטים שלו.

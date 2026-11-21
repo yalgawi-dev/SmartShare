@@ -44,7 +44,11 @@ export interface LiveSpaceExecutionResult {
     amount: number;
     payer: string;
     date: string;
-    status: string;
+    status: 'approved' | 'pending' | 'disputed' | string;
+    isApproved: boolean;
+    waitingForNames: string[];
+    approvedByNames: string[];
+    approvalRatioText: string;
   }>;
   vault: {
     shelves: VaultItemAccess[];
@@ -207,10 +211,15 @@ export function executeLiveAssistantTools(
       return rawId || rawName || 'unknown';
     };
 
-    const rawInvoices: any[] = Array.isArray(space.invoices) ? space.invoices : [];
-    const activeInvoices = rawInvoices.filter((i) => !i?.status || i.status === 'approved');
-    const pendingCount = rawInvoices.filter((i) => i?.status === 'pending' || i?.status === 'pending_approval').length;
-    const disputedInvoices = rawInvoices.filter((i) => i?.status === 'disputed' || i?.status === 'rejected');
+    // Single Source of Truth: Active Invoices must NOT include deleted, inactive, or removed records
+    const rawInvoices: any[] = (Array.isArray(space.invoices) ? space.invoices : []).filter(
+      (i: any) => i && i.isActive !== false && !i.deletedAt && !i.isDeleted && i.status !== 'deleted'
+    );
+    // In SmartShare, all non-disputed invoices (both approved and pending) are part of the active accounting pool
+    const activeInvoices = rawInvoices.filter((i) => i.status !== 'disputed' && i.status !== 'dispute' && i.status !== 'rejected');
+    const pendingInvoicesList = rawInvoices.filter((i) => i.status === 'pending' || i.status === 'pending_approval');
+    const pendingCount = pendingInvoicesList.length;
+    const disputedInvoices = rawInvoices.filter((i) => i.status === 'disputed' || i.status === 'dispute' || i.status === 'rejected');
 
     const expensesOnly = activeInvoices.filter(
       (i) => !i.type || i.type === 'expense' || (i.type === 'store_credit' && (Number(i.amount) || 0) < 0)
@@ -353,17 +362,54 @@ export function executeLiveAssistantTools(
       if (creditors[ci].amt <= 0.5) ci++;
     }
 
-    // Live Invoice Selection: For the current space or query-matched invoices, include ALL matching + up to 50 invoices
+    // Live Invoice Selection: With accurate per-partner approval status matching FinanceTransactions
     const allFormattedInvoices = rawInvoices
       .slice()
       .reverse()
-      .map((inv: any) => ({
-        description: inv.description || inv.vendor || inv.title || 'הוצאה',
-        amount: Number(inv.amount) || 0,
-        payer: inv.payerName || unified.get(resolveSingleUserId(inv.payerId, inv.payerName))?.name || 'לא ידוע',
-        date: inv.date || '',
-        status: inv.status || 'approved'
-      }));
+      .map((inv: any) => {
+        const payerName = inv.payerName || unified.get(resolveSingleUserId(inv.payerId, inv.payerName))?.name || 'לא ידוע';
+        const isApproved = inv.status === 'approved';
+        const approvedBy = Array.isArray(inv.approvedBy) ? inv.approvedBy : [];
+        const approvedByNames = approvedBy
+          .map((id: string) => unified.get(resolveSingleUserId(id, id))?.name || id)
+          .filter(Boolean);
+
+        const excluded = Array.isArray(inv.excludedMembers) ? inv.excludedMembers : [];
+        const activeMems = (space.members || []).filter(
+          (m: any) => m.isActive !== false && (m.status === 'active' || m.status === 'pending' || m.status === 'extension_requested')
+        );
+        const creatorObj = { userId: creatorId, name: creatorName };
+        const everyone = [creatorObj, ...activeMems];
+        const participating = everyone.filter((m: any) => !excluded.includes(m.userId) && m.userId !== TREASURY_MEMBER_ID);
+
+        const waitingForNames = isApproved
+          ? []
+          : participating
+              .filter((m: any) => {
+                if (m.userId === inv.payerId || m.userId === 'me') return false;
+                if (isCreatorMe && inv.payerId === space.creatorId && m.userId === creatorId) return false;
+                if (approvedBy.includes(m.userId)) return false;
+                return true;
+              })
+              .map((m: any) => m.name || 'שותף')
+              .filter(Boolean);
+
+        const approvalsNeeded = Math.max(1, Math.min(inv.approvalsNeeded || 1, participating.length));
+        const approvalsReceived = inv.approvalsReceived || (isApproved ? approvalsNeeded : approvedBy.length);
+        const approvalRatioText = isApproved ? 'מאושר (V)' : `${approvalsReceived}/${approvalsNeeded} אושר`;
+
+        return {
+          description: inv.description || inv.vendor || inv.supplier || inv.title || 'הוצאה',
+          amount: Number(inv.amount) || 0,
+          payer: payerName,
+          date: inv.date || '',
+          status: inv.status || 'approved',
+          isApproved,
+          waitingForNames,
+          approvedByNames,
+          approvalRatioText
+        };
+      });
 
     const selectedInvoices = isCurrentActiveSpace
       ? allFormattedInvoices.slice(0, 60)
