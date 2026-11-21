@@ -37,6 +37,8 @@ export interface LiveSpaceExecutionResult {
   settlements: string[];
   totalExpenses: number;
   totalDisputed: number;
+  guestExpensesCount: number;
+  guestExpensesTotal: number;
   invoicesCount: number;
   pendingCount: number;
   invoices: Array<{
@@ -546,6 +548,12 @@ export function executeLiveAssistantTools(
       ? space.pendingInvites.map((inv: any) => inv?.name || 'מוזמן ממתין').filter(Boolean)
       : [];
 
+    const guestExpenses = expensesOnly.filter((i) => {
+      const p = (i.payerName || '').trim();
+      return p === 'אורח' || p === 'Guest' || (!i.payerId && (!p || p === 'אורח'));
+    });
+    const guestExpensesTotal = guestExpenses.reduce((s, i) => s + Math.abs(Number(i.amount) || 0), 0);
+
     return {
       id: space.id,
       title: space.title || 'מרחב ללא שם',
@@ -559,6 +567,8 @@ export function executeLiveAssistantTools(
       settlements,
       totalExpenses: Math.round(totalExpenses * 100) / 100,
       totalDisputed: Math.round(totalDisputed * 100) / 100,
+      guestExpensesCount: guestExpenses.length,
+      guestExpensesTotal: Math.round(guestExpensesTotal * 100) / 100,
       invoicesCount: rawInvoices.length,
       pendingCount,
       invoices: selectedInvoices,
