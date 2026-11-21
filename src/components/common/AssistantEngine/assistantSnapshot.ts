@@ -9,7 +9,14 @@ export interface LiveSpaceSnapshot {
   title: string;
   role: 'creator' | 'member';
   creatorName: string;
-  members: Array<{ name: string; share: number; netBalance: number }>;
+  members: Array<{
+    name: string;
+    share: number;
+    paid: number;
+    expected: number;
+    netBalance: number;
+    statusText: string;
+  }>;
   totalExpenses: number;
   invoicesCount: number;
   pendingCount: number;
@@ -29,7 +36,8 @@ export interface LiveAssistantSnapshot {
 
 /**
  * Builds a compact, accurate live snapshot of the authenticated user's spaces,
- * partner balances, invoices, and vault permissions from client state.
+ * partner balances (matching FinanceSummary payer resolution rules), invoices,
+ * and vault permissions from client state.
  */
 export function buildLiveAssistantSnapshot(user: any, spaces: any[]): LiveAssistantSnapshot {
   const uid = user?.id || '';
@@ -44,19 +52,22 @@ export function buildLiveAssistantSnapshot(user: any, spaces: any[]): LiveAssist
       ? data.invoices.filter((inv: any) => inv?.status !== 'deleted')
       : [];
 
+    const creatorId = data.creatorId || (data.createdBy === userName ? uid : 'creator_unknown');
+    const creatorMember = membersRaw.find((m: any) => m.userId === creatorId);
+    const creatorName =
+      creatorId === uid
+        ? userName
+        : (creatorMember?.name || (data.createdBy && data.createdBy !== 'אני' ? data.createdBy : 'יוצר המרחב'));
+
     const memberMap = new Map<string, { name: string; share: number; paid: number; sent: number; received: number }>();
 
-    const creatorId = data.creatorId || '';
-    if (creatorId) {
-      const creatorMember = membersRaw.find((m: any) => m.userId === creatorId);
-      memberMap.set(creatorId, {
-        name: creatorId === uid ? userName : (creatorMember?.name || data.createdBy || 'יוצר המרחב'),
-        share: Number(creatorMember?.share ?? 0),
-        paid: 0,
-        sent: 0,
-        received: 0
-      });
-    }
+    memberMap.set(creatorId, {
+      name: creatorName,
+      share: Number(creatorMember?.share ?? 0),
+      paid: 0,
+      sent: 0,
+      received: 0
+    });
 
     for (const m of membersRaw) {
       if (!memberMap.has(m.userId)) {
@@ -70,6 +81,23 @@ export function buildLiveAssistantSnapshot(user: any, spaces: any[]): LiveAssist
       }
     }
 
+    // Resolve payer/recipient IDs identically to FinanceSummary ('me', 'אני', creatorName, member name)
+    const resolveMemberId = (rawId?: string, rawName?: string): string | null => {
+      const trimmed = (rawName || '').trim();
+      if (rawId === 'me' || trimmed === 'אני' || trimmed === 'אני (לא פעיל)') return creatorId;
+      if (rawId && memberMap.has(rawId)) return rawId;
+      if (rawId && (rawId === data.creatorId || rawId === data.createdBy)) return creatorId;
+      if (trimmed) {
+        if (trimmed === creatorName || trimmed === data.createdBy || (creatorId === uid && trimmed === userName)) {
+          return creatorId;
+        }
+        for (const [mid, entry] of memberMap.entries()) {
+          if (entry.name === trimmed) return mid;
+        }
+      }
+      return null;
+    };
+
     let totalExpenses = 0;
     let pendingCount = 0;
 
@@ -79,21 +107,28 @@ export function buildLiveAssistantSnapshot(user: any, spaces: any[]): LiveAssist
 
       const amt = Number(inv.amount) || 0;
       if (inv.type === 'transfer') {
-        const from = memberMap.get(inv.paidById);
-        const to = memberMap.get(inv.toUserId);
-        if (from) from.sent += amt;
-        if (to) to.received += amt;
+        const fromId = resolveMemberId(inv.paidById, inv.paidBy);
+        const toId = resolveMemberId(inv.toUserId, inv.toUserName);
+        if (fromId && memberMap.has(fromId)) memberMap.get(fromId)!.sent += amt;
+        if (toId && memberMap.has(toId)) memberMap.get(toId)!.received += amt;
         continue;
       }
 
+      if (inv.type === 'income') continue;
+
       totalExpenses += amt;
-      if (inv.payerSplits && typeof inv.payerSplits === 'object') {
+      if (inv.payerSplits && typeof inv.payerSplits === 'object' && Object.keys(inv.payerSplits).length > 0) {
         for (const [splitUid, splitVal] of Object.entries(inv.payerSplits)) {
-          const entry = memberMap.get(splitUid);
-          if (entry) entry.paid += Number(splitVal) || 0;
+          const resolved = resolveMemberId(splitUid);
+          if (resolved && memberMap.has(resolved)) {
+            memberMap.get(resolved)!.paid += Number(splitVal) || 0;
+          }
         }
-      } else if (inv.paidById && memberMap.has(inv.paidById)) {
-        memberMap.get(inv.paidById)!.paid += amt;
+      } else {
+        const payerId = resolveMemberId(inv.paidById, inv.paidBy);
+        if (payerId && memberMap.has(payerId)) {
+          memberMap.get(payerId)!.paid += amt;
+        }
       }
     }
 
@@ -102,9 +137,16 @@ export function buildLiveAssistantSnapshot(user: any, spaces: any[]): LiveAssist
 
     const members = Array.from(memberMap.values()).map((m) => {
       const ratio = totalShare > 0 ? m.share / totalShare : 1 / count;
-      const expected = totalExpenses * ratio;
+      const expected = Math.round(totalExpenses * ratio * 100) / 100;
+      const paid = Math.round(m.paid * 100) / 100;
       const netBalance = Math.round((m.paid - expected + m.sent - m.received) * 100) / 100;
-      return { name: m.name, share: m.share, netBalance };
+      const statusText =
+        netBalance > 0.5
+          ? `מגיע לו +${netBalance} ₪`
+          : netBalance < -0.5
+            ? `חייב ${Math.abs(netBalance)} ₪`
+            : 'מאוזן (0 ₪)';
+      return { name: m.name, share: m.share, paid, expected, netBalance, statusText };
     });
 
     const mapAccess = (item: any, nameField: 'title' | 'name'): VaultItemAccess => {
@@ -126,7 +168,7 @@ export function buildLiveAssistantSnapshot(user: any, spaces: any[]): LiveAssist
       id: data.id,
       title: data.title || 'מרחב ללא שם',
       role: data.creatorId === uid ? 'creator' : 'member',
-      creatorName: memberMap.get(creatorId)?.name || data.createdBy || 'יוצר המרחב',
+      creatorName,
       members,
       totalExpenses: Math.round(totalExpenses * 100) / 100,
       invoicesCount: invoices.length,

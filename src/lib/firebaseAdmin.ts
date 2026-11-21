@@ -1,7 +1,6 @@
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
-import { getAuth } from 'firebase-admin/auth';
 
 let appInitialized = false;
 
@@ -28,4 +27,3 @@ if (!getApps().length) {
 
 export const adminDb = appInitialized ? getFirestore() : (null as any);
 export const adminMessaging = appInitialized ? getMessaging() : (null as any);
-export const adminAuth = appInitialized ? getAuth() : (null as any);

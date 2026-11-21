@@ -9,7 +9,6 @@ const withPWA = withPWAInit({
 
 const nextConfig = {
   turbopack: {},
-  serverExternalPackages: ['firebase-admin'],
   typescript: {
     ignoreBuildErrors: true,
   },
