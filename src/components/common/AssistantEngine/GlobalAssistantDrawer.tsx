@@ -6,9 +6,13 @@ import { useAuth } from '@/app/context/AuthContext';
 import { APP_VERSION } from '@/constants/version';
 import {
   BUG_VIDEO_MAX_SECONDS,
+  BugReportRecord,
   captureLiveScreenBlob,
   LiveBugVideoRecorder,
-  submitBugReportToAdmin
+  submitBugReportToAdmin,
+  fetchAllBugReportsForAdmin,
+  updateBugReportStatus,
+  deleteBugReportRecord
 } from './assistantBugReporter';
 
 export const GlobalAssistantDrawer: React.FC = () => {
@@ -41,6 +45,9 @@ export const GlobalAssistantDrawer: React.FC = () => {
 
   // BUG REPORTING & SCREEN CAPTURE / 35s VIDEO RECORDER STATE (Supports BOTH screenshot AND video simultaneously!)
   const [isBugComposerOpen, setIsBugComposerOpen] = useState(false);
+  const [bugPanelTab, setBugPanelTab] = useState<'new' | 'list'>('new');
+  const [bugReportsList, setBugReportsList] = useState<BugReportRecord[]>([]);
+  const [isLoadingBugList, setIsLoadingBugList] = useState(false);
   const [bugDescription, setBugDescription] = useState('');
   const [bugScreenshotBlob, setBugScreenshotBlob] = useState<Blob | null>(null);
   const [bugScreenshotUrl, setBugScreenshotUrl] = useState<string | null>(null);
@@ -69,6 +76,34 @@ export const GlobalAssistantDrawer: React.FC = () => {
     setBugVideoUrl(blob ? URL.createObjectURL(blob) : null);
   };
 
+  const loadBugReportsList = async () => {
+    setIsLoadingBugList(true);
+    try {
+      const all = await fetchAllBugReportsForAdmin();
+      // If Admin, show all system bug reports; otherwise show only current user's reported bugs
+      const visible = user?.isAdmin ? all : all.filter((r) => r.reporter?.uid === (user?.id || 'guest'));
+      setBugReportsList(visible);
+    } catch (err) {
+      console.warn('Error loading bug reports list:', err);
+    } finally {
+      setIsLoadingBugList(false);
+    }
+  };
+
+  const handleQuickBugStatusChange = async (reportId: string, nextStatus: 'new' | 'in_progress' | 'resolved') => {
+    try {
+      await updateBugReportStatus(reportId, nextStatus);
+      setBugReportsList((prev) => prev.map((r) => (r.id === reportId ? { ...r, status: nextStatus } : r)));
+    } catch (_) {}
+  };
+
+  const handleQuickBugDelete = async (reportId: string) => {
+    try {
+      await deleteBugReportRecord(reportId);
+      setBugReportsList((prev) => prev.filter((r) => r.id !== reportId));
+    } catch (_) {}
+  };
+
   const openBugComposerWithDefaultNote = (initialNote?: string) => {
     if (initialNote) {
       setBugDescription(initialNote);
@@ -79,6 +114,7 @@ export const GlobalAssistantDrawer: React.FC = () => {
     setBugSentSuccess(false);
     setIsBugComposerOpen(true);
     setIsOpen(true);
+    loadBugReportsList();
   };
 
   // 1. Hide Assistant -> Capture Instant WebP Screenshot (<30ms) -> Reopen Assistant
@@ -182,13 +218,14 @@ export const GlobalAssistantDrawer: React.FC = () => {
       });
       setBugUploadProgress(100);
       setBugSentSuccess(true);
+      await loadBugReportsList();
       setTimeout(() => {
-        setIsBugComposerOpen(false);
         setBugSentSuccess(false);
         setBugDescription('');
         setScreenshotWithPreview(null);
         setVideoWithPreview(null, 0);
-      }, 1800);
+        setBugPanelTab('list');
+      }, 1200);
     } catch (err) {
       console.error('Failed submitting bug report:', err);
       alert('אירעה שגיאה בשליחת הדיווח. אנא נסה שוב.');
@@ -759,7 +796,7 @@ export const GlobalAssistantDrawer: React.FC = () => {
             )}
           </div>
 
-          {/* BUG REPORT COMPOSER PANEL (Self-scrollable with pinned Send button so Send NEVER disappears!) */}
+          {/* BUG REPORT COMPOSER & LIVE BUG LIST PANEL */}
           {isBugComposerOpen && (
             <div
               style={{
@@ -767,10 +804,156 @@ export const GlobalAssistantDrawer: React.FC = () => {
                 borderBottom: '2px solid #fecdd3',
                 display: 'flex',
                 flexDirection: 'column',
-                maxHeight: '44dvh',
+                maxHeight: '46dvh',
                 flexShrink: 0
               }}
             >
+              {/* Top Bar with 2 Tabs: New Bug vs Bug List & Status */}
+              <div style={{ padding: '7px 12px', borderBottom: '1px solid #fecdd3', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', flexShrink: 0 }}>
+                <div style={{ display: 'flex', gap: '5px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setBugPanelTab('new')}
+                    style={{
+                      background: bugPanelTab === 'new' ? '#be123c' : '#ffffff',
+                      color: bugPanelTab === 'new' ? '#ffffff' : '#9f1239',
+                      border: '1px solid #f43f5e',
+                      borderRadius: '8px',
+                      padding: '4px 9px',
+                      fontSize: '0.72rem',
+                      fontWeight: 900,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    ➕ דיווח חדש
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBugPanelTab('list');
+                      loadBugReportsList();
+                    }}
+                    style={{
+                      background: bugPanelTab === 'list' ? '#be123c' : '#ffffff',
+                      color: bugPanelTab === 'list' ? '#ffffff' : '#9f1239',
+                      border: '1px solid #f43f5e',
+                      borderRadius: '8px',
+                      padding: '4px 9px',
+                      fontSize: '0.72rem',
+                      fontWeight: 900,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    📋 רשימת תקלות וסטטוס ({bugReportsList.length})
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsBugComposerOpen(false)}
+                  style={{ background: 'transparent', border: 'none', color: '#9f1239', cursor: 'pointer', fontWeight: 900, fontSize: '0.76rem' }}
+                >
+                  ✕ סגור
+                </button>
+              </div>
+
+              {bugPanelTab === 'list' ? (
+                <div
+                  style={{
+                    padding: '8px 10px',
+                    overflowY: 'auto',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px',
+                    fontSize: '0.73rem'
+                  }}
+                >
+                  {isLoadingBugList ? (
+                    <div style={{ textAlign: 'center', padding: '16px', color: '#64748b', fontWeight: 700 }}>
+                      טוען רשימת תקלות...
+                    </div>
+                  ) : bugReportsList.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '16px', color: '#64748b', fontWeight: 700 }}>
+                      אין תקלות ברשימה כרגע.
+                    </div>
+                  ) : (
+                    bugReportsList.map((rep, idx) => {
+                      const statusColors = {
+                        new: { label: '🔴 חדש', bg: '#fff1f2', text: '#be123c' },
+                        in_progress: { label: '🟡 בטיפול', bg: '#fef3c7', text: '#b45309' },
+                        resolved: { label: '🟢 טופל', bg: '#dcfce7', text: '#15803d' }
+                      };
+                      const st = statusColors[rep.status] || statusColors.new;
+
+                      return (
+                        <div
+                          key={rep.id || idx}
+                          style={{
+                            background: '#ffffff',
+                            border: '1px solid #fda4af',
+                            borderRadius: '10px',
+                            padding: '8px 10px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '5px'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                            <span style={{ fontWeight: 900, color: '#0f172a', fontSize: '0.78rem' }}>
+                              #{idx + 1} • {rep.description}
+                            </span>
+                            <span style={{ background: st.bg, color: st.text, padding: '2px 7px', borderRadius: '6px', fontSize: '0.68rem', fontWeight: 900, flexShrink: 0 }}>
+                              {st.label}
+                            </span>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px', fontSize: '0.68rem', color: '#64748b' }}>
+                            <span>
+                              👤 {rep.reporter?.name || 'אורח'} • 📍 {rep.telemetry?.spaceTitle || 'דף ראשי'} • 🕒 {new Date(rep.createdAt).toLocaleString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                            </span>
+
+                            {/* If Admin, allow 1-tap status update & delete directly in the list! */}
+                            {user?.isAdmin && rep.id && (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => handleQuickBugStatusChange(rep.id!, 'new')}
+                                  style={{ background: rep.status === 'new' ? '#be123c' : '#f1f5f9', color: rep.status === 'new' ? '#fff' : '#475569', border: 'none', borderRadius: '5px', padding: '2px 6px', fontSize: '0.65rem', fontWeight: 800, cursor: 'pointer' }}
+                                >
+                                  חדש
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleQuickBugStatusChange(rep.id!, 'in_progress')}
+                                  style={{ background: rep.status === 'in_progress' ? '#d97706' : '#f1f5f9', color: rep.status === 'in_progress' ? '#fff' : '#475569', border: 'none', borderRadius: '5px', padding: '2px 6px', fontSize: '0.65rem', fontWeight: 800, cursor: 'pointer' }}
+                                >
+                                  בטיפול
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleQuickBugStatusChange(rep.id!, 'resolved')}
+                                  style={{ background: rep.status === 'resolved' ? '#16a34a' : '#f1f5f9', color: rep.status === 'resolved' ? '#fff' : '#475569', border: 'none', borderRadius: '5px', padding: '2px 6px', fontSize: '0.65rem', fontWeight: 800, cursor: 'pointer' }}
+                                >
+                                  טופל
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleQuickBugDelete(rep.id!)}
+                                  style={{ background: '#fee2e2', color: '#b91c1c', border: 'none', borderRadius: '5px', padding: '2px 6px', fontSize: '0.65rem', fontWeight: 800, cursor: 'pointer' }}
+                                  title="מחק תקלה"
+                                >
+                                  🗑️
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              ) : (
+                <>
               {/* Scrollable Composer Body */}
               <div
                 style={{
@@ -782,19 +965,6 @@ export const GlobalAssistantDrawer: React.FC = () => {
                   fontSize: '0.75rem'
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontWeight: 900, color: '#9f1239', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                    🐞 דיווח תקלה חכם למנהל המערכת
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setIsBugComposerOpen(false)}
-                    style={{ background: 'transparent', border: 'none', color: '#9f1239', cursor: 'pointer', fontWeight: 800, fontSize: '0.75rem' }}
-                  >
-                    ✕ סגור
-                  </button>
-                </div>
-
                 {/* Auto-attached User Card Summary (BiDi-isolated chips so icons and text never scramble!) */}
                 <div
                   style={{
@@ -1004,6 +1174,8 @@ export const GlobalAssistantDrawer: React.FC = () => {
                   </button>
                 )}
               </div>
+              </>
+              )}
             </div>
           )}
 
