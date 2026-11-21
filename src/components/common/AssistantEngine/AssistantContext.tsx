@@ -36,6 +36,9 @@ interface AssistantContextType {
   clearChat: () => void;
   suggestedQuestions: string[];
   isSpeaking: boolean;
+  isAudioLoading: boolean;
+  autoSpeak: boolean;
+  toggleAutoSpeak: () => void;
   speakText: (text: string) => void;
   stopSpeaking: () => void;
   providerConfig: AIProviderConfig;
@@ -79,6 +82,30 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   ]);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isAudioLoading, setIsAudioLoading] = useState(false);
+  const [autoSpeak, setAutoSpeak] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        return localStorage.getItem('smartshare_assistant_autospeak') === 'true';
+      } catch (_) {
+        return false;
+      }
+    }
+    return false;
+  });
+
+  const toggleAutoSpeak = useCallback(() => {
+    setAutoSpeak(prev => {
+      const next = !prev;
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('smartshare_assistant_autospeak', String(next));
+        } catch (_) {}
+      }
+      return next;
+    });
+  }, []);
+
   const [providerConfig, setProviderConfig] = useState<AIProviderConfig>({
     provider: 'cloud_llm',
     isPremiumEnabled: true
@@ -105,26 +132,34 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const audioUrlRef = React.useRef<string | null>(null);
+  const ttsAbortControllerRef = React.useRef<AbortController | null>(null);
+  const audioCacheRef = React.useRef<Map<string, string>>(new Map());
+  const activeSpeakSeqRef = React.useRef<number>(0);
 
   const stopSpeaking = useCallback(() => {
+    // Abort pending fetch immediately
+    if (ttsAbortControllerRef.current) {
+      ttsAbortControllerRef.current.abort();
+      ttsAbortControllerRef.current = null;
+    }
+    // Stop any currently playing audio immediately
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
       audioRef.current = null;
     }
-    if (audioUrlRef.current) {
-      URL.revokeObjectURL(audioUrlRef.current);
-      audioUrlRef.current = null;
-    }
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
     }
     setIsSpeaking(false);
+    setIsAudioLoading(false);
   }, []);
 
-  // Natural Human Hebrew TTS via Gemini Neural Voice (/api/assistant/tts) with smart Hebrew SpeechSynthesis fallback
+  // Natural Human Hebrew TTS via Gemini Neural Voice (/api/assistant/tts) with singleton concurrency & client cache
   const speakText = useCallback(async (text: string) => {
     if (typeof window === 'undefined') return;
+
+    // Immediately stop any prior speech or pending request (prevents double speech completely!)
     stopSpeaking();
 
     const cleanText = text
@@ -135,46 +170,100 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       .trim();
     if (!cleanText) return;
 
-    setIsSpeaking(true);
+    // Monotonic counter to invalidate any outdated responses
+    const seq = ++activeSpeakSeqRef.current;
 
-    // 1. Try human-sounding Gemini Neural Hebrew TTS (native binary audio/wav Blob)
+    // Check client audio cache for instant playback (0ms latency!)
+    const cachedUrl = audioCacheRef.current.get(cleanText);
+    if (cachedUrl) {
+      try {
+        setIsSpeaking(true);
+        const audio = new Audio(cachedUrl);
+        audioRef.current = audio;
+        audio.onended = () => {
+          if (activeSpeakSeqRef.current === seq) stopSpeaking();
+        };
+        audio.onerror = () => {
+          if (activeSpeakSeqRef.current === seq) stopSpeaking();
+        };
+        await audio.play();
+        return;
+      } catch (_) {
+        // Fall back to refetch if cached URL became invalid
+      }
+    }
+
+    setIsAudioLoading(true);
+
+    // Setup dedicated AbortController
+    const abortCtrl = new AbortController();
+    ttsAbortControllerRef.current = abortCtrl;
+
+    // 1. Try human-sounding Gemini Neural Hebrew TTS
     try {
       const res = await fetch('/api/assistant/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: cleanText })
+        body: JSON.stringify({ text: cleanText }),
+        signal: abortCtrl.signal
       });
+
+      // If user triggered another speech in the meantime, ignore
+      if (activeSpeakSeqRef.current !== seq) return;
+
       if (res.ok) {
         const blob = await res.blob();
+        if (activeSpeakSeqRef.current !== seq) return;
+
         const url = URL.createObjectURL(blob);
         audioUrlRef.current = url;
+        audioCacheRef.current.set(cleanText, url);
+
+        setIsAudioLoading(false);
+        setIsSpeaking(true);
+
         const audio = new Audio(url);
         audioRef.current = audio;
-        audio.onended = () => stopSpeaking();
-        audio.onerror = () => stopSpeaking();
+        audio.onended = () => {
+          if (activeSpeakSeqRef.current === seq) stopSpeaking();
+        };
+        audio.onerror = () => {
+          if (activeSpeakSeqRef.current === seq) stopSpeaking();
+        };
         await audio.play();
         return;
       }
-    } catch {
+    } catch (err: any) {
+      if (err.name === 'AbortError' || activeSpeakSeqRef.current !== seq) {
+        return;
+      }
       // Fall through cleanly to native Hebrew browser voice
     }
 
-    // 2. Fallback: Web Speech API with explicit Hebrew voice selection (never robotic English!)
+    if (activeSpeakSeqRef.current !== seq) return;
+    setIsAudioLoading(false);
+
+    // 2. Fallback: Web Speech API with explicit Hebrew voice selection
     if (!('speechSynthesis' in window)) {
       setIsSpeaking(false);
       return;
     }
     try {
+      setIsSpeaking(true);
       const utterance = new SpeechSynthesisUtterance(cleanText);
       utterance.lang = 'he-IL';
-      utterance.rate = 0.98;
+      utterance.rate = 1.0;
       const voices = window.speechSynthesis.getVoices() || [];
       const heVoice =
         voices.find(v => (v.lang === 'he-IL' || v.lang === 'iw-IL') && /google|carmit|hila|avri|natural/i.test(v.name)) ||
         voices.find(v => v.lang.toLowerCase().startsWith('he') || v.lang.toLowerCase().startsWith('iw'));
       if (heVoice) utterance.voice = heVoice;
-      utterance.onend = () => setIsSpeaking(false);
-      utterance.onerror = () => setIsSpeaking(false);
+      utterance.onend = () => {
+        if (activeSpeakSeqRef.current === seq) setIsSpeaking(false);
+      };
+      utterance.onerror = () => {
+        if (activeSpeakSeqRef.current === seq) setIsSpeaking(false);
+      };
       window.speechSynthesis.speak(utterance);
     } catch {
       setIsSpeaking(false);
@@ -230,7 +319,12 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     };
 
     setMessages(prev => [...prev, assistantMsg]);
-  }, [screenContext, providerConfig, user, spaces]);
+
+    // Auto-Speak feature: immediately speak newly received assistant response if enabled
+    if (autoSpeak && scrubbedAnswer) {
+      speakText(scrubbedAnswer);
+    }
+  }, [screenContext, providerConfig, user, spaces, autoSpeak, speakText]);
 
   const submitFeedback = useCallback((messageId: string, rating: 'helpful' | 'not_helpful') => {
     setMessages(prev => prev.map(m => {
@@ -267,6 +361,9 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         clearChat,
         suggestedQuestions,
         isSpeaking,
+        isAudioLoading,
+        autoSpeak,
+        toggleAutoSpeak,
         speakText,
         stopSpeaking,
         providerConfig,

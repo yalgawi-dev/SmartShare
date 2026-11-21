@@ -15,6 +15,9 @@ export const GlobalAssistantDrawer: React.FC = () => {
     submitFeedback,
     suggestedQuestions,
     isSpeaking,
+    isAudioLoading,
+    autoSpeak,
+    toggleAutoSpeak,
     speakText,
     stopSpeaking,
     clearChat
@@ -296,12 +299,35 @@ export const GlobalAssistantDrawer: React.FC = () => {
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {/* Auto-Speak Toggle Button */}
+              <button
+                type="button"
+                onClick={toggleAutoSpeak}
+                style={{
+                  background: autoSpeak ? '#10b981' : 'rgba(255,255,255,0.2)',
+                  border: 'none',
+                  borderRadius: '8px',
+                  color: '#ffffff',
+                  padding: '3px 7px',
+                  fontSize: '0.72rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '3px',
+                  transition: 'background 0.2s'
+                }}
+                title={autoSpeak ? 'הקראה אוטומטית פועלת - לחץ לכיבוי' : 'הקראה אוטומטית כבויה - לחץ להפעלה'}
+              >
+                {autoSpeak ? '🔊 אוטומטי' : '🔇 שקט'}
+              </button>
+
               {isSpeaking && (
                 <button
                   type="button"
                   onClick={stopSpeaking}
                   style={{
-                    background: 'rgba(255,255,255,0.2)',
+                    background: 'rgba(255,255,255,0.25)',
                     border: 'none',
                     borderRadius: '8px',
                     color: '#ffffff',
@@ -311,7 +337,7 @@ export const GlobalAssistantDrawer: React.FC = () => {
                   }}
                   title="הפסק הקראה"
                 >
-                  🔊 עצור
+                  ⏹️ עצור
                 </button>
               )}
               <button
@@ -431,11 +457,15 @@ export const GlobalAssistantDrawer: React.FC = () => {
                           cursor: 'pointer',
                           fontSize: '0.75rem',
                           color: '#6366f1',
-                          padding: 0
+                          padding: 0,
+                          fontWeight: 600,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '3px'
                         }}
                         title="הקרא תשובה בקול"
                       >
-                        🔊 הקרא
+                        {isAudioLoading ? '⏳ טוען שמע...' : isSpeaking ? '🔊 מקריא...' : '🔊 הקרא'}
                       </button>
                       {m.source && (
                         <span style={{
