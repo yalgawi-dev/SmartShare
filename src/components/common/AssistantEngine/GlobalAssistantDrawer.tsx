@@ -332,7 +332,7 @@ export const GlobalAssistantDrawer: React.FC = () => {
               <span style={{ fontSize: '1.3rem' }}>🤖</span>
               <div>
                 <div style={{ fontWeight: 900, fontSize: '0.92rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span>עוזר אישי SmartShare</span>
+                  <span>עוזר אישי MySpace</span>
                   <span style={{ fontSize: '0.68rem', background: 'rgba(255,255,255,0.25)', padding: '1px 6px', borderRadius: '6px' }}>
                     {APP_VERSION}
                   </span>

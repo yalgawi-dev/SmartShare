@@ -7,19 +7,19 @@ import type { KnowledgeGraph } from './assistantMatcher';
  * reflects the exact architecture and rules of the live application.
  */
 export const SMARTSHARE_GRAPH: KnowledgeGraph = {
-  appName: 'SmartShare',
+  appName: 'MySpace',
   version: APP_VERSION,
   nodes: [
     {
       id: 'app_overview',
-      title: 'מה זה SmartShare ומה היכולות של האפליקציה',
+      title: 'מה זה MySpace ומה היכולות של האפליקציה',
       domain: 'סקירה כללית',
       routePatterns: ['/'],
       widgets: ['general'],
-      keywords: ['מה זה', 'יכולות', 'תספר לי', 'על האפליקציה', 'מה האפליקציה', 'smartshare', 'myspace'],
+      keywords: ['מה זה', 'יכולות', 'תספר לי', 'על האפליקציה', 'מה האפליקציה', 'smartshare', 'myspace', 'מיי ספייס'],
       synonyms: ['סקירה', 'מטרה', 'יתרונות', 'מה עושים פה', 'מה יש כאן'],
-      explanation: 'SmartShare היא מערכת מאובטחת לניהול מרחבי עבודה, כספת מסמכים, סריקה חכמה והתחשבנות עם שותפים.\nהיכולות המרכזיות:\n• 📁 כספת תיקיות ומסמכים (PDF, תוכניות, תמונות) עם העברה, העתקה וסל מחזור ל-12 שעות.\n• 🔗 שיתוף מאובטח (קובץ בודד, תיקייה או עץ מלא) עם מעקב צפיות אישי לנמענים וחסימה בקליק.\n• 🔒 שליטה בהרשאות (🌐 פתוח לכולם או 🔒 מוגבל לשותפים).\n• 💰 מנוע התחשבנויות, חשבוניות ודוחות אקסל.\n• 📸 סורק מסמכים משופר עם דחיסת WebP ו-OCR.',
-      sampleQuestion: 'מה היכולות של SmartShare?',
+      explanation: 'MySpace היא מערכת מאובטחת לניהול מרחבי עבודה, כספת מסמכים, סריקה חכמה והתחשבנות עם שותפים.\nהיכולות המרכזיות:\n• 📁 כספת תיקיות ומסמכים (PDF, תוכניות, תמונות) עם העברה, העתקה וסל מחזור ל-12 שעות.\n• 🔗 שיתוף מאובטח (קובץ בודד, תיקייה או עץ מלא) עם מעקב צפיות אישי לנמענים וחסימה בקליק.\n• 🔒 שליטה בהרשאות (🌐 פתוח לכולם או 🔒 מוגבל לשותפים).\n• 💰 מנוע התחשבנויות, חשבוניות ודוחות אקסל.\n• 📸 סורק מסמכים משופר עם דחיסת WebP ו-OCR.',
+      sampleQuestion: 'מה היכולות של MySpace?',
       edges: ['home_spaces', 'vault_folders', 'accounting_engine']
     },
     {
@@ -181,7 +181,7 @@ export const SMARTSHARE_GRAPH: KnowledgeGraph = {
       widgets: ['general'],
       keywords: ['התחברות', 'טלפון', 'קוד', 'sms', 'ספאם', 'גוגל', 'אפל', 'התקנת אפליקציה', 'מסך הבית', 'pwa'],
       synonyms: ['להתקין', 'להיכנס', 'סיסמה', 'אימות', 'אנדרואיד', 'אייפון'],
-      explanation: 'ההתחברות מתבצעת בצורה מאובטחת עם Google, Apple או קוד אימות SMS. ניתן להתקין את SmartShare כאפליקציה על מסך הבית: באנדרואיד בלחיצה אחת ישירה, ובאייפון דרך כפתור השיתוף של Safari ← "הוסף למסך הבית".',
+      explanation: 'ההתחברות מתבצעת בצורה מאובטחת עם Google, Apple או קוד אימות SMS. ניתן להתקין את MySpace כאפליקציה על מסך הבית: באנדרואיד בלחיצה אחת ישירה, ובאייפון דרך כפתור השיתוף של Safari ← "הוסף למסך הבית".',
       sampleQuestion: 'איך מתקינים את האפליקציה על הטלפון?',
       edges: ['home_spaces', 'privacy_rules']
     },
@@ -193,7 +193,7 @@ export const SMARTSHARE_GRAPH: KnowledgeGraph = {
       widgets: ['general'],
       keywords: ['סוכן', 'עוזר', 'בוט', 'להזיז', 'דיבור', 'קול', 'מיקרופון', 'עזרה'],
       synonyms: ['מי אתה', 'מה אתה יודע', 'איך להשתמש בך'],
-      explanation: `אני הסוכן המובנה של SmartShare (גרסה ${APP_VERSION}). אני עוקב אחרי המיקום שלך באפליקציה, מכיר את כל המנועים וההרשאות, ויודע לענות בכתב ובקול. ניתן לגרור את האייקון שלי לכל מקום נוח על המסך.`,
+      explanation: `אני הסוכן המובנה של MySpace (גרסה ${APP_VERSION}). אני עוקב אחרי המיקום שלך באפליקציה, מכיר את כל המנועים וההרשאות, ויודע לענות בכתב ובקול. ניתן לגרור את האייקון שלי לכל מקום נוח על המסך.`,
       sampleQuestion: 'מה הסוכן יודע לעשות כאן?',
       edges: ['home_spaces', 'space_overview', 'privacy_rules']
     }

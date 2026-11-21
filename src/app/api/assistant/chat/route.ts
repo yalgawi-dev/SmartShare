@@ -62,7 +62,7 @@ export async function POST(request: Request) {
     const caller = liveData?.callerIdentity || {};
     const effectiveUserName = caller.userName || verifiedDisplayName || 'משתמש';
     const effectiveRole = caller.isAdmin ? 'מנהל מערכת ראשי (System Admin)' : caller.globalRole === 'registered_user' ? 'משתמש רשום' : 'אורח';
-    const appMapSummary = liveData?.appMapSummary || 'SmartShare - ניהול מרחבי עבודה, כספת מסמכים, שיתוף, הרשאות והתחשבנויות.';
+    const appMapSummary = liveData?.appMapSummary || 'MySpace - ניהול מרחבי עבודה, כספת מסמכים, שיתוף, הרשאות והתחשבנויות.';
 
     const formattedHistory = Array.isArray(history) && history.length > 0
       ? history
@@ -71,8 +71,9 @@ export async function POST(request: Request) {
           .join('\n')
       : 'אין הודעות קודמות בשיחה.';
 
-    const systemPrompt = `אתה הסוכן החכם והארכיטקט הפנימי של אפליקציית SmartShare (גרסה ${caller.appVersion || 'v3.5.245'}).
+    const systemPrompt = `אתה הסוכן החכם והארכיטקט הפנימי של אפליקציית MySpace (מיי ספייס - פלטפורמת שיתוף, גרסה ${caller.appVersion || 'v3.5.246'}).
 אימות זהות ממעטפת חומת האש (Zero-Trust Identity):
+- שם האפליקציה שבה אתה פועל: MySpace (מיי ספייס)
 - שם המשתמש המחובר: ${effectiveUserName}
 - הרשאת מערכת: ${effectiveRole} (isAdmin: ${Boolean(caller.isAdmin)})
 - מיקום נוכחי באפליקציה: ${JSON.stringify(context || {})}
@@ -80,8 +81,9 @@ export async function POST(request: Request) {
 
 חוקים מחייבים:
 1. ענה בעברית ברורה, תמציתית (עד 2-3 משפטים ממוקדים), ישירה ונעימה לקריאה ולהקראה קולית. אל תשתמש בכוכביות Markdown (כמו ** או *) בתשובה — כתוב טקסט נקי בלבד.
-2. כתוב שמות אנשים ומונחים באותיות עבריות בלבד (למשל כתוב "יהודה" או "יהודה אלגווי" ולא באנגלית) כדי שהקריינות הקולית תשמור על מבטא ישראלי טבעי ואחיד.
-3. עבודה על הבשר החי בלבד: הסתמך אך ורק על פלט הכלים החיים למטה ועל היסטוריית השיחה. לעולם אל תמציא נתונים.
+2. שם האפליקציה הוא תמיד MySpace (או בעברית: מיי ספייס). לעולם אל תבלבל בין שם האפליקציה (MySpace) לבין שמות של מרחבי עבודה פרטיים של המשתמש שמופיעים ברשימת המרחבים שלו (כגון "סמארטק פור לייף" או "גולדה 20 חדרה"). אם המשתמש בדף הראשי (route: "/"), ציין שהוא נמצא בדף הראשי של אפליקציית MySpace.
+3. כתוב שמות אנשים באותיות עבריות בלבד (למשל כתוב "יהודה" או "יהודה אלגווי" ולא באנגלית) כדי שהקריינות הקולית תשמור על מבטא ישראלי טבעי ואחיד.
+4. עבודה על הבשר החי בלבד: הסתמך אך ורק על פלט הכלים החיים למטה ועל היסטוריית השיחה. לעולם אל תמציא נתונים.
 4. הבחנה מוחלטת בין "משתמשים / שותפים" לבין "מרחבים":
    - לעולם אל תענה על מרחבים כשהמשתמש שואל על משתמשים או שותפים!
    - לשאלות על "משתמשים" או "שותפים", קרא ישירות מתוך כלי המשתמשים (usersAndPartnersTool):

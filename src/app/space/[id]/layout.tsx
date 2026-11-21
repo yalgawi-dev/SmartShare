@@ -8,8 +8,8 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
-  let title = 'SmartShare | מרחב משותף';
-  let description = 'הוזמנת להצטרף ולשתף פעולה במרחב ב-SmartShare';
+  let title = 'MySpace | מרחב משותף';
+  let description = 'הוזמנת להצטרף ולשתף פעולה במרחב ב-MySpace';
   const siteUrl = 'https://smart-share-tvwn-delta.vercel.app';
   const spaceUrl = siteUrl + '/space/' + id;
   try {
@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         const spaceData = snap.data();
         const spaceTitle = spaceData?.title || 'מרחב משותף';
         title = 'הזמנה למרחב: ' + spaceTitle;
-        description = 'הוזמנת על ידי שותפי המרחב להצטרף ל-' + spaceTitle + ' ב-SmartShare. לחץ להצטרפות וכניסה ישירה.';
+        description = 'הוזמנת על ידי שותפי המרחב להצטרף ל-' + spaceTitle + ' ב-MySpace. לחץ להצטרפות וכניסה ישירה.';
       }
     }
   } catch (error) {
@@ -33,7 +33,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title,
       description,
       url: spaceUrl,
-      siteName: 'SmartShare',
+      siteName: 'MySpace',
       images: [{ url: siteUrl + '/icons/icon-512x512.png', width: 512, height: 512, alt: title }],
       type: 'website',
       locale: 'he_IL',

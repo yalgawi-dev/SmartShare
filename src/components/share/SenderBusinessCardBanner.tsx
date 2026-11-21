@@ -62,7 +62,7 @@ export function SenderBusinessCardBanner({ shareData }: SenderBusinessCardBanner
         </div>
 
         <span style={{ fontSize: '0.72rem', color: '#cbd5e1' }}>
-          נשלח באמצעות SmartShare
+          נשלח באמצעות MySpace
         </span>
       </div>
 
@@ -135,7 +135,7 @@ export function SenderBusinessCardBanner({ shareData }: SenderBusinessCardBanner
 
           {whatsapp && (
             <a
-              href={`https://wa.me/${formattedWhatsappNumber}?text=${encodeURIComponent(`שלום ${businessName}, ראיתי את המסמכים ששיתפת איתי ב-SmartShare.`)}`}
+              href={`https://wa.me/${formattedWhatsappNumber}?text=${encodeURIComponent(`שלום ${businessName}, ראיתי את המסמכים ששיתפת איתי ב-MySpace.`)}`}
               target="_blank"
               rel="noopener noreferrer"
               style={{
