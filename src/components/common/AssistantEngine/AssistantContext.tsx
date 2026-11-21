@@ -12,6 +12,8 @@ interface ChatMessage {
   sender: 'user' | 'assistant';
   text: string;
   timestamp: number;
+  source?: 'local_brain' | 'cloud_llm';
+  fallbackReason?: string;
   queryText?: string;
   nodeId?: string;
   confidence?: 'high' | 'medium' | 'low';
@@ -159,6 +161,8 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       sender: 'assistant',
       text: scrubbedAnswer,
       timestamp: Date.now(),
+      source: aiResult.source,
+      fallbackReason: aiResult.fallbackReason,
       queryText: sanitizedText,
       nodeId: aiResult.nodeId,
       confidence: aiResult.confidence,

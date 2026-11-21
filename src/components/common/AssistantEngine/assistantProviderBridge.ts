@@ -19,6 +19,7 @@ export interface AIProviderConfig {
 export interface AIQueryResponse {
   text: string;
   source: 'local_brain' | 'cloud_llm';
+  fallbackReason?: string;
   tokensUsed?: number;
   nodeId?: string;
   confidence?: 'high' | 'medium' | 'low';
@@ -35,11 +36,15 @@ export async function queryAIAssistant(
   context: ScreenContext,
   config: AIProviderConfig = { provider: 'local_free' }
 ): Promise<AIQueryResponse> {
+  let fallbackReason: string | undefined;
+
   // 1. If configured for external cloud LLM and user has premium feature enabled
   if (config.provider === 'cloud_llm' && config.isPremiumEnabled) {
     try {
       const idToken = auth.currentUser ? await auth.currentUser.getIdToken() : '';
-      if (idToken) {
+      if (!idToken) {
+        fallbackReason = 'no_auth_token';
+      } else {
         const response = await fetch('/api/assistant/chat', {
           method: 'POST',
           headers: {
@@ -70,9 +75,14 @@ export async function queryAIAssistant(
               tokensUsed: data.tokensUsed
             };
           }
+          fallbackReason = 'empty_answer';
+        } else {
+          const errData = await response.json().catch(() => ({}));
+          fallbackReason = errData.reason || `http_${response.status}`;
         }
       }
     } catch (err) {
+      fallbackReason = 'network_error';
       console.warn('Cloud LLM query failed, gracefully falling back to local brain:', err);
     }
   }
@@ -82,6 +92,7 @@ export async function queryAIAssistant(
   return {
     text: localResult.answer,
     source: 'local_brain',
+    fallbackReason,
     nodeId: localResult.relatedTopicId,
     confidence: localResult.confidence,
     suggestions: localResult.suggestions

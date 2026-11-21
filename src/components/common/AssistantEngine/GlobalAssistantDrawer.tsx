@@ -274,8 +274,21 @@ export const GlobalAssistantDrawer: React.FC = () => {
                     {APP_VERSION}
                   </span>
                 </div>
-                <div style={{ fontSize: '0.68rem', opacity: 0.9 }}>
-                  {screenContext.activeWidget === 'fileshare' ? '📁 מודע לפורטל שיתוף קבצים' : '🌐 מודע לכלל המערכת'}
+                <div style={{ fontSize: '0.68rem', opacity: 0.92, display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                  <span>{screenContext.activeWidget === 'fileshare' ? '📁 מודע לפורטל שיתוף קבצים' : '🌐 מודע לכלל המערכת'}</span>
+                  {(() => {
+                    const lastAst = [...messages].reverse().find(m => m.sender === 'assistant' && m.source);
+                    if (!lastAst) {
+                      return <span style={{ background: 'rgba(16,185,129,0.28)', padding: '1px 6px', borderRadius: '6px', fontWeight: 700 }}>✨ AI מוכן</span>;
+                    }
+                    return lastAst.source === 'cloud_llm' ? (
+                      <span style={{ background: 'rgba(16,185,129,0.32)', padding: '1px 6px', borderRadius: '6px', fontWeight: 700 }}>✨ AI חכם פעיל</span>
+                    ) : (
+                      <span style={{ background: 'rgba(245,158,11,0.35)', padding: '1px 6px', borderRadius: '6px', fontWeight: 700 }}>
+                        🧠 מקומי{lastAst.fallbackReason ? ` (${lastAst.fallbackReason})` : ''}
+                      </span>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
@@ -403,24 +416,39 @@ export const GlobalAssistantDrawer: React.FC = () => {
                   </div>
                 )}
 
-                {/* Speak + Helpful/Not-Helpful feedback on assistant answers */}
+                {/* Speak + AI Source Indicator + Helpful/Not-Helpful feedback on assistant answers */}
                 {m.sender === 'assistant' && (
-                  <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                    <button
-                      type="button"
-                      onClick={() => speakText(m.text)}
-                      style={{
-                        background: 'transparent',
-                        border: 'none',
-                        cursor: 'pointer',
-                        fontSize: '0.75rem',
-                        color: '#6366f1',
-                        padding: 0
-                      }}
-                      title="הקרא תשובה בקול"
-                    >
-                      🔊 הקרא
-                    </button>
+                  <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <button
+                        type="button"
+                        onClick={() => speakText(m.text)}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          cursor: 'pointer',
+                          fontSize: '0.75rem',
+                          color: '#6366f1',
+                          padding: 0
+                        }}
+                        title="הקרא תשובה בקול"
+                      >
+                        🔊 הקרא
+                      </button>
+                      {m.source && (
+                        <span style={{
+                          fontSize: '0.68rem',
+                          fontWeight: 700,
+                          padding: '1px 6px',
+                          borderRadius: '6px',
+                          background: m.source === 'cloud_llm' ? '#ecfdf5' : '#fffbeb',
+                          color: m.source === 'cloud_llm' ? '#047857' : '#b45309',
+                          border: `1px solid ${m.source === 'cloud_llm' ? '#a7f3d0' : '#fde68a'}`
+                        }}>
+                          {m.source === 'cloud_llm' ? '✨ AI חכם' : `🧠 מקומי (${m.fallbackReason || 'fallback'})`}
+                        </span>
+                      )}
+                    </div>
 
                     {m.id !== 'welcome' && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>

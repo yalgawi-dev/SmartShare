@@ -207,26 +207,38 @@ ${appMapSummary}
 הנתונים החיים של המשתמש המחובר (מרחבים, שותפים, מאזנים וחשבוניות):
 ${JSON.stringify(spacesSnap)}`;
 
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-    const geminiRes = await fetch(geminiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: `${systemPrompt}\n\nשאלת המשתמש: ${query}` }] }],
-        generationConfig: { temperature: 0.2, maxOutputTokens: 600 }
-      })
-    });
+    const models = ['gemini-flash-lite-latest', 'gemini-2.0-flash-lite'];
+    let geminiData: any = null;
+    let lastStatus = 0;
+    let lastErr = '';
 
-    if (!geminiRes.ok) {
-      const errTxt = await geminiRes.text();
-      console.warn('Gemini assistant error:', geminiRes.status, errTxt.slice(0, 200));
-      return NextResponse.json({ error: 'AI unavailable' }, { status: 502 });
+    for (const model of models) {
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const geminiRes = await fetch(geminiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: `${systemPrompt}\n\nשאלת המשתמש: ${query}` }] }],
+          generationConfig: { temperature: 0.2, maxOutputTokens: 600 }
+        })
+      });
+
+      if (geminiRes.ok) {
+        geminiData = await geminiRes.json();
+        break;
+      }
+      lastStatus = geminiRes.status;
+      lastErr = await geminiRes.text();
+      console.warn(`Gemini (${model}) error:`, lastStatus, lastErr.slice(0, 200));
     }
 
-    const geminiData = await geminiRes.json();
+    if (!geminiData) {
+      return NextResponse.json({ error: 'AI unavailable', reason: `gemini_${lastStatus}` }, { status: 502 });
+    }
+
     const answer = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
     if (!answer) {
-      return NextResponse.json({ error: 'Empty AI response' }, { status: 502 });
+      return NextResponse.json({ error: 'Empty AI response', reason: 'gemini_empty' }, { status: 502 });
     }
 
     return NextResponse.json({
