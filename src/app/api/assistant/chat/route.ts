@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAuth } from 'firebase-admin/auth';
-import { adminDb } from '@/lib/firebaseAdmin';
-import { SMARTSHARE_GRAPH } from '@/components/common/AssistantEngine/assistantGraph';
+import { adminDb, adminAuth } from '@/lib/firebaseAdmin';
 
 export const maxDuration = 30;
 
@@ -142,14 +140,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    if (!adminAuth) {
+      return NextResponse.json({ error: 'Firebase Admin not initialized', reason: 'admin_not_init' }, { status: 500 });
+    }
+
     let uid = '';
     let userName = '';
     try {
-      const decoded = await getAuth().verifyIdToken(token);
+      const decoded = await adminAuth.verifyIdToken(token);
       uid = decoded.uid;
       userName = decoded.name || '';
     } catch {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+      return NextResponse.json({ error: 'Invalid token', reason: 'invalid_token' }, { status: 401 });
     }
 
     const { query, context } = await request.json();
@@ -194,11 +196,15 @@ export async function POST(request: Request) {
       spacesLoadError = 'adminDb_not_initialized';
     }
 
-    const appMapSummary = SMARTSHARE_GRAPH.nodes
-      .map((n) => `- ${n.title}: ${n.explanation.replace(/\n/g, ' ')}`)
-      .join('\n');
+    const appMapSummary = `SmartShare (v3.5.232):
+- מרחבים ומדפים: כל פרויקט הוא מרחב הכולל מדפים, תיקיות, מסמכים, התחשבנויות ושותפים.
+- פרטיות והרשאות: ברירת המחדל היא 🌐 פתוח לכולם. פריט 🔒 מוגבל גלוי רק ליוצר ולמורשים, אך הרשאה ישירה לתת-תיקייה גוברת על חסימת תיקיית-אב.
+- שיתוף ונמענים: שיתוף קובץ בודד, תיקייה בלבד, עץ מלא (כולל תתי-תיקיות), או שיתוף כל הקיר עם מעקב צפיות וזמן שהייה לכל נמען וחסימה בקליק.
+- סל מחזור: פריטים שנמחקו נשמרים ל-12 שעות לשחזור מהיר.
+- התחשבנויות: חישוב מאזן נטו בין שותפים, אישור חשבוניות, העברות ודוחות.
+- סורק מסמכים: סריקה ודחיסה ל-WebP + העלאת PDF מרובי עמודים.`;
 
-    const systemPrompt = `אתה הסוכן החכם והארכיטקט של אפליקציית SmartShare (גרסה ${SMARTSHARE_GRAPH.version}).
+    const systemPrompt = `אתה הסוכן החכם והארכיטקט של אפליקציית SmartShare.
 שם המשתמש המחובר: ${userName || 'משתמש'}.
 מיקום נוכחי באפליקציה: ${JSON.stringify(context || {})}.
 
