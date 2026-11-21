@@ -5,16 +5,28 @@ import { SMARTSHARE_GRAPH } from '@/components/common/AssistantEngine/assistantG
 
 export const maxDuration = 30;
 
+interface VaultItemAccess {
+  name: string;
+  visibility: 'open_all' | 'restricted';
+  allowedPartnerNames: string[];
+}
+
 interface SpaceSnapshot {
   id: string;
   title: string;
   role: 'creator' | 'member';
+  creatorName: string;
   members: Array<{ name: string; share: number; netBalance: number }>;
   totalExpenses: number;
   invoicesCount: number;
   pendingCount: number;
   filesCount?: number;
   foldersCount?: number;
+  vault?: {
+    shelves: VaultItemAccess[];
+    folders: VaultItemAccess[];
+    documentsCount: number;
+  };
 }
 
 function computeSpaceSnapshot(spaceId: string, data: any, uid: string): SpaceSnapshot {
@@ -89,14 +101,31 @@ function computeSpaceSnapshot(spaceId: string, data: any, uid: string): SpaceSna
     return { name: m.name, share: m.share, netBalance };
   });
 
+  const mapAccess = (item: any, nameField: 'title' | 'name'): VaultItemAccess => {
+    const rawAllowed = Array.isArray(item?.allowedPartners)
+      ? item.allowedPartners.filter((pid: string) => pid && pid.trim() !== '' && pid !== creatorId)
+      : [];
+    return {
+      name: item?.[nameField] || item?.title || item?.name || 'ללא שם',
+      visibility: rawAllowed.length > 0 ? 'restricted' : 'open_all',
+      allowedPartnerNames: rawAllowed.map((pid: string) => memberMap.get(pid)?.name || pid)
+    };
+  };
+
+  const shelves = Array.isArray(data.shelves) ? data.shelves.map((s: any) => mapAccess(s, 'title')) : [];
+  const folders = Array.isArray(data.documentFolders) ? data.documentFolders.slice(0, 40).map((f: any) => mapAccess(f, 'name')) : [];
+  const documentsCount = Array.isArray(data.documents) ? data.documents.length : 0;
+
   return {
     id: spaceId,
     title: data.title || 'מרחב ללא שם',
     role: data.creatorId === uid ? 'creator' : 'member',
+    creatorName: memberMap.get(creatorId)?.name || data.createdBy || 'יוצר המרחב',
     members,
     totalExpenses: Math.round(totalExpenses * 100) / 100,
     invoicesCount: invoices.length,
-    pendingCount
+    pendingCount,
+    vault: { shelves, folders, documentsCount }
   };
 }
 
@@ -169,7 +198,8 @@ export async function POST(request: Request) {
 1. ענה בעברית ברורה, קצרה ונעימה.
 2. הסתמך אך ורק על נתוני האמת שסופקו לך למטה. לעולם אל תמציא סכומים, שמות שותפים או קבצים שלא מופיעים בנתונים.
 3. בנתוני היתרה (netBalance): ערך חיובי (+) אומר שמגיע לשותף כסף מהקבוצה/אחרים; ערך שלילי (-) אומר שהשותף חייב כסף לקבוצה/אחרים. הסבר זאת בצורה פשוטה וברורה.
-4. אם חסר מידע או שותף לא נמצא, אמור זאת בבירור.
+4. בנתוני הכספת והמדפים (vault): visibility: 'open_all' (🌐 פתוח לכולם) אומר שכל חברי המרחב יכולים לראות אותו. visibility: 'restricted' (🔒 מוגבל) אומר שרק יוצר המרחב (creatorName) והשותפים הרשומים ב-allowedPartnerNames יכולים לראות אותו. שים לב: הרשאה ישירה לתת-תיקייה גוברת על חסימה בתיקיית-אב.
+5. אם חסר מידע או שותף לא נמצא, אמור זאת בבירור.
 
 מפת היכולות של האפליקציה:
 ${appMapSummary}

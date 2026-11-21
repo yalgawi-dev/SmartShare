@@ -21,6 +21,7 @@ import ScannerModal from '../../../components/widgets/ScannerModal';
 import { DOCUMENT_MAX_BYTES, compressImageWebP } from '../../../utils/imageOptimizer';
 import { recordSpaceVisit } from '../../../utils/spaceSorting';
 import { useTelemetryTracker } from '../../../hooks/useTelemetryTracker';
+import { useAssistant } from '../../../components/common/AssistantEngine/AssistantContext';
 
 import TopGuestsWidget from '../../../components/widgets/TopGuestsWidget';
 import WelcomeGate from '../../../components/widgets/Partners/WelcomeGate';
@@ -132,11 +133,32 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
     return unread.length;
   }, [space, user]);
   
+  const { updateScreenContext } = useAssistant();
+
   useEffect(() => {
     if (typeof window !== 'undefined' && id) {
       recordSpaceVisit(id);
     }
   }, [id]);
+
+  useEffect(() => {
+    if (!space?.id) return;
+    const feats = space.features || [];
+    const widget =
+      showPartnersModal ? 'partners' :
+      feats.includes('finance') && (financeTab === 'summary' || financeTab === 'transactions' || financeTab === 'inbox') ? 'accounting' :
+      feats.includes('documents') ? 'documents' :
+      feats.includes('fileshare') ? 'fileshare' :
+      'general';
+    const role = getRoleForSpace(space.id);
+
+    updateScreenContext({
+      spaceId: space.id,
+      spaceTitle: space.title,
+      activeWidget: widget,
+      userRole: role === 'creator' ? 'creator' : role === 'partner' ? 'partner' : 'guest'
+    });
+  }, [space?.id, space?.title, space?.features, showPartnersModal, financeTab, getRoleForSpace, updateScreenContext]);
 
   useEffect(() => {
     const handleBackStep = (e: any) => {
