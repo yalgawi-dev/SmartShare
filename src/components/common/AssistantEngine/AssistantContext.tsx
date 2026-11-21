@@ -251,7 +251,7 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const abortCtrl = new AbortController();
     ttsAbortControllerRef.current = abortCtrl;
 
-    // 1. Try human-sounding Gemini Neural Hebrew TTS
+    // 1. Human-sounding Gemini Neural Hebrew TTS (Single unified voice: Kore)
     try {
       const res = await fetch('/api/assistant/tts', {
         method: 'POST',
@@ -290,35 +290,12 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       if (err.name === 'AbortError' || activeSpeakSeqRef.current !== seq) {
         return;
       }
-      // Fall through cleanly to native Hebrew browser voice
+      console.warn('TTS cloud audio failed:', err);
     }
 
-    if (activeSpeakSeqRef.current !== seq) return;
-    setIsAudioLoading(false);
-
-    // 2. Fallback: Web Speech API with explicit Hebrew voice selection
-    if (!('speechSynthesis' in window)) {
-      setIsSpeaking(false);
-      return;
-    }
-    try {
-      setIsSpeaking(true);
-      const utterance = new SpeechSynthesisUtterance(cleanText);
-      utterance.lang = 'he-IL';
-      utterance.rate = playbackRate;
-      const voices = window.speechSynthesis.getVoices() || [];
-      const heVoice =
-        voices.find(v => (v.lang === 'he-IL' || v.lang === 'iw-IL') && /google|carmit|hila|avri|natural/i.test(v.name)) ||
-        voices.find(v => v.lang.toLowerCase().startsWith('he') || v.lang.toLowerCase().startsWith('iw'));
-      if (heVoice) utterance.voice = heVoice;
-      utterance.onend = () => {
-        if (activeSpeakSeqRef.current === seq) setIsSpeaking(false);
-      };
-      utterance.onerror = () => {
-        if (activeSpeakSeqRef.current === seq) setIsSpeaking(false);
-      };
-      window.speechSynthesis.speak(utterance);
-    } catch {
+    // Stop cleanly without switching to local browser voices that have strange accents (Russian/English)
+    if (activeSpeakSeqRef.current === seq) {
+      setIsAudioLoading(false);
       setIsSpeaking(false);
     }
   }, [stopSpeaking, playbackRate]);

@@ -65,7 +65,10 @@ export function buildLiveAssistantSnapshot(user: any, spaces: any[]): LiveAssist
         ? user.nickname
         : 'משתמש';
 
-  const mappedSpaces: LiveSpaceSnapshot[] = (spaces || []).slice(0, 25).map((space: any) => {
+  const mappedSpaces: LiveSpaceSnapshot[] = (spaces || [])
+    .filter((s: any) => s && s.status !== 'pending_deletion' && !s.isArchived && s.id !== '__global_announcement__')
+    .slice(0, 25)
+    .map((space: any) => {
     const isCreatorMe = space.creatorId === uid || space.createdBy === userName;
     const creatorId =
       space.creatorId ||
