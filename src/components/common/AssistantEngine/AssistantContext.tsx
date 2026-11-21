@@ -115,12 +115,14 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [autoSpeak, setAutoSpeak] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       try {
-        return localStorage.getItem('smartshare_assistant_autospeak') === 'true';
+        const stored = localStorage.getItem('smartshare_assistant_autospeak');
+        if (stored !== null) return stored === 'true';
+        return true; // Default ON for all users (🔊 אוטו)
       } catch (_) {
-        return false;
+        return true;
       }
     }
-    return false;
+    return true;
   });
 
   const toggleAutoSpeak = useCallback(() => {

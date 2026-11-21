@@ -145,7 +145,10 @@ export function executeLiveAssistantTools(
     const isCreatorMe = spaceRole === 'creator';
     const isCurrentActiveSpace =
       Boolean(screenContext.spaceId && space.id === screenContext.spaceId) ||
-      Boolean(screenContext.spaceTitle && space.title === screenContext.spaceTitle) ||
+      Boolean(screenContext.spaceTitle && space.title === screenContext.spaceTitle);
+
+    const isQueriedSpace =
+      isCurrentActiveSpace ||
       queryTokens.some((tok) => (space.title || '').toLowerCase().includes(tok));
 
     const creatorId =
@@ -411,7 +414,7 @@ export function executeLiveAssistantTools(
         };
       });
 
-    const selectedInvoices = isCurrentActiveSpace
+    const selectedInvoices = isQueriedSpace
       ? allFormattedInvoices.slice(0, 60)
       : allFormattedInvoices
           .filter((inv) =>

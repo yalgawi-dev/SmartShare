@@ -77,15 +77,20 @@ export const AdminBugReportsModal: React.FC<AdminBugReportsModalProps> = ({
   };
 
   const handleCopyForAI = async (rep: BugReportRecord) => {
+    const videoLink = rep.videoUrl || (rep.mediaUrl && rep.mediaType === 'video' ? rep.mediaUrl : '');
+    const screenshotLink = rep.screenshotUrl || (rep.mediaUrl && rep.mediaType === 'screenshot' ? rep.mediaUrl : '');
+
     const promptForAI = [
       `🐞 דוח תקלה ממשתמש לתיקון ב-MySpace (${rep.telemetry?.appVersion || APP_VERSION}):`,
       `- מדווח: ${rep.reporter?.name || 'אורח'} (${rep.reporter?.phone || 'ללא טלפון'})`,
       `- תיאור התקלה: ${rep.description}`,
       `- מיקום באפליקציה: ${rep.telemetry?.spaceTitle ? `מרחב "${rep.telemetry.spaceTitle}"` : rep.telemetry?.route} | כלי פעיל: ${rep.telemetry?.activeWidget || 'כללי'}`,
+      videoLink ? `- קישור ישיר לסרטון מסך התקלה: ${videoLink}` : '',
+      screenshotLink ? `- קישור ישיר לצילום מסך: ${screenshotLink}` : '',
       `- מכשיר: ${rep.telemetry?.deviceOS} (${rep.telemetry?.screenSize})`,
       `- כפתורים על המסך ברגע התקלה: ${(rep.telemetry?.domSnapshot?.visibleButtonsAndActions || []).slice(0, 15).join(', ')}`,
       `- שיחה אחרונה עם הסוכן: ${rep.chatContextSummary || 'ללא'}`
-    ].join('\n');
+    ].filter(Boolean).join('\n');
 
     try {
       await navigator.clipboard.writeText(promptForAI);
@@ -462,8 +467,17 @@ export const AdminBugReportsModal: React.FC<AdminBugReportsModalProps> = ({
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '8px' }}>
                           {hasVideo && (
                             <div style={{ background: '#0f172a', borderRadius: '12px', padding: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px' }}>
-                              <div style={{ color: '#94a3b8', fontSize: '0.71rem', alignSelf: 'flex-start' }}>
-                                🎥 סרטון מסך מוקלט ({rep.mediaDurationSec || 0} שניות)
+                              <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#94a3b8', fontSize: '0.71rem' }}>
+                                <span>🎥 סרטון מסך מוקלט ({rep.mediaDurationSec || 0} שניות)</span>
+                                <a
+                                  href={rep.videoUrl || rep.mediaUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  download="bug_video.webm"
+                                  style={{ color: '#38bdf8', textDecoration: 'underline', fontWeight: 800 }}
+                                >
+                                  ⬇️ פתח / הורד
+                                </a>
                               </div>
                               <video src={rep.videoUrl || rep.mediaUrl} controls style={{ maxWidth: '100%', maxHeight: '220px', borderRadius: '8px' }} />
                             </div>
