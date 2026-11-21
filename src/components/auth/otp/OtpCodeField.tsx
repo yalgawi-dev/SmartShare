@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
-import { OTP_AUTO_VERIFY, OTP_LENGTH, sanitizeOtp, extractOtpFromText, isOtpRejected } from './otpPolicy';
+import { OTP_AUTO_VERIFY, OTP_LENGTH, sanitizeOtp } from './otpPolicy';
 import SmsSpamHint from './SmsSpamHint';
 
 interface OtpCodeFieldProps {
@@ -53,28 +53,6 @@ export default function OtpCodeField({
     if (OTP_AUTO_VERIFY && code.length === OTP_LENGTH) onComplete?.(code);
   };
 
-  const handlePasteClick = async () => {
-    let text = '';
-    try {
-      text = await navigator.clipboard.readText();
-    } catch {
-      onError('לא הצלחנו לקרוא את ההעתקה. לחץ לחיצה ארוכה על התיבה ובחר "הדבק".');
-      inputRef.current?.focus();
-      return;
-    }
-    const code = extractOtpFromText(text);
-    if (!code) {
-      onError('לא מצאנו קוד בהעתקה. העתק את הקוד מההודעה האחרונה ונסה שוב.');
-      return;
-    }
-    if (isOtpRejected(code)) {
-      onError(`הקוד ${code} הוא קוד ישן שכבר נדחה. העתק את הקוד מההודעה החדשה.`);
-      return;
-    }
-    onChange(code);
-    inputRef.current?.focus();
-  };
-
   return (
     <>
       <div dir="ltr" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', width: '100%' }}>
@@ -94,19 +72,6 @@ export default function OtpCodeField({
           className={inputClassName}
           style={inputStyle}
         />
-        <button
-          type="button"
-          onClick={handlePasteClick}
-          disabled={disabled}
-          style={{
-            background: '#EFF6FF', border: '1px solid #BFDBFE', color: '#1D4ED8',
-            padding: '6px 14px', borderRadius: '10px', fontSize: '0.84rem', fontWeight: 700,
-            cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', direction: 'rtl'
-          }}
-        >
-          <span>📋</span>
-          <span>הדבק קוד שהעתקתי</span>
-        </button>
       </div>
       {children}
       <SmsSpamHint />
