@@ -28,6 +28,8 @@ export const GlobalAssistantDrawer: React.FC = () => {
   const [inputVal, setInputVal] = useState('');
   const [isListening, setIsListening] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const recognitionRef = useRef<any>(null);
+  const baseInputRef = useRef<string>('');
 
   // DRAGGABLE POSITION STATE (Persisted across pages)
   const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
@@ -132,7 +134,18 @@ export const GlobalAssistantDrawer: React.FC = () => {
     }
   }, [messages, isOpen]);
 
-  // Speech-to-Text via Web Speech API
+  // Clean up speech recognition if drawer closes or unmounts
+  useEffect(() => {
+    if (!isOpen && recognitionRef.current) {
+      try {
+        recognitionRef.current.abort();
+      } catch (_) {}
+      recognitionRef.current = null;
+      setIsListening(false);
+    }
+  }, [isOpen]);
+
+  // Speech-to-Text via Web Speech API (with Android AudioFocus release & live interim preview)
   const handleToggleVoiceInput = () => {
     if (typeof window === 'undefined') return;
 
@@ -142,48 +155,89 @@ export const GlobalAssistantDrawer: React.FC = () => {
       return;
     }
 
+    // 1. If currently listening, stop cleanly via recognitionRef
     if (isListening) {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (_) {}
+        recognitionRef.current = null;
+      }
       setIsListening(false);
       return;
+    }
+
+    // 2. Immediately stop any active TTS audio playback so Android releases AudioFocus for the microphone!
+    stopSpeaking();
+
+    // 3. Abort any stale recognition instance that may still hold the browser mic lock
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.abort();
+      } catch (_) {}
+      recognitionRef.current = null;
     }
 
     try {
       const recognition = new SpeechRecognition();
       recognition.lang = 'he-IL';
-      recognition.interimResults = false;
+      recognition.continuous = false;
+      recognition.interimResults = true;
       recognition.maxAlternatives = 1;
+
+      baseInputRef.current = inputVal.trim();
+      recognitionRef.current = recognition;
 
       recognition.onstart = () => {
         setIsListening(true);
       };
 
       recognition.onresult = (event: any) => {
-        const transcript = event.results[0]?.[0]?.transcript;
+        // On Android Chrome with continuous=false & interimResults=true,
+        // the latest result entry holds the cumulative utterance without duplication
+        const lastIdx = event.results.length - 1;
+        const transcript = (event.results[lastIdx]?.[0]?.transcript || '').trim();
         if (transcript) {
-          setInputVal(prev => (prev ? `${prev} ${transcript}` : transcript));
+          const base = baseInputRef.current;
+          setInputVal(base ? `${base} ${transcript}` : transcript);
         }
       };
 
       recognition.onerror = (event: any) => {
         console.warn('Speech recognition error:', event.error);
         setIsListening(false);
+        recognitionRef.current = null;
+        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+          alert('הגישה למיקרופון חסומה בדפדפן. אנא אשר גישה למיקרופון בהגדרות הדפדפן.');
+        }
       };
 
       recognition.onend = () => {
         setIsListening(false);
+        recognitionRef.current = null;
       };
 
       recognition.start();
+      setIsListening(true);
     } catch (err) {
       console.warn('Failed to start speech recognition:', err);
       setIsListening(false);
+      recognitionRef.current = null;
     }
   };
 
   const handleSend = async (textToSend?: string) => {
+    if (isListening && recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (_) {}
+      recognitionRef.current = null;
+      setIsListening(false);
+    }
     const text = (textToSend || inputVal).trim();
     if (!text) return;
     setInputVal('');
+    baseInputRef.current = '';
     await sendMessage(text);
   };
 
@@ -644,12 +698,12 @@ export const GlobalAssistantDrawer: React.FC = () => {
               type="text"
               value={inputVal}
               onChange={e => setInputVal(e.target.value)}
-              placeholder="שאל משהו בקול או בהקלדה..."
+              placeholder={isListening ? '🎙️ מאזין לך... דבר עכשיו' : 'שאל משהו בקול או בהקלדה...'}
               style={{
                 flex: 1,
                 padding: '8px 12px',
                 borderRadius: '10px',
-                border: '1px solid #cbd5e1',
+                border: isListening ? '1.5px solid #ef4444' : '1px solid #cbd5e1',
                 fontSize: '0.82rem',
                 direction: 'rtl'
               }}

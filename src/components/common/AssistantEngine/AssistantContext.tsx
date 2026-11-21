@@ -195,10 +195,15 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       ttsAbortControllerRef.current.abort();
       ttsAbortControllerRef.current = null;
     }
-    // Stop any currently playing audio immediately
+    // Stop any currently playing audio and release Android OS AudioFocus so microphone works
     if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
+      try {
+        audioRef.current.onended = null;
+        audioRef.current.onerror = null;
+        audioRef.current.pause();
+        audioRef.current.removeAttribute('src');
+        audioRef.current.load();
+      } catch (_) {}
       audioRef.current = null;
     }
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
@@ -267,31 +272,34 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     // Monotonic counter to invalidate any outdated responses
     const seq = ++activeSpeakSeqRef.current;
 
-    const playResolvedUrl = async (url: string) => {
-      if (activeSpeakSeqRef.current !== seq) return;
+    const playResolvedUrl = async (url: string): Promise<boolean> => {
+      if (activeSpeakSeqRef.current !== seq) return true;
       setIsAudioLoading(false);
       setIsSpeaking(true);
-      const audio = new Audio(url);
-      audio.playbackRate = playbackRate;
-      audioRef.current = audio;
-      audio.onended = () => {
+      try {
+        const audio = new Audio(url);
+        audio.playbackRate = playbackRate;
+        audioRef.current = audio;
+        audio.onended = () => {
+          if (activeSpeakSeqRef.current === seq) stopSpeaking();
+        };
+        audio.onerror = () => {
+          if (activeSpeakSeqRef.current === seq) stopSpeaking();
+        };
+        await audio.play();
+        return true;
+      } catch (playErr) {
+        console.warn('Audio play blocked or failed:', playErr);
         if (activeSpeakSeqRef.current === seq) stopSpeaking();
-      };
-      audio.onerror = () => {
-        if (activeSpeakSeqRef.current === seq) stopSpeaking();
-      };
-      await audio.play();
+        return false;
+      }
     };
 
     // 1. Check client audio cache for instant playback (0ms latency!)
     const cachedUrl = audioCacheRef.current.get(cleanText);
     if (cachedUrl) {
-      try {
-        await playResolvedUrl(cachedUrl);
-        return;
-      } catch (_) {
-        audioCacheRef.current.delete(cleanText);
-      }
+      await playResolvedUrl(cachedUrl);
+      return;
     }
 
     setIsAudioLoading(true);
