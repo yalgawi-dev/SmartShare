@@ -230,18 +230,20 @@ export const GlobalAssistantDrawer: React.FC = () => {
       </div>
 
       {/* ASSISTANT SLIDE-OVER DRAWER */}
-      {isOpen && (
+      {isOpen && (() => {
+        const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+        return (
         <div
           style={{
             position: 'fixed',
-            left: position ? Math.min(Math.max(10, position.x - 320), window.innerWidth - 380) : 'auto',
-            top: position ? Math.min(Math.max(10, position.y - 530), window.innerHeight - 540) : 'auto',
-            bottom: position ? 'auto' : '88px',
-            right: position ? 'auto' : '24px',
-            width: 'calc(100vw - 48px)',
-            maxWidth: '380px',
-            height: '520px',
-            maxHeight: 'calc(100vh - 120px)',
+            left: isMobile ? '12px' : (position ? Math.min(Math.max(16, position.x - 340), window.innerWidth - 400) : 'auto'),
+            right: isMobile ? '12px' : (position ? 'auto' : '24px'),
+            bottom: isMobile ? '86px' : '90px',
+            top: 'auto',
+            width: isMobile ? 'auto' : '380px',
+            maxWidth: isMobile ? 'none' : 'calc(100vw - 32px)',
+            height: isMobile ? '68dvh' : '520px',
+            maxHeight: 'calc(100dvh - 110px)',
             background: '#ffffff',
             borderRadius: '24px',
             boxShadow: '0 20px 45px rgba(0,0,0,0.22)',
@@ -611,7 +613,8 @@ export const GlobalAssistantDrawer: React.FC = () => {
             </button>
           </form>
         </div>
-      )}
+        );
+      })()}
     </>
   );
 };

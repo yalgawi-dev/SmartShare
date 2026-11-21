@@ -133,7 +133,7 @@ export async function POST(request: Request) {
   try {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      return NextResponse.json({ error: 'GEMINI_API_KEY missing' }, { status: 500 });
+      return NextResponse.json({ error: 'GEMINI_API_KEY missing', reason: 'gemini_key_missing' }, { status: 500 });
     }
 
     const authHeader = request.headers.get('authorization') || '';
@@ -159,31 +159,39 @@ export async function POST(request: Request) {
 
     // Fetch only spaces belonging to this authenticated user
     const spacesSnap: SpaceSnapshot[] = [];
+    let spacesLoadError = '';
     if (adminDb) {
-      const allSpaces = await adminDb.collection('spaces').limit(60).get();
-      for (const docSnap of allSpaces.docs) {
-        const d = docSnap.data();
-        const isCreator = d.creatorId === uid;
-        const isMember = Array.isArray(d.members) && d.members.some((m: any) => m?.userId === uid && m.status !== 'removed');
-        if (!isCreator && !isMember) continue;
+      try {
+        const allSpaces = await adminDb.collection('spaces').limit(60).get();
+        for (const docSnap of allSpaces.docs) {
+          const d = docSnap.data();
+          const isCreator = d.creatorId === uid;
+          const isMember = Array.isArray(d.members) && d.members.some((m: any) => m?.userId === uid && m.status !== 'removed');
+          if (!isCreator && !isMember) continue;
 
-        const snap = computeSpaceSnapshot(docSnap.id, d, uid);
+          const snap = computeSpaceSnapshot(docSnap.id, d, uid);
 
-        // If the user is currently inside this space, enrich with files/folders count
-        if (context?.spaceId === docSnap.id) {
-          try {
-            const [filesRes, foldersRes] = await Promise.all([
-              adminDb.collection('spaces').doc(docSnap.id).collection('files').count().get(),
-              adminDb.collection('spaces').doc(docSnap.id).collection('folders').count().get()
-            ]);
-            snap.filesCount = filesRes.data().count;
-            snap.foldersCount = foldersRes.data().count;
-          } catch {
-            // Optional enrichment
+          // If the user is currently inside this space, enrich with files/folders count
+          if (context?.spaceId === docSnap.id) {
+            try {
+              const [filesRes, foldersRes] = await Promise.all([
+                adminDb.collection('spaces').doc(docSnap.id).collection('files').count().get(),
+                adminDb.collection('spaces').doc(docSnap.id).collection('folders').count().get()
+              ]);
+              snap.filesCount = filesRes.data().count;
+              snap.foldersCount = foldersRes.data().count;
+            } catch {
+              // Optional enrichment
+            }
           }
+          spacesSnap.push(snap);
         }
-        spacesSnap.push(snap);
+      } catch (dbErr: any) {
+        spacesLoadError = dbErr?.message || 'db_error';
+        console.warn('Assistant spaces load warning:', spacesLoadError);
       }
+    } else {
+      spacesLoadError = 'adminDb_not_initialized';
     }
 
     const appMapSummary = SMARTSHARE_GRAPH.nodes
@@ -249,6 +257,9 @@ ${JSON.stringify(spacesSnap)}`;
     });
   } catch (err: any) {
     console.error('Assistant chat route error:', err);
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal error', reason: (err?.message || 'err').slice(0, 45) },
+      { status: 500 }
+    );
   }
 }
