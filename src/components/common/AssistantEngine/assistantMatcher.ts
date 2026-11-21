@@ -85,13 +85,28 @@ export function matchKnowledgeGraph(
   const scored = graph.nodes.map((node) => {
     let semanticScore = 0;
 
+    // 1. Exact/near match on the node's own sampleQuestion or title (guarantees suggested chips always resolve!)
+    const normSample = node.sampleQuestion.toLowerCase().replace(/[?!.,]/g, '').trim();
+    const normQuery = lowerQuery.replace(/[?!.,]/g, '').trim();
+    if (normQuery === normSample || (normQuery.length >= 6 && normSample.includes(normQuery))) {
+      semanticScore += 14;
+    }
     if (lowerQuery.includes(node.title.toLowerCase())) semanticScore += 6;
+
+    // 2. Tokenize title + sampleQuestion so plural/inflected words in them also match
+    const nodeTextTokens = new Set([
+      ...tokenizeQuery(node.title),
+      ...tokenizeQuery(node.sampleQuestion)
+    ]);
+    for (const qt of queryTokens) {
+      if (nodeTextTokens.has(qt)) semanticScore += 1.5;
+    }
 
     for (const kw of node.keywords) {
       const k = kw.toLowerCase();
       if (lowerQuery.includes(k)) {
         semanticScore += k.includes(' ') ? 5 : 3;
-      } else if (queryTokens.some((t) => t === k || (t.length >= 3 && k.includes(t)))) {
+      } else if (queryTokens.some((t) => t === k || (t.length >= 3 && (k.includes(t) || t.includes(k))))) {
         semanticScore += 2;
       }
     }
@@ -100,7 +115,7 @@ export function matchKnowledgeGraph(
       const s = syn.toLowerCase();
       if (lowerQuery.includes(s)) {
         semanticScore += 3;
-      } else if (queryTokens.some((t) => t === s)) {
+      } else if (queryTokens.some((t) => t === s || (t.length >= 3 && (s.includes(t) || t.includes(s))))) {
         semanticScore += 2;
       }
     }

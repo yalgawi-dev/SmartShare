@@ -334,7 +334,18 @@ export const GlobalAssistantDrawer: React.FC = () => {
           {/* Context Banner */}
           <div style={{ padding: '6px 12px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontSize: '0.72rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px' }}>
             <span>📍</span>
-            <span>מיקום נוכחי: {screenContext.spaceTitle ? `מרחב "${screenContext.spaceTitle}"` : 'דף ראשי'}</span>
+            <span>
+              מיקום נוכחי:{' '}
+              {screenContext.spaceTitle
+                ? `מרחב "${screenContext.spaceTitle}"${screenContext.currentFolderName ? ` › ${screenContext.currentFolderName}` : ''}`
+                : screenContext.route?.startsWith('/space/')
+                  ? 'בתוך מרחב עבודה'
+                  : screenContext.route?.startsWith('/settings')
+                    ? 'הגדרות'
+                    : screenContext.route?.startsWith('/admin')
+                      ? 'ניהול מערכת'
+                      : 'דף ראשי'}
+            </span>
           </div>
 
           {/* Messages Container */}

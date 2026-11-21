@@ -11,6 +11,18 @@ export const SMARTSHARE_GRAPH: KnowledgeGraph = {
   version: APP_VERSION,
   nodes: [
     {
+      id: 'app_overview',
+      title: 'מה זה SmartShare ומה היכולות של האפליקציה',
+      domain: 'סקירה כללית',
+      routePatterns: ['/'],
+      widgets: ['general'],
+      keywords: ['מה זה', 'יכולות', 'תספר לי', 'על האפליקציה', 'מה האפליקציה', 'smartshare', 'myspace'],
+      synonyms: ['סקירה', 'מטרה', 'יתרונות', 'מה עושים פה', 'מה יש כאן'],
+      explanation: 'SmartShare היא מערכת מאובטחת לניהול מרחבי עבודה, כספת מסמכים, סריקה חכמה והתחשבנות עם שותפים.\nהיכולות המרכזיות:\n• 📁 כספת תיקיות ומסמכים (PDF, תוכניות, תמונות) עם העברה, העתקה וסל מחזור ל-12 שעות.\n• 🔗 שיתוף מאובטח (קובץ בודד, תיקייה או עץ מלא) עם מעקב צפיות אישי לנמענים וחסימה בקליק.\n• 🔒 שליטה בהרשאות (🌐 פתוח לכולם או 🔒 מוגבל לשותפים).\n• 💰 מנוע התחשבנויות, חשבוניות ודוחות אקסל.\n• 📸 סורק מסמכים משופר עם דחיסת WebP ו-OCR.',
+      sampleQuestion: 'מה היכולות של SmartShare?',
+      edges: ['home_spaces', 'vault_folders', 'accounting_engine']
+    },
+    {
       id: 'home_spaces',
       title: 'מסך הבית ומרחבי עבודה',
       domain: 'ניווט ומרחבים',
@@ -165,9 +177,9 @@ export const SMARTSHARE_GRAPH: KnowledgeGraph = {
       id: 'auth_and_pwa',
       title: 'התחברות, אבטחה והתקנת אפליקציה (PWA)',
       domain: 'מערכת והגדרות',
-      routePatterns: ['/settings', '/'],
+      routePatterns: ['/settings'],
       widgets: ['general'],
-      keywords: ['התחברות', 'טלפון', 'קוד', 'sms', 'ספאם', 'גוגל', 'אפל', 'התקנה', 'אפליקציה', 'מסך הבית', 'pwa'],
+      keywords: ['התחברות', 'טלפון', 'קוד', 'sms', 'ספאם', 'גוגל', 'אפל', 'התקנת אפליקציה', 'מסך הבית', 'pwa'],
       synonyms: ['להתקין', 'להיכנס', 'סיסמה', 'אימות', 'אנדרואיד', 'אייפון'],
       explanation: 'ההתחברות מתבצעת בצורה מאובטחת עם Google, Apple או קוד אימות SMS. ניתן להתקין את SmartShare כאפליקציה על מסך הבית: באנדרואיד בלחיצה אחת ישירה, ובאייפון דרך כפתור השיתוף של Safari ← "הוסף למסך הבית".',
       sampleQuestion: 'איך מתקינים את האפליקציה על הטלפון?',
