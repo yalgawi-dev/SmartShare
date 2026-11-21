@@ -65,8 +65,45 @@ export function buildLiveAssistantSnapshot(user: any, spaces: any[]): LiveAssist
         ? user.nickname
         : 'משתמש';
 
+  let clientKeys: Record<string, { role: string; token?: string }> = {};
+  let guestTokens: string[] = [];
+  if (typeof window !== 'undefined') {
+    try {
+      clientKeys = JSON.parse(localStorage.getItem('smartshare_keys') || '{}') || {};
+      const pTokens = JSON.parse(localStorage.getItem('smartshare_guest_tokens') || '[]');
+      if (Array.isArray(pTokens)) guestTokens = pTokens;
+    } catch (_) {}
+  }
+
+  // Exact membership filter matching Dashboard (src/app/page.tsx) & Settings (src/app/settings/page.tsx)
+  // so the AI only sees spaces belonging to the current user (never other users' spaces in Firestore!)
+  const isUserMemberOfSpace = (s: any): boolean => {
+    if (!s || s.status === 'pending_deletion' || s.isArchived || s.id === '__global_announcement__') {
+      return false;
+    }
+    if (uid && s.creatorId && uid === s.creatorId) return true;
+    if (user?.spaceKeys?.[s.id]?.role === 'creator') return true;
+    if (clientKeys[s.id]?.role === 'creator') return true;
+
+    const partnerToken = user?.spaceKeys?.[s.id]?.token || clientKeys[s.id]?.token;
+    const matchedMember = (s.members || []).find((m: any) => {
+      if (uid && m.userId === uid) return true;
+      if (user?.phone && m.phone && m.phone === user.phone) return true;
+      if (partnerToken && m.userId === partnerToken) return true;
+      if (guestTokens.includes(m.userId)) return true;
+      return false;
+    });
+    if (matchedMember) {
+      return matchedMember.isActive !== false && matchedMember.status !== 'removed';
+    }
+    if ((user?.spaceKeys?.[s.id]?.role === 'partner' || clientKeys[s.id]?.role === 'partner') && (s.members || []).length === 0) {
+      return true;
+    }
+    return false;
+  };
+
   const mappedSpaces: LiveSpaceSnapshot[] = (spaces || [])
-    .filter((s: any) => s && s.status !== 'pending_deletion' && !s.isArchived && s.id !== '__global_announcement__')
+    .filter(isUserMemberOfSpace)
     .slice(0, 25)
     .map((space: any) => {
     const isCreatorMe = space.creatorId === uid || space.createdBy === userName;
