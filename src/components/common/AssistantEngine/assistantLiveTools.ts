@@ -39,6 +39,12 @@ export interface LiveSpaceExecutionResult {
   totalDisputed: number;
   guestExpensesCount: number;
   guestExpensesTotal: number;
+  guestExpensesDetails: Array<{
+    description: string;
+    amount: number;
+    date: string;
+    payer: string;
+  }>;
   invoicesCount: number;
   pendingCount: number;
   invoices: Array<{
@@ -550,9 +556,16 @@ export function executeLiveAssistantTools(
 
     const guestExpenses = expensesOnly.filter((i) => {
       const p = (i.payerName || '').trim();
-      return p === 'אורח' || p === 'Guest' || (!i.payerId && (!p || p === 'אורח'));
+      const pid = i.payerId;
+      return p === 'אורח' || p === 'Guest' || (!pid && (!p || p === 'אורח')) || pid === 'guest' || pid === 'unknown';
     });
     const guestExpensesTotal = guestExpenses.reduce((s, i) => s + Math.abs(Number(i.amount) || 0), 0);
+    const guestExpensesDetails = guestExpenses.map((i) => ({
+      description: i.description || i.vendor || i.supplier || i.title || 'הוצאה',
+      amount: Number(i.amount) || 0,
+      date: i.date || '',
+      payer: i.payerName || 'אורח'
+    }));
 
     return {
       id: space.id,
@@ -569,6 +582,7 @@ export function executeLiveAssistantTools(
       totalDisputed: Math.round(totalDisputed * 100) / 100,
       guestExpensesCount: guestExpenses.length,
       guestExpensesTotal: Math.round(guestExpensesTotal * 100) / 100,
+      guestExpensesDetails,
       invoicesCount: rawInvoices.length,
       pendingCount,
       invoices: selectedInvoices,

@@ -57,6 +57,7 @@ export const GlobalAssistantDrawer: React.FC = () => {
   const [isHidingForCapture, setIsHidingForCapture] = useState(false);
   const [isRecordingBugVideo, setIsRecordingBugVideo] = useState(false);
   const [recordingRemainingSec, setRecordingRemainingSec] = useState(BUG_VIDEO_MAX_SECONDS);
+  const [isVideoRecordingAssistantVisible, setIsVideoRecordingAssistantVisible] = useState(false);
   const [isUploadingBugReport, setIsUploadingBugReport] = useState(false);
   const [bugUploadProgress, setBugUploadProgress] = useState(0);
   const [bugSentSuccess, setBugSentSuccess] = useState(false);
@@ -152,6 +153,7 @@ export const GlobalAssistantDrawer: React.FC = () => {
 
     setIsHidingForCapture(true);
     setIsRecordingBugVideo(true);
+    setIsVideoRecordingAssistantVisible(false);
     setRecordingRemainingSec(BUG_VIDEO_MAX_SECONDS);
 
     await new Promise((r) => setTimeout(r, 180));
@@ -497,6 +499,27 @@ export const GlobalAssistantDrawer: React.FC = () => {
           >
             ⏱️ 00:{String(recordingRemainingSec).padStart(2, '0')}
           </span>
+
+          {/* Toggle Assistant Visibility while recording so user can capture bugs IN the Assistant itself! */}
+          <button
+            type="button"
+            onClick={() => setIsVideoRecordingAssistantVisible((prev) => !prev)}
+            style={{
+              background: isVideoRecordingAssistantVisible ? '#2563eb' : 'rgba(255,255,255,0.22)',
+              color: '#ffffff',
+              border: '1px solid rgba(255,255,255,0.4)',
+              borderRadius: '999px',
+              padding: '4px 10px',
+              fontSize: '0.73rem',
+              fontWeight: 800,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap'
+            }}
+            title="הצג או הסתר את חלון העוזר בזמן ההקלטה כדי לצלם תקלה בעוזר עצמו"
+          >
+            {isVideoRecordingAssistantVisible ? '🤖 הסתר עוזר' : '🤖 הצג עוזר'}
+          </button>
+
           <button
             type="button"
             onClick={handleStopBugVideoRecording}
@@ -565,7 +588,7 @@ export const GlobalAssistantDrawer: React.FC = () => {
       )}
 
       {/* ASSISTANT SLIDE-OVER DRAWER (Top-most zIndex so it always appears above any open modal) */}
-      {isOpen && !isHidingForCapture && !isRecordingBugVideo && (() => {
+      {isOpen && (!isHidingForCapture || isVideoRecordingAssistantVisible) && (!isRecordingBugVideo || isVideoRecordingAssistantVisible) && (() => {
         const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
         return (
         <div
