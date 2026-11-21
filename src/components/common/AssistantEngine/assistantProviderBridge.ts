@@ -1,6 +1,7 @@
 // AI Assistant Provider Bridge (Pluggable Architecture)
 // Designed for seamless transition from Local Free Knowledge Engine to External Cloud LLM (Gemini / OpenAI) as an optional premium add-on.
 
+import { auth } from '@/lib/firebase';
 import { ScreenContext, queryAssistantBrain } from './assistantKnowledge';
 import type { KnowledgeNode } from './assistantMatcher';
 
@@ -37,30 +38,38 @@ export async function queryAIAssistant(
   // 1. If configured for external cloud LLM and user has premium feature enabled
   if (config.provider === 'cloud_llm' && config.isPremiumEnabled) {
     try {
-      const response = await fetch('/api/assistant/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          query,
-          context: {
-            route: context.route,
-            activeWidget: context.activeWidget,
-            spaceTitle: context.spaceTitle,
-            currentFolderName: context.currentFolderName,
-            activeModal: context.activeModal,
-            userRole: context.userRole
-          }
-        })
-      });
+      const idToken = auth.currentUser ? await auth.currentUser.getIdToken() : '';
+      if (idToken) {
+        const response = await fetch('/api/assistant/chat', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`
+          },
+          body: JSON.stringify({
+            query,
+            context: {
+              route: context.route,
+              spaceId: context.spaceId,
+              activeWidget: context.activeWidget,
+              spaceTitle: context.spaceTitle,
+              currentFolderName: context.currentFolderName,
+              activeModal: context.activeModal,
+              userRole: context.userRole
+            }
+          })
+        });
 
-      if (response.ok) {
-        const data = await response.json();
-        if (data.answer) {
-          return {
-            text: data.answer,
-            source: 'cloud_llm',
-            tokensUsed: data.tokensUsed
-          };
+        if (response.ok) {
+          const data = await response.json();
+          if (data.answer) {
+            return {
+              text: data.answer,
+              source: 'cloud_llm',
+              confidence: data.confidence || 'high',
+              tokensUsed: data.tokensUsed
+            };
+          }
         }
       }
     } catch (err) {

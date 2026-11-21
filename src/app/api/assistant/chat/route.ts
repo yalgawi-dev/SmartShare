@@ -1,0 +1,212 @@
+import { NextResponse } from 'next/server';
+import { getAuth } from 'firebase-admin/auth';
+import { adminDb } from '@/lib/firebaseAdmin';
+import { SMARTSHARE_GRAPH } from '@/components/common/AssistantEngine/assistantGraph';
+
+export const maxDuration = 30;
+
+interface SpaceSnapshot {
+  id: string;
+  title: string;
+  role: 'creator' | 'member';
+  members: Array<{ name: string; share: number; netBalance: number }>;
+  totalExpenses: number;
+  invoicesCount: number;
+  pendingCount: number;
+  filesCount?: number;
+  foldersCount?: number;
+}
+
+function computeSpaceSnapshot(spaceId: string, data: any, uid: string): SpaceSnapshot {
+  const membersRaw = Array.isArray(data.members)
+    ? data.members.filter((m: any) => m?.userId && m.status !== 'removed')
+    : [];
+
+  const invoices = Array.isArray(data.invoices)
+    ? data.invoices.filter((inv: any) => inv?.status !== 'deleted')
+    : [];
+
+  const memberMap = new Map<string, { name: string; share: number; paid: number; sent: number; received: number }>();
+
+  const creatorId = data.creatorId || '';
+  if (creatorId) {
+    const creatorMember = membersRaw.find((m: any) => m.userId === creatorId);
+    memberMap.set(creatorId, {
+      name: creatorMember?.name || data.createdBy || 'יוצר המרחב',
+      share: Number(creatorMember?.share ?? 0),
+      paid: 0,
+      sent: 0,
+      received: 0
+    });
+  }
+
+  for (const m of membersRaw) {
+    if (!memberMap.has(m.userId)) {
+      memberMap.set(m.userId, {
+        name: m.name || 'שותף',
+        share: Number(m.share ?? 0),
+        paid: 0,
+        sent: 0,
+        received: 0
+      });
+    }
+  }
+
+  let totalExpenses = 0;
+  let pendingCount = 0;
+
+  for (const inv of invoices) {
+    if (inv.status === 'pending' || inv.status === 'dispute') pendingCount++;
+    if (inv.status === 'missing') continue;
+
+    const amt = Number(inv.amount) || 0;
+    if (inv.type === 'transfer') {
+      const from = memberMap.get(inv.paidById);
+      const to = memberMap.get(inv.toUserId);
+      if (from) from.sent += amt;
+      if (to) to.received += amt;
+      continue;
+    }
+
+    totalExpenses += amt;
+    if (inv.payerSplits && typeof inv.payerSplits === 'object') {
+      for (const [splitUid, splitVal] of Object.entries(inv.payerSplits)) {
+        const entry = memberMap.get(splitUid);
+        if (entry) entry.paid += Number(splitVal) || 0;
+      }
+    } else if (inv.paidById && memberMap.has(inv.paidById)) {
+      memberMap.get(inv.paidById)!.paid += amt;
+    }
+  }
+
+  const totalShare = Array.from(memberMap.values()).reduce((s, m) => s + (m.share > 0 ? m.share : 0), 0);
+  const count = Math.max(1, memberMap.size);
+
+  const members = Array.from(memberMap.values()).map((m) => {
+    const ratio = totalShare > 0 ? m.share / totalShare : 1 / count;
+    const expected = totalExpenses * ratio;
+    const netBalance = Math.round((m.paid - expected + m.sent - m.received) * 100) / 100;
+    return { name: m.name, share: m.share, netBalance };
+  });
+
+  return {
+    id: spaceId,
+    title: data.title || 'מרחב ללא שם',
+    role: data.creatorId === uid ? 'creator' : 'member',
+    members,
+    totalExpenses: Math.round(totalExpenses * 100) / 100,
+    invoicesCount: invoices.length,
+    pendingCount
+  };
+}
+
+export async function POST(request: Request) {
+  try {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json({ error: 'GEMINI_API_KEY missing' }, { status: 500 });
+    }
+
+    const authHeader = request.headers.get('authorization') || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    let uid = '';
+    let userName = '';
+    try {
+      const decoded = await getAuth().verifyIdToken(token);
+      uid = decoded.uid;
+      userName = decoded.name || '';
+    } catch {
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    }
+
+    const { query, context } = await request.json();
+    if (!query || typeof query !== 'string') {
+      return NextResponse.json({ error: 'Missing query' }, { status: 400 });
+    }
+
+    // Fetch only spaces belonging to this authenticated user
+    const spacesSnap: SpaceSnapshot[] = [];
+    if (adminDb) {
+      const allSpaces = await adminDb.collection('spaces').limit(60).get();
+      for (const docSnap of allSpaces.docs) {
+        const d = docSnap.data();
+        const isCreator = d.creatorId === uid;
+        const isMember = Array.isArray(d.members) && d.members.some((m: any) => m?.userId === uid && m.status !== 'removed');
+        if (!isCreator && !isMember) continue;
+
+        const snap = computeSpaceSnapshot(docSnap.id, d, uid);
+
+        // If the user is currently inside this space, enrich with files/folders count
+        if (context?.spaceId === docSnap.id) {
+          try {
+            const [filesRes, foldersRes] = await Promise.all([
+              adminDb.collection('spaces').doc(docSnap.id).collection('files').count().get(),
+              adminDb.collection('spaces').doc(docSnap.id).collection('folders').count().get()
+            ]);
+            snap.filesCount = filesRes.data().count;
+            snap.foldersCount = foldersRes.data().count;
+          } catch {
+            // Optional enrichment
+          }
+        }
+        spacesSnap.push(snap);
+      }
+    }
+
+    const appMapSummary = SMARTSHARE_GRAPH.nodes
+      .map((n) => `- ${n.title}: ${n.explanation.replace(/\n/g, ' ')}`)
+      .join('\n');
+
+    const systemPrompt = `אתה הסוכן החכם והארכיטקט של אפליקציית SmartShare (גרסה ${SMARTSHARE_GRAPH.version}).
+שם המשתמש המחובר: ${userName || 'משתמש'}.
+מיקום נוכחי באפליקציה: ${JSON.stringify(context || {})}.
+
+חוקים מחייבים:
+1. ענה בעברית ברורה, קצרה ונעימה.
+2. הסתמך אך ורק על נתוני האמת שסופקו לך למטה. לעולם אל תמציא סכומים, שמות שותפים או קבצים שלא מופיעים בנתונים.
+3. בנתוני היתרה (netBalance): ערך חיובי (+) אומר שמגיע לשותף כסף מהקבוצה/אחרים; ערך שלילי (-) אומר שהשותף חייב כסף לקבוצה/אחרים. הסבר זאת בצורה פשוטה וברורה.
+4. אם חסר מידע או שותף לא נמצא, אמור זאת בבירור.
+
+מפת היכולות של האפליקציה:
+${appMapSummary}
+
+הנתונים החיים של המשתמש המחובר (מרחבים, שותפים, מאזנים וחשבוניות):
+${JSON.stringify(spacesSnap)}`;
+
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+    const geminiRes = await fetch(geminiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: `${systemPrompt}\n\nשאלת המשתמש: ${query}` }] }],
+        generationConfig: { temperature: 0.2, maxOutputTokens: 600 }
+      })
+    });
+
+    if (!geminiRes.ok) {
+      const errTxt = await geminiRes.text();
+      console.warn('Gemini assistant error:', geminiRes.status, errTxt.slice(0, 200));
+      return NextResponse.json({ error: 'AI unavailable' }, { status: 502 });
+    }
+
+    const geminiData = await geminiRes.json();
+    const answer = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    if (!answer) {
+      return NextResponse.json({ error: 'Empty AI response' }, { status: 502 });
+    }
+
+    return NextResponse.json({
+      answer,
+      source: 'cloud_llm',
+      confidence: 'high',
+      tokensUsed: geminiData?.usageMetadata?.totalTokenCount
+    });
+  } catch (err: any) {
+    console.error('Assistant chat route error:', err);
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+  }
+}

@@ -72,7 +72,10 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   ]);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [providerConfig, setProviderConfig] = useState<AIProviderConfig>({ provider: 'local_free' });
+  const [providerConfig, setProviderConfig] = useState<AIProviderConfig>({
+    provider: 'cloud_llm',
+    isPremiumEnabled: true
+  });
 
   const updateScreenContext = useCallback((updates: Partial<ScreenContext>) => {
     setScreenContext(prev => ({ ...prev, ...updates }));
