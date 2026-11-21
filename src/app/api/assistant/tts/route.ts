@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { normalizeTextForHebrewTTS } from '@/components/common/AssistantEngine/assistantTtsUtils';
 
 export const maxDuration = 30;
 
@@ -29,6 +30,7 @@ function pcmToWav(pcmBuffer: Buffer, sampleRate = 24000, channels = 1, bitsPerSa
 }
 
 export async function POST(request: Request) {
+  const tStart = Date.now();
   try {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
@@ -40,86 +42,94 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing text' }, { status: 400 });
     }
 
-    // Clean text for smooth natural Hebrew narration
-    const cleanText = text
-      .replace(/[*_`#]/g, '')
-      .replace(/₪/g, ' שקלים ')
-      .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .slice(0, 700);
-
+    const cleanText = normalizeTextForHebrewTTS(text);
     if (!cleanText) {
       return NextResponse.json({ error: 'Empty text' }, { status: 400 });
     }
 
-    // Try fastest state-of-the-art TTS models first (gemini-3.8-flash-lite-tts: ~2s ultra-low latency)
-    const ttsModels = [
-      'gemini-3.8-flash-lite-tts',
-      'gemini-3.8-flash-tts',
-      'gemini-3.1-flash-tts-preview',
-      'gemini-2.5-flash-preview-tts'
-    ];
+    // Locked single ultra-fast model + streaming SSE endpoint (~500ms TTFB, ~1.1s total)
+    // + temperature: 0 & seed: 42 & languageCode: 'he-IL' for 100% deterministic Israeli Hebrew voice
+    const model = 'gemini-3.8-flash-lite-tts';
+    const ttsUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`;
 
-    let inlineAudio: any = null;
-
-    for (const model of ttsModels) {
-      try {
-        const ttsUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-        const res = await fetch(ttsUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [{ text: cleanText }]
-              }
-            ],
-            generationConfig: {
-              responseModalities: ['AUDIO'],
-              speechConfig: {
-                voiceConfig: {
-                  prebuiltVoiceConfig: {
-                    voiceName: 'Kore'
-                  }
-                }
+    const res = await fetch(ttsUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [{ text: cleanText }]
+          }
+        ],
+        generationConfig: {
+          temperature: 0,
+          seed: 42,
+          responseModalities: ['AUDIO'],
+          speechConfig: {
+            languageCode: 'he-IL',
+            voiceConfig: {
+              prebuiltVoiceConfig: {
+                voiceName: 'Kore'
               }
             }
-          })
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          inlineAudio = data?.candidates?.[0]?.content?.parts?.[0]?.inlineData;
-          if (inlineAudio?.data) {
-            break;
           }
-        } else {
-          const errTxt = await res.text();
-          console.warn(`Gemini TTS (${model}) warning:`, res.status, errTxt.slice(0, 150));
         }
-      } catch (err) {
-        console.warn(`Gemini TTS (${model}) fetch error:`, err);
+      })
+    });
+
+    if (!res.ok || !res.body) {
+      const errTxt = await res.text().catch(() => '');
+      console.warn(`Gemini TTS (${model}) error:`, res.status, errTxt.slice(0, 180));
+      return NextResponse.json({ error: 'TTS stream failed' }, { status: 502 });
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let sseBuffer = '';
+    const pcmChunks: Buffer[] = [];
+    let tFirstChunk = 0;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      sseBuffer += decoder.decode(value, { stream: true });
+      const lines = sseBuffer.split('\n');
+      sseBuffer = lines.pop() || '';
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith('data:')) continue;
+        const jsonStr = trimmed.slice(5).trim();
+        if (!jsonStr || jsonStr === '[DONE]') continue;
+        try {
+          const parsed = JSON.parse(jsonStr);
+          const inline = parsed?.candidates?.[0]?.content?.parts?.[0]?.inlineData;
+          if (inline?.data) {
+            if (!tFirstChunk) tFirstChunk = Date.now() - tStart;
+            pcmChunks.push(Buffer.from(inline.data, 'base64'));
+          }
+        } catch {
+          // Ignore malformed SSE keepalive line
+        }
       }
     }
 
-    if (!inlineAudio?.data) {
-      return NextResponse.json({ error: 'No audio returned from TTS models' }, { status: 502 });
-    }
-    if (!inlineAudio?.data) {
-      return NextResponse.json({ error: 'No audio returned' }, { status: 502 });
+    if (pcmChunks.length === 0) {
+      return NextResponse.json({ error: 'No audio frames returned' }, { status: 502 });
     }
 
-    const rawBytes = Buffer.from(inlineAudio.data, 'base64');
-    const mime: string = inlineAudio.mimeType || '';
-    const isPcm = mime.includes('pcm') || mime.includes('L16') || !mime.includes('wav');
-    const outputBuffer = isPcm ? pcmToWav(rawBytes, 24000, 1, 16) : rawBytes;
+    const rawPcm = Buffer.concat(pcmChunks);
+    const wavBuffer = pcmToWav(rawPcm, 24000, 1, 16);
+    const tTotal = Date.now() - tStart;
 
-    return new NextResponse(new Uint8Array(outputBuffer), {
+    return new NextResponse(new Uint8Array(wavBuffer), {
       status: 200,
       headers: {
-        'Content-Type': isPcm ? 'audio/wav' : mime,
-        'Cache-Control': 'no-store'
+        'Content-Type': 'audio/wav',
+        'Cache-Control': 'no-store',
+        'X-TTS-Model': model,
+        'X-TTS-First-Chunk-Ms': String(tFirstChunk),
+        'X-TTS-Total-Ms': String(tTotal)
       }
     });
   } catch (err: any) {

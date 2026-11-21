@@ -7,6 +7,7 @@ import { sanitizeAssistantQuery, filterAssistantResponse } from './assistantSecu
 import { queryAIAssistant, AIProviderConfig } from './assistantProviderBridge';
 import { logAssistantLearningEvent } from './assistantLearning';
 import { buildLiveAssistantSnapshot } from './assistantSnapshot';
+import { normalizeTextForHebrewTTS } from './assistantTtsUtils';
 import { useAuth } from '@/app/context/AuthContext';
 import { useSpaces } from '@/app/context/SpacesContext';
 
@@ -185,10 +186,11 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const audioUrlRef = React.useRef<string | null>(null);
   const ttsAbortControllerRef = React.useRef<AbortController | null>(null);
   const audioCacheRef = React.useRef<Map<string, string>>(new Map());
+  const inflightAudioMapRef = React.useRef<Map<string, Promise<string | null>>>(new Map());
   const activeSpeakSeqRef = React.useRef<number>(0);
 
   const stopSpeaking = useCallback(() => {
-    // Abort pending fetch immediately
+    // Abort pending interactive fetch immediately
     if (ttsAbortControllerRef.current) {
       ttsAbortControllerRef.current.abort();
       ttsAbortControllerRef.current = null;
@@ -206,6 +208,52 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setIsAudioLoading(false);
   }, []);
 
+  // Proactive background pre-synthesis: synthesizes and caches audio in the background
+  // as soon as an answer arrives, so clicking "הקרא" plays in 0ms!
+  const prefetchAudio = useCallback((rawText: string): Promise<string | null> => {
+    if (typeof window === 'undefined') return Promise.resolve(null);
+    const cleanText = normalizeTextForHebrewTTS(rawText);
+    if (!cleanText) return Promise.resolve(null);
+
+    const existingCached = audioCacheRef.current.get(cleanText);
+    if (existingCached) return Promise.resolve(existingCached);
+
+    const existingInflight = inflightAudioMapRef.current.get(cleanText);
+    if (existingInflight) return existingInflight;
+
+    const promise = (async () => {
+      try {
+        const res = await fetch('/api/assistant/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: cleanText })
+        });
+        if (!res.ok) return null;
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        audioCacheRef.current.set(cleanText, url);
+        return url;
+      } catch {
+        return null;
+      } finally {
+        inflightAudioMapRef.current.delete(cleanText);
+      }
+    })();
+
+    inflightAudioMapRef.current.set(cleanText, promise);
+    return promise;
+  }, []);
+
+  // Pre-synthesize the latest message when the user opens the assistant drawer
+  useEffect(() => {
+    if (isOpen && messages.length > 0) {
+      const lastAst = [...messages].reverse().find(m => m.sender === 'assistant');
+      if (lastAst?.text) {
+        prefetchAudio(lastAst.text);
+      }
+    }
+  }, [isOpen, messages, prefetchAudio]);
+
   // Natural Human Hebrew TTS via Gemini Neural Voice (/api/assistant/tts) with singleton concurrency & client cache
   const speakText = useCallback(async (text: string) => {
     if (typeof window === 'undefined') return;
@@ -213,45 +261,57 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     // Immediately stop any prior speech or pending request (prevents double speech completely!)
     stopSpeaking();
 
-    const cleanText = text
-      .replace(/[*_`#]/g, '')
-      .replace(/₪/g, ' שקלים ')
-      .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '')
-      .replace(/\s+/g, ' ')
-      .trim();
+    const cleanText = normalizeTextForHebrewTTS(text);
     if (!cleanText) return;
 
     // Monotonic counter to invalidate any outdated responses
     const seq = ++activeSpeakSeqRef.current;
 
-    // Check client audio cache for instant playback (0ms latency!)
+    const playResolvedUrl = async (url: string) => {
+      if (activeSpeakSeqRef.current !== seq) return;
+      setIsAudioLoading(false);
+      setIsSpeaking(true);
+      const audio = new Audio(url);
+      audio.playbackRate = playbackRate;
+      audioRef.current = audio;
+      audio.onended = () => {
+        if (activeSpeakSeqRef.current === seq) stopSpeaking();
+      };
+      audio.onerror = () => {
+        if (activeSpeakSeqRef.current === seq) stopSpeaking();
+      };
+      await audio.play();
+    };
+
+    // 1. Check client audio cache for instant playback (0ms latency!)
     const cachedUrl = audioCacheRef.current.get(cleanText);
     if (cachedUrl) {
       try {
-        setIsSpeaking(true);
-        const audio = new Audio(cachedUrl);
-        audio.playbackRate = playbackRate;
-        audioRef.current = audio;
-        audio.onended = () => {
-          if (activeSpeakSeqRef.current === seq) stopSpeaking();
-        };
-        audio.onerror = () => {
-          if (activeSpeakSeqRef.current === seq) stopSpeaking();
-        };
-        await audio.play();
+        await playResolvedUrl(cachedUrl);
         return;
       } catch (_) {
-        // Fall back to refetch if cached URL became invalid
+        audioCacheRef.current.delete(cleanText);
       }
     }
 
     setIsAudioLoading(true);
 
-    // Setup dedicated AbortController
+    // 2. If background pre-synthesis is already in flight for this exact message, join it!
+    const inflight = inflightAudioMapRef.current.get(cleanText);
+    if (inflight) {
+      try {
+        const url = await inflight;
+        if (url && activeSpeakSeqRef.current === seq) {
+          await playResolvedUrl(url);
+          return;
+        }
+      } catch (_) {}
+    }
+
+    // 3. Otherwise fetch via streaming TTS endpoint
     const abortCtrl = new AbortController();
     ttsAbortControllerRef.current = abortCtrl;
 
-    // 1. Human-sounding Gemini Neural Hebrew TTS (Single unified voice: Kore)
     try {
       const res = await fetch('/api/assistant/tts', {
         method: 'POST',
@@ -260,7 +320,6 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         signal: abortCtrl.signal
       });
 
-      // If user triggered another speech in the meantime, ignore
       if (activeSpeakSeqRef.current !== seq) return;
 
       if (res.ok) {
@@ -271,19 +330,7 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         audioUrlRef.current = url;
         audioCacheRef.current.set(cleanText, url);
 
-        setIsAudioLoading(false);
-        setIsSpeaking(true);
-
-        const audio = new Audio(url);
-        audio.playbackRate = playbackRate;
-        audioRef.current = audio;
-        audio.onended = () => {
-          if (activeSpeakSeqRef.current === seq) stopSpeaking();
-        };
-        audio.onerror = () => {
-          if (activeSpeakSeqRef.current === seq) stopSpeaking();
-        };
-        await audio.play();
+        await playResolvedUrl(url);
         return;
       }
     } catch (err: any) {
@@ -350,11 +397,16 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     setMessages(prev => [...prev, assistantMsg]);
 
-    // Auto-Speak feature: immediately speak newly received assistant response if enabled
-    if (autoSpeak && scrubbedAnswer) {
-      speakText(scrubbedAnswer);
+    // Auto-Speak or Background Pre-Synthesis:
+    // If autoSpeak is ON, speak immediately. If OFF, pre-synthesize in the background so clicking "הקרא" is instant (0ms)!
+    if (scrubbedAnswer) {
+      if (autoSpeak) {
+        speakText(scrubbedAnswer);
+      } else {
+        prefetchAudio(scrubbedAnswer);
+      }
     }
-  }, [screenContext, providerConfig, user, spaces, autoSpeak, speakText]);
+  }, [screenContext, providerConfig, user, spaces, autoSpeak, speakText, prefetchAudio]);
 
   const submitFeedback = useCallback((messageId: string, rating: 'helpful' | 'not_helpful') => {
     setMessages(prev => prev.map(m => {
