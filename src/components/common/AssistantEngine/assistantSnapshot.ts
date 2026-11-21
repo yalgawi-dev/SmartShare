@@ -1,4 +1,5 @@
 import { SMARTSHARE_GRAPH } from './assistantGraph';
+import { canAccessItem } from '@/utils/permissionUtils';
 
 export interface VaultItemAccess {
   name: string;
@@ -316,14 +317,40 @@ export function buildLiveAssistantSnapshot(user: any, spaces: any[]): LiveAssist
       if (creditors[ci].amt <= 0.5) ci++;
     }
 
+    const partnerToken = user?.spaceKeys?.[space.id]?.token || clientKeys[space.id]?.token || null;
+    const spaceRole: 'creator' | 'admin' | 'partner' = isCreatorMe ? 'creator' : 'partner';
+    const isManagedMode = Boolean(space.settings?.isManagedMode);
+
+    // Zero-Trust Item-Level Access Filter (DRY via canAccessItem)
+    const canCurrentUserSeeVaultItem = (item: any): boolean => {
+      return canAccessItem({
+        spaceRole,
+        userId: uid,
+        partnerToken,
+        creatorId,
+        isManagedMode,
+        ownerId: item?.createdBy || item?.addedBy || item?.userId,
+        allowedPartners: item?.allowedPartners || item?.permissions || []
+      });
+    };
+
     const mapAccess = (item: any, nameField: 'title' | 'name'): VaultItemAccess => {
       const rawAllowed = Array.isArray(item?.allowedPartners)
         ? item.allowedPartners.filter((pid: string) => pid && pid.trim() !== '' && pid !== creatorId)
         : [];
+      const resolvedPartnerNames = rawAllowed
+        .map((pid: string) => {
+          if (pid === '__only_me__') return 'רק ליוצר';
+          if (pid === '__creator_vault_secret__') return 'מנהלים בלבד';
+          return unified.get(pid)?.name || null;
+        })
+        .filter((n): n is string => Boolean(n));
+
       return {
         name: item?.[nameField] || item?.title || item?.name || 'ללא שם',
         visibility: rawAllowed.length > 0 ? 'restricted' : 'open_all',
-        allowedPartnerNames: rawAllowed.map((pid: string) => unified.get(pid)?.name || pid)
+        // Only reveal full allowedPartnerNames list to space creator; partners only see their own permitted items
+        allowedPartnerNames: isCreatorMe ? resolvedPartnerNames : []
       };
     };
 
@@ -337,6 +364,16 @@ export function buildLiveAssistantSnapshot(user: any, spaces: any[]): LiveAssist
         date: inv.date || '',
         status: inv.status || 'approved'
       }));
+
+    const accessibleShelves = Array.isArray(space.shelves)
+      ? space.shelves.filter(canCurrentUserSeeVaultItem).map((s: any) => mapAccess(s, 'title'))
+      : [];
+    const accessibleFolders = Array.isArray(space.documentFolders)
+      ? space.documentFolders.filter(canCurrentUserSeeVaultItem).slice(0, 40).map((f: any) => mapAccess(f, 'name'))
+      : [];
+    const accessibleDocsCount = Array.isArray(space.documents)
+      ? space.documents.filter((d: any) => !d?.deletedAt && canCurrentUserSeeVaultItem(d)).length
+      : 0;
 
     return {
       id: space.id,
@@ -352,9 +389,9 @@ export function buildLiveAssistantSnapshot(user: any, spaces: any[]): LiveAssist
       pendingCount,
       recentInvoices,
       vault: {
-        shelves: Array.isArray(space.shelves) ? space.shelves.map((s: any) => mapAccess(s, 'title')) : [],
-        folders: Array.isArray(space.documentFolders) ? space.documentFolders.slice(0, 40).map((f: any) => mapAccess(f, 'name')) : [],
-        documentsCount: Array.isArray(space.documents) ? space.documents.length : 0
+        shelves: accessibleShelves,
+        folders: accessibleFolders,
+        documentsCount: accessibleDocsCount
       }
     };
   });
