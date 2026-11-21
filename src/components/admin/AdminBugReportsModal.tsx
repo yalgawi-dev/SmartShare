@@ -7,6 +7,7 @@ import {
   updateBugReportStatus,
   deleteBugReportRecord
 } from '@/components/common/AssistantEngine/assistantBugReporter';
+import { APP_VERSION } from '@/constants/version';
 
 interface AdminBugReportsModalProps {
   isOpen: boolean;
@@ -22,6 +23,8 @@ export const AdminBugReportsModal: React.FC<AdminBugReportsModalProps> = ({
   const [reports, setReports] = useState<BugReportRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [filterStatus, setFilterStatus] = useState<'all' | 'new' | 'in_progress' | 'resolved'>('all');
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [copiedReportId, setCopiedReportId] = useState<string | null>(null);
 
   const loadReports = useCallback(async () => {
     setLoading(true);
@@ -40,6 +43,7 @@ export const AdminBugReportsModal: React.FC<AdminBugReportsModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       loadReports();
+      setConfirmDeleteId(null);
     }
   }, [isOpen, loadReports]);
 
@@ -57,9 +61,9 @@ export const AdminBugReportsModal: React.FC<AdminBugReportsModalProps> = ({
   };
 
   const handleDelete = async (reportId: string) => {
-    if (!confirm('האם למחוק דיווח תקלה זה לצמיתות?')) return;
     try {
       await deleteBugReportRecord(reportId);
+      setConfirmDeleteId(null);
       setReports((prev) => {
         const updated = prev.filter((r) => r.id !== reportId);
         onCountChange?.(updated.filter((r) => r.status === 'new').length);
@@ -70,22 +74,42 @@ export const AdminBugReportsModal: React.FC<AdminBugReportsModalProps> = ({
     }
   };
 
+  const handleCopyForAI = async (rep: BugReportRecord) => {
+    const promptForAI = [
+      `🐞 דוח תקלה ממשתמש לתיקון ב-MySpace (${rep.telemetry?.appVersion || APP_VERSION}):`,
+      `- מדווח: ${rep.reporter?.name || 'אורח'} (${rep.reporter?.phone || 'ללא טלפון'})`,
+      `- תיאור התקלה: ${rep.description}`,
+      `- מיקום באפליקציה: ${rep.telemetry?.spaceTitle ? `מרחב "${rep.telemetry.spaceTitle}"` : rep.telemetry?.route} | כלי פעיל: ${rep.telemetry?.activeWidget || 'כללי'}`,
+      `- מכשיר: ${rep.telemetry?.deviceOS} (${rep.telemetry?.screenSize})`,
+      `- כפתורים על המסך ברגע התקלה: ${(rep.telemetry?.domSnapshot?.visibleButtonsAndActions || []).slice(0, 15).join(', ')}`,
+      `- שיחה אחרונה עם הסוכן: ${rep.chatContextSummary || 'ללא'}`
+    ].join('\n');
+
+    try {
+      await navigator.clipboard.writeText(promptForAI);
+      if (rep.id) {
+        setCopiedReportId(rep.id);
+        setTimeout(() => setCopiedReportId(null), 2500);
+      }
+    } catch (_) {}
+  };
+
   if (!isOpen) return null;
 
-  const filteredReports = reports.filter((r) => (filterStatus === 'all' ? true : r.status === 'new' ? r.status === 'new' : r.status === filterStatus));
+  const filteredReports = reports.filter((r) => (filterStatus === 'all' ? true : r.status === filterStatus));
 
   return (
     <div
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(15, 23, 42, 0.72)',
+        background: 'rgba(15, 23, 42, 0.75)',
         backdropFilter: 'blur(6px)',
         zIndex: 100000,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '16px',
+        padding: '10px',
         direction: 'rtl'
       }}
       onClick={onClose}
@@ -96,38 +120,46 @@ export const AdminBugReportsModal: React.FC<AdminBugReportsModalProps> = ({
           background: '#ffffff',
           width: '100%',
           maxWidth: '860px',
+          height: '88dvh',
           maxHeight: '88dvh',
-          borderRadius: '24px',
-          boxShadow: '0 25px 60px rgba(0,0,0,0.35)',
+          borderRadius: '22px',
+          boxShadow: '0 25px 60px rgba(0,0,0,0.38)',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden'
         }}
       >
-        {/* Modal Header */}
+        {/* Compact Modal Header */}
         <div
           style={{
-            padding: '16px 20px',
+            padding: '12px 16px',
             background: 'linear-gradient(135deg, #be123c, #e11d48)',
             color: '#ffffff',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between'
+            justifyContent: 'space-between',
+            gap: '8px',
+            flexShrink: 0
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontSize: '1.5rem' }}>🐞</span>
-            <div>
-              <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 900 }}>
-                מוקד דיווחי תקלות משתמשים (מהסוכן האישי)
-              </h2>
-              <div style={{ fontSize: '0.78rem', opacity: 0.9 }}>
-                כולל פרטי המשתמש מהכרטיס, צילום מסך / סרטון 35 שניות וקופסה שחורה טכנית
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+            <span style={{ fontSize: '1.3rem', flexShrink: 0 }}>🐞</span>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 900 }}>
+                  מוקד טיפול בתקלות משתמשים
+                </h2>
+                <span style={{ fontSize: '0.66rem', background: 'rgba(255,255,255,0.22)', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>
+                  {APP_VERSION}
+                </span>
+              </div>
+              <div style={{ fontSize: '0.71rem', opacity: 0.92 }}>
+                מסלול טיפול: 1. צפייה בווידאו/קופסה שחורה ← 2. העתקה ל-AI וסימון "בטיפול" ← 3. סימון "טופל" ועדכון המשתמש
               </div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
             <button
               type="button"
               onClick={loadReports}
@@ -135,12 +167,13 @@ export const AdminBugReportsModal: React.FC<AdminBugReportsModalProps> = ({
                 background: 'rgba(255,255,255,0.2)',
                 border: 'none',
                 color: '#ffffff',
-                borderRadius: '10px',
-                padding: '6px 12px',
-                fontSize: '0.8rem',
-                fontWeight: 700,
+                borderRadius: '8px',
+                padding: '5px 9px',
+                fontSize: '0.75rem',
+                fontWeight: 800,
                 cursor: 'pointer'
               }}
+              title="רענן רשימה"
             >
               🔄 רענן
             </button>
@@ -148,30 +181,37 @@ export const AdminBugReportsModal: React.FC<AdminBugReportsModalProps> = ({
               type="button"
               onClick={onClose}
               style={{
-                background: 'rgba(255,255,255,0.2)',
+                background: 'rgba(255,255,255,0.25)',
                 border: 'none',
                 color: '#ffffff',
-                borderRadius: '10px',
-                padding: '6px 12px',
-                fontSize: '1rem',
-                fontWeight: 800,
-                cursor: 'pointer'
+                borderRadius: '50%',
+                width: '30px',
+                height: '30px',
+                fontSize: '0.95rem',
+                fontWeight: 900,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
               }}
+              title="סגור חלון"
             >
               ✕
             </button>
           </div>
         </div>
 
-        {/* Filter Bar */}
+        {/* Filter Bar (Single Horizontal Scrollable Row) */}
         <div
           style={{
-            padding: '10px 20px',
+            padding: '8px 14px',
             background: '#f8fafc',
             borderBottom: '1px solid #e2e8f0',
             display: 'flex',
-            gap: '8px',
-            flexWrap: 'wrap'
+            gap: '6px',
+            overflowX: 'auto',
+            whiteSpace: 'nowrap',
+            flexShrink: 0
           }}
         >
           {[
@@ -188,11 +228,12 @@ export const AdminBugReportsModal: React.FC<AdminBugReportsModalProps> = ({
                 background: filterStatus === tab.id ? '#be123c' : '#ffffff',
                 color: filterStatus === tab.id ? '#ffffff' : '#334155',
                 border: '1px solid #cbd5e1',
-                borderRadius: '10px',
-                padding: '5px 12px',
-                fontSize: '0.8rem',
+                borderRadius: '999px',
+                padding: '4px 11px',
+                fontSize: '0.76rem',
                 fontWeight: 800,
-                cursor: 'pointer'
+                cursor: 'pointer',
+                flexShrink: 0
               }}
             >
               {tab.label}
@@ -200,15 +241,12 @@ export const AdminBugReportsModal: React.FC<AdminBugReportsModalProps> = ({
           ))}
         </div>
 
-        {/* Reports List */}
+        {/* Reports List (display: block + flexShrink: 0 on cards so cards NEVER collapse or clip at the top!) */}
         <div
           style={{
             flex: 1,
             overflowY: 'auto',
-            padding: '16px 20px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '14px',
+            padding: '12px 14px',
             background: '#f1f5f9'
           }}
         >
@@ -224,6 +262,10 @@ export const AdminBugReportsModal: React.FC<AdminBugReportsModalProps> = ({
             filteredReports.map((rep) => {
               const cleanPhone = (rep.reporter?.phone || '').replace(/\D/g, '');
               const waPhone = cleanPhone.startsWith('0') ? `972${cleanPhone.slice(1)}` : cleanPhone;
+              const waMessage =
+                rep.status === 'resolved'
+                  ? `שלום ${rep.reporter?.name || ''}, התקלה שדיווחת עליה ב-MySpace ("${rep.description.slice(0, 40)}") טופלה ותוקנה! תודה רבה על הדיווח.`
+                  : `שלום ${rep.reporter?.name || ''}, קיבלנו את דיווח התקלה שלך ב-MySpace ("${rep.description.slice(0, 40)}") והעברנו אותה לטיפול. נעדכן אותך ברגע שתסתיים.`;
 
               return (
                 <div
@@ -231,126 +273,72 @@ export const AdminBugReportsModal: React.FC<AdminBugReportsModalProps> = ({
                   style={{
                     background: '#ffffff',
                     borderRadius: '16px',
-                    padding: '16px',
-                    border: rep.status === 'new' ? '2px solid #f43f5e' : '1px solid #cbd5e1',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+                    padding: '14px',
+                    marginBottom: '14px',
+                    border: rep.status === 'new' ? '2px solid #f43f5e' : rep.status === 'in_progress' ? '2px solid #f59e0b' : '1.5px solid #86efac',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '10px'
+                    gap: '10px',
+                    flexShrink: 0
                   }}
                 >
-                  {/* Top Row: User Info + Timestamp + Status Actions */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '8px' }}>
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: '1rem', fontWeight: 900, color: '#0f172a' }}>
+                  {/* 1. Reporter Identity & Location Header */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', borderBottom: '1px solid #f1f5f9', paddingBottom: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '0.95rem', fontWeight: 900, color: '#0f172a' }}>
                           👤 {rep.reporter?.name || 'אורח'}
                         </span>
-                        <span style={{ fontSize: '0.75rem', background: '#f1f5f9', padding: '2px 8px', borderRadius: '6px', color: '#475569', fontWeight: 700 }}>
+                        <span dir="ltr" style={{ fontSize: '0.73rem', background: '#f1f5f9', padding: '2px 7px', borderRadius: '6px', color: '#334155', fontWeight: 700 }}>
                           📱 {rep.reporter?.phone || 'ללא טלפון'}
                         </span>
-                        {waPhone.length >= 9 && (
-                          <a
-                            href={`https://wa.me/${waPhone}?text=${encodeURIComponent(`שלום ${rep.reporter?.name}, קיבלנו את דיווח התקלה שלך ב-MySpace ואנחנו מטפלים בה.`)}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{
-                              background: '#dcfce7',
-                              color: '#166534',
-                              textDecoration: 'none',
-                              padding: '2px 8px',
-                              borderRadius: '6px',
-                              fontSize: '0.73rem',
-                              fontWeight: 800
-                            }}
-                          >
-                            💬 השב בוואטסאפ
-                          </a>
-                        )}
-                        <span style={{ fontSize: '0.72rem', color: '#64748b' }}>
-                          🕒 {new Date(rep.createdAt).toLocaleString('he-IL')}
-                        </span>
                       </div>
-
-                      {/* Telemetry Black-Box Row */}
-                      <div style={{ fontSize: '0.74rem', color: '#475569', marginTop: '4px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                        <span>📍 <strong>מיקום:</strong> {rep.telemetry?.spaceTitle ? `מרחב "${rep.telemetry.spaceTitle}"` : rep.telemetry?.route}</span>
-                        <span>🛠️ <strong>כלי:</strong> {rep.telemetry?.activeWidget || 'כללי'}</span>
-                        <span>📱 <strong>מכשיר:</strong> {rep.telemetry?.deviceOS} ({rep.telemetry?.screenSize})</span>
-                        <span>🏷️ <strong>גרסה:</strong> {rep.telemetry?.appVersion}</span>
-                      </div>
+                      <span style={{ fontSize: '0.70rem', color: '#64748b', fontWeight: 600 }}>
+                        🕒 {new Date(rep.createdAt).toLocaleString('he-IL')}
+                      </span>
                     </div>
 
-                    {/* Status Selector & Delete */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <select
-                        value={rep.status}
-                        onChange={(e) => rep.id && handleStatusChange(rep.id, e.target.value as any)}
-                        style={{
-                          padding: '4px 8px',
-                          borderRadius: '8px',
-                          border: '1px solid #cbd5e1',
-                          fontSize: '0.78rem',
-                          fontWeight: 800,
-                          background: rep.status === 'new' ? '#fff1f2' : rep.status === 'in_progress' ? '#fef3c7' : '#dcfce7',
-                          color: rep.status === 'new' ? '#be123c' : rep.status === 'in_progress' ? '#b45309' : '#166534'
-                        }}
-                      >
-                        <option value="new">🔴 חדש</option>
-                        <option value="in_progress">🟡 בטיפול</option>
-                        <option value="resolved">🟢 טופל</option>
-                      </select>
-
-                      <button
-                        type="button"
-                        onClick={() => rep.id && handleDelete(rep.id)}
-                        style={{
-                          background: '#fee2e2',
-                          color: '#b91c1c',
-                          border: 'none',
-                          borderRadius: '8px',
-                          padding: '5px 8px',
-                          fontSize: '0.78rem',
-                          cursor: 'pointer'
-                        }}
-                        title="מחק דיווח"
-                      >
-                        🗑️
-                      </button>
+                    <div style={{ fontSize: '0.73rem', color: '#475569', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      <span>📍 <strong>מיקום:</strong> {rep.telemetry?.spaceTitle ? `מרחב "${rep.telemetry.spaceTitle}"` : rep.telemetry?.route}</span>
+                      <span>•</span>
+                      <span>🛠️ <strong>כלי:</strong> {rep.telemetry?.activeWidget || 'כללי'}</span>
+                      <span>•</span>
+                      <span>📱 <strong>מכשיר:</strong> {rep.telemetry?.deviceOS}</span>
                     </div>
                   </div>
 
-                  {/* User Bug Description */}
-                  <div style={{ background: '#fff1f2', padding: '10px 12px', borderRadius: '10px', border: '1px solid #fecdd3', fontSize: '0.86rem', color: '#881337', fontWeight: 700, whiteSpace: 'pre-wrap' }}>
-                    📝 <strong>תיאור התקלה:</strong> {rep.description}
+                  {/* 2. User Bug Description */}
+                  <div style={{ background: '#fff1f2', padding: '9px 12px', borderRadius: '10px', border: '1px solid #fecdd3', fontSize: '0.84rem', color: '#881337', fontWeight: 800, whiteSpace: 'pre-wrap' }}>
+                    📝 תיאור התקלה: {rep.description}
                   </div>
 
-                  {/* Attached Screenshot and/or 35s Video */}
+                  {/* 3. Attached Screenshot and/or 35s Video */}
                   {(rep.videoUrl || (rep.mediaType === 'video' && rep.mediaUrl) || rep.screenshotUrl || (rep.mediaType === 'screenshot' && rep.mediaUrl)) && (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '8px' }}>
                       {(rep.videoUrl || (rep.mediaType === 'video' && rep.mediaUrl)) && (
-                        <div style={{ background: '#0f172a', borderRadius: '12px', padding: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-                          <div style={{ color: '#94a3b8', fontSize: '0.73rem', alignSelf: 'flex-start' }}>
+                        <div style={{ background: '#0f172a', borderRadius: '12px', padding: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px' }}>
+                          <div style={{ color: '#94a3b8', fontSize: '0.71rem', alignSelf: 'flex-start' }}>
                             🎥 סרטון מסך מוקלט ({rep.mediaDurationSec || 0} שניות)
                           </div>
-                          <video src={rep.videoUrl || rep.mediaUrl} controls style={{ maxWidth: '100%', maxHeight: '320px', borderRadius: '8px' }} />
+                          <video src={rep.videoUrl || rep.mediaUrl} controls style={{ maxWidth: '100%', maxHeight: '220px', borderRadius: '8px' }} />
                         </div>
                       )}
                       {(rep.screenshotUrl || (rep.mediaType === 'screenshot' && rep.mediaUrl)) && (
-                        <div style={{ background: '#0f172a', borderRadius: '12px', padding: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-                          <div style={{ color: '#94a3b8', fontSize: '0.73rem', alignSelf: 'flex-start' }}>
-                            📸 צילום מסך שצורף לתקלה
+                        <div style={{ background: '#0f172a', borderRadius: '12px', padding: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px' }}>
+                          <div style={{ color: '#94a3b8', fontSize: '0.71rem', alignSelf: 'flex-start' }}>
+                            📸 צילום מסך שצורף לתקלה (לחץ להגדלה)
                           </div>
                           <a href={rep.screenshotUrl || rep.mediaUrl} target="_blank" rel="noopener noreferrer">
-                            <img src={rep.screenshotUrl || rep.mediaUrl} alt="צילום תקלה" style={{ maxWidth: '100%', maxHeight: '320px', borderRadius: '8px', objectFit: 'contain' }} />
+                            <img src={rep.screenshotUrl || rep.mediaUrl} alt="צילום תקלה" style={{ maxWidth: '100%', maxHeight: '220px', borderRadius: '8px', objectFit: 'contain' }} />
                           </a>
                         </div>
                       )}
                     </div>
                   )}
 
-                  {/* Expandable Black-Box Chat & DOM Telemetry */}
-                  <details style={{ fontSize: '0.75rem', color: '#475569', background: '#f8fafc', padding: '8px 10px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                  {/* 4. Expandable Black-Box Chat & DOM Telemetry */}
+                  <details style={{ fontSize: '0.74rem', color: '#475569', background: '#f8fafc', padding: '7px 10px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
                     <summary style={{ cursor: 'pointer', fontWeight: 800 }}>
                       🔍 הצג קופסה שחורה (תמליל שיחה עם הסוכן + כפתורים שהיו על המסך)
                     </summary>
@@ -362,6 +350,156 @@ export const AdminBugReportsModal: React.FC<AdminBugReportsModalProps> = ({
                       <div>{(rep.telemetry?.domSnapshot?.visibleButtonsAndActions || []).join(' | ') || 'לא נרשמו'}</div>
                     </div>
                   </details>
+
+                  {/* 5. PROMINENT ADMIN WORKFLOW & ACTION BAR (Always visible at the bottom of every card!) */}
+                  <div
+                    style={{
+                      background: '#f8fafc',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '12px',
+                      padding: '10px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px'
+                    }}
+                  >
+                    {/* Step A: 1-Tap Status Progression */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+                      <span style={{ fontSize: '0.74rem', fontWeight: 800, color: '#334155' }}>
+                        סטטוס טיפול בתקלה:
+                      </span>
+                      <div style={{ display: 'flex', gap: '5px', flex: 1, justifyContent: 'flex-end' }}>
+                        {[
+                          { id: 'new', label: '🔴 חדש', activeBg: '#be123c', lightBg: '#fff1f2', textColor: '#be123c' },
+                          { id: 'in_progress', label: '🟡 בטיפול', activeBg: '#d97706', lightBg: '#fef3c7', textColor: '#b45309' },
+                          { id: 'resolved', label: '🟢 טופל', activeBg: '#16a34a', lightBg: '#dcfce7', textColor: '#15803d' }
+                        ].map((st) => {
+                          const isCurrent = rep.status === st.id;
+                          return (
+                            <button
+                              key={st.id}
+                              type="button"
+                              onClick={() => rep.id && handleStatusChange(rep.id, st.id as any)}
+                              style={{
+                                background: isCurrent ? st.activeBg : st.lightBg,
+                                color: isCurrent ? '#ffffff' : st.textColor,
+                                border: isCurrent ? `2px solid ${st.activeBg}` : '1px solid #cbd5e1',
+                                borderRadius: '8px',
+                                padding: '5px 10px',
+                                fontSize: '0.74rem',
+                                fontWeight: 900,
+                                cursor: 'pointer',
+                                boxShadow: isCurrent ? '0 2px 6px rgba(0,0,0,0.15)' : 'none'
+                              }}
+                            >
+                              {st.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Step B: Admin Actions (Copy for AI Fix | Reply to User on WhatsApp | Delete Report) */}
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', borderTop: '1px solid #e2e8f0', paddingTop: '8px' }}>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyForAI(rep)}
+                        style={{
+                          flex: 1,
+                          background: copiedReportId === rep.id ? '#dcfce7' : '#eff6ff',
+                          color: copiedReportId === rep.id ? '#166534' : '#1d4ed8',
+                          border: '1px solid #bfdbfe',
+                          borderRadius: '8px',
+                          padding: '6px 9px',
+                          fontSize: '0.73rem',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap'
+                        }}
+                        title="העתק את כל המפרט הטכני של התקלה כדי להדביק לסוכן הפיתוח לתיקון מיידי"
+                      >
+                        {copiedReportId === rep.id ? '✅ הועתק ללוח!' : '📋 העתק דוח לתיקון ב-AI'}
+                      </button>
+
+                      {waPhone.length >= 9 && (
+                        <a
+                          href={`https://wa.me/${waPhone}?text=${encodeURIComponent(waMessage)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            flex: 1,
+                            background: '#dcfce7',
+                            color: '#166534',
+                            border: '1px solid #86efac',
+                            textDecoration: 'none',
+                            borderRadius: '8px',
+                            padding: '6px 9px',
+                            fontSize: '0.73rem',
+                            fontWeight: 800,
+                            textAlign: 'center',
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
+                          💬 {rep.status === 'resolved' ? 'עדכן משתמש שטופל' : 'השב בוואטסאפ'}
+                        </a>
+                      )}
+
+                      {confirmDeleteId === rep.id ? (
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                          <button
+                            type="button"
+                            onClick={() => rep.id && handleDelete(rep.id)}
+                            style={{
+                              background: '#dc2626',
+                              color: '#ffffff',
+                              border: 'none',
+                              borderRadius: '8px',
+                              padding: '6px 10px',
+                              fontSize: '0.73rem',
+                              fontWeight: 900,
+                              cursor: 'pointer'
+                            }}
+                          >
+                            ⚠️ אשר מחיקה
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmDeleteId(null)}
+                            style={{
+                              background: '#e2e8f0',
+                              color: '#334155',
+                              border: 'none',
+                              borderRadius: '8px',
+                              padding: '6px 8px',
+                              fontSize: '0.72rem',
+                              fontWeight: 700,
+                              cursor: 'pointer'
+                            }}
+                          >
+                            ביטול
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDeleteId(rep.id || null)}
+                          style={{
+                            background: '#fee2e2',
+                            color: '#b91c1c',
+                            border: '1px solid #fecaca',
+                            borderRadius: '8px',
+                            padding: '6px 10px',
+                            fontSize: '0.73rem',
+                            fontWeight: 800,
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
+                          🗑️ מחק תקלה
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
               );
             })
