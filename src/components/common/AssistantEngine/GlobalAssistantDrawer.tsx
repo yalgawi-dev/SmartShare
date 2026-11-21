@@ -12,6 +12,7 @@ export const GlobalAssistantDrawer: React.FC = () => {
     setIsOpen,
     messages,
     sendMessage,
+    submitFeedback,
     suggestedQuestions,
     isSpeaking,
     speakText,
@@ -366,9 +367,34 @@ export const GlobalAssistantDrawer: React.FC = () => {
               >
                 {m.text}
 
-                {/* Speak button on assistant answers */}
+                {/* Follow-up suggestions from connected neural edges */}
+                {m.sender === 'assistant' && m.followUps && m.followUps.length > 0 && (
+                  <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                    {m.followUps.map((q, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => sendMessage(q)}
+                        style={{
+                          background: '#f1f5f9',
+                          border: '1px solid #cbd5e1',
+                          borderRadius: '10px',
+                          padding: '3px 8px',
+                          fontSize: '0.73rem',
+                          color: '#334155',
+                          cursor: 'pointer',
+                          textAlign: 'right'
+                        }}
+                      >
+                        {q}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Speak + Helpful/Not-Helpful feedback on assistant answers */}
                 {m.sender === 'assistant' && (
-                  <div style={{ marginTop: '4px', display: 'flex', justifyContent: 'flex-start' }}>
+                  <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
                     <button
                       type="button"
                       onClick={() => speakText(m.text)}
@@ -384,6 +410,51 @@ export const GlobalAssistantDrawer: React.FC = () => {
                     >
                       🔊 הקרא
                     </button>
+
+                    {m.id !== 'welcome' && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        {m.feedback ? (
+                          <span style={{ fontSize: '0.72rem', color: m.feedback === 'helpful' ? '#16a34a' : '#d97706', fontWeight: 600 }}>
+                            {m.feedback === 'helpful' ? '✓ תודה, עזר!' : '✓ נרשם לשיפור'}
+                          </span>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => submitFeedback(m.id, 'helpful')}
+                              title="התשובה עזרה לי"
+                              style={{
+                                background: '#f0fdf4',
+                                border: '1px solid #bbf7d0',
+                                borderRadius: '8px',
+                                padding: '2px 7px',
+                                fontSize: '0.72rem',
+                                color: '#15803d',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              👍 עזר
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => submitFeedback(m.id, 'not_helpful')}
+                              title="התשובה לא הייתה מדויקת"
+                              style={{
+                                background: '#fef2f2',
+                                border: '1px solid #fecaca',
+                                borderRadius: '8px',
+                                padding: '2px 7px',
+                                fontSize: '0.72rem',
+                                color: '#b91c1c',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              👎 לא מדויק
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

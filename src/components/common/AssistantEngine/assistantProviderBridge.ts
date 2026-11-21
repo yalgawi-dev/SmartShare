@@ -2,6 +2,7 @@
 // Designed for seamless transition from Local Free Knowledge Engine to External Cloud LLM (Gemini / OpenAI) as an optional premium add-on.
 
 import { ScreenContext, queryAssistantBrain } from './assistantKnowledge';
+import type { KnowledgeNode } from './assistantMatcher';
 
 export type AIProviderType = 'local_free' | 'cloud_llm';
 
@@ -18,6 +19,9 @@ export interface AIQueryResponse {
   text: string;
   source: 'local_brain' | 'cloud_llm';
   tokensUsed?: number;
+  nodeId?: string;
+  confidence?: 'high' | 'medium' | 'low';
+  suggestions?: KnowledgeNode[];
 }
 
 /**
@@ -68,6 +72,9 @@ export async function queryAIAssistant(
   const localResult = queryAssistantBrain(query, context);
   return {
     text: localResult.answer,
-    source: 'local_brain'
+    source: 'local_brain',
+    nodeId: localResult.relatedTopicId,
+    confidence: localResult.confidence,
+    suggestions: localResult.suggestions
   };
 }

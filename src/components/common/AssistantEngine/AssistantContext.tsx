@@ -5,12 +5,18 @@ import { usePathname } from 'next/navigation';
 import { ScreenContext, getContextSuggestions } from './assistantKnowledge';
 import { sanitizeAssistantQuery, filterAssistantResponse } from './assistantSecurity';
 import { queryAIAssistant, AIProviderConfig } from './assistantProviderBridge';
+import { logAssistantLearningEvent } from './assistantLearning';
 
 interface ChatMessage {
   id: string;
   sender: 'user' | 'assistant';
   text: string;
   timestamp: number;
+  queryText?: string;
+  nodeId?: string;
+  confidence?: 'high' | 'medium' | 'low';
+  followUps?: string[];
+  feedback?: 'helpful' | 'not_helpful';
 }
 
 interface AssistantContextType {
@@ -21,6 +27,7 @@ interface AssistantContextType {
   toggleOpen: () => void;
   messages: ChatMessage[];
   sendMessage: (text: string) => Promise<void>;
+  submitFeedback: (messageId: string, rating: 'helpful' | 'not_helpful') => void;
   clearChat: () => void;
   suggestedQuestions: string[];
   isSpeaking: boolean;
@@ -137,15 +144,43 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const aiResult = await queryAIAssistant(sanitizedText, screenContext, providerConfig);
     const scrubbedAnswer = filterAssistantResponse(aiResult.text);
 
+    if (aiResult.confidence === 'low') {
+      logAssistantLearningEvent(
+        { type: 'unresolved', queryText: sanitizedText, confidence: 'low' },
+        screenContext
+      );
+    }
+
     const assistantMsg: ChatMessage = {
       id: `ast_${Date.now()}`,
       sender: 'assistant',
       text: scrubbedAnswer,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      queryText: sanitizedText,
+      nodeId: aiResult.nodeId,
+      confidence: aiResult.confidence,
+      followUps: aiResult.suggestions?.map(s => s.sampleQuestion).filter(Boolean).slice(0, 3)
     };
 
     setMessages(prev => [...prev, assistantMsg]);
   }, [screenContext, providerConfig]);
+
+  const submitFeedback = useCallback((messageId: string, rating: 'helpful' | 'not_helpful') => {
+    setMessages(prev => prev.map(m => {
+      if (m.id !== messageId || m.feedback) return m;
+      logAssistantLearningEvent(
+        {
+          type: 'feedback',
+          queryText: m.queryText || m.text.slice(0, 80),
+          matchedNodeId: m.nodeId,
+          confidence: m.confidence,
+          rating
+        },
+        screenContext
+      );
+      return { ...m, feedback: rating };
+    }));
+  }, [screenContext]);
 
   const suggestedQuestions = useMemo(() => {
     return getContextSuggestions(screenContext);
@@ -161,6 +196,7 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         toggleOpen,
         messages,
         sendMessage,
+        submitFeedback,
         clearChat,
         suggestedQuestions,
         isSpeaking,
