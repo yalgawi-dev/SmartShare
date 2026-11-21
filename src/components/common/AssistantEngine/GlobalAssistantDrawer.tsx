@@ -675,12 +675,12 @@ export const GlobalAssistantDrawer: React.FC = () => {
             position: 'fixed',
             left: isMobile ? '12px' : (position ? Math.min(Math.max(16, position.x - 340), window.innerWidth - 400) : 'auto'),
             right: isMobile ? '12px' : (position ? 'auto' : '24px'),
-            bottom: isMobile ? '135px' : '100px',
+            bottom: isMobile ? '100px' : '90px',
             top: 'auto',
             width: isMobile ? 'auto' : '380px',
             maxWidth: isMobile ? 'none' : 'calc(100vw - 32px)',
-            height: isMobile ? '56dvh' : '520px',
-            maxHeight: isMobile ? 'calc(100dvh - 170px)' : 'calc(100dvh - 120px)',
+            height: isMobile ? '68dvh' : '540px',
+            maxHeight: isMobile ? 'calc(100dvh - 130px)' : 'calc(100dvh - 110px)',
             background: '#ffffff',
             borderRadius: '24px',
             boxShadow: '0 20px 45px rgba(0,0,0,0.22)',
@@ -906,7 +906,7 @@ export const GlobalAssistantDrawer: React.FC = () => {
             )}
           </div>
 
-          {/* BUG REPORT COMPOSER & LIVE BUG LIST PANEL */}
+          {/* BUG REPORT COMPOSER & LIVE BUG LIST PANEL (Collapsible with clear visual toggle) */}
           {isBugComposerOpen && (
             <div
               style={{
@@ -914,8 +914,10 @@ export const GlobalAssistantDrawer: React.FC = () => {
                 borderBottom: '2px solid #fecdd3',
                 display: 'flex',
                 flexDirection: 'column',
-                maxHeight: '46dvh',
-                flexShrink: 0
+                flex: 1,
+                minHeight: 0,
+                maxHeight: '100%',
+                overflow: 'hidden'
               }}
             >
               {/* Top Bar with 2 Tabs: New Bug vs Bug List & Status */}
@@ -1289,18 +1291,19 @@ export const GlobalAssistantDrawer: React.FC = () => {
             </div>
           )}
 
-          {/* Messages Container */}
-          <div
-            style={{
-              flex: 1,
-              overflowY: 'auto',
-              padding: '12px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '10px',
-              background: '#f8fafc'
-            }}
-          >
+          {/* Messages Container (Only rendered when Bug Composer is NOT open) */}
+          {!isBugComposerOpen && (
+            <div
+              style={{
+                flex: 1,
+                overflowY: 'auto',
+                padding: '12px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '10px',
+                background: '#f8fafc'
+              }}
+            >
             {messages.map(m => (
               <div
                 key={m.id}
@@ -1501,10 +1504,11 @@ export const GlobalAssistantDrawer: React.FC = () => {
               </div>
             ))}
             <div ref={messagesEndRef} />
-          </div>
+            </div>
+          )}
 
-          {/* Suggested Context-Aware Questions */}
-          {suggestedQuestions.length > 0 && (
+          {/* Suggested Context-Aware Questions (Only shown when not composing a bug report) */}
+          {!isBugComposerOpen && suggestedQuestions.length > 0 && (
             <div
               style={{
                 padding: '6px 12px',
@@ -1539,79 +1543,81 @@ export const GlobalAssistantDrawer: React.FC = () => {
             </div>
           )}
 
-          {/* Input & Voice Controls */}
-          <form
-            onSubmit={e => {
-              e.preventDefault();
-              handleSend();
-            }}
-            style={{
-              padding: '10px',
-              background: '#ffffff',
-              borderTop: '1px solid #e2e8f0',
-              display: 'flex',
-              gap: '6px',
-              alignItems: 'center'
-            }}
-          >
-            {/* Voice Dictation (Speech to Text) */}
-            <button
-              type="button"
-              onClick={handleToggleVoiceInput}
-              style={{
-                width: '36px',
-                height: '36px',
-                borderRadius: '10px',
-                border: isListening ? '2px solid #ef4444' : '1px solid #cbd5e1',
-                background: isListening ? '#fee2e2' : '#f8fafc',
-                color: isListening ? '#ef4444' : '#475569',
-                fontSize: '1rem',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                animation: isListening ? 'pulse 1.2s infinite' : 'none'
+          {/* Input & Voice Controls (Only shown when not composing a bug report) */}
+          {!isBugComposerOpen && (
+            <form
+              onSubmit={e => {
+                e.preventDefault();
+                handleSend();
               }}
-              title={isListening ? 'מקליט... לחץ לסיום' : 'הקלט הוראה בדיבור 🎙️'}
-            >
-              🎙️
-            </button>
-
-            <input
-              type="text"
-              value={inputVal}
-              onChange={e => setInputVal(e.target.value)}
-              placeholder={isListening ? '🎙️ מאזין לך... דבר עכשיו' : 'שאל משהו בקול או בהקלדה...'}
               style={{
-                flex: 1,
-                padding: '8px 12px',
-                borderRadius: '10px',
-                border: isListening ? '1.5px solid #ef4444' : '1px solid #cbd5e1',
-                fontSize: '0.82rem',
-                direction: 'rtl'
-              }}
-            />
-
-            <button
-              type="submit"
-              disabled={!inputVal.trim()}
-              style={{
-                width: '36px',
-                height: '36px',
-                borderRadius: '10px',
-                border: 'none',
-                background: inputVal.trim() ? '#4f46e5' : '#e2e8f0',
-                color: inputVal.trim() ? '#ffffff' : '#94a3b8',
-                cursor: inputVal.trim() ? 'pointer' : 'default',
+                padding: '10px',
+                background: '#ffffff',
+                borderTop: '1px solid #e2e8f0',
                 display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '0.95rem'
+                gap: '6px',
+                alignItems: 'center'
               }}
             >
-              ➤
-            </button>
-          </form>
+              {/* Voice Dictation (Speech to Text) */}
+              <button
+                type="button"
+                onClick={handleToggleVoiceInput}
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '10px',
+                  border: isListening ? '2px solid #ef4444' : '1px solid #cbd5e1',
+                  background: isListening ? '#fee2e2' : '#f8fafc',
+                  color: isListening ? '#ef4444' : '#475569',
+                  fontSize: '1rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  animation: isListening ? 'pulse 1.2s infinite' : 'none'
+                }}
+                title={isListening ? 'מקליט... לחץ לסיום' : 'הקלט הוראה בדיבור 🎙️'}
+              >
+                🎙️
+              </button>
+
+              <input
+                type="text"
+                value={inputVal}
+                onChange={e => setInputVal(e.target.value)}
+                placeholder={isListening ? '🎙️ מאזין לך... דבר עכשיו' : 'שאל משהו בקול או בהקלדה...'}
+                style={{
+                  flex: 1,
+                  padding: '8px 12px',
+                  borderRadius: '10px',
+                  border: isListening ? '1.5px solid #ef4444' : '1px solid #cbd5e1',
+                  fontSize: '0.82rem',
+                  direction: 'rtl'
+                }}
+              />
+
+              <button
+                type="submit"
+                disabled={!inputVal.trim()}
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: inputVal.trim() ? '#4f46e5' : '#e2e8f0',
+                  color: inputVal.trim() ? '#ffffff' : '#94a3b8',
+                  cursor: inputVal.trim() ? 'pointer' : 'default',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '0.95rem'
+                }}
+              >
+                ➤
+              </button>
+            </form>
+          )}
         </div>
         );
       })()}
