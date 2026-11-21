@@ -325,18 +325,26 @@ export const AdminBugReportsModal: React.FC<AdminBugReportsModalProps> = ({
                     📝 <strong>תיאור התקלה:</strong> {rep.description}
                   </div>
 
-                  {/* Attached Screenshot or 35s Video */}
-                  {rep.mediaUrl && (
-                    <div style={{ background: '#0f172a', borderRadius: '12px', padding: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-                      <div style={{ color: '#94a3b8', fontSize: '0.73rem', alignSelf: 'flex-start' }}>
-                        {rep.mediaType === 'video' ? `🎥 סרטון מסך מוקלט (${rep.mediaDurationSec || 0} שניות)` : '📸 צילום מסך שצורף לתקלה'}
-                      </div>
-                      {rep.mediaType === 'video' ? (
-                        <video src={rep.mediaUrl} controls style={{ maxWidth: '100%', maxHeight: '340px', borderRadius: '8px' }} />
-                      ) : (
-                        <a href={rep.mediaUrl} target="_blank" rel="noopener noreferrer">
-                          <img src={rep.mediaUrl} alt="צילום תקלה" style={{ maxWidth: '100%', maxHeight: '340px', borderRadius: '8px', objectFit: 'contain' }} />
-                        </a>
+                  {/* Attached Screenshot and/or 35s Video */}
+                  {(rep.videoUrl || (rep.mediaType === 'video' && rep.mediaUrl) || rep.screenshotUrl || (rep.mediaType === 'screenshot' && rep.mediaUrl)) && (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
+                      {(rep.videoUrl || (rep.mediaType === 'video' && rep.mediaUrl)) && (
+                        <div style={{ background: '#0f172a', borderRadius: '12px', padding: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                          <div style={{ color: '#94a3b8', fontSize: '0.73rem', alignSelf: 'flex-start' }}>
+                            🎥 סרטון מסך מוקלט ({rep.mediaDurationSec || 0} שניות)
+                          </div>
+                          <video src={rep.videoUrl || rep.mediaUrl} controls style={{ maxWidth: '100%', maxHeight: '320px', borderRadius: '8px' }} />
+                        </div>
+                      )}
+                      {(rep.screenshotUrl || (rep.mediaType === 'screenshot' && rep.mediaUrl)) && (
+                        <div style={{ background: '#0f172a', borderRadius: '12px', padding: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                          <div style={{ color: '#94a3b8', fontSize: '0.73rem', alignSelf: 'flex-start' }}>
+                            📸 צילום מסך שצורף לתקלה
+                          </div>
+                          <a href={rep.screenshotUrl || rep.mediaUrl} target="_blank" rel="noopener noreferrer">
+                            <img src={rep.screenshotUrl || rep.mediaUrl} alt="צילום תקלה" style={{ maxWidth: '100%', maxHeight: '320px', borderRadius: '8px', objectFit: 'contain' }} />
+                          </a>
+                        </div>
                       )}
                     </div>
                   )}

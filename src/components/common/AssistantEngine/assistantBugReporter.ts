@@ -22,9 +22,11 @@ export interface BugReportRecord {
   description: string;
   chatContextSummary: string;
   mediaUrl?: string;
-  mediaType: 'screenshot' | 'video' | 'none';
+  mediaType: 'screenshot' | 'video' | 'both' | 'none';
   mediaMimeType?: string;
   mediaDurationSec?: number;
+  screenshotUrl?: string;
+  videoUrl?: string;
   telemetry: {
     appVersion: string;
     route: string;
@@ -377,22 +379,52 @@ export async function submitBugReportToAdmin(params: {
   screenContext: ScreenContext;
   description: string;
   recentMessages: Array<{ sender: string; text: string }>;
-  mediaBlob?: Blob | null;
-  mediaType: 'screenshot' | 'video' | 'none';
+  screenshotBlob?: Blob | null;
+  videoBlob?: Blob | null;
   mediaDurationSec?: number;
   onUploadProgress?: (percent: number) => void;
 }): Promise<string> {
-  const { user, screenContext, description, recentMessages, mediaBlob, mediaType, mediaDurationSec, onUploadProgress } = params;
+  const {
+    user,
+    screenContext,
+    description,
+    recentMessages,
+    screenshotBlob,
+    videoBlob,
+    mediaDurationSec,
+    onUploadProgress
+  } = params;
 
-  let mediaUrl: string | undefined;
-  let mediaMimeType: string | undefined;
+  let screenshotUrl: string | undefined;
+  let videoUrl: string | undefined;
+  const uidPrefix = user?.id || 'guest';
+  const nowTs = Date.now();
+  const hasBoth = Boolean(screenshotBlob && videoBlob);
 
-  if (mediaBlob && mediaType !== 'none') {
-    const ext = mediaType === 'screenshot' ? 'webp' : mediaBlob.type.includes('mp4') ? 'mp4' : 'webm';
-    const storagePath = `bug_reports/${user?.id || 'guest'}_${Date.now()}.${ext}`;
-    mediaUrl = await uploadBlobToStorage(mediaBlob, storagePath, onUploadProgress);
-    mediaMimeType = mediaBlob.type;
+  if (screenshotBlob) {
+    const storagePath = `bug_reports/${uidPrefix}_${nowTs}_screen.webp`;
+    screenshotUrl = await uploadBlobToStorage(screenshotBlob, storagePath, (pct) => {
+      onUploadProgress?.(hasBoth ? Math.round(pct * 0.4) : pct);
+    });
   }
+
+  if (videoBlob) {
+    const ext = videoBlob.type.includes('mp4') ? 'mp4' : 'webm';
+    const storagePath = `bug_reports/${uidPrefix}_${nowTs}_video.${ext}`;
+    videoUrl = await uploadBlobToStorage(videoBlob, storagePath, (pct) => {
+      onUploadProgress?.(hasBoth ? 40 + Math.round(pct * 0.6) : pct);
+    });
+  }
+
+  const mediaType: BugReportRecord['mediaType'] =
+    screenshotUrl && videoUrl
+      ? 'both'
+      : videoUrl
+        ? 'video'
+        : screenshotUrl
+          ? 'screenshot'
+          : 'none';
+  const primaryMediaUrl = videoUrl || screenshotUrl;
 
   const chatContextSummary = recentMessages
     .slice(-5)
@@ -413,7 +445,9 @@ export async function submitBugReportToAdmin(params: {
     },
     description: description.trim() || 'דיווח תקלה דרך הסוכן האישי',
     chatContextSummary,
-    ...(mediaUrl ? { mediaUrl, mediaMimeType } : {}),
+    ...(primaryMediaUrl ? { mediaUrl: primaryMediaUrl } : {}),
+    ...(screenshotUrl ? { screenshotUrl } : {}),
+    ...(videoUrl ? { videoUrl } : {}),
     mediaType,
     ...(mediaDurationSec ? { mediaDurationSec } : {}),
     telemetry: {

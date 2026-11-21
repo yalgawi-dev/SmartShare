@@ -670,19 +670,19 @@ ${slogan}${phoneText}${portfolioText}`);
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-            <span style={{ fontSize: '1.5rem' }}>🔗</span>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flex: 1, minWidth: 0 }}>
+            <span style={{ fontSize: '1.4rem', flexShrink: 0 }}>🔗</span>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+                <h3 style={{ margin: 0, fontSize: '1.02rem', fontWeight: 800, color: 'var(--text-primary)' }}>
                   קישור שיתוף חיצוני מאובטח
                 </h3>
-                <span style={{ fontSize: '0.65rem', background: '#dbeafe', color: '#1e40af', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>
+                <span style={{ fontSize: '0.65rem', background: '#dbeafe', color: '#1e40af', padding: '1px 6px', borderRadius: '6px', fontWeight: 800, flexShrink: 0 }}>
                   {APP_VERSION}
                 </span>
               </div>
-              <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+              <p style={{ margin: '2px 0 0 0', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
                 {item.type === 'folder' ? '📁 תיקייה:' : '📄 קובץ:'} {item.name}
               </p>
             </div>
@@ -700,14 +700,15 @@ ${slogan}${phoneText}${portfolioText}`);
               fontSize: '1rem', 
               display: 'flex', 
               alignItems: 'center', 
-              justifyContent: 'center' 
+              justifyContent: 'center',
+              flexShrink: 0
             }}
           >
             ✕
           </button>
         </div>
 
-        {/* Scrollable Modal Content (prevents infinite scrolling & keeps Action Footer fixed) */}
+        {/* Scrollable Modal Content (Single unified scroll container so inner items are never clipped) */}
         <div style={{
           flex: 1,
           overflowY: 'auto',
@@ -724,20 +725,22 @@ ${slogan}${phoneText}${portfolioText}`);
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
+          gap: '0.85rem',
           padding: '0.85rem 1rem',
           background: isEnabled ? 'rgba(99, 102, 241, 0.08)' : 'var(--bg-main, #f8fafc)',
           borderRadius: '16px',
-          border: isEnabled ? '1.5px solid var(--primary, #6366f1)' : '1px solid var(--border-light, #e2e8f0)'
+          border: isEnabled ? '1.5px solid var(--primary, #6366f1)' : '1px solid var(--border-light, #e2e8f0)',
+          flexShrink: 0
         }}>
-          <div>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <span style={{ fontWeight: 800, fontSize: '0.92rem', color: 'var(--text-primary)' }}>
               אפשר גישה חיצונית דרך קישור
             </span>
-            <span style={{ display: 'block', fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
+            <span style={{ display: 'block', fontSize: '0.74rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
               כל מי שמחזיק בקישור יוכל לצפות ישירות ללא התקנה
             </span>
           </div>
-          <label style={{ position: 'relative', display: 'inline-block', width: '48px', height: '26px' }}>
+          <label style={{ position: 'relative', display: 'inline-block', width: '48px', height: '26px', flexShrink: 0 }}>
             <input 
               type="checkbox" 
               checked={isEnabled} 
@@ -768,7 +771,7 @@ ${slogan}${phoneText}${portfolioText}`);
           </label>
         </div>
 
-        {/* Security Controls (Shown if enabled) */}
+        {/* Security Controls (Shown if enabled - flows inside the single outer scroll container) */}
         {isEnabled && (
           <div style={{
             display: 'flex',
@@ -778,10 +781,8 @@ ${slogan}${phoneText}${portfolioText}`);
             border: '1px solid var(--border-light, #e2e8f0)',
             padding: '0.85rem',
             borderRadius: '16px',
-            overflowY: 'auto',
-            overflowX: 'hidden',
-            maxHeight: 'calc(92vh - 210px)',
-            boxSizing: 'border-box'
+            boxSizing: 'border-box',
+            flexShrink: 0
           }}>
 
             {/* Smart Audit & Visibility Card (Rule: Complete Transparency) */}

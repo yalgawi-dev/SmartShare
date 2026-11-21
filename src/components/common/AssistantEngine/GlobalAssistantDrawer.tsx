@@ -39,12 +39,13 @@ export const GlobalAssistantDrawer: React.FC = () => {
   const recognitionRef = useRef<any>(null);
   const baseInputRef = useRef<string>('');
 
-  // BUG REPORTING & SCREEN CAPTURE / 35s VIDEO RECORDER STATE
+  // BUG REPORTING & SCREEN CAPTURE / 35s VIDEO RECORDER STATE (Supports BOTH screenshot AND video simultaneously!)
   const [isBugComposerOpen, setIsBugComposerOpen] = useState(false);
   const [bugDescription, setBugDescription] = useState('');
-  const [bugMediaBlob, setBugMediaBlob] = useState<Blob | null>(null);
-  const [bugMediaPreviewUrl, setBugMediaPreviewUrl] = useState<string | null>(null);
-  const [bugMediaType, setBugMediaType] = useState<'screenshot' | 'video' | 'none'>('none');
+  const [bugScreenshotBlob, setBugScreenshotBlob] = useState<Blob | null>(null);
+  const [bugScreenshotUrl, setBugScreenshotUrl] = useState<string | null>(null);
+  const [bugVideoBlob, setBugVideoBlob] = useState<Blob | null>(null);
+  const [bugVideoUrl, setBugVideoUrl] = useState<string | null>(null);
   const [bugVideoDurationSec, setBugVideoDurationSec] = useState<number>(0);
   const [isHidingForCapture, setIsHidingForCapture] = useState(false);
   const [isRecordingBugVideo, setIsRecordingBugVideo] = useState(false);
@@ -55,14 +56,17 @@ export const GlobalAssistantDrawer: React.FC = () => {
   const videoRecorderRef = useRef<LiveBugVideoRecorder | null>(null);
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
 
-  const setBugMediaWithPreview = (blob: Blob | null, type: 'screenshot' | 'video' | 'none', durationSec = 0) => {
-    if (bugMediaPreviewUrl) {
-      URL.revokeObjectURL(bugMediaPreviewUrl);
-    }
-    setBugMediaBlob(blob);
-    setBugMediaType(type);
+  const setScreenshotWithPreview = (blob: Blob | null) => {
+    if (bugScreenshotUrl) URL.revokeObjectURL(bugScreenshotUrl);
+    setBugScreenshotBlob(blob);
+    setBugScreenshotUrl(blob ? URL.createObjectURL(blob) : null);
+  };
+
+  const setVideoWithPreview = (blob: Blob | null, durationSec = 0) => {
+    if (bugVideoUrl) URL.revokeObjectURL(bugVideoUrl);
+    setBugVideoBlob(blob);
     setBugVideoDurationSec(durationSec);
-    setBugMediaPreviewUrl(blob ? URL.createObjectURL(blob) : null);
+    setBugVideoUrl(blob ? URL.createObjectURL(blob) : null);
   };
 
   const openBugComposerWithDefaultNote = (initialNote?: string) => {
@@ -90,7 +94,7 @@ export const GlobalAssistantDrawer: React.FC = () => {
     await new Promise((r) => setTimeout(r, 220));
     try {
       const blob = await captureLiveScreenBlob();
-      setBugMediaWithPreview(blob, 'screenshot', 0);
+      setScreenshotWithPreview(blob);
     } catch (err) {
       console.warn('Screenshot capture error:', err);
     } finally {
@@ -126,7 +130,7 @@ export const GlobalAssistantDrawer: React.FC = () => {
         (videoBlob, durationSec) => {
           setIsRecordingBugVideo(false);
           setIsHidingForCapture(false);
-          setBugMediaWithPreview(videoBlob, 'video', durationSec);
+          setVideoWithPreview(videoBlob, durationSec);
           setBugSentSuccess(false);
           setIsBugComposerOpen(true);
           setIsOpen(true);
@@ -152,7 +156,11 @@ export const GlobalAssistantDrawer: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
     const isVid = file.type.startsWith('video/');
-    setBugMediaWithPreview(file, isVid ? 'video' : 'screenshot', 0);
+    if (isVid) {
+      setVideoWithPreview(file, 0);
+    } else {
+      setScreenshotWithPreview(file);
+    }
     setIsBugComposerOpen(true);
     e.target.value = '';
   };
@@ -167,8 +175,8 @@ export const GlobalAssistantDrawer: React.FC = () => {
         screenContext,
         description: bugDescription || 'דיווח תקלה דרך הסוכן האישי',
         recentMessages: messages.map((m) => ({ sender: m.sender, text: m.text })),
-        mediaBlob: bugMediaBlob,
-        mediaType: bugMediaType,
+        screenshotBlob: bugScreenshotBlob,
+        videoBlob: bugVideoBlob,
         mediaDurationSec: bugVideoDurationSec,
         onUploadProgress: (pct) => setBugUploadProgress(Math.max(1, pct))
       });
@@ -178,7 +186,8 @@ export const GlobalAssistantDrawer: React.FC = () => {
         setIsBugComposerOpen(false);
         setBugSentSuccess(false);
         setBugDescription('');
-        setBugMediaWithPreview(null, 'none', 0);
+        setScreenshotWithPreview(null);
+        setVideoWithPreview(null, 0);
       }, 1800);
     } catch (err) {
       console.error('Failed submitting bug report:', err);
@@ -418,7 +427,7 @@ export const GlobalAssistantDrawer: React.FC = () => {
             top: '14px',
             left: '50%',
             transform: 'translateX(-50%)',
-            zIndex: 100001,
+            zIndex: 2147483645,
             background: 'rgba(15, 23, 42, 0.92)',
             backdropFilter: 'blur(8px)',
             color: '#ffffff',
@@ -470,7 +479,7 @@ export const GlobalAssistantDrawer: React.FC = () => {
         </div>
       )}
 
-      {/* FLOATING ACTION ORB (Hidden while capturing screenshot or recording bug video) */}
+      {/* FLOATING ACTION ORB (Top-most zIndex so it always appears above any open modal!) */}
       {!isHidingForCapture && !isRecordingBugVideo && (
       <div
         data-assistant-drawer="true"
@@ -481,7 +490,7 @@ export const GlobalAssistantDrawer: React.FC = () => {
           top: position ? `${position.y}px` : 'auto',
           right: position ? 'auto' : '24px',
           bottom: position ? 'auto' : '150px',
-          zIndex: 99999,
+          zIndex: 2147483640,
           direction: 'rtl',
           touchAction: 'none',
           userSelect: 'none'
@@ -518,7 +527,7 @@ export const GlobalAssistantDrawer: React.FC = () => {
       </div>
       )}
 
-      {/* ASSISTANT SLIDE-OVER DRAWER (Hidden while capturing screenshot or recording bug video) */}
+      {/* ASSISTANT SLIDE-OVER DRAWER (Top-most zIndex so it always appears above any open modal) */}
       {isOpen && !isHidingForCapture && !isRecordingBugVideo && (() => {
         const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
         return (
@@ -532,13 +541,13 @@ export const GlobalAssistantDrawer: React.FC = () => {
             top: 'auto',
             width: isMobile ? 'auto' : '380px',
             maxWidth: isMobile ? 'none' : 'calc(100vw - 32px)',
-            height: isMobile ? '62dvh' : '520px',
-            maxHeight: isMobile ? 'calc(100dvh - 140px)' : 'calc(100dvh - 110px)',
+            height: isMobile ? '64dvh' : '540px',
+            maxHeight: isMobile ? 'calc(100dvh - 135px)' : 'calc(100dvh - 110px)',
             background: '#ffffff',
             borderRadius: '24px',
             boxShadow: '0 20px 45px rgba(0,0,0,0.22)',
             border: '1.5px solid #e2e8f0',
-            zIndex: 99999,
+            zIndex: 2147483640,
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
@@ -546,170 +555,191 @@ export const GlobalAssistantDrawer: React.FC = () => {
             animation: 'fadeIn 0.2s ease-out'
           }}
         >
-          {/* Header */}
+          {/* Header (2 Balanced Rows so Close Button ✕ is ALWAYS prominent and never clipped) */}
           <div
             style={{
-              padding: '12px 16px',
+              padding: '10px 14px',
               background: 'linear-gradient(135deg, #4f46e5, #06b6d4)',
               color: '#ffffff',
               display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between'
+              flexDirection: 'column',
+              gap: '6px',
+              flexShrink: 0
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '1.3rem' }}>🤖</span>
-              <div>
-                <div style={{ fontWeight: 900, fontSize: '0.92rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span>עוזר אישי MySpace</span>
-                  <span style={{ fontSize: '0.68rem', background: 'rgba(255,255,255,0.25)', padding: '1px 6px', borderRadius: '6px' }}>
-                    {APP_VERSION}
-                  </span>
-                </div>
-                <div style={{ fontSize: '0.68rem', opacity: 0.92, display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                  <span>{screenContext.activeWidget === 'fileshare' ? '📁 מודע לפורטל שיתוף קבצים' : '🌐 מודע לכלל המערכת'}</span>
-                  {(() => {
-                    const lastAst = [...messages].reverse().find(m => m.sender === 'assistant' && m.source);
-                    if (!lastAst) {
-                      return <span style={{ background: 'rgba(16,185,129,0.28)', padding: '1px 6px', borderRadius: '6px', fontWeight: 700 }}>✨ AI מוכן</span>;
-                    }
-                    return lastAst.source === 'cloud_llm' ? (
-                      <span style={{ background: 'rgba(16,185,129,0.32)', padding: '1px 6px', borderRadius: '6px', fontWeight: 700 }}>✨ AI חכם פעיל</span>
-                    ) : (
-                      <span style={{ background: 'rgba(245,158,11,0.35)', padding: '1px 6px', borderRadius: '6px', fontWeight: 700 }}>
-                        🧠 מקומי{lastAst.fallbackReason ? ` (${lastAst.fallbackReason})` : ''}
-                      </span>
-                    );
-                  })()}
-                </div>
+            {/* Top Row: Title + Version on Right | Reset + Close ✕ on Left */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '7px', minWidth: 0 }}>
+                <span style={{ fontSize: '1.25rem', flexShrink: 0 }}>🤖</span>
+                <span style={{ fontWeight: 900, fontSize: '0.94rem', whiteSpace: 'nowrap' }}>
+                  עוזר אישי MySpace
+                </span>
+                <span style={{ fontSize: '0.66rem', background: 'rgba(255,255,255,0.25)', padding: '1px 6px', borderRadius: '6px', fontWeight: 700, flexShrink: 0 }}>
+                  {APP_VERSION}
+                </span>
               </div>
-            </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              {/* Report Bug to Admin Quick Button */}
-              <button
-                type="button"
-                onClick={() => {
-                  if (isBugComposerOpen) setIsBugComposerOpen(false);
-                  else openBugComposerWithDefaultNote();
-                }}
-                style={{
-                  background: isBugComposerOpen ? '#ef4444' : 'rgba(239,68,68,0.28)',
-                  border: '1px solid rgba(255,255,255,0.45)',
-                  borderRadius: '8px',
-                  color: '#ffffff',
-                  padding: '3px 7px',
-                  fontSize: '0.70rem',
-                  fontWeight: 800,
-                  cursor: 'pointer'
-                }}
-                title="דווח על תקלה למנהל המערכת (צילום מסך או סרטון 35 שניות)"
-              >
-                🐞 תקלה
-              </button>
-
-              {/* Playback Speed Selector (0.85x / 1.0x / 1.15x / 1.35x / 1.5x) */}
-              <button
-                type="button"
-                onClick={() => {
-                  const rates = [0.85, 1.0, 1.15, 1.35, 1.5];
-                  const curIdx = rates.findIndex(r => Math.abs(r - playbackRate) < 0.05);
-                  const nextRate = rates[(curIdx + 1) % rates.length];
-                  setPlaybackRate(nextRate);
-                }}
-                style={{
-                  background: 'rgba(255,255,255,0.2)',
-                  border: 'none',
-                  borderRadius: '8px',
-                  color: '#ffffff',
-                  padding: '3px 6px',
-                  fontSize: '0.70rem',
-                  fontWeight: 700,
-                  cursor: 'pointer'
-                }}
-                title="שנה מהירות הקראה"
-              >
-                {playbackRate}x
-              </button>
-
-              {/* Auto-Speak Toggle Button */}
-              <button
-                type="button"
-                onClick={toggleAutoSpeak}
-                style={{
-                  background: autoSpeak ? '#10b981' : 'rgba(255,255,255,0.2)',
-                  border: 'none',
-                  borderRadius: '8px',
-                  color: '#ffffff',
-                  padding: '3px 7px',
-                  fontSize: '0.72rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '3px',
-                  transition: 'background 0.2s'
-                }}
-                title={autoSpeak ? 'הקראה אוטומטית פועלת - לחץ לכיבוי' : 'הקראה אוטומטית כבויה - לחץ להפעלה'}
-              >
-                {autoSpeak ? '🔊 אוטו' : '🔇 שקט'}
-              </button>
-
-              {isSpeaking && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
                 <button
                   type="button"
-                  onClick={stopSpeaking}
+                  onClick={clearChat}
                   style={{
-                    background: 'rgba(255,255,255,0.25)',
+                    background: 'rgba(255,255,255,0.18)',
                     border: 'none',
                     borderRadius: '8px',
                     color: '#ffffff',
-                    padding: '3px 8px',
-                    fontSize: '0.72rem',
+                    width: '28px',
+                    height: '28px',
+                    fontSize: '0.8rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                  title="אפס שיחה"
+                >
+                  🔄
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsOpen(false)}
+                  style={{
+                    background: 'rgba(255,255,255,0.25)',
+                    border: 'none',
+                    borderRadius: '50%',
+                    color: '#ffffff',
+                    width: '28px',
+                    height: '28px',
+                    fontSize: '0.95rem',
+                    fontWeight: 900,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0
+                  }}
+                  title="סגור עוזר אישי"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Bottom Row: AI Status on Right | Action Controls (Bug, Speed, Auto-Speak, Stop) on Left */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', flexWrap: 'wrap' }}>
+              <div style={{ fontSize: '0.67rem', opacity: 0.95, display: 'flex', alignItems: 'center', gap: '5px' }}>
+                {(() => {
+                  const lastAst = [...messages].reverse().find(m => m.sender === 'assistant' && m.source);
+                  if (!lastAst) {
+                    return <span style={{ background: 'rgba(16,185,129,0.32)', padding: '2px 7px', borderRadius: '6px', fontWeight: 800 }}>✨ AI מוכן</span>;
+                  }
+                  return lastAst.source === 'cloud_llm' ? (
+                    <span style={{ background: 'rgba(16,185,129,0.35)', padding: '2px 7px', borderRadius: '6px', fontWeight: 800 }}>✨ AI חכם פעיל</span>
+                  ) : (
+                    <span style={{ background: 'rgba(245,158,11,0.35)', padding: '2px 7px', borderRadius: '6px', fontWeight: 800 }}>
+                      🧠 מקומי{lastAst.fallbackReason ? ` (${lastAst.fallbackReason})` : ''}
+                    </span>
+                  );
+                })()}
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0 }}>
+                {/* Report Bug to Admin Quick Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isBugComposerOpen) setIsBugComposerOpen(false);
+                    else openBugComposerWithDefaultNote();
+                  }}
+                  style={{
+                    background: isBugComposerOpen ? '#ef4444' : 'rgba(239,68,68,0.35)',
+                    border: '1px solid rgba(255,255,255,0.5)',
+                    borderRadius: '8px',
+                    color: '#ffffff',
+                    padding: '2px 7px',
+                    fontSize: '0.70rem',
+                    fontWeight: 800,
                     cursor: 'pointer'
                   }}
-                  title="הפסק הקראה"
+                  title="דווח על תקלה למנהל המערכת (צילום מסך או סרטון 35 שניות)"
                 >
-                  ⏹️ עצור
+                  🐞 תקלה
                 </button>
-              )}
-              <button
-                type="button"
-                onClick={clearChat}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: '#ffffff',
-                  fontSize: '0.8rem',
-                  cursor: 'pointer',
-                  opacity: 0.8
-                }}
-                title="אפס שיחה"
-              >
-                🔄
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsOpen(false)}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: '#ffffff',
-                  fontSize: '1.1rem',
-                  cursor: 'pointer',
-                  padding: '0 4px'
-                }}
-              >
-                ✕
-              </button>
+
+                {/* Playback Speed Selector */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const rates = [0.85, 1.0, 1.15, 1.35, 1.5];
+                    const curIdx = rates.findIndex(r => Math.abs(r - playbackRate) < 0.05);
+                    const nextRate = rates[(curIdx + 1) % rates.length];
+                    setPlaybackRate(nextRate);
+                  }}
+                  style={{
+                    background: 'rgba(255,255,255,0.2)',
+                    border: 'none',
+                    borderRadius: '8px',
+                    color: '#ffffff',
+                    padding: '2px 6px',
+                    fontSize: '0.70rem',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                  title="שנה מהירות הקראה"
+                >
+                  {playbackRate}x
+                </button>
+
+                {/* Auto-Speak Toggle Button */}
+                <button
+                  type="button"
+                  onClick={toggleAutoSpeak}
+                  style={{
+                    background: autoSpeak ? '#10b981' : 'rgba(255,255,255,0.2)',
+                    border: 'none',
+                    borderRadius: '8px',
+                    color: '#ffffff',
+                    padding: '2px 7px',
+                    fontSize: '0.71rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '3px'
+                  }}
+                  title={autoSpeak ? 'הקראה אוטומטית פועלת - לחץ לכיבוי' : 'הקראה אוטומטית כבויה - לחץ להפעלה'}
+                >
+                  {autoSpeak ? '🔊 אוטו' : '🔇 שקט'}
+                </button>
+
+                {isSpeaking && (
+                  <button
+                    type="button"
+                    onClick={stopSpeaking}
+                    style={{
+                      background: 'rgba(239,68,68,0.85)',
+                      border: 'none',
+                      borderRadius: '8px',
+                      color: '#ffffff',
+                      padding: '2px 7px',
+                      fontSize: '0.71rem',
+                      fontWeight: 800,
+                      cursor: 'pointer'
+                    }}
+                    title="הפסק הקראה"
+                  >
+                    ⏹️ עצור
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
           {/* Context Banner */}
-          <div style={{ padding: '6px 12px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontSize: '0.72rem', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div style={{ padding: '5px 12px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontSize: '0.71rem', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               <span>📍</span>
-              <span>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 מיקום נוכחי:{' '}
                 {screenContext.spaceTitle
                   ? `מרחב "${screenContext.spaceTitle}"${screenContext.currentFolderName ? ` › ${screenContext.currentFolderName}` : ''}`
@@ -723,180 +753,257 @@ export const GlobalAssistantDrawer: React.FC = () => {
               </span>
             </div>
             {screenContext.activeWidget && screenContext.activeWidget !== 'general' && (
-              <span style={{ fontSize: '0.66rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 5px', borderRadius: '4px', fontWeight: 600 }}>
+              <span style={{ fontSize: '0.65rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '4px', fontWeight: 700, flexShrink: 0 }}>
                 {screenContext.activeWidget === 'accounting' ? 'הוצאות' : screenContext.activeWidget === 'documents' ? 'מסמכים' : screenContext.activeWidget === 'fileshare' ? 'שיתוף' : screenContext.activeWidget === 'partners' ? 'שותפים' : screenContext.activeWidget}
               </span>
             )}
           </div>
 
-          {/* BUG REPORT COMPOSER PANEL (Auto-attaches user profile, black-box DOM telemetry, screenshot or 35s video) */}
+          {/* BUG REPORT COMPOSER PANEL (Self-scrollable with pinned Send button so Send NEVER disappears!) */}
           {isBugComposerOpen && (
             <div
               style={{
-                padding: '10px 12px',
                 background: '#fff1f2',
                 borderBottom: '2px solid #fecdd3',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '8px',
-                fontSize: '0.76rem'
+                maxHeight: '44dvh',
+                flexShrink: 0
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontWeight: 900, color: '#9f1239', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                  🐞 דיווח תקלה חכם למנהל המערכת
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setIsBugComposerOpen(false)}
-                  style={{ background: 'transparent', border: 'none', color: '#9f1239', cursor: 'pointer', fontWeight: 800 }}
-                >
-                  ✕ סגור
-                </button>
-              </div>
-
-              {/* Auto-attached User Card Summary */}
-              <div style={{ background: '#ffffff', padding: '5px 8px', borderRadius: '8px', border: '1px solid #fecdd3', fontSize: '0.69rem', color: '#475569' }}>
-                👤 <strong>{user?.realName || user?.nickname || 'אורח'}</strong> • 📱 {user?.phone || 'ללא טלפון'} • 📍 {screenContext.spaceTitle || 'דף ראשי'} ({APP_VERSION})
-              </div>
-
-              {/* Screen Capture / 35s Video Recording Controls */}
-              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  onClick={() => handleTakeBugScreenshot()}
-                  style={{
-                    flex: 1,
-                    background: '#ffffff',
-                    border: '1.5px solid #f43f5e',
-                    color: '#be123c',
-                    padding: '6px 8px',
-                    borderRadius: '8px',
-                    fontSize: '0.73rem',
-                    fontWeight: 800,
-                    cursor: 'pointer'
-                  }}
-                >
-                  📸 צלם מסך חי
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleStartBugVideoRecording()}
-                  style={{
-                    flex: 1,
-                    background: '#e11d48',
-                    border: 'none',
-                    color: '#ffffff',
-                    padding: '6px 8px',
-                    borderRadius: '8px',
-                    fontSize: '0.73rem',
-                    fontWeight: 800,
-                    cursor: 'pointer'
-                  }}
-                >
-                  🎥 הקלט סרטון (00:{BUG_VIDEO_MAX_SECONDS})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => galleryInputRef.current?.click()}
-                  style={{
-                    background: '#ffffff',
-                    border: '1px solid #cbd5e1',
-                    color: '#334155',
-                    padding: '6px 8px',
-                    borderRadius: '8px',
-                    fontSize: '0.72rem',
-                    fontWeight: 700,
-                    cursor: 'pointer'
-                  }}
-                  title="צרף צילום מסך או סרטון מהמכשיר"
-                >
-                  📎 מהמכשיר
-                </button>
-              </div>
-
-              {/* Attached Media Preview */}
-              {bugMediaPreviewUrl && (
-                <div style={{ position: 'relative', background: '#0f172a', borderRadius: '10px', overflow: 'hidden', maxHeight: '130px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {bugMediaType === 'video' ? (
-                    <video src={bugMediaPreviewUrl} controls style={{ maxHeight: '125px', maxWidth: '100%' }} />
-                  ) : (
-                    <img src={bugMediaPreviewUrl} alt="צילום תקלה" style={{ maxHeight: '125px', maxWidth: '100%', objectFit: 'contain' }} />
-                  )}
+              {/* Scrollable Composer Body */}
+              <div
+                style={{
+                  padding: '8px 12px',
+                  overflowY: 'auto',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '7px',
+                  fontSize: '0.75rem'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontWeight: 900, color: '#9f1239', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    🐞 דיווח תקלה חכם למנהל המערכת
+                  </span>
                   <button
                     type="button"
-                    onClick={() => setBugMediaWithPreview(null, 'none', 0)}
-                    style={{
-                      position: 'absolute',
-                      top: '5px',
-                      left: '5px',
-                      background: 'rgba(239,68,68,0.9)',
-                      color: '#fff',
-                      border: 'none',
-                      borderRadius: '6px',
-                      padding: '2px 7px',
-                      fontSize: '0.68rem',
-                      cursor: 'pointer'
-                    }}
+                    onClick={() => setIsBugComposerOpen(false)}
+                    style={{ background: 'transparent', border: 'none', color: '#9f1239', cursor: 'pointer', fontWeight: 800, fontSize: '0.75rem' }}
                   >
-                    🗑️ הסר
+                    ✕ סגור
                   </button>
                 </div>
-              )}
 
-              {/* User Note Input */}
-              <textarea
-                value={bugDescription}
-                onChange={(e) => setBugDescription(e.target.value)}
-                placeholder="תאר בקצרה מה קרה בתקלה..."
-                rows={2}
-                style={{
-                  width: '100%',
-                  borderRadius: '8px',
-                  border: '1px solid #fda4af',
-                  padding: '6px 8px',
-                  fontSize: '0.76rem',
-                  fontFamily: 'inherit',
-                  resize: 'none'
-                }}
-              />
-
-              {/* Real Cloud Upload Progress Bar (Rule 21) */}
-              {isUploadingBugReport && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.70rem', fontWeight: 800, color: '#be123c' }}>
-                    <span>☁️ מעלה חבילת דיווח לענן...</span>
-                    <span>{bugUploadProgress}%</span>
-                  </div>
-                  <div style={{ height: '6px', background: '#fecdd3', borderRadius: '999px', overflow: 'hidden' }}>
-                    <div style={{ width: `${bugUploadProgress}%`, height: '100%', background: '#e11d48', transition: 'width 0.15s ease' }} />
-                  </div>
-                </div>
-              )}
-
-              {bugSentSuccess ? (
-                <div style={{ background: '#dcfce7', color: '#166534', padding: '7px', borderRadius: '8px', textAlign: 'center', fontWeight: 800 }}>
-                  ✅ הדיווח נשלח בהצלחה למנהל המערכת עם כל הפרטים!
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  disabled={isUploadingBugReport}
-                  onClick={handleSubmitBugReport}
+                {/* Auto-attached User Card Summary (BiDi-isolated chips so icons and text never scramble!) */}
+                <div
                   style={{
-                    background: '#be123c',
-                    color: '#ffffff',
-                    border: 'none',
-                    borderRadius: '9px',
-                    padding: '7px 12px',
-                    fontSize: '0.78rem',
-                    fontWeight: 900,
-                    cursor: isUploadingBugReport ? 'wait' : 'pointer'
+                    background: '#ffffff',
+                    padding: '5px 8px',
+                    borderRadius: '8px',
+                    border: '1px solid #fecdd3',
+                    fontSize: '0.68rem',
+                    color: '#475569',
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    alignItems: 'center',
+                    gap: '6px'
                   }}
                 >
-                  🚀 שלח חבילת תקלה לאדמין
-                </button>
-              )}
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontWeight: 800, color: '#0f172a' }}>
+                    <span>👤</span>
+                    <span>{user?.realName || user?.nickname || 'אורח'}</span>
+                  </span>
+                  <span>•</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                    <span>📱</span>
+                    <span dir="ltr">{user?.phone || 'ללא טלפון'}</span>
+                  </span>
+                  <span>•</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', whiteSpace: 'nowrap' }}>
+                    <span>📍</span>
+                    <span>{screenContext.spaceTitle || 'דף ראשי'}</span>
+                  </span>
+                </div>
+
+                {/* Screen Capture / 35s Video Recording Controls */}
+                <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={() => handleTakeBugScreenshot()}
+                    style={{
+                      flex: 1,
+                      background: bugScreenshotUrl ? '#ffe4e6' : '#ffffff',
+                      border: '1.5px solid #f43f5e',
+                      color: '#be123c',
+                      padding: '5px 7px',
+                      borderRadius: '8px',
+                      fontSize: '0.72rem',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    📸 {bugScreenshotUrl ? 'צלם שוב' : 'צלם מסך חי'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleStartBugVideoRecording()}
+                    style={{
+                      flex: 1,
+                      background: '#e11d48',
+                      border: 'none',
+                      color: '#ffffff',
+                      padding: '5px 7px',
+                      borderRadius: '8px',
+                      fontSize: '0.72rem',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    🎥 {bugVideoUrl ? 'הקלט שוב' : `הקלט סרטון (00:${BUG_VIDEO_MAX_SECONDS})`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => galleryInputRef.current?.click()}
+                    style={{
+                      background: '#ffffff',
+                      border: '1px solid #cbd5e1',
+                      color: '#334155',
+                      padding: '5px 7px',
+                      borderRadius: '8px',
+                      fontSize: '0.71rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap'
+                    }}
+                    title="צרף צילום מסך או סרטון מהמכשיר"
+                  >
+                    📎 מהמכשיר
+                  </button>
+                </div>
+
+                {/* Attached Media Previews (Supports BOTH Screenshot AND Video side-by-side!) */}
+                {(bugScreenshotUrl || bugVideoUrl) && (
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    {bugScreenshotUrl && (
+                      <div style={{ flex: 1, position: 'relative', background: '#0f172a', borderRadius: '8px', overflow: 'hidden', height: '84px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <img src={bugScreenshotUrl} alt="צילום תקלה" style={{ maxHeight: '80px', maxWidth: '100%', objectFit: 'contain' }} />
+                        <span style={{ position: 'absolute', bottom: '3px', right: '5px', background: 'rgba(15,23,42,0.8)', color: '#fff', fontSize: '0.62rem', padding: '1px 5px', borderRadius: '4px' }}>
+                          📸 תמונה
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setScreenshotWithPreview(null)}
+                          style={{
+                            position: 'absolute',
+                            top: '4px',
+                            left: '4px',
+                            background: 'rgba(239,68,68,0.92)',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '5px',
+                            padding: '1px 6px',
+                            fontSize: '0.65rem',
+                            fontWeight: 800,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          🗑️ הסר
+                        </button>
+                      </div>
+                    )}
+                    {bugVideoUrl && (
+                      <div style={{ flex: 1, position: 'relative', background: '#0f172a', borderRadius: '8px', overflow: 'hidden', height: '84px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <video src={bugVideoUrl} controls style={{ maxHeight: '80px', maxWidth: '100%' }} />
+                        <span style={{ position: 'absolute', bottom: '3px', right: '5px', background: 'rgba(15,23,42,0.8)', color: '#fff', fontSize: '0.62rem', padding: '1px 5px', borderRadius: '4px', pointerEvents: 'none' }}>
+                          🎥 סרטון
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setVideoWithPreview(null, 0)}
+                          style={{
+                            position: 'absolute',
+                            top: '4px',
+                            left: '4px',
+                            background: 'rgba(239,68,68,0.92)',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '5px',
+                            padding: '1px 6px',
+                            fontSize: '0.65rem',
+                            fontWeight: 800,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          🗑️ הסר
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* User Note Input */}
+                <textarea
+                  value={bugDescription}
+                  onChange={(e) => setBugDescription(e.target.value)}
+                  placeholder="תאר בקצרה מה קרה בתקלה..."
+                  rows={2}
+                  style={{
+                    width: '100%',
+                    minHeight: '44px',
+                    borderRadius: '8px',
+                    border: '1px solid #fda4af',
+                    padding: '6px 8px',
+                    fontSize: '0.76rem',
+                    fontFamily: 'inherit',
+                    resize: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              {/* Pinned Bottom Action Bar (Always visible, never clipped!) */}
+              <div style={{ padding: '7px 12px', background: '#ffe4e6', borderTop: '1px solid #fecdd3', display: 'flex', flexDirection: 'column', gap: '5px', flexShrink: 0 }}>
+                {isUploadingBugReport && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.69rem', fontWeight: 800, color: '#be123c' }}>
+                      <span>☁️ מעלה חבילת דיווח לענן...</span>
+                      <span>{bugUploadProgress}%</span>
+                    </div>
+                    <div style={{ height: '5px', background: '#fecdd3', borderRadius: '999px', overflow: 'hidden' }}>
+                      <div style={{ width: `${bugUploadProgress}%`, height: '100%', background: '#e11d48', transition: 'width 0.15s ease' }} />
+                    </div>
+                  </div>
+                )}
+
+                {bugSentSuccess ? (
+                  <div style={{ background: '#dcfce7', color: '#166534', padding: '6px', borderRadius: '8px', textAlign: 'center', fontWeight: 800, fontSize: '0.76rem' }}>
+                    ✅ הדיווח נשלח בהצלחה למנהל המערכת עם כל הפרטים!
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={isUploadingBugReport}
+                    onClick={handleSubmitBugReport}
+                    style={{
+                      width: '100%',
+                      background: 'linear-gradient(135deg, #be123c, #e11d48)',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '9px',
+                      padding: '8px 12px',
+                      fontSize: '0.80rem',
+                      fontWeight: 900,
+                      cursor: isUploadingBugReport ? 'wait' : 'pointer',
+                      boxShadow: '0 4px 10px rgba(225, 29, 72, 0.25)'
+                    }}
+                  >
+                    🚀 שלח חבילת תקלה לאדמין
+                  </button>
+                )}
+              </div>
             </div>
           )}
 
