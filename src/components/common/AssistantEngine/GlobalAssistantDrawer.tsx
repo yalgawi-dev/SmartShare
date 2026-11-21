@@ -18,6 +18,8 @@ export const GlobalAssistantDrawer: React.FC = () => {
     isAudioLoading,
     autoSpeak,
     toggleAutoSpeak,
+    playbackRate,
+    setPlaybackRate,
     speakText,
     stopSpeaking,
     clearChat
@@ -298,7 +300,31 @@ export const GlobalAssistantDrawer: React.FC = () => {
               </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              {/* Playback Speed Selector (0.85x / 1.0x / 1.25x / 1.5x) */}
+              <button
+                type="button"
+                onClick={() => {
+                  const rates = [0.85, 1.0, 1.15, 1.35, 1.5];
+                  const curIdx = rates.findIndex(r => Math.abs(r - playbackRate) < 0.05);
+                  const nextRate = rates[(curIdx + 1) % rates.length];
+                  setPlaybackRate(nextRate);
+                }}
+                style={{
+                  background: 'rgba(255,255,255,0.2)',
+                  border: 'none',
+                  borderRadius: '8px',
+                  color: '#ffffff',
+                  padding: '3px 6px',
+                  fontSize: '0.70rem',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+                title="שנה מהירות הקראה"
+              >
+                {playbackRate}x
+              </button>
+
               {/* Auto-Speak Toggle Button */}
               <button
                 type="button"
@@ -319,7 +345,7 @@ export const GlobalAssistantDrawer: React.FC = () => {
                 }}
                 title={autoSpeak ? 'הקראה אוטומטית פועלת - לחץ לכיבוי' : 'הקראה אוטומטית כבויה - לחץ להפעלה'}
               >
-                {autoSpeak ? '🔊 אוטומטי' : '🔇 שקט'}
+                {autoSpeak ? '🔊 אוטו' : '🔇 שקט'}
               </button>
 
               {isSpeaking && (

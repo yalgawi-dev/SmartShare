@@ -39,6 +39,8 @@ interface AssistantContextType {
   isAudioLoading: boolean;
   autoSpeak: boolean;
   toggleAutoSpeak: () => void;
+  playbackRate: number;
+  setPlaybackRate: (rate: number) => void;
   speakText: (text: string) => void;
   stopSpeaking: () => void;
   providerConfig: AIProviderConfig;
@@ -130,6 +132,31 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     });
   }, []);
 
+  const [playbackRate, setPlaybackRateState] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('smartshare_assistant_rate');
+        if (saved) {
+          const parsed = parseFloat(saved);
+          if (parsed >= 0.75 && parsed <= 2.0) return parsed;
+        }
+      } catch (_) {}
+    }
+    return 1.1; // Default slightly energetic & natural tempo
+  });
+
+  const setPlaybackRate = useCallback((rate: number) => {
+    setPlaybackRateState(rate);
+    if (audioRef.current) {
+      audioRef.current.playbackRate = rate;
+    }
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('smartshare_assistant_rate', String(rate));
+      } catch (_) {}
+    }
+  }, []);
+
   const [providerConfig, setProviderConfig] = useState<AIProviderConfig>({
     provider: 'cloud_llm',
     isPremiumEnabled: true
@@ -203,6 +230,7 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       try {
         setIsSpeaking(true);
         const audio = new Audio(cachedUrl);
+        audio.playbackRate = playbackRate;
         audioRef.current = audio;
         audio.onended = () => {
           if (activeSpeakSeqRef.current === seq) stopSpeaking();
@@ -247,6 +275,7 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setIsSpeaking(true);
 
         const audio = new Audio(url);
+        audio.playbackRate = playbackRate;
         audioRef.current = audio;
         audio.onended = () => {
           if (activeSpeakSeqRef.current === seq) stopSpeaking();
@@ -276,7 +305,7 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setIsSpeaking(true);
       const utterance = new SpeechSynthesisUtterance(cleanText);
       utterance.lang = 'he-IL';
-      utterance.rate = 1.0;
+      utterance.rate = playbackRate;
       const voices = window.speechSynthesis.getVoices() || [];
       const heVoice =
         voices.find(v => (v.lang === 'he-IL' || v.lang === 'iw-IL') && /google|carmit|hila|avri|natural/i.test(v.name)) ||
@@ -292,7 +321,7 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     } catch {
       setIsSpeaking(false);
     }
-  }, [stopSpeaking]);
+  }, [stopSpeaking, playbackRate]);
 
   // Send message with security validation
   const sendMessage = useCallback(async (text: string) => {
@@ -388,6 +417,8 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         isAudioLoading,
         autoSpeak,
         toggleAutoSpeak,
+        playbackRate,
+        setPlaybackRate,
         speakText,
         stopSpeaking,
         providerConfig,
