@@ -51,26 +51,50 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const pathname = usePathname() || '/';
   const { user } = useAuth();
   const { spaces } = useSpaces();
-  const [screenContext, setScreenContext] = useState<ScreenContext>({
+
+  // Extract spaceId from pathname if on /space/[id]
+  const matchedSpaceId = useMemo(() => {
+    if (!pathname) return undefined;
+    const match = pathname.match(/\/space\/([^/?#]+)/);
+    return match ? match[1] : undefined;
+  }, [pathname]);
+
+  const currentSpace = useMemo(() => {
+    if (!matchedSpaceId || !spaces) return undefined;
+    return spaces.find(s => s.id === matchedSpaceId);
+  }, [matchedSpaceId, spaces]);
+
+  const [screenContext, setScreenContext] = useState<ScreenContext>(() => ({
     route: pathname,
+    spaceId: matchedSpaceId,
+    spaceTitle: currentSpace?.title,
     activeWidget: 'general',
     userRole: 'partner'
-  });
+  }));
 
-  // Shadow the user automatically across every Next.js route transition
+  // Shadow the user automatically across every Next.js route transition and space updates
   useEffect(() => {
     setScreenContext(prev => {
-      if (prev.route === pathname) return prev;
+      const isSpaceRoute = pathname.startsWith('/space/');
+      const spaceChanged = isSpaceRoute && matchedSpaceId !== prev.spaceId;
+      const title = currentSpace?.title || (isSpaceRoute && matchedSpaceId === prev.spaceId ? prev.spaceTitle : undefined);
+
+      if (prev.route === pathname && prev.spaceId === matchedSpaceId && prev.spaceTitle === title) {
+        return prev;
+      }
+
       return {
         ...prev,
         route: pathname,
+        spaceId: isSpaceRoute ? matchedSpaceId : undefined,
+        spaceTitle: title,
         activeModal: null,
-        currentFolderId: pathname.startsWith('/space/') ? prev.currentFolderId : null,
-        currentFolderName: pathname.startsWith('/space/') ? prev.currentFolderName : undefined,
-        activeWidget: pathname.startsWith('/space/') ? prev.activeWidget : 'general'
+        currentFolderId: isSpaceRoute && !spaceChanged ? prev.currentFolderId : null,
+        currentFolderName: isSpaceRoute && !spaceChanged ? prev.currentFolderName : undefined,
+        activeWidget: isSpaceRoute && !spaceChanged ? prev.activeWidget : 'general'
       };
     });
-  }, [pathname]);
+  }, [pathname, matchedSpaceId, currentSpace?.title]);
 
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([

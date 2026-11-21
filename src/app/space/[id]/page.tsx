@@ -147,12 +147,13 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
     const widget =
       showPartnersModal ? 'partners' :
       feats.includes('finance') && (financeTab === 'summary' || financeTab === 'transactions' || financeTab === 'inbox') ? 'accounting' :
-      feats.includes('documents') ? 'documents' :
-      feats.includes('fileshare') ? 'fileshare' :
+      (financeTab === 'documents' || financeTab === 'shelves' || feats.includes('documents')) ? 'documents' :
+      (financeTab === 'fileshare' || feats.includes('fileshare')) ? 'fileshare' :
       'general';
     const role = getRoleForSpace(space.id);
 
     updateScreenContext({
+      route: `/space/${space.id}`,
       spaceId: space.id,
       spaceTitle: space.title,
       activeWidget: widget,

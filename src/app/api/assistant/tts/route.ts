@@ -53,37 +53,59 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Empty text' }, { status: 400 });
     }
 
-    const ttsUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
-    const res = await fetch(ttsUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [{ text: `הקרא בעברית טבעית, ברורה, נעימה ואנושית:\n${cleanText}` }]
-          }
-        ],
-        generationConfig: {
-          responseModalities: ['AUDIO'],
-          speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: {
-                voiceName: 'Kore'
+    // Try fastest state-of-the-art TTS models first (gemini-3.8-flash-lite-tts: ~2s ultra-low latency)
+    const ttsModels = [
+      'gemini-3.8-flash-lite-tts',
+      'gemini-3.8-flash-tts',
+      'gemini-3.1-flash-tts-preview',
+      'gemini-2.5-flash-preview-tts'
+    ];
+
+    let inlineAudio: any = null;
+
+    for (const model of ttsModels) {
+      try {
+        const ttsUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+        const res = await fetch(ttsUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [{ text: cleanText }]
+              }
+            ],
+            generationConfig: {
+              responseModalities: ['AUDIO'],
+              speechConfig: {
+                voiceConfig: {
+                  prebuiltVoiceConfig: {
+                    voiceName: 'Kore'
+                  }
+                }
               }
             }
-          }
-        }
-      })
-    });
+          })
+        });
 
-    if (!res.ok) {
-      const errTxt = await res.text();
-      console.warn('Gemini TTS error:', res.status, errTxt.slice(0, 200));
-      return NextResponse.json({ error: 'TTS unavailable' }, { status: 502 });
+        if (res.ok) {
+          const data = await res.json();
+          inlineAudio = data?.candidates?.[0]?.content?.parts?.[0]?.inlineData;
+          if (inlineAudio?.data) {
+            break;
+          }
+        } else {
+          const errTxt = await res.text();
+          console.warn(`Gemini TTS (${model}) warning:`, res.status, errTxt.slice(0, 150));
+        }
+      } catch (err) {
+        console.warn(`Gemini TTS (${model}) fetch error:`, err);
+      }
     }
 
-    const data = await res.json();
-    const inlineAudio = data?.candidates?.[0]?.content?.parts?.[0]?.inlineData;
+    if (!inlineAudio?.data) {
+      return NextResponse.json({ error: 'No audio returned from TTS models' }, { status: 502 });
+    }
     if (!inlineAudio?.data) {
       return NextResponse.json({ error: 'No audio returned' }, { status: 502 });
     }

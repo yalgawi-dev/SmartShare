@@ -373,20 +373,27 @@ export const GlobalAssistantDrawer: React.FC = () => {
           </div>
 
           {/* Context Banner */}
-          <div style={{ padding: '6px 12px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontSize: '0.72rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span>📍</span>
-            <span>
-              מיקום נוכחי:{' '}
-              {screenContext.spaceTitle
-                ? `מרחב "${screenContext.spaceTitle}"${screenContext.currentFolderName ? ` › ${screenContext.currentFolderName}` : ''}`
-                : screenContext.route?.startsWith('/space/')
-                  ? 'בתוך מרחב עבודה'
-                  : screenContext.route?.startsWith('/settings')
-                    ? 'הגדרות'
-                    : screenContext.route?.startsWith('/admin')
-                      ? 'ניהול מערכת'
-                      : 'דף ראשי'}
-            </span>
+          <div style={{ padding: '6px 12px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontSize: '0.72rem', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>📍</span>
+              <span>
+                מיקום נוכחי:{' '}
+                {screenContext.spaceTitle
+                  ? `מרחב "${screenContext.spaceTitle}"${screenContext.currentFolderName ? ` › ${screenContext.currentFolderName}` : ''}`
+                  : screenContext.route?.startsWith('/space/')
+                    ? 'בתוך מרחב עבודה'
+                    : screenContext.route?.startsWith('/settings')
+                      ? 'הגדרות'
+                      : screenContext.route?.startsWith('/admin')
+                        ? 'ניהול מערכת'
+                        : 'דף ראשי'}
+              </span>
+            </div>
+            {screenContext.activeWidget && screenContext.activeWidget !== 'general' && (
+              <span style={{ fontSize: '0.66rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 5px', borderRadius: '4px', fontWeight: 600 }}>
+                {screenContext.activeWidget === 'accounting' ? 'הוצאות' : screenContext.activeWidget === 'documents' ? 'מסמכים' : screenContext.activeWidget === 'fileshare' ? 'שיתוף' : screenContext.activeWidget === 'partners' ? 'שותפים' : screenContext.activeWidget}
+              </span>
+            )}
           </div>
 
           {/* Messages Container */}
