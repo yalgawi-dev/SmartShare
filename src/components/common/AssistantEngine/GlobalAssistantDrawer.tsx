@@ -255,6 +255,84 @@ export const GlobalAssistantDrawer: React.FC = () => {
     initY: 0
   });
 
+  // Modal Dragging State (allows moving the entire opened modal across the screen!)
+  const [modalPosOffset, setModalPosOffset] = useState<{ x: number; y: number }>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('smartshare_assistant_modal_pos');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (typeof parsed.x === 'number' && typeof parsed.y === 'number') {
+            return parsed;
+          }
+        }
+      } catch (_) {}
+    }
+    return { x: 0, y: 0 };
+  });
+
+  const modalDragRef = useRef<{
+    isDragging: boolean;
+    startX: number;
+    startY: number;
+    initX: number;
+    initY: number;
+  }>({
+    isDragging: false,
+    startX: 0,
+    startY: 0,
+    initX: 0,
+    initY: 0
+  });
+
+  const handleModalHeaderPointerDown = (e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    const target = e.target as HTMLElement;
+    // Don't drag if clicking buttons, inputs or links in header
+    if (target.closest('button') || target.closest('input') || target.closest('a')) {
+      return;
+    }
+
+    modalDragRef.current = {
+      isDragging: true,
+      startX: e.clientX,
+      startY: e.clientY,
+      initX: modalPosOffset.x,
+      initY: modalPosOffset.y
+    };
+
+    const handlePointerMove = (moveEvt: PointerEvent) => {
+      if (!modalDragRef.current.isDragging) return;
+      const dx = moveEvt.clientX - modalDragRef.current.startX;
+      const dy = moveEvt.clientY - modalDragRef.current.startY;
+      setModalPosOffset({
+        x: modalDragRef.current.initX + dx,
+        y: modalDragRef.current.initY + dy
+      });
+    };
+
+    const handlePointerUp = () => {
+      if (modalDragRef.current.isDragging) {
+        modalDragRef.current.isDragging = false;
+        setModalPosOffset(pos => {
+          if (typeof window !== 'undefined') {
+            try {
+              localStorage.setItem('smartshare_assistant_modal_pos', JSON.stringify(pos));
+            } catch (_) {}
+          }
+          return pos;
+        });
+      }
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
+  };
+
   // Load saved position on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -597,12 +675,12 @@ export const GlobalAssistantDrawer: React.FC = () => {
             position: 'fixed',
             left: isMobile ? '12px' : (position ? Math.min(Math.max(16, position.x - 340), window.innerWidth - 400) : 'auto'),
             right: isMobile ? '12px' : (position ? 'auto' : '24px'),
-            bottom: isMobile ? '112px' : '90px',
+            bottom: isMobile ? '135px' : '100px',
             top: 'auto',
             width: isMobile ? 'auto' : '380px',
             maxWidth: isMobile ? 'none' : 'calc(100vw - 32px)',
-            height: isMobile ? '64dvh' : '540px',
-            maxHeight: isMobile ? 'calc(100dvh - 135px)' : 'calc(100dvh - 110px)',
+            height: isMobile ? '56dvh' : '520px',
+            maxHeight: isMobile ? 'calc(100dvh - 170px)' : 'calc(100dvh - 120px)',
             background: '#ffffff',
             borderRadius: '24px',
             boxShadow: '0 20px 45px rgba(0,0,0,0.22)',
@@ -612,11 +690,14 @@ export const GlobalAssistantDrawer: React.FC = () => {
             flexDirection: 'column',
             overflow: 'hidden',
             direction: 'rtl',
-            animation: 'fadeIn 0.2s ease-out'
+            animation: 'fadeIn 0.2s ease-out',
+            transform: `translate3d(${modalPosOffset.x}px, ${modalPosOffset.y}px, 0)`,
+            transition: modalDragRef.current.isDragging ? 'none' : 'transform 0.1s ease-out'
           }}
         >
-          {/* Header (2 Balanced Rows so Close Button ✕ is ALWAYS prominent and never clipped) */}
+          {/* Header (Draggable on Touch & Mouse, with visual handle indicator) */}
           <div
+            onPointerDown={handleModalHeaderPointerDown}
             style={{
               padding: '10px 14px',
               background: 'linear-gradient(135deg, #4f46e5, #06b6d4)',
@@ -624,9 +705,15 @@ export const GlobalAssistantDrawer: React.FC = () => {
               display: 'flex',
               flexDirection: 'column',
               gap: '6px',
-              flexShrink: 0
+              flexShrink: 0,
+              cursor: 'grab',
+              touchAction: 'none',
+              userSelect: 'none'
             }}
+            title="גרור מכאן כדי להזיז את חלון העוזר לכל מקום במסך"
           >
+            {/* Visual Drag Handle Bar */}
+            <div style={{ alignSelf: 'center', width: '36px', height: '4px', background: 'rgba(255,255,255,0.4)', borderRadius: '999px', marginBottom: '2px' }} />
             {/* Top Row: Title + Version on Right | Reset + Close ✕ on Left */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '7px', minWidth: 0 }}>
