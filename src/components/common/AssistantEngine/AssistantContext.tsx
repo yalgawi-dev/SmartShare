@@ -103,29 +103,83 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     ]);
   }, []);
 
-  // Voice Text-to-Speech (Hebrew)
-  const speakText = useCallback((text: string) => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
-    try {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'he-IL';
-      utterance.rate = 1.0;
-      utterance.onstart = () => setIsSpeaking(true);
-      utterance.onend = () => setIsSpeaking(false);
-      utterance.onerror = () => setIsSpeaking(false);
-      window.speechSynthesis.speak(utterance);
-    } catch (_) {
-      setIsSpeaking(false);
-    }
-  }, []);
+  const audioRef = React.useRef<HTMLAudioElement | null>(null);
+  const audioUrlRef = React.useRef<string | null>(null);
 
   const stopSpeaking = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current = null;
+    }
+    if (audioUrlRef.current) {
+      URL.revokeObjectURL(audioUrlRef.current);
+      audioUrlRef.current = null;
+    }
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
     }
     setIsSpeaking(false);
   }, []);
+
+  // Natural Human Hebrew TTS via Gemini Neural Voice (/api/assistant/tts) with smart Hebrew SpeechSynthesis fallback
+  const speakText = useCallback(async (text: string) => {
+    if (typeof window === 'undefined') return;
+    stopSpeaking();
+
+    const cleanText = text
+      .replace(/[*_`#]/g, '')
+      .replace(/₪/g, ' שקלים ')
+      .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (!cleanText) return;
+
+    setIsSpeaking(true);
+
+    // 1. Try human-sounding Gemini Neural Hebrew TTS (native binary audio/wav Blob)
+    try {
+      const res = await fetch('/api/assistant/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: cleanText })
+      });
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        audioUrlRef.current = url;
+        const audio = new Audio(url);
+        audioRef.current = audio;
+        audio.onended = () => stopSpeaking();
+        audio.onerror = () => stopSpeaking();
+        await audio.play();
+        return;
+      }
+    } catch {
+      // Fall through cleanly to native Hebrew browser voice
+    }
+
+    // 2. Fallback: Web Speech API with explicit Hebrew voice selection (never robotic English!)
+    if (!('speechSynthesis' in window)) {
+      setIsSpeaking(false);
+      return;
+    }
+    try {
+      const utterance = new SpeechSynthesisUtterance(cleanText);
+      utterance.lang = 'he-IL';
+      utterance.rate = 0.98;
+      const voices = window.speechSynthesis.getVoices() || [];
+      const heVoice =
+        voices.find(v => (v.lang === 'he-IL' || v.lang === 'iw-IL') && /google|carmit|hila|avri|natural/i.test(v.name)) ||
+        voices.find(v => v.lang.toLowerCase().startsWith('he') || v.lang.toLowerCase().startsWith('iw'));
+      if (heVoice) utterance.voice = heVoice;
+      utterance.onend = () => setIsSpeaking(false);
+      utterance.onerror = () => setIsSpeaking(false);
+      window.speechSynthesis.speak(utterance);
+    } catch {
+      setIsSpeaking(false);
+    }
+  }, [stopSpeaking]);
 
   // Send message with security validation
   const sendMessage = useCallback(async (text: string) => {
