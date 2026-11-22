@@ -116,13 +116,13 @@ export function paintLiveViewportToCanvas(
     }
   }
 
-  // Collect visible structural elements ONLY from captureRoot (including <img> for rendered PDF/Garmoshka pages!)
-  const selectors = 'canvas, img, header, nav, main, section, [class*="card"], [class*="Card"], [role="dialog"], button, input, h1, h2, h3, h4, span, p';
+  // Collect visible structural elements ONLY from captureRoot (including inline-styled <div> cards, <img>, <canvas>!)
+  const selectors = 'canvas, img, header, nav, main, section, div, [role="dialog"], button, input, h1, h2, h3, h4, span, p, a';
   const elements = Array.from(captureRoot.querySelectorAll(selectors));
 
   let drawnCount = 0;
   for (const el of elements) {
-    if (drawnCount > 180) break;
+    if (drawnCount > 260) break;
     if (
       el.closest('[data-assistant-drawer="true"]') ||
       el.closest('[data-bug-recorder-hud="true"]') ||
@@ -140,6 +140,9 @@ export function paintLiveViewportToCanvas(
     if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') continue;
 
     const tag = el.tagName.toLowerCase();
+    // Skip giant transparent/wrapper divs that cover almost the whole viewport so they don't eat drawnCount
+    const isFullViewportDiv = tag === 'div' && rect.width >= logicalW * 0.96 && rect.height >= logicalH * 0.9;
+    if (isFullViewportDiv && el !== topOverlay) continue;
 
     // Draw live <canvas> elements (CAD/DWFx drawings!) directly into the video frame
     if (tag === 'canvas') {
@@ -193,27 +196,36 @@ export function paintLiveViewportToCanvas(
       drawnCount++;
     }
 
-    // Draw ONLY leaf text (never duplicate text on both parent button/heading AND inner span!)
+    // Extract ONLY direct text nodes (nodeType === 3) so buttons with icon <span> + text draw cleanly with ZERO duplication!
     const isInput = tag === 'input';
     if (isInput && (htmlEl as HTMLInputElement).type === 'password') continue;
 
-    const hasElementChildren = el.children.length > 0;
-    const directText = isInput
-      ? (htmlEl as HTMLInputElement).value || (htmlEl as HTMLInputElement).placeholder || ''
-      : !hasElementChildren
-        ? (htmlEl.innerText || htmlEl.textContent || '').replace(/\s+/g, ' ').trim()
-        : '';
+    let directText = '';
+    if (isInput) {
+      directText = (htmlEl as HTMLInputElement).value || (htmlEl as HTMLInputElement).placeholder || '';
+    } else {
+      const parts: string[] = [];
+      for (let i = 0; i < el.childNodes.length; i++) {
+        const node = el.childNodes[i];
+        if (node.nodeType === 3 && node.textContent) {
+          const t = node.textContent.replace(/\s+/g, ' ').trim();
+          if (t) parts.push(t);
+        }
+      }
+      directText = parts.join(' ').trim();
+    }
 
-    if (directText && directText.length > 0 && rect.height <= 90) {
+    if (directText && directText.length > 0 && rect.height <= 110) {
       const fontSize = Math.min(22, Math.max(11, parseFloat(style.fontSize || '14')));
       ctx.font = `${style.fontWeight || '600'} ${fontSize}px sans-serif`;
       ctx.fillStyle = style.color || '#1e293b';
       ctx.textBaseline = 'middle';
       ctx.direction = 'rtl';
-      ctx.textAlign = 'right';
-      const textX = Math.min(logicalW - 10, rect.right - 8);
+      const isCentered = style.textAlign === 'center' || tag === 'button' || style.justifyContent === 'center';
+      ctx.textAlign = isCentered ? 'center' : 'right';
+      const textX = isCentered ? (rect.left + rect.width / 2) : Math.min(logicalW - 10, rect.right - 8);
       const textY = rect.top + rect.height / 2;
-      ctx.fillText(directText.slice(0, 48), textX, textY, Math.max(20, rect.width - 14));
+      ctx.fillText(directText.slice(0, 52), textX, textY, Math.max(20, rect.width - 12));
       drawnCount++;
     }
   }

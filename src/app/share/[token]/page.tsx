@@ -37,6 +37,7 @@ export default function PublicSharePage({ params }: SharePageProps) {
   const [liveSpace, setLiveSpace] = useState<any>(null);
 
   // Android Hardware Back closes guest chat cleanly (1 step back)
+  const [brokenThumbIds, setBrokenThumbIds] = useState<Record<string, boolean>>({});
   useHardwareBack(isChatOpen, () => setIsChatOpen(false), 'share_guest_chat');
 
   // Pre-warm C++ PDFium WASM engine in background on share pages so opening heavy Garmoshka PDFs has 0ms init delay!
@@ -821,6 +822,8 @@ export default function PublicSharePage({ params }: SharePageProps) {
                   const isImg = f.fileType === 'image' || Boolean(f.url?.match(/\.(jpg|jpeg|png|webp|gif)($|\?)/i));
                   const isRealImageUrl = (u?: string) => {
                     if (!u || typeof u !== 'string') return false;
+                    // Never treat the raw PDF or CAD file URL itself as an image thumbnail!
+                    if ((isPdf || isCad) && f.url && u === f.url) return false;
                     const low = u.toLowerCase();
                     if (low.startsWith('data:image/')) return true;
                     if (
@@ -838,11 +841,12 @@ export default function PublicSharePage({ params }: SharePageProps) {
                     }
                     return true;
                   };
-                  const previewUrl = isRealImageUrl(f.thumbnailUrl)
+                  const candidatePreviewUrl = isRealImageUrl(f.thumbnailUrl)
                     ? f.thumbnailUrl!
                     : (Array.isArray(f.pages) && f.pages.length > 0 && isRealImageUrl(f.pages[0])
                       ? f.pages[0]
                       : (isImg && isRealImageUrl(f.url) ? f.url : ''));
+                  const previewUrl = brokenThumbIds[f.id] ? '' : candidatePreviewUrl;
 
                   return (
                     <div
@@ -866,9 +870,6 @@ export default function PublicSharePage({ params }: SharePageProps) {
                         style={{
                           height: '140px',
                           background: '#f1f5f9',
-                          backgroundImage: previewUrl ? `url(${previewUrl})` : 'none',
-                          backgroundSize: 'cover',
-                          backgroundPosition: 'center',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
@@ -876,6 +877,19 @@ export default function PublicSharePage({ params }: SharePageProps) {
                           overflow: 'hidden'
                         }}
                       >
+                        {previewUrl && (
+                          <img
+                            src={previewUrl}
+                            alt={f.name || 'תצוגה מקדימה'}
+                            onError={() => setBrokenThumbIds((prev) => ({ ...prev, [f.id]: true }))}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'cover',
+                              display: 'block'
+                            }}
+                          />
+                        )}
                         {/* Index Badge (#1, #2...) */}
                         <div style={{
                           position: 'absolute',

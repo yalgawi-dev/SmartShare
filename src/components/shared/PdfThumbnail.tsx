@@ -1,6 +1,11 @@
 'use client';
 import React, { useEffect, useState, useRef } from 'react';
-import { ensurePdfJsLoaded } from '@/utils/imageOptimizer';
+import {
+  ensurePdfJsLoaded,
+  getCachedPdfPages,
+  getCachedPdfBytes,
+  setCachedPdfBytes,
+} from '@/utils/imageOptimizer';
 
 // Declare global pdfjsLib to avoid TS errors
 declare global {
@@ -27,50 +32,81 @@ export default function PdfThumbnail({ base64Uri, url, style, onClick }: PdfThum
     if (!targetPdf) return;
     
     const renderPdf = async () => {
-      // Fast-path: try C++ PDFium WASM (Dedicated Web Worker) for crisp proportional thumbnail
+      // Safety timeout: NEVER leave user staring at an infinite hourglass!
+      const safetyTimer = setTimeout(() => {
+        if (isMounted) setError(true);
+      }, 12000);
+
       try {
-        let res = await fetch(targetPdf).catch(() => null);
-        if (!res || !res.ok) {
-          res = await fetch(`/api/pdf-proxy?url=${encodeURIComponent(targetPdf)}`).catch(() => null);
-        }
-        if (res && res.ok) {
-          const bytes = new Uint8Array(await res.arrayBuffer());
-          const { inspectPdfStructureWithPdfium, renderFullPageWithPdfium } = await import('@/utils/pdfiumSliceRenderer');
-          const info = await inspectPdfStructureWithPdfium(bytes, targetPdf);
-          const ratio = (info.pageWidthPt || 595) / Math.max(1, info.pageHeightPt || 842);
-          const maxDim = 360;
-          const targetW = ratio >= 1 ? maxDim : Math.max(120, Math.round(maxDim * ratio));
-          const targetH = ratio >= 1 ? Math.max(120, Math.round(maxDim / ratio)) : maxDim;
-          const thumbUrl = await renderFullPageWithPdfium({
-            pdfBytes: bytes,
-            docKey: targetPdf,
-            pageIndex: 0,
-            targetW,
-            targetH,
-          });
-          if (isMounted && thumbUrl) {
-            setImgSrc(thumbUrl);
+        // 1. Instant IndexedDB rendered-page cache (<20ms, zero download!)
+        const cachedPages = await getCachedPdfPages(targetPdf).catch(() => null);
+        if (cachedPages && cachedPages.length > 0) {
+          if (isMounted) {
+            clearTimeout(safetyTimer);
+            setImgSrc(cachedPages[0]);
             return;
           }
         }
-      } catch {
-        // Fallback to PDF.js below
-      }
 
-      try {
+        // 2. Fast-path: IndexedDB / memory bytes cache or fetch -> PDFium Web Worker
+        let bytes: Uint8Array | null = null;
+        const memCache = (typeof window !== 'undefined' ? (window as any).__smartshare_pdf_bytes_cache : null) as Map<string, Uint8Array> | null;
+        if (memCache?.has(targetPdf)) {
+          bytes = memCache.get(targetPdf)!;
+        } else {
+          bytes = await getCachedPdfBytes(targetPdf).catch(() => null);
+        }
+
+        if (!bytes) {
+          let res = await fetch(targetPdf).catch(() => null);
+          if (!res || !res.ok) {
+            res = await fetch(`/api/pdf-proxy?url=${encodeURIComponent(targetPdf)}`).catch(() => null);
+          }
+          if (res && res.ok) {
+            bytes = new Uint8Array(await res.arrayBuffer());
+            setCachedPdfBytes(targetPdf, bytes).catch(() => {});
+          }
+        }
+
+        if (bytes && bytes.byteLength > 0) {
+          try {
+            const { inspectPdfStructureWithPdfium, renderFullPageWithPdfium } = await import('@/utils/pdfiumSliceRenderer');
+            const info = await inspectPdfStructureWithPdfium(bytes, targetPdf);
+            const ratio = (info.pageWidthPt || 595) / Math.max(1, info.pageHeightPt || 842);
+            const maxDim = 360;
+            const targetW = ratio >= 1 ? maxDim : Math.max(120, Math.round(maxDim * ratio));
+            const targetH = ratio >= 1 ? Math.max(120, Math.round(maxDim / ratio)) : maxDim;
+            const thumbUrl = await renderFullPageWithPdfium({
+              pdfBytes: bytes,
+              docKey: targetPdf,
+              pageIndex: 0,
+              targetW,
+              targetH,
+            });
+            if (isMounted && thumbUrl) {
+              clearTimeout(safetyTimer);
+              setImgSrc(thumbUrl);
+              return;
+            }
+          } catch {
+            // Fall through to PDF.js fallback using bytes (no CORS failure!)
+          }
+        }
+
+        // 3. Fallback: PDF.js using already-downloaded bytes
         const pdfjs = await ensurePdfJsLoaded();
         if (!pdfjs) throw new Error('PDF.js unavailable');
 
-        const loadingTask = pdfjs.getDocument({ 
-          url: targetPdf,
-          stopAtErrors: true,
-          disableFontFace: true 
-        });
+        const loadingTask = pdfjs.getDocument(
+          bytes
+            ? { data: bytes.slice(), stopAtErrors: true, disableFontFace: true }
+            : { url: `/api/pdf-proxy?url=${encodeURIComponent(targetPdf)}`, stopAtErrors: true, disableFontFace: true }
+        );
         const pdf = await loadingTask.promise;
         const page = await pdf.getPage(1);
         
         const unscaledViewport = page.getViewport({ scale: 1.0 });
-        const scale = Math.min(0.2, 120 / Math.max(unscaledViewport.width, unscaledViewport.height));
+        const scale = Math.min(0.25, 200 / Math.max(unscaledViewport.width, unscaledViewport.height));
         const viewport = page.getViewport({ scale: Math.max(0.04, scale) });
         
         const canvas = document.createElement('canvas');
@@ -83,14 +119,20 @@ export default function PdfThumbnail({ base64Uri, url, style, onClick }: PdfThum
         await page.render({ canvasContext: context, viewport }).promise;
         
         if (isMounted) {
-          try {
-            setImgSrc(canvas.toDataURL('image/webp', 0.6));
-          } catch {
-            setImgSrc(canvas.toDataURL('image/jpeg', 0.6));
-          }
+          clearTimeout(safetyTimer);
+          const outUrl = await new Promise<string>((resolve) => {
+            canvas.toBlob(
+              (blob) => resolve(blob ? URL.createObjectURL(blob) : ''),
+              'image/webp',
+              0.75
+            );
+          });
+          if (outUrl) setImgSrc(outUrl);
+          else setError(true);
         }
       } catch (err) {
         console.error('Failed to render PDF thumbnail:', err);
+        clearTimeout(safetyTimer);
         if (isMounted) setError(true);
       }
     };
@@ -103,20 +145,28 @@ export default function PdfThumbnail({ base64Uri, url, style, onClick }: PdfThum
   }, [targetPdf]);
 
   if (error || !imgSrc) {
-    // Fallback UI if it's loading or failed
+    // Fallback UI: distinct crisp PDF badge on error, subtle loading state while fetching
     return (
       <div 
         onClick={onClick}
         style={{ 
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', 
-          backgroundColor: '#e2e8f0', cursor: onClick ? 'zoom-in' : 'default', ...style 
+          backgroundColor: error ? '#fef2f2' : '#f1f5f9', cursor: onClick ? 'zoom-in' : 'default', ...style 
         }}
       >
-        <span style={{ fontSize: imgSrc === null ? '2rem' : '3rem', animation: imgSrc === null ? 'pulse 1.5s infinite' : 'none' }}>
-          {imgSrc === null ? '⏳' : '📄'}
+        <span style={{ fontSize: error ? '2.2rem' : '1.9rem', animation: error ? 'none' : 'pulse 1.5s infinite' }}>
+          {error ? '📕' : '📄'}
         </span>
-        <span style={{ fontSize: '0.7rem', color: '#475569', fontWeight: 'bold', marginTop: '4px' }}>
-          {imgSrc === null ? 'מעבד...' : 'PDF'}
+        <span style={{
+          fontSize: '0.72rem',
+          color: error ? '#b91c1c' : '#475569',
+          background: error ? '#fee2e2' : 'transparent',
+          padding: error ? '2px 8px' : '0',
+          borderRadius: '8px',
+          fontWeight: 800,
+          marginTop: '4px'
+        }}>
+          {error ? 'מסמך PDF' : 'טוען תצוגה...'}
         </span>
       </div>
     );
