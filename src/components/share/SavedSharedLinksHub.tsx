@@ -41,12 +41,15 @@ export default function SavedSharedLinksHub() {
 
   return (
     <>
-      {/* Floating Action Button on Main Dashboard */}
+      {/* Floating Action Button on Main Dashboard — lifted cleanly above bottom nav bar with 1-tap dismiss */}
       <div style={{
         position: 'fixed',
-        bottom: '88px',
-        left: '20px',
-        zIndex: 9990
+        bottom: '116px',
+        left: '14px',
+        zIndex: 9990,
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '4px'
       }}>
         <button
           type="button"
@@ -54,32 +57,60 @@ export default function SavedSharedLinksHub() {
           style={{
             background: 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)',
             color: '#ffffff',
-            border: 'none',
-            borderRadius: '26px',
-            padding: '0.65rem 1.15rem',
-            fontSize: '0.86rem',
+            border: '1.5px solid rgba(255,255,255,0.45)',
+            borderRadius: '24px',
+            padding: '0.45rem 0.85rem',
+            fontSize: '0.78rem',
             fontWeight: 800,
             cursor: 'pointer',
-            boxShadow: '0 4px 16px rgba(79, 70, 229, 0.4)',
+            boxShadow: '0 4px 14px rgba(79, 70, 229, 0.35)',
             display: 'inline-flex',
             alignItems: 'center',
-            gap: '0.45rem',
+            gap: '0.35rem',
             transition: 'all 0.2s ease'
           }}
           title="פתח קישורים ששותפו איתך"
         >
-          <span style={{ fontSize: '1.1rem' }}>🔗</span>
+          <span style={{ fontSize: '0.95rem' }}>🔗</span>
           <span>קישורים שקיבלתי</span>
           <span style={{
             background: '#ffffff',
             color: '#4338ca',
             borderRadius: '10px',
-            padding: '1px 6px',
-            fontSize: '0.72rem',
+            padding: '0px 6px',
+            fontSize: '0.70rem',
             fontWeight: 900
           }}>
             {links.length}
           </span>
+        </button>
+
+        {/* Quick 1-Tap Dismiss / Clear All ("טיפלתי בזה, תוריד את ההודעה") */}
+        <button
+          type="button"
+          onClick={() => {
+            if (confirm('טיפלת בקישורים שקיבלת? לחץ אישור כדי לנקות ולהסתיר את הכפתור.')) {
+              links.forEach((l) => removeSavedSharedLink(l.token));
+            }
+          }}
+          style={{
+            width: '26px',
+            height: '26px',
+            borderRadius: '50%',
+            background: 'rgba(15, 23, 42, 0.78)',
+            color: '#ffffff',
+            border: '1.5px solid rgba(255,255,255,0.5)',
+            fontSize: '0.72rem',
+            fontWeight: 900,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.22)'
+          }}
+          title="טופל — הסר ונקה את ההתראה"
+        >
+          ✕
         </button>
       </div>
 
@@ -257,28 +288,54 @@ export default function SavedSharedLinksHub() {
                       </button>
                     </div>
 
-                    {/* Direct Launch Action */}
-                    <a
-                      href={item.url}
-                      style={{
-                        background: 'linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)',
-                        color: '#ffffff',
-                        textDecoration: 'none',
-                        padding: '0.55rem',
-                        borderRadius: '12px',
-                        fontSize: '0.82rem',
-                        fontWeight: 800,
-                        textAlign: 'center',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '0.4rem',
-                        boxShadow: '0 2px 6px rgba(79, 70, 229, 0.2)'
-                      }}
-                    >
-                      <span>פתח עכשיו</span>
-                      <span>↗</span>
-                    </a>
+                    {/* Direct Launch + Mark Done / Remove Actions */}
+                    <div style={{ display: 'flex', gap: '0.45rem' }}>
+                      <a
+                        href={item.url}
+                        style={{
+                          flex: 1.5,
+                          background: 'linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)',
+                          color: '#ffffff',
+                          textDecoration: 'none',
+                          padding: '0.55rem',
+                          borderRadius: '12px',
+                          fontSize: '0.82rem',
+                          fontWeight: 800,
+                          textAlign: 'center',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '0.4rem',
+                          boxShadow: '0 2px 6px rgba(79, 70, 229, 0.2)'
+                        }}
+                      >
+                        <span>פתח עכשיו</span>
+                        <span>↗</span>
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => removeSavedSharedLink(item.token)}
+                        style={{
+                          flex: 1,
+                          background: '#ecfdf5',
+                          color: '#047857',
+                          border: '1px solid #a7f3d0',
+                          padding: '0.55rem',
+                          borderRadius: '12px',
+                          fontSize: '0.80rem',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '0.3rem'
+                        }}
+                        title="סמן שטופל והסר מהרשימה"
+                      >
+                        <span>✓</span>
+                        <span>טופל / הסר</span>
+                      </button>
+                    </div>
                   </div>
                 );
               })}
