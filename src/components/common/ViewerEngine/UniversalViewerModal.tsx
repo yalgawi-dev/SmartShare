@@ -555,11 +555,11 @@ export default function UniversalViewerModal({
             );
           }
 
-          // ── Case 1: Raw PDF without pre-rendered page images ───────────────
-          // Note: When doc.rawPdfUrl exists or doc is PDF, even if temporary preview pages exist,
-          // we prefer DynamicPdfScrollPreview if rawPdfUrl is present and there's no custom multi-page array.
-          const hasRenderedPages = validImagePages.length > 0;
-          const shouldPreferVectorPdf = Boolean(isDocPdf && (!hasRenderedPages || currentDoc.rawPdfUrl));
+          // ── Case 1: PDF Document (ALWAYS stay in DynamicPdfScrollPreview so onPagesLoaded never unmounts it!) ──
+          // Previously, checking `!hasRenderedPages` caused UniversalViewerModal to unmount DynamicPdfScrollPreview
+          // right after `onPagesLoaded` populated `currentDoc.pages`, falling through to Case 3 and passing a WebP
+          // image into a broken <iframe> fallback (huge unzoomable view + black screen in recordings!).
+          const shouldPreferVectorPdf = Boolean(isDocPdf);
           if (shouldPreferVectorPdf) {
             return (
               <div
@@ -851,7 +851,7 @@ export default function UniversalViewerModal({
                 }}
               >
                 <DynamicPdfScrollPreview
-                  url={fullUrl}
+                  url={currentDoc.rawPdfUrl || currentDoc.url}
                   title={currentDoc.title}
                   thumbnailUrl={validThumb}
                   onPagesLoaded={(loadedPages) => {

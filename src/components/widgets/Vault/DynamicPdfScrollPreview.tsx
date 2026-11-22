@@ -588,7 +588,11 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
             if (autoFocusTimeoutRef.current) {
               clearTimeout(autoFocusTimeoutRef.current);
             }
-            if (currentScale > 1.3 && pdfDocRef.current && isWideBlueprintRef.current) {
+            const hasPdfReady = Boolean(
+              pdfDocRef.current ||
+              (typeof window !== 'undefined' && (window as any).__smartshare_pdf_bytes_cache?.get(url))
+            );
+            if (currentScale > 1.3 && hasPdfReady && isWideBlueprintRef.current) {
               autoFocusTimeoutRef.current = setTimeout(() => {
                 handleRenderFocusedRegion();
               }, 400);
@@ -598,7 +602,11 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
           }}
           onPanningStop={() => {
             if (autoFocusTimeoutRef.current) clearTimeout(autoFocusTimeoutRef.current);
-            if (transformStateRef.current.scale > 1.3 && pdfDocRef.current && isWideBlueprintRef.current) {
+            const hasPdfReady = Boolean(
+              pdfDocRef.current ||
+              (typeof window !== 'undefined' && (window as any).__smartshare_pdf_bytes_cache?.get(url))
+            );
+            if (transformStateRef.current.scale > 1.3 && hasPdfReady && isWideBlueprintRef.current) {
               autoFocusTimeoutRef.current = setTimeout(() => {
                 handleRenderFocusedRegion();
               }, 300);
@@ -606,7 +614,11 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
           }}
           onPinchStop={() => {
             if (autoFocusTimeoutRef.current) clearTimeout(autoFocusTimeoutRef.current);
-            if (transformStateRef.current.scale > 1.3 && pdfDocRef.current && isWideBlueprintRef.current) {
+            const hasPdfReady = Boolean(
+              pdfDocRef.current ||
+              (typeof window !== 'undefined' && (window as any).__smartshare_pdf_bytes_cache?.get(url))
+            );
+            if (transformStateRef.current.scale > 1.3 && hasPdfReady && isWideBlueprintRef.current) {
               autoFocusTimeoutRef.current = setTimeout(() => {
                 handleRenderFocusedRegion();
               }, 300);
