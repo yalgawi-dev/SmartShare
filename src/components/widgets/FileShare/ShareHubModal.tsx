@@ -22,6 +22,7 @@ interface ShareHubModalProps {
   wallShareConfig?: any;
   wallShareItem?: FileShareItem;
   onOpenItemShare: (item: FileShareItem) => void;
+  onPreviewFile?: (file: FileShareItem, allContainedFiles?: FileShareItem[]) => void;
 }
 
 interface AggregatedPersonShare {
@@ -46,6 +47,7 @@ export const ShareHubModal: React.FC<ShareHubModalProps> = ({
   wallShareConfig,
   wallShareItem,
   onOpenItemShare,
+  onPreviewFile,
 }) => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'people' | 'directory' | 'items'>('people');
@@ -135,16 +137,22 @@ export const ShareHubModal: React.FC<ShareHubModalProps> = ({
     );
   }, [allSharedItems, q]);
 
-  // Helper: resolve the actual files contained inside a shared folder (or the file itself)
-  const getContainedFileNames = (sharedItem: FileShareItem): string[] => {
-    if (sharedItem.type !== 'folder') return [];
+  // Helper: resolve the actual FileShareItem objects contained inside a shared folder OR synthetic Wall (`wall_*`)
+  const getContainedFiles = (sharedItem: FileShareItem): FileShareItem[] => {
+    if (sharedItem.type !== 'folder') return [sharedItem];
+    const isWallRoot = String(sharedItem.id || '').startsWith('wall_');
     const includeSubtree = Boolean(sharedItem.shareLink?.includeSubtree);
-    if (!includeSubtree) {
-      return (items || [])
-        .filter((f) => f.type !== 'folder' && f.parentId === sharedItem.id)
-        .map((f) => f.name)
-        .filter(Boolean);
+
+    if (isWallRoot) {
+      return (items || []).filter((f) =>
+        f.type !== 'folder' && (includeSubtree ? true : !f.parentId)
+      );
     }
+
+    if (!includeSubtree) {
+      return (items || []).filter((f) => f.type !== 'folder' && f.parentId === sharedItem.id);
+    }
+
     // Collect recursive folder IDs when subtree sharing is enabled
     const folderIds = new Set<string>([sharedItem.id]);
     let added = true;
@@ -157,10 +165,7 @@ export const ShareHubModal: React.FC<ShareHubModalProps> = ({
         }
       }
     }
-    return (items || [])
-      .filter((f) => f.type !== 'folder' && f.parentId && folderIds.has(f.parentId))
-      .map((f) => f.name)
-      .filter(Boolean);
+    return (items || []).filter((f) => f.type !== 'folder' && f.parentId && folderIds.has(f.parentId));
   };
 
   if (!isOpen || typeof document === 'undefined') return null;
@@ -490,10 +495,11 @@ export const ShareHubModal: React.FC<ShareHubModalProps> = ({
                       </span>
                     </div>
 
-                    {/* Shared items chips for this person — including exact contained file names! */}
+                    {/* Shared items chips for this person — including clickable contained files + open link! */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                       {person.entries.map(({ item, recipient }) => {
-                        const containedFiles = getContainedFileNames(item);
+                        const containedFiles = getContainedFiles(item);
+                        const isWallRoot = String(item.id || '').startsWith('wall_');
                         return (
                           <div
                             key={`${item.id}_${recipient.id}`}
@@ -510,7 +516,7 @@ export const ShareHubModal: React.FC<ShareHubModalProps> = ({
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', flexWrap: 'wrap' }}>
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', minWidth: '120px', flex: 1 }}>
                                 <span style={{ fontWeight: 800, fontSize: '0.8rem', color: '#1e293b' }}>
-                                  {item.type === 'folder' ? '📁 תיקייה:' : '📄 קובץ:'} {item.name}
+                                  {isWallRoot ? '🌐 קיר שיתוף:' : item.type === 'folder' ? '📁 תיקייה:' : '📄 קובץ:'} {item.name}
                                   {containedFiles.length > 0 && (
                                     <span style={{ fontWeight: 700, fontSize: '0.7rem', color: '#4f46e5', marginRight: '5px' }}>
                                       ({containedFiles.length} קבצים)
@@ -521,7 +527,7 @@ export const ShareHubModal: React.FC<ShareHubModalProps> = ({
                                   {recipient.enabled ? `🟢 פעיל • 👁️ ${recipient.viewCount || 0} צפיות` : '🔴 חסום'}
                                 </span>
                               </div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
                                 <button
                                   type="button"
                                   onClick={() => handleWhatsApp(item, recipient)}
@@ -558,6 +564,27 @@ export const ShareHubModal: React.FC<ShareHubModalProps> = ({
                                 >
                                   {copiedToken === recipient.token ? '✓ הועתק' : 'העתק'}
                                 </button>
+                                <a
+                                  href={`${currentOrigin}/share/${recipient.token}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  title="פתח את הקישור בדיוק כפי שהנמען רואה אותו"
+                                  style={{
+                                    background: '#eff6ff',
+                                    color: '#1d4ed8',
+                                    border: '1px solid #bfdbfe',
+                                    borderRadius: '8px',
+                                    padding: '4px 7px',
+                                    fontSize: '0.7rem',
+                                    fontWeight: 800,
+                                    textDecoration: 'none',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '2px',
+                                  }}
+                                >
+                                  👁️ צפה
+                                </a>
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -581,31 +608,46 @@ export const ShareHubModal: React.FC<ShareHubModalProps> = ({
                               </div>
                             </div>
 
-                            {/* Exact shared files inside this folder so user knows immediately WHAT was shared! */}
+                            {/* Clickable shared files inside this folder/wall so user can view every file with 1 tap! */}
                             {containedFiles.length > 0 && (
-                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', paddingTop: '4px', borderTop: '1px dashed #e2e8f0' }}>
-                                {containedFiles.slice(0, 6).map((fname, fIdx) => (
-                                  <span
-                                    key={fIdx}
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', paddingTop: '5px', borderTop: '1px dashed #e2e8f0' }}>
+                                {containedFiles.slice(0, 6).map((fileObj) => (
+                                  <button
+                                    key={fileObj.id}
+                                    type="button"
+                                    onClick={() => {
+                                      if (onPreviewFile) {
+                                        onClose();
+                                        onPreviewFile(fileObj, containedFiles);
+                                      } else if (fileObj.url) {
+                                        window.open(fileObj.url, '_blank');
+                                      }
+                                    }}
+                                    title={`לחץ לצפייה בקובץ: ${fileObj.name}`}
                                     style={{
                                       background: '#ffffff',
-                                      border: '1px solid #dbeafe',
-                                      color: '#1e40af',
-                                      borderRadius: '7px',
-                                      padding: '2px 7px',
-                                      fontSize: '0.68rem',
-                                      fontWeight: 700,
+                                      border: '1px solid #bfdbfe',
+                                      color: '#1d4ed8',
+                                      borderRadius: '8px',
+                                      padding: '3px 8px',
+                                      fontSize: '0.7rem',
+                                      fontWeight: 800,
                                       maxWidth: '100%',
                                       overflow: 'hidden',
                                       textOverflow: 'ellipsis',
                                       whiteSpace: 'nowrap',
+                                      cursor: 'pointer',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '3px',
                                     }}
                                   >
-                                    📄 {fname}
-                                  </span>
+                                    <span>📄</span>
+                                    <span>{fileObj.name}</span>
+                                  </button>
                                 ))}
                                 {containedFiles.length > 6 && (
-                                  <span style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700, padding: '2px 4px' }}>
+                                  <span style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700, padding: '3px 4px' }}>
                                     +{containedFiles.length - 6} נוספים
                                   </span>
                                 )}

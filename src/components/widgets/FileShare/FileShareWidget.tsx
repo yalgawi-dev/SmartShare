@@ -2166,6 +2166,18 @@ export function FileShareWidget({
           spaceTitle={space?.title || 'מרחב שיתוף'}
           items={activeItems || []}
           onOpenItemShare={(targetItem) => setActiveShareItem(targetItem)}
+          onPreviewFile={(fileObj, contained) => {
+            const list = (contained && contained.length > 0 ? contained : [fileObj]).map((f) => ({
+              id: f.id,
+              url: f.url || '',
+              title: f.name,
+              type: f.fileType || (f.url?.toLowerCase().includes('.pdf') ? 'pdf' : 'image'),
+              thumbnailUrl: f.thumbnailUrl,
+              pages: f.pages
+            }));
+            const idx = list.findIndex((d) => d.id === fileObj.id);
+            setPreviewState({ docs: list, index: idx >= 0 ? idx : 0 });
+          }}
         />
       )}
 
