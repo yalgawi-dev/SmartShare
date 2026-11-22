@@ -20,6 +20,8 @@ export default function GlobalPWAPrompt() {
   const [guideMinimized, setGuideMinimized] = useState(false);
   const [showIosHelp, setShowIosHelp] = useState(false);
   const [isSpeakingGuide, setIsSpeakingGuide] = useState(false);
+  const [coachOffset, setCoachOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [bubbleOffset, setBubbleOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [installing, setInstalling] = useState(false);
   const [menuOpened, setMenuOpened] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
@@ -323,14 +325,46 @@ export default function GlobalPWAPrompt() {
       setIsSpeakingGuide(false);
     };
 
-    // Minimized Floating Bubble (accompanies user until they tap it to expand or press ✕)
+    const startDrag = (
+      e: React.PointerEvent,
+      currentOffset: { x: number; y: number },
+      setOffset: React.Dispatch<React.SetStateAction<{ x: number; y: number }>>,
+      allowX = true
+    ) => {
+      if ((e.target as HTMLElement)?.closest('button, a, input')) return;
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const initX = currentOffset.x;
+      const initY = currentOffset.y;
+      const maxY = Math.max(120, window.innerHeight - 160);
+      const maxX = Math.max(80, window.innerWidth - 140);
+
+      const onMove = (ev: PointerEvent) => {
+        const dx = allowX ? Math.max(-maxX, Math.min(maxX, initX + (ev.clientX - startX))) : 0;
+        const dy = Math.max(-40, Math.min(maxY, initY + (ev.clientY - startY)));
+        setOffset({ x: dx, y: dy });
+      };
+      const onUp = () => {
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        window.removeEventListener('pointercancel', onUp);
+      };
+      window.addEventListener('pointermove', onMove, { passive: true });
+      window.addEventListener('pointerup', onUp);
+      window.addEventListener('pointercancel', onUp);
+    };
+
+    // Minimized Floating Bubble (draggable + accompanies user until they tap it to expand or press ✕)
     if (guideMinimized) {
       return (
         <div
+          onPointerDown={(e) => startDrag(e, bubbleOffset, setBubbleOffset, true)}
           style={{
             position: 'fixed',
             top: 'max(12px, env(safe-area-inset-top))',
             right: '12px',
+            transform: `translate3d(${bubbleOffset.x}px, ${bubbleOffset.y}px, 0)`,
+            touchAction: 'none',
             zIndex: 9999999,
             display: 'flex',
             alignItems: 'center',
@@ -342,9 +376,11 @@ export default function GlobalPWAPrompt() {
             boxShadow: '0 8px 24px rgba(37, 99, 235, 0.45)',
             border: '1.5px solid rgba(255,255,255,0.35)',
             direction: 'rtl',
+            cursor: 'grab',
             fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif',
           }}
         >
+          <span style={{ opacity: 0.75, fontSize: '0.78rem', userSelect: 'none' }}>⋮⋮</span>
           <button
             type="button"
             onClick={() => setGuideMinimized(false)}
@@ -398,7 +434,7 @@ export default function GlobalPWAPrompt() {
           }
         `}</style>
 
-        {/* Top-Anchored Compact Live Coach: stays 100% VISIBLE ABOVE Safari's Share Sheet! */}
+        {/* Top-Anchored Compact Live Coach (draggable vertically so user can move it anywhere on screen!) */}
         <div
           style={{
             position: 'fixed',
@@ -407,18 +443,24 @@ export default function GlobalPWAPrompt() {
             right: '10px',
             maxWidth: '430px',
             margin: '0 auto',
+            transform: `translate3d(0, ${coachOffset.y}px, 0)`,
             zIndex: 9999999,
             background: '#ffffff',
             borderRadius: '20px',
-            padding: '10px 12px',
+            padding: '6px 12px 10px',
             boxShadow: '0 14px 38px rgba(15, 23, 42, 0.32)',
             border: '2px solid #2563eb',
             direction: 'rtl',
             fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif',
           }}
         >
-          {/* Compact Header Row */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+          {/* Draggable Top Handle + Header Row */}
+          <div
+            onPointerDown={(e) => startDrag(e, coachOffset, setCoachOffset, false)}
+            style={{ touchAction: 'none', cursor: 'grab', paddingBottom: '4px' }}
+          >
+            <div style={{ width: '38px', height: '4px', borderRadius: '999px', background: '#cbd5e1', margin: '0 auto 6px' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
               <img src="/icons/icon-192x192.png" alt="MySpace" style={{ width: '26px', height: '26px', borderRadius: '7px', flexShrink: 0 }} />
               <div style={{ fontSize: '0.86rem', fontWeight: 900, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -479,6 +521,7 @@ export default function GlobalPWAPrompt() {
               >
                 ✕
               </button>
+            </div>
             </div>
           </div>
 
