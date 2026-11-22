@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { ScreenContext, getContextSuggestions } from './assistantKnowledge';
 import { sanitizeAssistantQuery, filterAssistantResponse } from './assistantSecurity';
 import { queryAIAssistant, AIProviderConfig } from './assistantProviderBridge';
@@ -9,6 +9,8 @@ import { logAssistantLearningEvent } from './assistantLearning';
 import { executeLiveAssistantTools } from './assistantLiveTools';
 import { normalizeTextForHebrewTTS } from './assistantTtsUtils';
 import { detectBugReportIntent } from './assistantBugReporter';
+import type { AgentActionProposal, AgentActionExecutionResult } from './assistantActionRegistry';
+import { executeApprovedAgentAction } from './assistantActionExecutor';
 import { useAuth } from '@/app/context/AuthContext';
 import { useSpaces } from '@/app/context/SpacesContext';
 
@@ -25,6 +27,9 @@ interface ChatMessage {
   followUps?: string[];
   feedback?: 'helpful' | 'not_helpful';
   isBugIntent?: boolean;
+  proposedAction?: AgentActionProposal | null;
+  actionStatus?: 'pending' | 'executing' | 'executed' | 'rejected' | 'failed';
+  actionResult?: AgentActionExecutionResult;
 }
 
 interface AssistantContextType {
@@ -35,6 +40,8 @@ interface AssistantContextType {
   toggleOpen: () => void;
   messages: ChatMessage[];
   sendMessage: (text: string) => Promise<void>;
+  approveProposedAction: (messageId: string) => Promise<void>;
+  rejectProposedAction: (messageId: string) => void;
   submitFeedback: (messageId: string, rating: 'helpful' | 'not_helpful') => void;
   clearChat: () => void;
   suggestedQuestions: string[];
@@ -54,8 +61,16 @@ const AssistantContext = createContext<AssistantContextType | undefined>(undefin
 
 export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const pathname = usePathname() || '/';
+  const router = useRouter();
   const { user, allUsers } = useAuth();
-  const { spaces } = useSpaces();
+  const {
+    spaces,
+    updateDocument,
+    addDocumentFolder,
+    updateDocumentFolder,
+    removeDocument,
+    updateInvoice
+  } = useSpaces();
 
   // Extract spaceId from pathname if on /space/[id]
   const matchedSpaceId = useMemo(() => {
@@ -398,8 +413,10 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       );
     }
 
+    const proposal = aiResult.proposedAction || null;
+    const msgId = `ast_${Date.now()}`;
     const assistantMsg: ChatMessage = {
-      id: `ast_${Date.now()}`,
+      id: msgId,
       sender: 'assistant',
       text: scrubbedAnswer,
       timestamp: Date.now(),
@@ -409,10 +426,29 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       nodeId: aiResult.nodeId,
       confidence: aiResult.confidence,
       followUps: aiResult.suggestions?.map(s => s.sampleQuestion).filter(Boolean).slice(0, 3),
-      isBugIntent: detectBugReportIntent(sanitizedText)
+      isBugIntent: detectBugReportIntent(sanitizedText),
+      proposedAction: proposal,
+      actionStatus: proposal ? (proposal.requiresConfirmation ? 'pending' : 'executing') : undefined
     };
 
     setMessages(prev => [...prev, assistantMsg]);
+
+    // Safe low-risk read/navigation actions (requiresConfirmation === false) execute immediately
+    if (proposal && !proposal.requiresConfirmation) {
+      const execRes = await executeApprovedAgentAction(proposal, {
+        user,
+        spaces,
+        router,
+        spacesApi: { updateDocument, addDocumentFolder, updateDocumentFolder, removeDocument, updateInvoice }
+      });
+      setMessages(prev =>
+        prev.map(m =>
+          m.id === msgId
+            ? { ...m, actionStatus: execRes.success ? 'executed' : 'failed', actionResult: execRes }
+            : m
+        )
+      );
+    }
 
     // Auto-Speak or Background Pre-Synthesis:
     // If autoSpeak is ON, speak immediately. If OFF, pre-synthesize in the background so clicking "הקרא" is instant (0ms)!
@@ -423,7 +459,43 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         prefetchAudio(scrubbedAnswer);
       }
     }
-  }, [screenContext, providerConfig, user, spaces, allUsers, messages, autoSpeak, speakText, prefetchAudio]);
+  }, [screenContext, providerConfig, user, spaces, allUsers, messages, autoSpeak, speakText, prefetchAudio, router, updateDocument, addDocumentFolder, updateDocumentFolder, removeDocument, updateInvoice]);
+
+  const approveProposedAction = useCallback(async (messageId: string) => {
+    const target = messages.find(m => m.id === messageId);
+    if (!target?.proposedAction || target.actionStatus !== 'pending') return;
+
+    setMessages(prev => prev.map(m => (m.id === messageId ? { ...m, actionStatus: 'executing' } : m)));
+
+    const result = await executeApprovedAgentAction(target.proposedAction, {
+      user,
+      spaces,
+      router,
+      spacesApi: { updateDocument, addDocumentFolder, updateDocumentFolder, removeDocument, updateInvoice }
+    });
+
+    setMessages(prev =>
+      prev.map(m =>
+        m.id === messageId
+          ? { ...m, actionStatus: result.success ? 'executed' : 'failed', actionResult: result }
+          : m
+      )
+    );
+
+    if (result.message && autoSpeak) {
+      speakText(result.message);
+    }
+  }, [messages, user, spaces, router, updateDocument, addDocumentFolder, updateDocumentFolder, removeDocument, updateInvoice, autoSpeak, speakText]);
+
+  const rejectProposedAction = useCallback((messageId: string) => {
+    setMessages(prev =>
+      prev.map(m =>
+        m.id === messageId
+          ? { ...m, actionStatus: 'rejected', actionResult: { success: false, message: 'הפעולה בוטלה לבקשתך. לא בוצע שום שינוי.' } }
+          : m
+      )
+    );
+  }, []);
 
   const submitFeedback = useCallback((messageId: string, rating: 'helpful' | 'not_helpful') => {
     setMessages(prev => prev.map(m => {
@@ -456,6 +528,8 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         toggleOpen,
         messages,
         sendMessage,
+        approveProposedAction,
+        rejectProposedAction,
         submitFeedback,
         clearChat,
         suggestedQuestions,

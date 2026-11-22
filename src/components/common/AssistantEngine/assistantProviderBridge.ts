@@ -5,6 +5,7 @@ import { auth } from '@/lib/firebase';
 import { ScreenContext, queryAssistantBrain } from './assistantKnowledge';
 import type { KnowledgeNode } from './assistantMatcher';
 import type { LiveAssistantToolPayload } from './assistantLiveTools';
+import type { AgentActionProposal } from './assistantActionRegistry';
 
 export type AIProviderType = 'local_free' | 'cloud_llm';
 
@@ -19,6 +20,7 @@ export interface AIProviderConfig {
  */
 export interface AIQueryResponse {
   text: string;
+  proposedAction?: AgentActionProposal | null;
   source: 'local_brain' | 'cloud_llm';
   fallbackReason?: string;
   tokensUsed?: number;
@@ -75,6 +77,7 @@ export async function queryAIAssistant(
           if (data.answer) {
             return {
               text: data.answer,
+              proposedAction: data.proposedAction || null,
               source: 'cloud_llm',
               confidence: data.confidence || 'high',
               tokensUsed: data.tokensUsed

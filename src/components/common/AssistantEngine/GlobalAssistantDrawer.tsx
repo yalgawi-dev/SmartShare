@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAssistant } from './AssistantContext';
 import { useAuth } from '@/app/context/AuthContext';
 import { APP_VERSION } from '@/constants/version';
@@ -23,6 +24,8 @@ export const GlobalAssistantDrawer: React.FC = () => {
     setIsOpen,
     messages,
     sendMessage,
+    approveProposedAction,
+    rejectProposedAction,
     submitFeedback,
     suggestedQuestions,
     isSpeaking,
@@ -36,6 +39,7 @@ export const GlobalAssistantDrawer: React.FC = () => {
     clearChat
   } = useAssistant();
   const { user } = useAuth();
+  const router = useRouter();
 
   const [inputVal, setInputVal] = useState('');
   const [isListening, setIsListening] = useState(false);
@@ -1321,6 +1325,132 @@ export const GlobalAssistantDrawer: React.FC = () => {
                 }}
               >
                 {m.text}
+
+                {/* Interactive Agent Action Confirmation & Proof-of-Execution Card */}
+                {m.sender === 'assistant' && m.proposedAction && (
+                  <div
+                    style={{
+                      marginTop: '9px',
+                      padding: '10px 11px',
+                      background:
+                        m.actionStatus === 'executed'
+                          ? '#ecfdf5'
+                          : m.actionStatus === 'failed'
+                            ? '#fef2f2'
+                            : m.actionStatus === 'rejected'
+                              ? '#f8fafc'
+                              : '#eff6ff',
+                      border: `1.5px solid ${
+                        m.actionStatus === 'executed'
+                          ? '#10b981'
+                          : m.actionStatus === 'failed'
+                            ? '#ef4444'
+                            : m.actionStatus === 'rejected'
+                              ? '#cbd5e1'
+                              : '#6366f1'
+                      }`,
+                      borderRadius: '12px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '6px'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                      <span style={{ fontSize: '0.76rem', fontWeight: 900, color: '#0f172a' }}>
+                        {m.actionStatus === 'executed'
+                          ? '✅ הפעולה בוצעה בהצלחה'
+                          : m.actionStatus === 'failed'
+                            ? '⚠️ הפעולה נכשלה'
+                            : m.actionStatus === 'rejected'
+                              ? '✕ הפעולה בוטלה'
+                              : m.actionStatus === 'executing'
+                                ? '⏳ מבצע פעולה...'
+                                : `⚡ ${m.proposedAction.title}`}
+                      </span>
+                    </div>
+
+                    {m.proposedAction.summary && m.actionStatus === 'pending' && (
+                      <div style={{ fontSize: '0.73rem', color: '#334155', fontWeight: 600 }}>
+                        {m.proposedAction.summary}
+                      </div>
+                    )}
+
+                    {m.proposedAction.details && m.proposedAction.details.length > 0 && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', background: 'rgba(255,255,255,0.75)', padding: '6px 8px', borderRadius: '8px', fontSize: '0.71rem', color: '#334155' }}>
+                        {m.proposedAction.details.map((line, i) => (
+                          <div key={i}>• {line}</div>
+                        ))}
+                      </div>
+                    )}
+
+                    {m.actionStatus === 'pending' && (
+                      <div style={{ display: 'flex', gap: '6px', marginTop: '2px' }}>
+                        <button
+                          type="button"
+                          onClick={() => approveProposedAction(m.id)}
+                          style={{
+                            flex: 1,
+                            background: 'linear-gradient(135deg, #4f46e5, #06b6d4)',
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: '8px',
+                            padding: '6px 10px',
+                            fontSize: '0.74rem',
+                            fontWeight: 900,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          ✅ אשר ובצע
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => rejectProposedAction(m.id)}
+                          style={{
+                            background: '#ffffff',
+                            color: '#475569',
+                            border: '1px solid #cbd5e1',
+                            borderRadius: '8px',
+                            padding: '6px 10px',
+                            fontSize: '0.74rem',
+                            fontWeight: 800,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          ✕ בטל
+                        </button>
+                      </div>
+                    )}
+
+                    {m.actionResult && (
+                      <div style={{ fontSize: '0.73rem', fontWeight: 700, color: m.actionResult.success ? '#065f46' : '#991b1b' }}>
+                        {m.actionResult.message}
+                      </div>
+                    )}
+
+                    {m.actionStatus === 'executed' && m.actionResult?.proofUrl && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          router.push(m.actionResult!.proofUrl!);
+                          setIsOpen(false);
+                        }}
+                        style={{
+                          alignSelf: 'flex-start',
+                          background: '#10b981',
+                          color: '#ffffff',
+                          border: 'none',
+                          borderRadius: '8px',
+                          padding: '5px 10px',
+                          fontSize: '0.72rem',
+                          fontWeight: 800,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {m.actionResult.proofLabel || '👀 צפה בתוצאה על המסך'}
+                      </button>
+                    )}
+                  </div>
+                )}
 
                 {/* Automatic Bug Detection Action Card inside the Assistant Reply */}
                 {m.sender === 'assistant' && m.isBugIntent && (

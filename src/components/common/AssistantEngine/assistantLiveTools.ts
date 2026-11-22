@@ -7,9 +7,12 @@ import {
   canCallerAccessVaultItem
 } from './assistantFirewall';
 import { inspectLiveScreenDOM, LiveScreenDomInspection } from './assistantDomIntrospector';
+import { agentActionRegistry, type AgentToolSchema } from './assistantActionRegistry';
+import { ensureDefaultAgentActionsRegistered } from './assistantActionExecutor';
 import { getSharedContactsForUser } from '@/utils/partnerUtils';
 
 export interface VaultItemAccess {
+  id?: string;
   name: string;
   path?: string;
   visibility: 'open_all' | 'restricted';
@@ -48,6 +51,7 @@ export interface LiveSpaceExecutionResult {
   invoicesCount: number;
   pendingCount: number;
   invoices: Array<{
+    id: string;
     description: string;
     amount: number;
     payer: string;
@@ -63,6 +67,7 @@ export interface LiveSpaceExecutionResult {
     folders: VaultItemAccess[];
     documentsCount: number;
     documents: Array<{
+      id: string;
       title: string;
       folderPath: string;
       visibility: 'open_all' | 'restricted';
@@ -79,6 +84,7 @@ export interface LiveAssistantToolPayload {
     appVersion: string;
   };
   liveScreenDOM: LiveScreenDomInspection;
+  availableActionTools: AgentToolSchema[];
   usersAndPartnersTool: {
     mySharedPartnersCount: number;
     mySharedPartners: Array<{
@@ -410,6 +416,7 @@ export function executeLiveAssistantTools(
         const approvalRatioText = isApproved ? 'מאושר (V)' : `${approvalsReceived}/${approvalsNeeded} אושר`;
 
         return {
+          id: inv.id || '',
           description: inv.description || inv.vendor || inv.supplier || inv.title || 'הוצאה',
           amount: Number(inv.amount) || 0,
           payer: payerName,
@@ -501,9 +508,10 @@ export function executeLiveAssistantTools(
     }
 
     const accessibleShelves: VaultItemAccess[] = Array.isArray(space.shelves)
-      ? space.shelves.filter(canSeeItem).map((s: any) => {
+      ? space.shelves.filter((s: any) => !s?.deletedAt && canSeeItem(s)).map((s: any) => {
           const perm = resolveAllowedPartnerNames(s);
           return {
+            id: s?.id || '',
             name: s?.title || s?.name || 'מדף',
             visibility: perm.visibility,
             allowedPartnerNames: perm.names
@@ -512,9 +520,10 @@ export function executeLiveAssistantTools(
       : [];
 
     const accessibleFolders: VaultItemAccess[] = Array.isArray(space.documentFolders)
-      ? space.documentFolders.filter(canSeeItem).map((f: any) => {
+      ? space.documentFolders.filter((f: any) => !f?.deletedAt && canSeeItem(f)).map((f: any) => {
           const perm = resolveAllowedPartnerNames(f);
           return {
+            id: f?.id || '',
             name: f?.name || f?.title || 'תיקייה',
             path: buildFolderPath(f?.id),
             visibility: perm.visibility,
@@ -530,6 +539,7 @@ export function executeLiveAssistantTools(
       .map((d: any) => {
         const perm = resolveAllowedPartnerNames(d);
         return {
+          id: d?.id || '',
           title: d?.title || d?.name || 'מסמך',
           folderPath: d?.folderId ? buildFolderPath(d.folderId) : d?.shelfId && shelfMap.has(d.shelfId) ? `מדף ${shelfMap.get(d.shelfId)}` : 'ראשי',
           visibility: perm.visibility,
@@ -537,7 +547,7 @@ export function executeLiveAssistantTools(
         };
       });
 
-    const selectedDocs = isCurrentActiveSpace
+    const selectedDocs = isQueriedSpace
       ? formattedDocs.slice(0, 60)
       : formattedDocs
           .filter((doc) =>
@@ -656,6 +666,10 @@ export function executeLiveAssistantTools(
     .map((n) => `- ${n.title}: ${n.explanation.replace(/\n/g, ' ')}`)
     .join('\n');
 
+  // Ensure generic + host action tools are registered and expose their live schemas dynamically
+  ensureDefaultAgentActionsRegistered();
+  const availableActionTools = agentActionRegistry.listSchemas();
+
   return {
     callerIdentity: {
       userName,
@@ -664,6 +678,7 @@ export function executeLiveAssistantTools(
       appVersion: SMARTSHARE_GRAPH.version
     },
     liveScreenDOM,
+    availableActionTools,
     usersAndPartnersTool: {
       mySharedPartnersCount: mySharedPartners.length,
       mySharedPartners,
