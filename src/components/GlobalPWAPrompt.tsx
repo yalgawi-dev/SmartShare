@@ -170,6 +170,15 @@ export default function GlobalPWAPrompt() {
         alert('האפליקציה זמינה להתקנה מתפריט הדפדפן, או שכבר מותקנת במכשירך.');
       } else if (platform === 'ios-safari' || platform === 'ios-chrome') {
         setShowGuide(true);
+        setGuideMinimized(false);
+        // Proactively launch the Assistant in iOS Install Coach mode + speak instructions aloud!
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('smartshare:start_ios_install_coach', {
+              detail: { isChromeIOS: platform === 'ios-chrome', autoSpeakNow: true }
+            })
+          );
+        }
       }
     }
   };
@@ -468,30 +477,6 @@ export default function GlobalPWAPrompt() {
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-              <button
-                type="button"
-                onClick={() => {
-                  setGuideMinimized(true);
-                  window.dispatchEvent(
-                    new CustomEvent('smartshare:start_ios_install_coach', {
-                      detail: { isChromeIOS }
-                    })
-                  );
-                }}
-                title="הסוכן האישי ילווה אותך שלב-אחרי-שלב בקול ובצ'אט"
-                style={{
-                  background: 'linear-gradient(135deg, #4f46e5, #06b6d4)',
-                  color: '#ffffff',
-                  border: 'none',
-                  borderRadius: '999px',
-                  padding: '3px 8px',
-                  fontSize: '0.7rem',
-                  fontWeight: 800,
-                  cursor: 'pointer',
-                }}
-              >
-                🤖 שלב-שלב
-              </button>
               <button
                 type="button"
                 onClick={playVoiceGuide}

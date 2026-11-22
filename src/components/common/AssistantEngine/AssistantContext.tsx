@@ -503,10 +503,12 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const handleStartIosCoach = (e: Event) => {
-      const isChromeIOS = Boolean((e as CustomEvent)?.detail?.isChromeIOS);
+      const detail = (e as CustomEvent)?.detail || {};
+      const isChromeIOS = Boolean(detail.isChromeIOS);
+      const forceSpeak = Boolean(detail.autoSpeakNow);
       const introText = isChromeIOS
-        ? 'אני מלווה אותך בהתקנת מיי ספייס באייפון! שלב 1 מתוך 3: לחץ על סמל השיתוף (ריבוע עם חץ למעלה) בפינה העליונה של Chrome. הצלחת? אם הסתבכת, צלם מסך ושלח לי כאן עם כפתור 📸 ואגיד לך בדיוק על מה ללחוץ!'
-        : 'אני מלווה אותך בהתקנת מיי ספייס באייפון! שלב 1 מתוך 3: תסתכל למטה באמצע הסרגל של Safari ולחץ על סמל השיתוף הכחול (ריבוע עם חץ עולה למעלה). הצלחת? אם הסתבכת, צלם צילום מסך ושלח לי כאן עם כפתור 📸 ואגיד לך בדיוק על מה ללחוץ!';
+        ? 'שלום! אני הסוכן האישי שלך ואני כאן לעזור לך להתקין את מיי ספייס באייפון. שלב 1 מתוך 3: לחץ על סמל השיתוף בפינה העליונה של Chrome. הצלחת? אם הסתבכת, צלם מסך ושלח לי כאן עם כפתור 📸 ואגיד לך בדיוק על מה ללחוץ!'
+        : 'שלום! אני הסוכן האישי שלך ואני כאן לעזור לך להתקין את מיי ספייס באייפון ב-3 לחיצות פשוטות. שלב 1 מתוך 3: תסתכל למטה באמצע הסרגל של Safari ולחץ על סמל השיתוף הכחול, ריבוע עם חץ עולה למעלה. הצלחת? אם הסתבכת, צלם מסך ושלח לי כאן עם כפתור 📸 ואגיד לך בדיוק על מה ללחוץ!';
 
       setIsIosInstallCoachActive(true);
       setIsOpen(true);
@@ -526,7 +528,7 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           ]
         }
       ]);
-      if (autoSpeak) {
+      if (forceSpeak || autoSpeak) {
         speakText(introText);
       } else {
         prefetchAudio(introText);
