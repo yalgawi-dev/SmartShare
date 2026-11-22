@@ -3,6 +3,23 @@ import { sanitizeAssistantQuery, filterAssistantResponse } from '@/components/co
 
 export const maxDuration = 30;
 
+// Lightweight per-user sliding-window rate limiter (protects Free Tier quota from rapid spam)
+const userRateMap = new Map<string, number[]>();
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const MAX_REQUESTS_PER_MINUTE = 18;
+
+function checkUserRateLimit(userKey: string): boolean {
+  const now = Date.now();
+  const prev = (userRateMap.get(userKey) || []).filter((ts) => now - ts < RATE_LIMIT_WINDOW_MS);
+  if (prev.length >= MAX_REQUESTS_PER_MINUTE) {
+    userRateMap.set(userKey, prev);
+    return false;
+  }
+  prev.push(now);
+  userRateMap.set(userKey, prev);
+  return true;
+}
+
 /**
  * Pure serverless AI Assistant route (zero firebase-admin dependency so it never
  * crashes on Vercel cold start). Verifies Firebase ID token via Google Identity
@@ -24,6 +41,7 @@ export async function POST(request: Request) {
     // Lightweight cryptographic verification of Firebase ID Token via Identity Toolkit REST
     const firebaseWebKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
     let verifiedDisplayName = '';
+    let verifiedUid = 'anon';
     if (firebaseWebKey) {
       try {
         const verifyRes = await fetch(
@@ -39,9 +57,18 @@ export async function POST(request: Request) {
         }
         const verifyData = await verifyRes.json();
         verifiedDisplayName = verifyData?.users?.[0]?.displayName || '';
+        verifiedUid = verifyData?.users?.[0]?.localId || token.slice(-16);
       } catch {
         return NextResponse.json({ error: 'Token verification failed', reason: 'verify_failed' }, { status: 401 });
       }
+    }
+
+    if (!checkUserRateLimit(verifiedUid)) {
+      return NextResponse.json({
+        answer: 'שלחת הרבה בקשות בדקה האחרונה. המתן מספר שניות ונסה שוב.',
+        source: 'cloud_llm',
+        confidence: 'high'
+      });
     }
 
     const { query, history, context, liveData } = await request.json();

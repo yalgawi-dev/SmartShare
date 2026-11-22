@@ -1,4 +1,5 @@
 import { SMARTSHARE_GRAPH } from './assistantGraph';
+import { matchKnowledgeGraph } from './assistantMatcher';
 import { ScreenContext } from './assistantKnowledge';
 import {
   createSecurityEnvelope,
@@ -429,18 +430,23 @@ export function executeLiveAssistantTools(
         };
       });
 
+    // Token-Smart Hydration:
+    // - Active space or queried space gets full invoice list (up to 60).
+    // - Other spaces ALWAYS keep their full members, balances, settlements & counts (for cross-space questions),
+    //   and ONLY include invoices that explicitly match queryTokens (zero random bloat!).
     const selectedInvoices = isQueriedSpace
       ? allFormattedInvoices.slice(0, 60)
-      : allFormattedInvoices
-          .filter((inv) =>
-            queryTokens.some(
-              (tok) =>
-                inv.description.toLowerCase().includes(tok) ||
-                inv.payer.toLowerCase().includes(tok)
+      : queryTokens.length > 0
+        ? allFormattedInvoices
+            .filter((inv) =>
+              queryTokens.some(
+                (tok) =>
+                  inv.description.toLowerCase().includes(tok) ||
+                  inv.payer.toLowerCase().includes(tok)
+              )
             )
-          )
-          .concat(allFormattedInvoices.slice(0, 12))
-          .slice(0, 25);
+            .slice(0, 15)
+        : [];
 
     // Live Vault & Folder Hierarchy Tool (gated by Firewall canCallerAccessVaultItem)
     const canSeeItem = (item: any) => canCallerAccessVaultItem(envelope, space, item, creatorId);
@@ -547,18 +553,42 @@ export function executeLiveAssistantTools(
         };
       });
 
+    // Token-Smart Vault Hydration:
+    // - Active/queried space gets full docs, folders & shelves.
+    // - Other spaces include matching docs/folders for global search queries ("איפה חוזה הארנונה?"), without random bloat.
     const selectedDocs = isQueriedSpace
       ? formattedDocs.slice(0, 60)
-      : formattedDocs
-          .filter((doc) =>
+      : queryTokens.length > 0
+        ? formattedDocs
+            .filter((doc) =>
+              queryTokens.some(
+                (tok) =>
+                  doc.title.toLowerCase().includes(tok) ||
+                  doc.folderPath.toLowerCase().includes(tok)
+              )
+            )
+            .slice(0, 15)
+        : [];
+
+    const selectedFolders = isQueriedSpace
+      ? accessibleFolders
+      : queryTokens.length > 0
+        ? accessibleFolders.filter((f) =>
             queryTokens.some(
               (tok) =>
-                doc.title.toLowerCase().includes(tok) ||
-                doc.folderPath.toLowerCase().includes(tok)
+                f.name.toLowerCase().includes(tok) ||
+                (f.path || '').toLowerCase().includes(tok)
             )
           )
-          .concat(formattedDocs.slice(0, 15))
-          .slice(0, 30);
+        : [];
+
+    const selectedShelves = isQueriedSpace
+      ? accessibleShelves
+      : queryTokens.length > 0
+        ? accessibleShelves.filter((s) =>
+            queryTokens.some((tok) => s.name.toLowerCase().includes(tok))
+          )
+        : [];
 
     const pendingInvites = Array.isArray(space.pendingInvites)
       ? space.pendingInvites.map((inv: any) => inv?.name || 'מוזמן ממתין').filter(Boolean)
@@ -597,8 +627,8 @@ export function executeLiveAssistantTools(
       pendingCount,
       invoices: selectedInvoices,
       vault: {
-        shelves: accessibleShelves,
-        folders: accessibleFolders,
+        shelves: selectedShelves,
+        folders: selectedFolders,
         documentsCount: accessibleDocs.length,
         documents: selectedDocs
       }
@@ -662,13 +692,28 @@ export function executeLiveAssistantTools(
   const joinedAsPartnerSpacesCount = liveSpacesData.filter((s) => s.role === 'member').length;
   const currentActiveSpace = liveSpacesData.find((s) => s.isCurrentActiveSpace);
 
-  const appMapSummary = SMARTSHARE_GRAPH.nodes
-    .map((n) => `- ${n.title}: ${n.explanation.replace(/\n/g, ' ')}`)
+  // Token-Smart Knowledge Map: Send ONLY top 4 relevant feature nodes for the current query & screen (saves ~1,000 tokens/call!)
+  const matchedKnowledge = matchKnowledgeGraph(SMARTSHARE_GRAPH, query || '', screenContext);
+  const relevantNodes = [
+    ...(matchedKnowledge.node ? [matchedKnowledge.node] : []),
+    ...(matchedKnowledge.suggestions || [])
+  ]
+    .filter((node, idx, arr) => arr.findIndex((x) => x.id === node.id) === idx)
+    .slice(0, 4);
+
+  const appMapSummary = relevantNodes
+    .map((n) => `- ${n.title}: ${n.explanation.replace(/\n/g, ' ').slice(0, 220)}`)
     .join('\n');
 
   // Ensure generic + host action tools are registered and expose their live schemas dynamically
   ensureDefaultAgentActionsRegistered();
   const availableActionTools = agentActionRegistry.listSchemas();
+
+  // Deduplicate DOM payload for LLM (interactiveElements already contains all visible buttons + agentIds)
+  const slimLiveScreenDOM: LiveScreenDomInspection = {
+    ...liveScreenDOM,
+    visibleButtonsAndActions: []
+  };
 
   return {
     callerIdentity: {
@@ -677,7 +722,7 @@ export function executeLiveAssistantTools(
       isAdmin,
       appVersion: SMARTSHARE_GRAPH.version
     },
-    liveScreenDOM,
+    liveScreenDOM: slimLiveScreenDOM,
     availableActionTools,
     usersAndPartnersTool: {
       mySharedPartnersCount: mySharedPartners.length,

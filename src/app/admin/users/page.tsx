@@ -28,6 +28,7 @@ function formatDurationHe(totalSeconds?: number): string {
 
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { formatTokenCostIls } from '@/components/common/AssistantEngine/assistantTokenTelemetry';
 import VersionBadge from '@/components/common/VersionBadge';
 import { SpaceAnnouncementSettingsCard } from '../../../components/common/SpaceAnnouncementBanner';
 import { useSpaces } from '../../context/SpacesContext';
@@ -1324,6 +1325,27 @@ export default function AdminUsersPage() {
                   <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#2563eb', marginTop: '0.2rem' }}>{activeIn7d}</div>
                   <div style={{ fontSize: '0.75rem', color: '#64748b' }}>מעורבות ב-7 ימים</div>
                 </div>
+
+                {(() => {
+                  const totalAiTokens = allUsers.reduce((sum, u: any) => sum + (Number(u?.aiUsage?.totalTokens) || 0), 0);
+                  const totalAiReqs = allUsers.reduce((sum, u: any) => sum + (Number(u?.aiUsage?.totalRequests) || 0), 0);
+                  const todayStr = new Date().toISOString().slice(0, 10);
+                  const todayAiTokens = allUsers.reduce(
+                    (sum, u: any) => sum + (u?.aiUsage?.lastDate === todayStr ? Number(u?.aiUsage?.todayTokens) || 0 : 0),
+                    0
+                  );
+                  return (
+                    <div style={{ background: '#f5f3ff', padding: '1rem', borderRadius: '14px', border: '1px solid #ddd6fe' }}>
+                      <div style={{ color: '#5b21b6', fontSize: '0.8rem', fontWeight: 800 }}>🤖 צריכת AI (טוקנים)</div>
+                      <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#4c1d95', marginTop: '0.2rem' }}>
+                        {totalAiTokens.toLocaleString()}
+                      </div>
+                      <div style={{ fontSize: '0.74rem', color: '#6d28d9', fontWeight: 600 }}>
+                        {totalAiReqs} שאלות • היום: {todayAiTokens.toLocaleString()} • עלות: {formatTokenCostIls(totalAiTokens)}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* SECTION 1: SPACES TIME BREAKDOWN (GRAPHIC BARS) */}
@@ -2730,6 +2752,16 @@ export default function AdminUsersPage() {
                     <div><strong>אימייל:</strong> <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedUserForAnalysis.email || 'לא הוזן'}</span></div>
                     <div><strong>סטטוס PWA:</strong> {selectedUserForAnalysis.pwaInstalled ? 'מותקן 📲' : 'דפדפן 🌐'}</div>
                     <div><strong>פעילות:</strong> {formatLastActive(selectedUserForAnalysis.lastActiveAt)}</div>
+                    <div style={{ gridColumn: '1 / -1', background: '#f5f3ff', padding: '6px 10px', borderRadius: '10px', border: '1px solid #ddd6fe', color: '#4c1d95' }}>
+                      <strong>🤖 צריכת סוכן AI:</strong>{' '}
+                      {((selectedUserForAnalysis as any)?.aiUsage?.totalTokens || 0).toLocaleString()} טוקנים (
+                      {(selectedUserForAnalysis as any)?.aiUsage?.totalRequests || 0} שאלות • היום:{' '}
+                      {((selectedUserForAnalysis as any)?.aiUsage?.lastDate === new Date().toISOString().slice(0, 10)
+                        ? (selectedUserForAnalysis as any)?.aiUsage?.todayTokens || 0
+                        : 0
+                      ).toLocaleString()}{' '}
+                      • עלות משוערת: {formatTokenCostIls((selectedUserForAnalysis as any)?.aiUsage?.totalTokens || 0)})
+                    </div>
                   </div>
 
                   {/* Clickable Partners Trigger Button */}

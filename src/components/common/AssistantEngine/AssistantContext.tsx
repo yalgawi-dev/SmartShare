@@ -9,6 +9,7 @@ import { logAssistantLearningEvent } from './assistantLearning';
 import { executeLiveAssistantTools } from './assistantLiveTools';
 import { normalizeTextForHebrewTTS } from './assistantTtsUtils';
 import { detectBugReportIntent } from './assistantBugReporter';
+import { recordUserAiTokenUsage } from './assistantTokenTelemetry';
 import type { AgentActionProposal, AgentActionExecutionResult } from './assistantActionRegistry';
 import { executeApprovedAgentAction } from './assistantActionExecutor';
 import { useAuth } from '@/app/context/AuthContext';
@@ -405,6 +406,11 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       .map(m => ({ sender: m.sender, text: m.text }));
     const aiResult = await queryAIAssistant(sanitizedText, screenContext, providerConfig, liveData, recentHistory);
     const scrubbedAnswer = filterAssistantResponse(aiResult.text);
+
+    // Non-blocking per-user token usage telemetry (0ms added latency)
+    if (aiResult.source === 'cloud_llm' && aiResult.tokensUsed) {
+      void recordUserAiTokenUsage(user?.id, aiResult.tokensUsed);
+    }
 
     if (aiResult.confidence === 'low') {
       logAssistantLearningEvent(
