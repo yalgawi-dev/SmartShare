@@ -37,7 +37,11 @@ export const GlobalAssistantDrawer: React.FC = () => {
     setPlaybackRate,
     speakText,
     stopSpeaking,
-    clearChat
+    clearChat,
+    isIosInstallCoachActive,
+    isAnalyzingInstallScreenshot,
+    analyzeInstallScreenshot,
+    exitIosInstallCoach
   } = useAssistant();
   const { user } = useAuth();
   const router = useRouter();
@@ -1812,6 +1816,68 @@ export const GlobalAssistantDrawer: React.FC = () => {
                   💡 {q}
                 </button>
               ))}
+            </div>
+          )}
+
+          {/* Dedicated Install-Only Screenshot Upload Bar (ONLY shown during active iOS Install Coach!) */}
+          {!isBugComposerOpen && isIosInstallCoachActive && (
+            <div style={{
+              padding: '7px 10px',
+              background: '#eff6ff',
+              borderTop: '1px solid #bfdbfe',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '8px',
+            }}>
+              <label style={{
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                background: isAnalyzingInstallScreenshot ? '#93c5fd' : 'linear-gradient(135deg, #2563eb, #0284c7)',
+                color: '#ffffff',
+                borderRadius: '10px',
+                padding: '7px 10px',
+                fontSize: '0.76rem',
+                fontWeight: 800,
+                cursor: isAnalyzingInstallScreenshot ? 'wait' : 'pointer',
+                boxShadow: '0 2px 8px rgba(37, 99, 235, 0.28)',
+              }}>
+                <span>{isAnalyzingInstallScreenshot ? '⏳ מנתח את צילום המסך...' : '📸 הסתבכת? שלח צילום מסך להתקנה'}</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  disabled={isAnalyzingInstallScreenshot}
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) {
+                      void analyzeInstallScreenshot(f);
+                    }
+                    e.target.value = '';
+                  }}
+                />
+              </label>
+              <button
+                type="button"
+                onClick={exitIosInstallCoach}
+                title="סיימתי להתקין"
+                style={{
+                  background: '#ffffff',
+                  color: '#475569',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '9px',
+                  padding: '6px 8px',
+                  fontSize: '0.7rem',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                סיימתי ✓
+              </button>
             </div>
           )}
 

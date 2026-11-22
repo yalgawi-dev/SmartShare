@@ -73,6 +73,10 @@ interface AssistantContextType {
   stopSpeaking: () => void;
   providerConfig: AIProviderConfig;
   setProviderConfig: (config: AIProviderConfig) => void;
+  isIosInstallCoachActive: boolean;
+  isAnalyzingInstallScreenshot: boolean;
+  analyzeInstallScreenshot: (file: File) => Promise<void>;
+  exitIosInstallCoach: () => void;
 }
 
 const AssistantContext = createContext<AssistantContextType | undefined>(undefined);
@@ -397,15 +401,114 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return installPassiveUiMapLearner();
   }, []);
 
+  const [isIosInstallCoachActive, setIsIosInstallCoachActive] = useState(false);
+  const [isAnalyzingInstallScreenshot, setIsAnalyzingInstallScreenshot] = useState(false);
+
+  const exitIosInstallCoach = useCallback(() => {
+    setIsIosInstallCoachActive(false);
+  }, []);
+
+  // Dedicated Install-Only Screenshot Analyzer (strictly hits /api/assistant/install-vision with image ONLY, zero text prompt!)
+  const analyzeInstallScreenshot = useCallback(async (file: File) => {
+    if (!file || isAnalyzingInstallScreenshot) return;
+    setIsAnalyzingInstallScreenshot(true);
+
+    const userMsgId = `usr_img_${Date.now()}`;
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: userMsgId,
+        sender: 'user',
+        text: '📸 שלחתי צילום מסך של ההתקנה — על מה ללחוץ עכשיו?',
+        timestamp: Date.now(),
+      },
+    ]);
+
+    try {
+      // Compress screenshot client-side to max 900px JPEG (~80KB, fast upload & low token cost)
+      const imgUrl = URL.createObjectURL(file);
+      const imageBase64 = await new Promise<string>((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const maxDim = 900;
+            const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.max(1, Math.round(img.width * scale));
+            canvas.height = Math.max(1, Math.round(img.height * scale));
+            const ctx = canvas.getContext('2d');
+            if (!ctx) throw new Error('No 2d context');
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            URL.revokeObjectURL(imgUrl);
+            resolve(canvas.toDataURL('image/jpeg', 0.72));
+          } catch (err) {
+            URL.revokeObjectURL(imgUrl);
+            reject(err);
+          }
+        };
+        img.onerror = (err) => {
+          URL.revokeObjectURL(imgUrl);
+          reject(err);
+        };
+        img.src = imgUrl;
+      });
+
+      const res = await fetch('/api/assistant/install-vision', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageBase64, mimeType: 'image/jpeg' }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      const replyText =
+        data?.answer ||
+        'לא הצלחתי לנתח את צילום המסך כרגע. נסה לצלם שוב או לחץ על סמל השיתוף הכחול למטה ובחר "הוסף למסך הבית".';
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `ast_vision_${Date.now()}`,
+          sender: 'assistant',
+          text: replyText,
+          timestamp: Date.now(),
+          source: 'cloud_llm',
+          confidence: 'high',
+          followUps: [
+            'לחצתי על סמל השיתוף, מה שלב 2?',
+            'לחצתי הוסף למסך הבית, מה שלב 3?',
+            'הותקן בהצלחה, תודה!'
+          ],
+        },
+      ]);
+
+      if (autoSpeak) speakText(replyText);
+      else prefetchAudio(replyText);
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `ast_vision_err_${Date.now()}`,
+          sender: 'assistant',
+          text: 'לא הצלחתי לקרוא את התמונה. ודא שבחרת צילום מסך מהגלריה ונסה שוב.',
+          timestamp: Date.now(),
+          source: 'local_brain',
+        },
+      ]);
+    } finally {
+      setIsAnalyzingInstallScreenshot(false);
+    }
+  }, [isAnalyzingInstallScreenshot, autoSpeak, speakText, prefetchAudio]);
+
   // Interactive Step-by-Step iOS Install Walkthrough triggered from GlobalPWAPrompt (0 API tokens, voice + chat!)
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const handleStartIosCoach = (e: Event) => {
       const isChromeIOS = Boolean((e as CustomEvent)?.detail?.isChromeIOS);
       const introText = isChromeIOS
-        ? 'אני מלווה אותך בהתקנת מיי ספייס באייפון! שלב 1 מתוך 3: לחץ על סמל השיתוף (ריבוע עם חץ למעלה) בפינה העליונה של Chrome. אם אתה לא רואה אותו או סיימת, תלחץ על הכפתור למטה או תדבר איתי.'
-        : 'אני מלווה אותך בהתקנת מיי ספייס באייפון! שלב 1 מתוך 3: אל תסגור אותי — תסתכל למטה באמצע הסרגל של Safari ולחץ על סמל השיתוף הכחול (ריבוע עם חץ עולה למעלה). מה קרה אחרי שלחצת?';
+        ? 'אני מלווה אותך בהתקנת מיי ספייס באייפון! שלב 1 מתוך 3: לחץ על סמל השיתוף (ריבוע עם חץ למעלה) בפינה העליונה של Chrome. הצלחת? אם הסתבכת, צלם מסך ושלח לי כאן עם כפתור 📸 ואגיד לך בדיוק על מה ללחוץ!'
+        : 'אני מלווה אותך בהתקנת מיי ספייס באייפון! שלב 1 מתוך 3: תסתכל למטה באמצע הסרגל של Safari ולחץ על סמל השיתוף הכחול (ריבוע עם חץ עולה למעלה). הצלחת? אם הסתבכת, צלם צילום מסך ושלח לי כאן עם כפתור 📸 ואגיד לך בדיוק על מה ללחוץ!';
 
+      setIsIosInstallCoachActive(true);
       setIsOpen(true);
       setMessages((prev) => [
         ...prev,
@@ -821,7 +924,11 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         speakText,
         stopSpeaking,
         providerConfig,
-        setProviderConfig
+        setProviderConfig,
+        isIosInstallCoachActive,
+        isAnalyzingInstallScreenshot,
+        analyzeInstallScreenshot,
+        exitIosInstallCoach
       }}
     >
       {children}
