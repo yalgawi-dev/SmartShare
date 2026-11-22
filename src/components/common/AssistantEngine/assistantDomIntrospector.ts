@@ -1,10 +1,18 @@
 export interface InteractiveDomElement {
   agentId: string;
-  tag: 'button' | 'link' | 'tab' | 'input' | 'select';
+  tag: 'button' | 'link' | 'tab' | 'input' | 'textarea' | 'checkbox' | 'select';
   label: string;
   placeholder?: string;
   currentValue?: string;
+  checked?: boolean;
+  inModal?: boolean;
   isDisabled?: boolean;
+}
+
+export interface LiveDomBatchStep {
+  agentId: string;
+  op: 'click' | 'fill';
+  value?: string;
 }
 
 export interface LiveScreenDomInspection {
@@ -77,34 +85,75 @@ export function inspectLiveScreenDOM(): LiveScreenDomInspection {
     if (txt && txt.length >= 2) headingSet.add(txt);
   });
 
-  // 2. Visible Buttons, Tabs, Links & Safe Text Inputs (assigned live agentId handles)
+  // 2. Visible Buttons, Tabs, Links & Safe Form Inputs (modal elements prioritized first!)
   const actionSet = new Set<string>();
-  const interactiveElements: InteractiveDomElement[] = [];
+  const modalElements: InteractiveDomElement[] = [];
+  const pageElements: InteractiveDomElement[] = [];
   let counter = 1;
 
-  const selector = 'button, [role="button"], [role="tab"], a[href], input[type="text"], input[type="search"], select';
+  const selector =
+    'button, [role="button"], [role="tab"], a[href], input[type="text"], input[type="search"], input[type="tel"], input[type="checkbox"], textarea, select';
+
+  const isInsideOpenModal = (el: Element): boolean => {
+    return Boolean(el.closest('[role="dialog"], [aria-modal="true"]'));
+  };
+
   document.querySelectorAll(selector).forEach((el) => {
-    if (interactiveElements.length >= 45) return;
+    if (modalElements.length + pageElements.length >= 55) return;
     if (!isElementVisible(el)) return;
 
     const htmlEl = el as HTMLElement;
     const tagName = el.tagName.toLowerCase();
+    const inModal = isInsideOpenModal(el);
+    const targetBucket = inModal ? modalElements : pageElements;
 
-    // Strictly skip sensitive inputs (password, email, tel, hidden, file)
     if (tagName === 'input') {
       const inp = el as HTMLInputElement;
       const type = (inp.type || 'text').toLowerCase();
-      if (type !== 'text' && type !== 'search') return;
-      const placeholder = cleanLabel(inp.placeholder || inp.getAttribute('aria-label'));
+      if (type === 'checkbox') {
+        const labelEl = inp.closest('label');
+        const label = cleanLabel(labelEl?.textContent || inp.getAttribute('aria-label') || inp.title);
+        if (!label) return;
+        const agentId = `ui_${counter++}`;
+        el.setAttribute('data-agent-action-id', agentId);
+        targetBucket.push({
+          agentId,
+          tag: 'checkbox',
+          label,
+          checked: inp.checked,
+          inModal: inModal || undefined
+        });
+        return;
+      }
+      if (type !== 'text' && type !== 'search' && type !== 'tel') return;
+      const placeholder = cleanLabel(inp.placeholder || inp.getAttribute('aria-label') || inp.name);
       if (!placeholder) return;
       const agentId = `ui_${counter++}`;
       el.setAttribute('data-agent-action-id', agentId);
-      interactiveElements.push({
+      targetBucket.push({
         agentId,
         tag: 'input',
         label: placeholder,
         placeholder,
-        currentValue: inp.value ? inp.value.slice(0, 40) : undefined
+        currentValue: inp.value ? inp.value.slice(0, 40) : undefined,
+        inModal: inModal || undefined
+      });
+      return;
+    }
+
+    if (tagName === 'textarea') {
+      const ta = el as HTMLTextAreaElement;
+      const placeholder = cleanLabel(ta.placeholder || ta.getAttribute('aria-label'));
+      if (!placeholder) return;
+      const agentId = `ui_${counter++}`;
+      el.setAttribute('data-agent-action-id', agentId);
+      targetBucket.push({
+        agentId,
+        tag: 'textarea',
+        label: placeholder,
+        placeholder,
+        currentValue: ta.value ? ta.value.slice(0, 40) : undefined,
+        inModal: inModal || undefined
       });
       return;
     }
@@ -115,11 +164,12 @@ export function inspectLiveScreenDOM(): LiveScreenDomInspection {
       if (!label) return;
       const agentId = `ui_${counter++}`;
       el.setAttribute('data-agent-action-id', agentId);
-      interactiveElements.push({
+      targetBucket.push({
         agentId,
         tag: 'select',
         label,
-        currentValue: cleanLabel(sel.options[sel.selectedIndex]?.text)
+        currentValue: cleanLabel(sel.options[sel.selectedIndex]?.text),
+        inModal: inModal || undefined
       });
       return;
     }
@@ -137,13 +187,17 @@ export function inspectLiveScreenDOM(): LiveScreenDomInspection {
       role === 'tab' ? 'tab' : tagName === 'a' ? 'link' : 'button';
 
     actionSet.add(combined);
-    interactiveElements.push({
+    targetBucket.push({
       agentId,
       tag,
       label: combined,
+      inModal: inModal || undefined,
       isDisabled: (el as HTMLButtonElement).disabled || el.getAttribute('aria-disabled') === 'true'
     });
   });
+
+  // Prioritize modal elements first so the agent focuses immediately on any open dialog form
+  const interactiveElements = [...modalElements, ...pageElements].slice(0, 45);
 
   // 3. Open Modals or Dialogs
   const modalSet = new Set<string>();
@@ -194,12 +248,14 @@ export function executeLiveDomElementAction(
   }, 1600);
 
   if (operation === 'fill') {
-    if (el.tagName.toLowerCase() !== 'input') {
+    const tag = el.tagName.toLowerCase();
+    if (tag !== 'input' && tag !== 'textarea') {
       return { success: false, message: 'האלמנט שנבחר אינו שדה הקלדה.' };
     }
-    const inp = el as HTMLInputElement;
+    const inp = el as HTMLInputElement | HTMLTextAreaElement;
     // Use native value setter so React controlled inputs update cleanly
-    const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+    const proto = tag === 'textarea' ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
+    const nativeSetter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
     if (nativeSetter) {
       nativeSetter.call(inp, value ?? '');
     } else {
@@ -208,11 +264,49 @@ export function executeLiveDomElementAction(
     inp.dispatchEvent(new Event('input', { bubbles: true }));
     inp.dispatchEvent(new Event('change', { bubbles: true }));
     inp.focus();
-    return { success: true, message: `הוזן "${value ?? ''}" בשדה "${inp.placeholder || 'חיפוש'}" על המסך.` };
+    return { success: true, message: `הוזן "${value ?? ''}" בשדה "${inp.placeholder || 'טופס'}" על המסך.` };
   }
 
   // Click operation
   el.click();
   const label = (el.innerText || el.getAttribute('title') || el.getAttribute('aria-label') || 'הכפתור').trim().slice(0, 50);
   return { success: true, message: `הופעל הכפתור "${label}" על המסך.` };
+}
+
+/**
+ * Executes a multi-step batch of UI actions in a single AI turn (fill fields + click buttons)
+ * with a short 140ms React-settlement pause between steps so state updates cleanly.
+ */
+export async function executeLiveDomBatch(
+  steps: LiveDomBatchStep[]
+): Promise<{ success: boolean; message: string; completedSteps: number }> {
+  if (!Array.isArray(steps) || steps.length === 0) {
+    return { success: false, message: 'לא התקבלו צעדים לביצוע.', completedSteps: 0 };
+  }
+
+  const capped = steps.slice(0, 6);
+  const logs: string[] = [];
+  let completed = 0;
+
+  for (const step of capped) {
+    const res = executeLiveDomElementAction(String(step.agentId || ''), step.op === 'fill' ? 'fill' : 'click', step.value);
+    if (!res.success) {
+      return {
+        success: completed > 0,
+        message: completed > 0
+          ? `בוצעו ${completed} צעדים, אך הצעד הבא נעצר: ${res.message}`
+          : res.message,
+        completedSteps: completed
+      };
+    }
+    completed++;
+    logs.push(res.message);
+    await new Promise((r) => setTimeout(r, 140));
+  }
+
+  return {
+    success: true,
+    message: `בוצעו ${completed} פעולות ברצף בהצלחה על המסך (${logs[logs.length - 1] || ''}).`,
+    completedSteps: completed
+  };
 }

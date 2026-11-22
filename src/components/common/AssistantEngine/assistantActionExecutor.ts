@@ -3,7 +3,7 @@ import {
   type AgentActionProposal,
   type AgentActionExecutionResult
 } from './assistantActionRegistry';
-import { executeLiveDomElementAction } from './assistantDomIntrospector';
+import { executeLiveDomElementAction, executeLiveDomBatch } from './assistantDomIntrospector';
 import { createSecurityEnvelope, canCallerAccessSpace, resolveCallerSpaceRole } from './assistantFirewall';
 
 export interface HostActionRuntimeContext {
@@ -63,6 +63,27 @@ export function ensureDefaultAgentActionsRegistered(): void {
     },
     execute: async (params) => {
       const res = executeLiveDomElementAction(String(params.agentId || ''), 'fill', String(params.value ?? ''));
+      return { success: res.success, message: res.message };
+    }
+  });
+
+  agentActionRegistry.register({
+    schema: {
+      name: 'ui_execute_batch',
+      description: 'מבצע רצף של עד 6 פעולות UI במכה אחת (למשל: מילוי שם נמען + טלפון + לחיצה על הוסף/שמור/שתף בתוך מודאל פתוח) בקריאת AI אחת בלבד.',
+      riskLevel: 'medium',
+      requiresConfirmation: true,
+      parameters: {
+        steps: {
+          type: 'string[]',
+          description: 'מערך צעדים בסדר ביצוע: [{ "agentId": "ui_12", "op": "fill", "value": "..." }, { "agentId": "ui_15", "op": "click" }] מתוך liveScreenDOM.interactiveElements',
+          required: true
+        }
+      }
+    },
+    execute: async (params) => {
+      const steps = Array.isArray(params.steps) ? params.steps : [];
+      const res = await executeLiveDomBatch(steps);
       return { success: res.success, message: res.message };
     }
   });
