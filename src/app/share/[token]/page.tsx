@@ -1082,14 +1082,12 @@ export default function PublicSharePage({ params }: SharePageProps) {
                 </span>
                 <div>
                   <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 900, color: '#0f172a' }}>
-                    {shareData.recipientRole === 'provider' 
-                      ? 'הגשת הצעת מחיר ומסמכי ספק' 
-                      : (shareData.recipientRole === 'client' ? 'צירוף מסמכים ובקשות לקוח' : 'ערוץ הגשת קבצים ישיר')}
-                  </h3>
-                  <p style={{ margin: 0, fontSize: '0.78rem', color: '#64748b' }}>
                     {shareData.recipientRole === 'provider'
-                      ? 'העלה הצעת מחיר חתומה, מפרט טכני או תעודות משלוח ישירות לתיק הפרויקט'
-                      : 'העלה מסמכים, אישורים, תוכניות או תמונות מהשטח שיסודרו בתיק האישי שלך'}
+                      ? `הגשת הצעת מחיר אל ${shareData.businessCard?.businessName || liveSpace?.createdBy || shareData.spaceTitle}`
+                      : `שלח קבצים בחזרה אל ${shareData.businessCard?.businessName || liveSpace?.createdBy || shareData.spaceTitle}`}
+                  </h3>
+                  <p style={{ margin: '2px 0 0 0', fontSize: '0.78rem', color: '#475569', lineHeight: 1.4 }}>
+                    הקבצים שתבחר נשלחים ישירות אל בעל המרחב (<strong>{shareData.businessCard?.businessName || liveSpace?.createdBy || shareData.spaceTitle}</strong>) ותקבל אישור קבלה מיידי על המסך.
                   </p>
                 </div>
               </div>
@@ -1104,40 +1102,23 @@ export default function PublicSharePage({ params }: SharePageProps) {
                 onChange={handleRecipientFileUpload}
               />
 
-              {/* Optional Phone & Note fields */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginTop: '1rem' }}>
-                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                  <input
-                    type="tel"
-                    placeholder="מספר טלפון להתקשרות (אופציונלי)"
-                    value={submissionPhone}
-                    onChange={e => setSubmissionPhone(e.target.value)}
-                    style={{
-                      flex: 1,
-                      minWidth: '180px',
-                      padding: '0.6rem 0.85rem',
-                      borderRadius: '12px',
-                      border: '1px solid #cbd5e1',
-                      fontSize: '0.82rem',
-                      background: '#f8fafc'
-                    }}
-                  />
-                  <input
-                    type="text"
-                    placeholder="הערה / נושא הקובץ (למשל: הצעת מחיר מעודכנת)"
-                    value={submissionNote}
-                    onChange={e => setSubmissionNote(e.target.value)}
-                    style={{
-                      flex: 1.5,
-                      minWidth: '220px',
-                      padding: '0.6rem 0.85rem',
-                      borderRadius: '12px',
-                      border: '1px solid #cbd5e1',
-                      fontSize: '0.82rem',
-                      background: '#f8fafc'
-                    }}
-                  />
-                </div>
+              {/* Simplified Intuitive Upload Form (no confusing phone field when user is already identified!) */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginTop: '0.9rem' }}>
+                <input
+                  type="text"
+                  placeholder="הערה קצרה לשולח (אופציונלי, למשל: הצעת מחיר מעודכנת)"
+                  value={submissionNote}
+                  onChange={e => setSubmissionNote(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.65rem 0.85rem',
+                    borderRadius: '12px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '0.82rem',
+                    background: '#f8fafc',
+                    boxSizing: 'border-box'
+                  }}
+                />
 
                 {/* Upload Button */}
                 <button
@@ -1161,7 +1142,11 @@ export default function PublicSharePage({ params }: SharePageProps) {
                   }}
                 >
                   <span>{isSubmitting ? '⏳' : '📎'}</span>
-                  <span>{isSubmitting ? 'מעלה מסמכים ומסדר בתיק...' : 'בחר קבצים להעלאה (PDF או תמונות)'}</span>
+                  <span>
+                    {isSubmitting
+                      ? 'מעלה ושולח לבעל המרחב...'
+                      : `בחר ושלח קבצים אל ${shareData.businessCard?.businessName || liveSpace?.createdBy || 'בעל המרחב'}`}
+                  </span>
                 </button>
 
                 {/* Success Banner */}
@@ -1180,7 +1165,9 @@ export default function PublicSharePage({ params }: SharePageProps) {
                     animation: 'fadeIn 0.3s'
                   }}>
                     <span>✅</span>
-                    <span>הקבצים הועלו בהצלחה ונשמרו בתיק הייעודי במערכת!</span>
+                    <span>
+                      התקבל בהצלחה! הקבצים נשלחו ישירות אל {shareData.businessCard?.businessName || liveSpace?.createdBy || 'בעל המרחב'} ונשמרו בתיקייה האישית שלך אצלו.
+                    </span>
                   </div>
                 )}
 
@@ -1199,95 +1186,119 @@ export default function PublicSharePage({ params }: SharePageProps) {
             </div>
           )}
 
-          {/* Viral Conversion / Invite Guest to MySpace */}
-          <div style={{
-            marginTop: '2rem',
-            background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)',
-            borderRadius: '24px',
-            padding: '1.75rem 1.5rem',
-            color: '#ffffff',
-            textAlign: 'center',
-            boxShadow: '0 10px 30px rgba(15, 23, 42, 0.15)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '0.85rem'
-          }}>
-            <div style={{
-              width: '56px',
-              height: '56px',
-              borderRadius: '18px',
-              background: '#ffffff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '6px',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
-            }}>
-              <img 
-                src="/myspace_logo.png" 
-                alt="MySpace Logo" 
-                style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
-              />
-            </div>
-            <div>
-              <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 900, color: '#ffffff' }}>
-                רוצה לשתף קבצים ותוכניות בקלות כזאת?
-              </h3>
-              <p style={{ margin: '0.45rem 0 0 0', fontSize: '0.84rem', color: '#cbd5e1', maxWidth: '440px', lineHeight: 1.5 }}>
-                הצטרף לאפליקציית <strong>MySpace</strong> – שיתוף תוכניות ומסמכים כבדים באיכות מלאה (זום עמוק עד 3000%), סורק מסמכים חכם, ומעקב אישי אחרי צפיות של קבלנים ושותפים.
-              </p>
-            </div>
-
-            <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', justifyContent: 'center', width: '100%', maxWidth: '400px', marginTop: '0.4rem' }}>
-              <Link
-                href="/"
-                style={{
-                  flex: 1.2,
-                  minWidth: '160px',
-                  padding: '0.85rem 1.25rem',
-                  borderRadius: '14px',
-                  background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
-                  color: '#ffffff',
-                  fontWeight: 800,
-                  fontSize: '0.9rem',
-                  textAlign: 'center',
-                  boxShadow: '0 4px 14px rgba(99, 102, 241, 0.4)',
-                  display: 'inline-flex',
+          {/* Smart Bottom Card: Logged-in Member Account Switcher vs Guest Viral Invite */}
+          {(() => {
+            const isRegisteredMember = Boolean(
+              user &&
+              (user.isAdmin ||
+                (user.realName && !['משתמש', 'אורח', 'אורח אנונימי', 'Guest'].includes(user.realName)) ||
+                user.phone ||
+                user.email)
+            );
+            return (
+              <div style={{
+                marginTop: '2rem',
+                background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)',
+                borderRadius: '24px',
+                padding: '1.5rem 1.35rem',
+                color: '#ffffff',
+                textAlign: 'center',
+                boxShadow: '0 10px 30px rgba(15, 23, 42, 0.15)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '0.8rem'
+              }}>
+                <div style={{
+                  width: '50px',
+                  height: '50px',
+                  borderRadius: '16px',
+                  background: '#ffffff',
+                  display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '0.4rem'
-                }}
-              >
-                <span>✨</span>
-                <span>הצטרף חינם ל-MySpace</span>
-              </Link>
+                  padding: '6px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
+                }}>
+                  <img 
+                    src="/myspace_logo.png" 
+                    alt="MySpace Logo" 
+                    style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
+                  />
+                </div>
+                {isRegisteredMember ? (
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 900, color: '#ffffff' }}>
+                      מחובר כ-{user?.realName || user?.nickname} {user?.isAdmin ? '(מנהל מערכת)' : '(חבר MySpace)'}
+                    </h3>
+                    <p style={{ margin: '0.4rem 0 0 0', fontSize: '0.82rem', color: '#cbd5e1', maxWidth: '440px', lineHeight: 1.5 }}>
+                      גם אתה יכול לשתף מסמכים ותוכניות עם לקוחות ושותפים ישירות מתוך המרחבים שלך עם מעקב צפיות אישי. תוכל לעבור בכל רגע לחשבון שלך ולחזור לכאן.
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '1.18rem', fontWeight: 900, color: '#ffffff' }}>
+                      רוצה לשתף קבצים ותוכניות בקלות כזאת?
+                    </h3>
+                    <p style={{ margin: '0.45rem 0 0 0', fontSize: '0.84rem', color: '#cbd5e1', maxWidth: '440px', lineHeight: 1.5 }}>
+                      הצטרף לאפליקציית <strong>MySpace</strong> – שיתוף תוכניות ומסמכים כבדים באיכות מלאה (זום עמוק עד 3000%), סורק מסמכים חכם, ומעקב אישי אחרי צפיות של קבלנים ושותפים.
+                    </p>
+                  </div>
+                )}
 
-              <Link
-                href={`/space/${shareData.spaceId}`}
-                style={{
-                  flex: 1,
-                  minWidth: '140px',
-                  padding: '0.85rem 1rem',
-                  borderRadius: '14px',
-                  background: 'rgba(255, 255, 255, 0.1)',
-                  border: '1px solid rgba(255, 255, 255, 0.25)',
-                  color: '#ffffff',
-                  fontWeight: 800,
-                  fontSize: '0.85rem',
-                  textAlign: 'center',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '0.3rem'
-                }}
-              >
-                <span>🔑</span>
-                <span>כניסה למרחב</span>
-              </Link>
-            </div>
-          </div>
+                <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', justifyContent: 'center', width: '100%', maxWidth: '400px', marginTop: '0.35rem' }}>
+                  <Link
+                    href="/"
+                    style={{
+                      flex: 1.2,
+                      minWidth: '160px',
+                      padding: '0.85rem 1.25rem',
+                      borderRadius: '14px',
+                      background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+                      color: '#ffffff',
+                      fontWeight: 800,
+                      fontSize: '0.9rem',
+                      textAlign: 'center',
+                      boxShadow: '0 4px 14px rgba(99, 102, 241, 0.4)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.4rem',
+                      textDecoration: 'none'
+                    }}
+                  >
+                    <span>{isRegisteredMember ? '🏠' : '✨'}</span>
+                    <span>{isRegisteredMember ? 'כניסה לחשבון שלי' : 'הצטרף חינם ל-MySpace'}</span>
+                  </Link>
+
+                  <Link
+                    href={`/space/${shareData.spaceId}`}
+                    style={{
+                      flex: 1,
+                      minWidth: '140px',
+                      padding: '0.85rem 1rem',
+                      borderRadius: '14px',
+                      background: 'rgba(255, 255, 255, 0.1)',
+                      border: '1px solid rgba(255, 255, 255, 0.25)',
+                      color: '#ffffff',
+                      fontWeight: 800,
+                      fontSize: '0.85rem',
+                      textAlign: 'center',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.3rem',
+                      textDecoration: 'none'
+                    }}
+                  >
+                    <span>📂</span>
+                    <span>פתח במרחב המלא</span>
+                  </Link>
+                </div>
+              </div>
+            );
+          })()}
         </main>
 
         {/* Floating 2-Way Chat Button (Direct Guest ↔ Owner Chat) - ONLY if Chat feature is enabled on space */}

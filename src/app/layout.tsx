@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 import type { Viewport } from "next";
 
 export const metadata: Metadata = {
-  title: "MySpace",
-  description: "Shared virtual spaces for events, albums, and project management.",
+  title: "MySpace — שיתוף מסמכים, תוכניות וניהול מרחבים",
+  description: "צפייה מאובטחת במסמכים, תוכניות והתחשבנויות משותפות באפליקציית MySpace.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

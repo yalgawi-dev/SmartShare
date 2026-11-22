@@ -484,13 +484,17 @@ export function CreateShareLinkModal({
 
   const handleCopyRecipientLink = async (r: RecipientShareLink) => {
     const url = `${currentOrigin}/share/${r.token}`;
+    const itemTypeHeb = item?.type === 'folder' ? 'תיקיית' : 'מסמך';
+    const senderName = businessCard?.businessName || user?.realName || user?.nickname || spaceTitle || 'חבר';
+    const pinText = requirePin && pin ? `\n🔐 קוד גישה: ${pin}` : '';
+    const richMessage = `שלום ${r.recipientName},\n${senderName} שיתף איתך ${itemTypeHeb} "${item?.name}" באפליקציית MySpace.${pinText}\nלצפייה מאובטחת והעלאת קבצים לחץ כאן:\n${url}`;
     try {
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(richMessage);
       setCopiedRecipientId(r.id);
       setTimeout(() => setCopiedRecipientId(null), 2500);
     } catch (_) {
       const textarea = document.createElement('textarea');
-      textarea.value = url;
+      textarea.value = richMessage;
       document.body.appendChild(textarea);
       textarea.select();
       document.execCommand('copy');
@@ -570,14 +574,18 @@ ${slogan}${phoneText}${portfolioText}`);
   const handleCopy = async () => {
     if (!shareUrl) return;
     if (token) await ensurePersisted(token);
+    const itemTypeHeb = item?.type === 'folder' ? 'תיקיית' : 'מסמך';
+    const senderName = businessCard?.businessName || user?.realName || user?.nickname || spaceTitle || 'חבר';
+    const pinText = requirePin && pin ? `\n🔐 קוד גישה: ${pin}` : '';
+    const richMessage = `שלום,\n${senderName} שיתף איתך ${itemTypeHeb} "${item?.name}" באפליקציית MySpace.${pinText}\nלצפייה מאובטחת והעלאת קבצים לחץ כאן:\n${shareUrl}`;
     try {
-      await navigator.clipboard.writeText(shareUrl);
+      await navigator.clipboard.writeText(richMessage);
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
     } catch (err) {
       console.warn('Clipboard write failed, trying fallback:', err);
       const textarea = document.createElement('textarea');
-      textarea.value = shareUrl;
+      textarea.value = richMessage;
       document.body.appendChild(textarea);
       textarea.select();
       document.execCommand('copy');
