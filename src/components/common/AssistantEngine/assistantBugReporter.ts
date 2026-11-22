@@ -75,17 +75,23 @@ export function paintLiveViewportToCanvas(
 ): void {
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
 
-  ctx.save();
-  ctx.fillStyle = '#f8fafc';
-  ctx.fillRect(0, 0, width, height);
+  const logicalW = window.innerWidth || width;
+  const logicalH = window.innerHeight || height;
+  const scaleX = width / logicalW;
+  const scaleY = height / logicalH;
 
-  // Collect visible structural elements (cards, headers, buttons, inputs, headings)
-  const selectors = 'header, nav, main, section, [class*="card"], [class*="Card"], [role="dialog"], button, input, h1, h2, h3, h4, span, p';
+  ctx.save();
+  ctx.scale(scaleX, scaleY);
+  ctx.fillStyle = '#f8fafc';
+  ctx.fillRect(0, 0, logicalW, logicalH);
+
+  // Collect visible structural elements including live canvases (DWFx/CAD/PDF viewers!)
+  const selectors = 'canvas, header, nav, main, section, [class*="card"], [class*="Card"], [role="dialog"], button, input, h1, h2, h3, h4, span, p';
   const elements = Array.from(document.querySelectorAll(selectors));
 
   let drawnCount = 0;
   for (const el of elements) {
-    if (drawnCount > 140) break;
+    if (drawnCount > 180) break;
     if (
       el.closest('[data-assistant-drawer="true"]') ||
       el.closest('[data-bug-recorder-hud="true"]') ||
@@ -97,15 +103,30 @@ export function paintLiveViewportToCanvas(
     const htmlEl = el as HTMLElement;
     const rect = htmlEl.getBoundingClientRect();
     if (rect.width < 8 || rect.height < 8) continue;
-    if (rect.bottom < 0 || rect.top > height || rect.right < 0 || rect.left > width) continue;
+    if (rect.bottom < 0 || rect.top > logicalH || rect.right < 0 || rect.left > logicalW) continue;
 
     const style = window.getComputedStyle(htmlEl);
     if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') continue;
 
+    const tag = el.tagName.toLowerCase();
+
+    // Draw live <canvas> elements (CAD/DWFx/PDF drawings!) directly into the video frame
+    if (tag === 'canvas') {
+      const srcCanvas = el as HTMLCanvasElement;
+      if (srcCanvas.width > 0 && srcCanvas.height > 0) {
+        try {
+          ctx.drawImage(srcCanvas, rect.left, rect.top, rect.width, rect.height);
+          drawnCount++;
+        } catch {
+          // Ignore tainted/WebGL non-preserved buffers safely
+        }
+      }
+      continue;
+    }
+
     const bg = style.backgroundColor;
     const hasBg = bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent';
     const borderW = parseFloat(style.borderTopWidth || '0');
-    const tag = el.tagName.toLowerCase();
 
     if (hasBg || borderW > 0 || tag === 'button' || tag === 'input' || tag === 'header') {
       ctx.beginPath();
@@ -145,7 +166,7 @@ export function paintLiveViewportToCanvas(
       ctx.textBaseline = 'middle';
       ctx.direction = 'rtl';
       ctx.textAlign = 'right';
-      const textX = Math.min(width - 10, rect.right - 8);
+      const textX = Math.min(logicalW - 10, rect.right - 8);
       const textY = rect.top + rect.height / 2;
       ctx.fillText(directText.slice(0, 48), textX, textY, Math.max(20, rect.width - 14));
       drawnCount++;
@@ -154,7 +175,7 @@ export function paintLiveViewportToCanvas(
 
   // Top telemetry watermark bar on captured frame
   ctx.fillStyle = 'rgba(15, 23, 42, 0.82)';
-  ctx.fillRect(0, 0, width, 26);
+  ctx.fillRect(0, 0, logicalW, 26);
   ctx.font = 'bold 11px sans-serif';
   ctx.fillStyle = '#38bdf8';
   ctx.textAlign = 'left';
@@ -163,12 +184,14 @@ export function paintLiveViewportToCanvas(
 
   // Draw red touch ripple & action label if user touched the screen recently (<1.6s)
   if (lastTouch && Date.now() - lastTouch.time < 1600) {
+    const touchX = lastTouch.x / scaleX;
+    const touchY = lastTouch.y / scaleY;
     const age = Date.now() - lastTouch.time;
     const alpha = Math.max(0.15, 1 - age / 1600);
     const radius = 16 + (age / 1600) * 18;
 
     ctx.beginPath();
-    ctx.arc(lastTouch.x, lastTouch.y, radius, 0, Math.PI * 2);
+    ctx.arc(touchX, touchY, radius, 0, Math.PI * 2);
     ctx.fillStyle = `rgba(239, 68, 68, ${alpha * 0.45})`;
     ctx.fill();
     ctx.lineWidth = 2.5;
@@ -178,8 +201,8 @@ export function paintLiveViewportToCanvas(
     if (lastTouch.label) {
       ctx.fillStyle = 'rgba(220, 38, 38, 0.92)';
       const boxW = Math.min(220, lastTouch.label.length * 8 + 24);
-      const boxX = Math.max(10, Math.min(width - boxW - 10, lastTouch.x - boxW / 2));
-      const boxY = Math.max(32, lastTouch.y - 38);
+      const boxX = Math.max(10, Math.min(logicalW - boxW - 10, touchX - boxW / 2));
+      const boxY = Math.max(32, touchY - 38);
       ctx.fillRect(boxX, boxY, boxW, 22);
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 11px sans-serif';

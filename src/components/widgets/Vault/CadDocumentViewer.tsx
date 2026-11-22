@@ -96,8 +96,8 @@ export default function CadDocumentViewer({ url, filename = 'drawing.dwg' }: Cad
             let startX = 0;
             let startY = 0;
             let currentScale = 1;
-            let currentTx = 0;
-            let currentTy = 0;
+            let currentPanDeltaX = 0;
+            let currentPanDeltaY = 0;
 
             const getTouchDistance = (t1: Touch, t2: Touch) => {
               const dx = t1.clientX - t2.clientX;
@@ -123,8 +123,8 @@ export default function CadDocumentViewer({ url, filename = 'drawing.dwg' }: Cad
                 startX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
                 startY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
                 currentScale = 1;
-                currentTx = 0;
-                currentTy = 0;
+                currentPanDeltaX = 0;
+                currentPanDeltaY = 0;
                 stageRoot.style.willChange = 'transform';
                 stageRoot.style.transformOrigin = '0 0';
               } else if (e.touches.length === 1) {
@@ -133,8 +133,8 @@ export default function CadDocumentViewer({ url, filename = 'drawing.dwg' }: Cad
                 startX = e.touches[0].clientX;
                 startY = e.touches[0].clientY;
                 currentScale = 1;
-                currentTx = 0;
-                currentTy = 0;
+                currentPanDeltaX = 0;
+                currentPanDeltaY = 0;
                 stageRoot.style.willChange = 'transform';
                 stageRoot.style.transformOrigin = '0 0';
               }
@@ -146,20 +146,22 @@ export default function CadDocumentViewer({ url, filename = 'drawing.dwg' }: Cad
                 const newDist = getTouchDistance(e.touches[0], e.touches[1]);
                 const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
                 const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-                const rect = stageRoot.getBoundingClientRect();
+                const rect = overlayCanvas.getBoundingClientRect();
                 const originX = startX - rect.left;
                 const originY = startY - rect.top;
 
                 currentScale = Math.max(0.25, Math.min(6, newDist / initialDist));
-                currentTx = (midX - startX) + originX * (1 - currentScale);
-                currentTy = (midY - startY) + originY * (1 - currentScale);
+                currentPanDeltaX = midX - startX;
+                currentPanDeltaY = midY - startY;
 
-                stageRoot.style.transform = `translate3d(${currentTx}px, ${currentTy}px, 0) scale(${currentScale})`;
+                const cssTx = currentPanDeltaX + originX * (1 - currentScale);
+                const cssTy = currentPanDeltaY + originY * (1 - currentScale);
+                stageRoot.style.transform = `translate3d(${cssTx}px, ${cssTy}px, 0) scale(${currentScale})`;
               } else if (gestureMode === 'pan' && e.touches.length === 1) {
                 e.preventDefault();
-                currentTx = e.touches[0].clientX - startX;
-                currentTy = e.touches[0].clientY - startY;
-                stageRoot.style.transform = `translate3d(${currentTx}px, ${currentTy}px, 0)`;
+                currentPanDeltaX = e.touches[0].clientX - startX;
+                currentPanDeltaY = e.touches[0].clientY - startY;
+                stageRoot.style.transform = `translate3d(${currentPanDeltaX}px, ${currentPanDeltaY}px, 0)`;
               }
             };
 
@@ -168,8 +170,8 @@ export default function CadDocumentViewer({ url, filename = 'drawing.dwg' }: Cad
               const mode = gestureMode;
               gestureMode = 'none';
               const finalScale = currentScale;
-              const finalTx = currentTx;
-              const finalTy = currentTy;
+              const finalPanDx = currentPanDeltaX;
+              const finalPanDy = currentPanDeltaY;
 
               stageRoot.style.transform = '';
               stageRoot.style.willChange = 'auto';
@@ -187,23 +189,21 @@ export default function CadDocumentViewer({ url, filename = 'drawing.dwg' }: Cad
                     (dwfViewer as any).zoomAtCenter(finalScale);
                   }
                 }
-                const pureDx = finalTx - (startX - rect.left) * (1 - finalScale);
-                const pureDy = finalTy - (startY - rect.top) * (1 - finalScale);
-                if (Math.abs(pureDx) > 1 || Math.abs(pureDy) > 1) {
-                  (dwfViewer as any).panX = ((dwfViewer as any).panX || 0) + pureDx * dpr;
-                  (dwfViewer as any).panY = ((dwfViewer as any).panY || 0) + pureDy * dpr;
+                if (Math.abs(finalPanDx) > 1 || Math.abs(finalPanDy) > 1) {
+                  (dwfViewer as any).panX = ((dwfViewer as any).panX || 0) + finalPanDx * dpr;
+                  (dwfViewer as any).panY = ((dwfViewer as any).panY || 0) + finalPanDy * dpr;
                 }
                 (dwfViewer as any).requestRender?.();
-              } else if (mode === 'pan' && (Math.abs(finalTx) > 2 || Math.abs(finalTy) > 2)) {
-                (dwfViewer as any).panX = ((dwfViewer as any).panX || 0) + finalTx * dpr;
-                (dwfViewer as any).panY = ((dwfViewer as any).panY || 0) + finalTy * dpr;
+              } else if (mode === 'pan' && (Math.abs(finalPanDx) > 2 || Math.abs(finalPanDy) > 2)) {
+                (dwfViewer as any).panX = ((dwfViewer as any).panX || 0) + finalPanDx * dpr;
+                (dwfViewer as any).panY = ((dwfViewer as any).panY || 0) + finalPanDy * dpr;
                 (dwfViewer as any).requestRender?.();
               }
 
               initialDist = 0;
               currentScale = 1;
-              currentTx = 0;
-              currentTy = 0;
+              currentPanDeltaX = 0;
+              currentPanDeltaY = 0;
             };
 
             overlayCanvas.addEventListener('touchstart', onTouchStart, { passive: false });

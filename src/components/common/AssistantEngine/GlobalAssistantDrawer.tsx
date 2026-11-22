@@ -63,7 +63,7 @@ export const GlobalAssistantDrawer: React.FC = () => {
   const [recordingRemainingSec, setRecordingRemainingSec] = useState(BUG_VIDEO_MAX_SECONDS);
   const [isVideoRecordingAssistantVisible, setIsVideoRecordingAssistantVisible] = useState(false);
   const [isRecordingMicMuted, setIsRecordingMicMuted] = useState(false);
-  const [isPreviewVideoExpanded, setIsPreviewVideoExpanded] = useState(false);
+  const [lightboxMedia, setLightboxMedia] = useState<{ url: string; type: 'video' | 'image'; title?: string } | null>(null);
   const [isPreviewVideoMuted, setIsPreviewVideoMuted] = useState(false);
   const [isUploadingBugReport, setIsUploadingBugReport] = useState(false);
   const [bugUploadProgress, setBugUploadProgress] = useState(0);
@@ -1057,40 +1057,74 @@ export const GlobalAssistantDrawer: React.FC = () => {
                               👤 {rep.reporter?.name || 'אורח'} • 📍 {rep.telemetry?.spaceTitle || 'דף ראשי'} • 🕒 {new Date(rep.createdAt).toLocaleString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
                             </span>
 
-                            {/* If Admin, allow 1-tap status update & delete directly in the list! */}
-                            {user?.isAdmin && rep.id && (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                              {/* Allow reporter & admin to view the recorded video/screenshot right from the list */}
+                              {(rep.videoUrl || (rep.mediaUrl && rep.mediaType === 'video')) && (
                                 <button
                                   type="button"
-                                  onClick={() => handleQuickBugStatusChange(rep.id!, 'new')}
-                                  style={{ background: rep.status === 'new' ? '#be123c' : '#f1f5f9', color: rep.status === 'new' ? '#fff' : '#475569', border: 'none', borderRadius: '5px', padding: '2px 6px', fontSize: '0.65rem', fontWeight: 800, cursor: 'pointer' }}
+                                  onClick={() =>
+                                    setLightboxMedia({
+                                      url: rep.videoUrl || rep.mediaUrl!,
+                                      type: 'video',
+                                      title: rep.description
+                                    })
+                                  }
+                                  style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', borderRadius: '6px', padding: '2px 7px', fontSize: '0.66rem', fontWeight: 800, cursor: 'pointer' }}
                                 >
-                                  חדש
+                                  🎥 צפה בסרטון
                                 </button>
+                              )}
+                              {(rep.screenshotUrl || (rep.mediaUrl && rep.mediaType === 'screenshot')) && (
                                 <button
                                   type="button"
-                                  onClick={() => handleQuickBugStatusChange(rep.id!, 'in_progress')}
-                                  style={{ background: rep.status === 'in_progress' ? '#d97706' : '#f1f5f9', color: rep.status === 'in_progress' ? '#fff' : '#475569', border: 'none', borderRadius: '5px', padding: '2px 6px', fontSize: '0.65rem', fontWeight: 800, cursor: 'pointer' }}
+                                  onClick={() =>
+                                    setLightboxMedia({
+                                      url: rep.screenshotUrl || rep.mediaUrl!,
+                                      type: 'image',
+                                      title: rep.description
+                                    })
+                                  }
+                                  style={{ background: '#f5f3ff', color: '#6d28d9', border: '1px solid #ddd6fe', borderRadius: '6px', padding: '2px 7px', fontSize: '0.66rem', fontWeight: 800, cursor: 'pointer' }}
                                 >
-                                  בטיפול
+                                  📸 צפה בתמונה
                                 </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleQuickBugStatusChange(rep.id!, 'resolved')}
-                                  style={{ background: rep.status === 'resolved' ? '#16a34a' : '#f1f5f9', color: rep.status === 'resolved' ? '#fff' : '#475569', border: 'none', borderRadius: '5px', padding: '2px 6px', fontSize: '0.65rem', fontWeight: 800, cursor: 'pointer' }}
-                                >
-                                  טופל
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleQuickBugDelete(rep.id!)}
-                                  style={{ background: '#fee2e2', color: '#b91c1c', border: 'none', borderRadius: '5px', padding: '2px 6px', fontSize: '0.65rem', fontWeight: 800, cursor: 'pointer' }}
-                                  title="מחק תקלה"
-                                >
-                                  🗑️
-                                </button>
-                              </div>
-                            )}
+                              )}
+
+                              {/* If Admin, allow 1-tap status update & delete directly in the list! */}
+                              {user?.isAdmin && rep.id && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleQuickBugStatusChange(rep.id!, 'new')}
+                                    style={{ background: rep.status === 'new' ? '#be123c' : '#f1f5f9', color: rep.status === 'new' ? '#fff' : '#475569', border: 'none', borderRadius: '5px', padding: '2px 6px', fontSize: '0.65rem', fontWeight: 800, cursor: 'pointer' }}
+                                  >
+                                    חדש
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleQuickBugStatusChange(rep.id!, 'in_progress')}
+                                    style={{ background: rep.status === 'in_progress' ? '#d97706' : '#f1f5f9', color: rep.status === 'in_progress' ? '#fff' : '#475569', border: 'none', borderRadius: '5px', padding: '2px 6px', fontSize: '0.65rem', fontWeight: 800, cursor: 'pointer' }}
+                                  >
+                                    בטיפול
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleQuickBugStatusChange(rep.id!, 'resolved')}
+                                    style={{ background: rep.status === 'resolved' ? '#16a34a' : '#f1f5f9', color: rep.status === 'resolved' ? '#fff' : '#475569', border: 'none', borderRadius: '5px', padding: '2px 6px', fontSize: '0.65rem', fontWeight: 800, cursor: 'pointer' }}
+                                  >
+                                    טופל
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleQuickBugDelete(rep.id!)}
+                                    style={{ background: '#fee2e2', color: '#b91c1c', border: 'none', borderRadius: '5px', padding: '2px 6px', fontSize: '0.65rem', fontWeight: 800, cursor: 'pointer' }}
+                                    title="מחק תקלה"
+                                  >
+                                    🗑️
+                                  </button>
+                                </>
+                              )}
+                            </div>
                           </div>
                         </div>
                       );
@@ -1240,7 +1274,7 @@ export const GlobalAssistantDrawer: React.FC = () => {
                         <div style={{ position: 'absolute', top: '4px', right: '4px', display: 'flex', gap: '4px' }}>
                           <button
                             type="button"
-                            onClick={() => setIsPreviewVideoExpanded(true)}
+                            onClick={() => setLightboxMedia({ url: bugVideoUrl, type: 'video', title: bugDescription || 'סרטון תקלה שהוקלט' })}
                             style={{
                               background: 'rgba(37, 99, 235, 0.92)',
                               color: '#fff',
@@ -1819,11 +1853,11 @@ export const GlobalAssistantDrawer: React.FC = () => {
         );
       })()}
 
-      {/* FULLSCREEN LIGHTBOX FOR BUG VIDEO PREVIEW (Large, clear playback + mute toggle) */}
-      {isPreviewVideoExpanded && bugVideoUrl && (
+      {/* FULLSCREEN LIGHTBOX FOR BUG VIDEO / SCREENSHOT PREVIEW (Works both before sending & from Bug List!) */}
+      {lightboxMedia && (
         <div
           data-assistant-drawer="true"
-          onClick={() => setIsPreviewVideoExpanded(false)}
+          onClick={() => setLightboxMedia(null)}
           style={{
             position: 'fixed',
             inset: 0,
@@ -1849,25 +1883,29 @@ export const GlobalAssistantDrawer: React.FC = () => {
               gap: '8px'
             }}
           >
+            {lightboxMedia.type === 'video' ? (
+              <button
+                type="button"
+                onClick={() => setIsPreviewVideoMuted((m) => !m)}
+                style={{
+                  background: isPreviewVideoMuted ? '#f59e0b' : 'rgba(255,255,255,0.18)',
+                  color: '#ffffff',
+                  border: '1px solid rgba(255,255,255,0.35)',
+                  borderRadius: '10px',
+                  padding: '6px 14px',
+                  fontSize: '0.82rem',
+                  fontWeight: 800,
+                  cursor: 'pointer'
+                }}
+              >
+                {isPreviewVideoMuted ? '🔇 הקול מושתק — לחץ להפעלה' : '🔊 השתק קול'}
+              </button>
+            ) : (
+              <span style={{ color: '#e2e8f0', fontSize: '0.82rem', fontWeight: 800 }}>📸 צילום מסך</span>
+            )}
             <button
               type="button"
-              onClick={() => setIsPreviewVideoMuted((m) => !m)}
-              style={{
-                background: isPreviewVideoMuted ? '#f59e0b' : 'rgba(255,255,255,0.18)',
-                color: '#ffffff',
-                border: '1px solid rgba(255,255,255,0.35)',
-                borderRadius: '10px',
-                padding: '6px 14px',
-                fontSize: '0.82rem',
-                fontWeight: 800,
-                cursor: 'pointer'
-              }}
-            >
-              {isPreviewVideoMuted ? '🔇 הקול מושתק — לחץ להפעלה' : '🔊 השתק קול'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsPreviewVideoExpanded(false)}
+              onClick={() => setLightboxMedia(null)}
               style={{
                 background: '#ef4444',
                 color: '#ffffff',
@@ -1882,20 +1920,42 @@ export const GlobalAssistantDrawer: React.FC = () => {
               ✕ סגור צפייה
             </button>
           </div>
-          <video
-            onClick={(e) => e.stopPropagation()}
-            src={bugVideoUrl}
-            muted={isPreviewVideoMuted}
-            controls
-            autoPlay
-            style={{
-              maxWidth: '100%',
-              maxHeight: '80dvh',
-              borderRadius: '14px',
-              background: '#000000',
-              boxShadow: '0 20px 50px rgba(0,0,0,0.6)'
-            }}
-          />
+
+          {lightboxMedia.title && (
+            <div style={{ color: '#cbd5e1', fontSize: '0.78rem', fontWeight: 700, textAlign: 'center', maxWidth: '520px' }}>
+              {lightboxMedia.title}
+            </div>
+          )}
+
+          {lightboxMedia.type === 'video' ? (
+            <video
+              onClick={(e) => e.stopPropagation()}
+              src={lightboxMedia.url}
+              muted={isPreviewVideoMuted}
+              controls
+              autoPlay
+              style={{
+                maxWidth: '100%',
+                maxHeight: '78dvh',
+                borderRadius: '14px',
+                background: '#000000',
+                boxShadow: '0 20px 50px rgba(0,0,0,0.6)'
+              }}
+            />
+          ) : (
+            <img
+              onClick={(e) => e.stopPropagation()}
+              src={lightboxMedia.url}
+              alt="צילום תקלה"
+              style={{
+                maxWidth: '100%',
+                maxHeight: '78dvh',
+                borderRadius: '14px',
+                objectFit: 'contain',
+                boxShadow: '0 20px 50px rgba(0,0,0,0.6)'
+              }}
+            />
+          )}
         </div>
       )}
     </>
