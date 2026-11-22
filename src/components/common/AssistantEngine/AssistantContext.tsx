@@ -12,6 +12,12 @@ import { detectBugReportIntent } from './assistantBugReporter';
 import { recordUserAiTokenUsage, recordAiQuotaHit } from './assistantTokenTelemetry';
 import type { AgentActionProposal, AgentActionExecutionResult } from './assistantActionRegistry';
 import { executeApprovedAgentAction } from './assistantActionExecutor';
+import { inspectLiveScreenDOM, isDestructiveUiLabel } from './assistantDomIntrospector';
+import {
+  installPassiveUiMapLearner,
+  recordUiTransition,
+  markUiTransitionMissed
+} from './assistantUiMapLearner';
 import { useAuth } from '@/app/context/AuthContext';
 import { useSpaces } from '@/app/context/SpacesContext';
 
@@ -375,7 +381,12 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   }, [stopSpeaking, playbackRate]);
 
-  // Send message with security validation
+  // Install passive self-learning UI Map observer once (0ms overhead, 0 API calls, 0 host-app edits)
+  useEffect(() => {
+    return installPassiveUiMapLearner();
+  }, []);
+
+  // Send message with security validation + Hybrid Self-Healing 3-Step Autonomous Loop
   const sendMessage = useCallback(async (text: string) => {
     const { safe, sanitizedText, reason } = sanitizeAssistantQuery(text);
 
@@ -398,22 +409,33 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       return;
     }
 
-    // Execute live data tools & DOM introspection directly through the Unified Zero-Trust Firewall
+    const MAX_AUTONOMOUS_STEPS = 3;
+    const execCtx = {
+      user,
+      spaces,
+      router,
+      spacesApi: { updateDocument, addDocumentFolder, updateDocumentFolder, removeDocument, updateInvoice }
+    };
+
+    // Step 1: Full Zero-Trust Live Tools + Live DOM + Learned UI Map
     const liveData = executeLiveAssistantTools(user, spaces, allUsers, screenContext, sanitizedText);
     const recentHistory = messages
       .filter(m => m.id !== 'welcome')
       .slice(-6)
       .map(m => ({ sender: m.sender, text: m.text }));
-    const aiResult = await queryAIAssistant(sanitizedText, screenContext, providerConfig, liveData, recentHistory);
-    const scrubbedAnswer = filterAssistantResponse(aiResult.text);
 
-    // Non-blocking per-user token usage & quota-hit telemetry (0ms added latency)
-    if (aiResult.source === 'cloud_llm' && aiResult.tokensUsed) {
-      void recordUserAiTokenUsage(user?.id, aiResult.tokensUsed);
-    }
-    if (aiResult.quotaExceeded) {
-      void recordAiQuotaHit(user?.id, aiResult.quotaExceeded);
-    }
+    let currentDom = liveData.liveScreenDOM;
+    let aiResult = await queryAIAssistant(sanitizedText, screenContext, providerConfig, liveData, recentHistory);
+
+    const recordTelemetry = (res: typeof aiResult) => {
+      if (res.source === 'cloud_llm' && res.tokensUsed) {
+        void recordUserAiTokenUsage(user?.id, res.tokensUsed);
+      }
+      if (res.quotaExceeded) {
+        void recordAiQuotaHit(user?.id, res.quotaExceeded);
+      }
+    };
+    recordTelemetry(aiResult);
 
     if (aiResult.confidence === 'low') {
       logAssistantLearningEvent(
@@ -422,12 +444,38 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       );
     }
 
-    const proposal = aiResult.proposedAction || null;
+    // Safety guard: force human confirmation if any UI target looks destructive
+    const enforceDestructiveGuard = (
+      prop: AgentActionProposal | null,
+      dom: typeof currentDom
+    ): AgentActionProposal | null => {
+      if (!prop) return null;
+      if (prop.tool === 'ui_click_element') {
+        const targetId = String(prop.params?.agentId || '');
+        const el = dom.interactiveElements.find((e) => e.agentId === targetId);
+        if (isDestructiveUiLabel(el?.label || '') || isDestructiveUiLabel(prop.title)) {
+          return { ...prop, requiresConfirmation: true, riskLevel: 'high' };
+        }
+      } else if (prop.tool === 'ui_execute_batch' && Array.isArray(prop.params?.steps)) {
+        const hasDestructive = prop.params.steps.some((st: any) => {
+          const el = dom.interactiveElements.find((e) => e.agentId === String(st?.agentId || ''));
+          return isDestructiveUiLabel(el?.label || '');
+        });
+        if (hasDestructive || isDestructiveUiLabel(prop.title)) {
+          return { ...prop, requiresConfirmation: true, riskLevel: 'high' };
+        }
+      }
+      return prop;
+    };
+
+    let proposal = enforceDestructiveGuard(aiResult.proposedAction || null, currentDom);
+    let finalAnswer = filterAssistantResponse(aiResult.text);
     const msgId = `ast_${Date.now()}`;
+
     const assistantMsg: ChatMessage = {
       id: msgId,
       sender: 'assistant',
-      text: scrubbedAnswer,
+      text: finalAnswer,
       timestamp: Date.now(),
       source: aiResult.source,
       fallbackReason: aiResult.fallbackReason,
@@ -439,33 +487,123 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       proposedAction: proposal,
       actionStatus: proposal ? (proposal.requiresConfirmation ? 'pending' : 'executing') : undefined
     };
-
     setMessages(prev => [...prev, assistantMsg]);
 
-    // Safe low-risk read/navigation actions (requiresConfirmation === false) execute immediately
-    if (proposal && !proposal.requiresConfirmation) {
-      const execRes = await executeApprovedAgentAction(proposal, {
-        user,
-        spaces,
-        router,
-        spacesApi: { updateDocument, addDocumentFolder, updateDocumentFolder, removeDocument, updateInvoice }
-      });
+    // Autonomous Multi-Step Loop (Hard-capped at MAX_AUTONOMOUS_STEPS = 3, zero user intervention for safe steps!)
+    const completedSteps: string[] = [];
+    for (let stepNum = 1; stepNum <= MAX_AUTONOMOUS_STEPS; stepNum++) {
+      if (!proposal || proposal.requiresConfirmation) break;
+
+      const beforePath = typeof window !== 'undefined' ? window.location.pathname : '/';
+      const beforeLabels = new Set(currentDom.interactiveElements.map((e) => e.label));
+      const beforeModalsCount = currentDom.openModalsOrBanners.length;
+      const clickedEl =
+        proposal.tool === 'ui_click_element'
+          ? currentDom.interactiveElements.find((e) => e.agentId === String(proposal?.params?.agentId || ''))
+          : null;
+
+      const execRes = await executeApprovedAgentAction(proposal, execCtx);
+      completedSteps.push(proposal.title || clickedEl?.label || proposal.tool);
+
       setMessages(prev =>
         prev.map(m =>
           m.id === msgId
-            ? { ...m, actionStatus: execRes.success ? 'executed' : 'failed', actionResult: execRes }
+            ? {
+                ...m,
+                text: finalAnswer,
+                proposedAction: proposal,
+                actionStatus: execRes.success ? 'executed' : 'failed',
+                actionResult: execRes
+              }
+            : m
+        )
+      );
+
+      // Stop if action failed, AI did not ask to continue exploring, or we reached step 3 cap
+      if (!execRes.success || !aiResult.continueExploring || stepNum >= MAX_AUTONOMOUS_STEPS) {
+        break;
+      }
+
+      // Wait for React DOM / modal to mount and settle, then re-scan live UI
+      await new Promise((r) => setTimeout(r, 340));
+      const afterDom = inspectLiveScreenDOM();
+      const routeChanged = typeof window !== 'undefined' && window.location.pathname !== beforePath;
+      const newControls = afterDom.interactiveElements
+        .filter((e) => e.inModal || !beforeLabels.has(e.label))
+        .map((e) => e.label);
+      const domChanged =
+        routeChanged ||
+        newControls.length > 0 ||
+        afterDom.openModalsOrBanners.length !== beforeModalsCount;
+
+      // Self-Healing & Auto-Learning from AI's own navigation!
+      if (clickedEl?.label) {
+        if (domChanged) {
+          recordUiTransition({
+            routePath: beforePath,
+            triggerLabel: clickedEl.label,
+            opensTitle: afterDom.openModalsOrBanners[0] || afterDom.visibleHeadings[0] || '',
+            discoveredControls: newControls
+          });
+        } else {
+          markUiTransitionMissed(beforePath, clickedEl.label);
+          break; // Loop breaker: DOM didn't change, don't waste an API call!
+        }
+      } else if (!domChanged) {
+        break;
+      }
+
+      currentDom = afterDom;
+
+      // Show live progress while running Ultra-Slim Follow-Up API call (~85% fewer tokens!)
+      setMessages(prev =>
+        prev.map(m =>
+          m.id === msgId
+            ? { ...m, text: `${finalAnswer}\n⏳ ממשיך לשלב ${stepNum + 1} מתוך ${MAX_AUTONOMOUS_STEPS}...` }
+            : m
+        )
+      );
+
+      aiResult = await queryAIAssistant(
+        sanitizedText,
+        screenContext,
+        providerConfig,
+        undefined,
+        undefined,
+        {
+          stepNumber: stepNum + 1,
+          completedSteps,
+          liveScreenDOM: { ...afterDom, visibleButtonsAndActions: [] },
+          availableActionTools: liveData.availableActionTools
+        }
+      );
+      recordTelemetry(aiResult);
+
+      finalAnswer = filterAssistantResponse(aiResult.text);
+      proposal = enforceDestructiveGuard(aiResult.proposedAction || null, currentDom);
+
+      setMessages(prev =>
+        prev.map(m =>
+          m.id === msgId
+            ? {
+                ...m,
+                text: finalAnswer,
+                proposedAction: proposal,
+                actionStatus: proposal
+                  ? (proposal.requiresConfirmation ? 'pending' : 'executing')
+                  : 'executed'
+              }
             : m
         )
       );
     }
 
-    // Auto-Speak or Background Pre-Synthesis:
-    // If autoSpeak is ON, speak immediately. If OFF, pre-synthesize in the background so clicking "הקרא" is instant (0ms)!
-    if (scrubbedAnswer) {
+    // Auto-Speak or Background Pre-Synthesis for final answer
+    if (finalAnswer) {
       if (autoSpeak) {
-        speakText(scrubbedAnswer);
+        speakText(finalAnswer);
       } else {
-        prefetchAudio(scrubbedAnswer);
+        prefetchAudio(finalAnswer);
       }
     }
   }, [screenContext, providerConfig, user, spaces, allUsers, messages, autoSpeak, speakText, prefetchAudio, router, updateDocument, addDocumentFolder, updateDocumentFolder, removeDocument, updateInvoice]);

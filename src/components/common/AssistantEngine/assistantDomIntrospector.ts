@@ -2,11 +2,26 @@ export interface InteractiveDomElement {
   agentId: string;
   tag: 'button' | 'link' | 'tab' | 'input' | 'textarea' | 'checkbox' | 'select';
   label: string;
+  contextHint?: string;
   placeholder?: string;
   currentValue?: string;
   checked?: boolean;
   inModal?: boolean;
   isDisabled?: boolean;
+}
+
+const DESTRUCTIVE_KEYWORDS = [
+  'מחק', 'מחיקה', 'הסר', 'הסרה', 'חסום', 'חסימה', 'שלם', 'תשלום', 'בטל מנוי',
+  'delete', 'remove', 'block', 'revoke', 'pay', 'destroy', 'clear all'
+];
+
+/**
+ * Generic safety guard: returns true if a button label looks destructive/irreversible
+ * and must NEVER be auto-clicked without explicit human confirmation.
+ */
+export function isDestructiveUiLabel(label: string): boolean {
+  const low = (label || '').toLowerCase();
+  return DESTRUCTIVE_KEYWORDS.some((kw) => low.includes(kw));
 }
 
 export interface LiveDomBatchStep {
@@ -95,7 +110,61 @@ export function inspectLiveScreenDOM(): LiveScreenDomInspection {
     'button, [role="button"], [role="tab"], a[href], input[type="text"], input[type="search"], input[type="tel"], input[type="checkbox"], textarea, select';
 
   const isInsideOpenModal = (el: Element): boolean => {
-    return Boolean(el.closest('[role="dialog"], [aria-modal="true"]'));
+    if (el.closest('[role="dialog"], [aria-modal="true"]')) return true;
+    // Also detect generic React/CSS fixed full-screen modal overlays (zero host-app code needed!)
+    let cur: HTMLElement | null = el.parentElement;
+    let depth = 0;
+    while (cur && cur !== document.body && depth < 12) {
+      const style = window.getComputedStyle(cur);
+      const z = parseInt(style.zIndex || '0', 10) || 0;
+      if (style.position === 'fixed' && z >= 50) {
+        const r = cur.getBoundingClientRect();
+        if (r.width >= window.innerWidth * 0.7 && r.height >= window.innerHeight * 0.5) {
+          return true;
+        }
+      }
+      cur = cur.parentElement;
+      depth++;
+    }
+    return false;
+  };
+
+  // Purely read-only outside observation: identifies which card/row a repeated button belongs to
+  // (e.g., distinguishes "וואטסאפ" of "אלי אינסטלטור שחף" from another contact's "וואטסאפ" in ANY app!)
+  const extractParentContextHint = (el: Element, ownLabel: string): string | undefined => {
+    let cur: HTMLElement | null = el.parentElement;
+    let depth = 0;
+    while (cur && cur !== document.body && depth < 5) {
+      const r = cur.getBoundingClientRect();
+      if (r.height >= 48 && r.height <= 360 && r.width >= 160 && r.width <= window.innerWidth * 0.96) {
+        const headingEl = cur.querySelector('h1, h2, h3, h4, strong, b, [class*="name"], [class*="title"]');
+        const rawCandidate = headingEl
+          ? cleanLabel(headingEl.textContent)
+          : cleanLabel(
+              Array.from(cur.childNodes)
+                .filter((n) => n.nodeType === 3)
+                .map((n) => n.textContent || '')
+                .join(' ')
+            );
+        if (rawCandidate && rawCandidate.length >= 2 && rawCandidate !== ownLabel && !ownLabel.includes(rawCandidate)) {
+          return rawCandidate.slice(0, 48);
+        }
+        // Fallback: first short text leaf inside this card container (such as contact name + phone)
+        const firstTextLeaf = Array.from(cur.querySelectorAll('div, span, p')).find((node) => {
+          if (node.closest('button, a, input, select')) return false;
+          if (node.children.length > 1) return false;
+          const t = cleanLabel(node.textContent);
+          return t.length >= 3 && t.length <= 45 && t !== ownLabel;
+        });
+        if (firstTextLeaf) {
+          const hint = cleanLabel(firstTextLeaf.textContent);
+          if (hint && hint !== ownLabel) return hint.slice(0, 48);
+        }
+      }
+      cur = cur.parentElement;
+      depth++;
+    }
+    return undefined;
   };
 
   document.querySelectorAll(selector).forEach((el) => {
@@ -186,11 +255,13 @@ export function inspectLiveScreenDOM(): LiveScreenDomInspection {
     const tag: InteractiveDomElement['tag'] =
       role === 'tab' ? 'tab' : tagName === 'a' ? 'link' : 'button';
 
+    const contextHint = extractParentContextHint(el, combined);
     actionSet.add(combined);
     targetBucket.push({
       agentId,
       tag,
       label: combined,
+      contextHint: contextHint || undefined,
       inModal: inModal || undefined,
       isDisabled: (el as HTMLButtonElement).disabled || el.getAttribute('aria-disabled') === 'true'
     });
@@ -284,7 +355,7 @@ export async function executeLiveDomBatch(
     return { success: false, message: 'לא התקבלו צעדים לביצוע.', completedSteps: 0 };
   }
 
-  const capped = steps.slice(0, 6);
+  const capped = steps.slice(0, 3);
   const logs: string[] = [];
   let completed = 0;
 

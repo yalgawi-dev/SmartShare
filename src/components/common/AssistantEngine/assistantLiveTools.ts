@@ -8,6 +8,7 @@ import {
   canCallerAccessVaultItem
 } from './assistantFirewall';
 import { inspectLiveScreenDOM, LiveScreenDomInspection } from './assistantDomIntrospector';
+import { getCompactUiMapForRoute } from './assistantUiMapLearner';
 import { agentActionRegistry, type AgentToolSchema } from './assistantActionRegistry';
 import { ensureDefaultAgentActionsRegistered } from './assistantActionExecutor';
 import { getSharedContactsForUser } from '@/utils/partnerUtils';
@@ -120,6 +121,7 @@ export interface LiveAssistantToolPayload {
     currentActiveSpaceTitle?: string;
   };
   liveSpacesData: LiveSpaceExecutionResult[];
+  learnedUiMap?: string[];
   appMapSummary: string;
 }
 
@@ -723,6 +725,10 @@ export function executeLiveAssistantTools(
       appVersion: SMARTSHARE_GRAPH.version
     },
     liveScreenDOM: slimLiveScreenDOM,
+    learnedUiMap: getCompactUiMapForRoute(
+      liveScreenDOM.urlPath || screenContext.route || '/',
+      liveScreenDOM.interactiveElements.map((e) => e.label)
+    ),
     availableActionTools,
     usersAndPartnersTool: {
       mySharedPartnersCount: mySharedPartners.length,

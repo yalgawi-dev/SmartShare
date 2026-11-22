@@ -36,9 +36,9 @@ export function ensureDefaultAgentActionsRegistered(): void {
   agentActionRegistry.register({
     schema: {
       name: 'ui_click_element',
-      description: 'לוחץ על כפתור, טאב או קישור שגלוי כרגע על המסך באמצעות המזהה שלו (agentId מתוך liveScreenDOM.interactiveElements). מתאים לכל כפתור חדש או קיים במסך.',
+      description: 'לוחץ על כפתור, טאב או קישור שגלוי כרגע על המסך באמצעות המזהה שלו (agentId מתוך liveScreenDOM.interactiveElements). לפעולות ניווט/פתיחת מודאל/שיתוף מתבצע אוטומטית.',
       riskLevel: 'low',
-      requiresConfirmation: true,
+      requiresConfirmation: false,
       parameters: {
         agentId: { type: 'string', description: 'המזהה החי של האלמנט מתוך interactiveElements (למשל ui_5)', required: true },
         elementLabel: { type: 'string', description: 'שם הכפתור בעברית לצורך הצגה באישור', required: true }
@@ -70,9 +70,9 @@ export function ensureDefaultAgentActionsRegistered(): void {
   agentActionRegistry.register({
     schema: {
       name: 'ui_execute_batch',
-      description: 'מבצע רצף של עד 6 פעולות UI במכה אחת (למשל: מילוי שם נמען + טלפון + לחיצה על הוסף/שמור/שתף בתוך מודאל פתוח) בקריאת AI אחת בלבד.',
+      description: 'מבצע רצף של עד 3 פעולות UI במכה אחת (למשל: מילוי שדות + לחיצה על כפתור בתוך מודאל פתוח) בקריאת AI אחת בלבד.',
       riskLevel: 'medium',
-      requiresConfirmation: true,
+      requiresConfirmation: false,
       parameters: {
         steps: {
           type: 'string[]',

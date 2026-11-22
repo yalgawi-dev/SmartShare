@@ -21,6 +21,7 @@ export interface AIProviderConfig {
 export interface AIQueryResponse {
   text: string;
   proposedAction?: AgentActionProposal | null;
+  continueExploring?: boolean;
   quotaExceeded?: 'user_rate_limit' | 'provider_quota_429' | null;
   source: 'local_brain' | 'cloud_llm';
   fallbackReason?: string;
@@ -28,6 +29,13 @@ export interface AIQueryResponse {
   nodeId?: string;
   confidence?: 'high' | 'medium' | 'low';
   suggestions?: KnowledgeNode[];
+}
+
+export interface AutonomousFollowUpPayload {
+  stepNumber: number;
+  completedSteps: string[];
+  liveScreenDOM: LiveAssistantToolPayload['liveScreenDOM'];
+  availableActionTools: LiveAssistantToolPayload['availableActionTools'];
 }
 
 /**
@@ -40,7 +48,8 @@ export async function queryAIAssistant(
   context: ScreenContext,
   config: AIProviderConfig = { provider: 'local_free' },
   liveData?: LiveAssistantToolPayload,
-  history?: Array<{ sender: 'user' | 'assistant'; text: string }>
+  history?: Array<{ sender: 'user' | 'assistant'; text: string }>,
+  followUp?: AutonomousFollowUpPayload
 ): Promise<AIQueryResponse> {
   let fallbackReason: string | undefined;
 
@@ -57,20 +66,32 @@ export async function queryAIAssistant(
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${idToken}`
           },
-          body: JSON.stringify({
-            query,
-            history: (history || []).slice(-6),
-            context: {
-              route: context.route,
-              spaceId: context.spaceId,
-              activeWidget: context.activeWidget,
-              spaceTitle: context.spaceTitle,
-              currentFolderName: context.currentFolderName,
-              activeModal: context.activeModal,
-              userRole: context.userRole
-            },
-            liveData
-          })
+          body: JSON.stringify(
+            followUp
+              ? {
+                  query,
+                  followUp,
+                  context: {
+                    route: context.route,
+                    activeWidget: context.activeWidget,
+                    spaceTitle: context.spaceTitle
+                  }
+                }
+              : {
+                  query,
+                  history: (history || []).slice(-6),
+                  context: {
+                    route: context.route,
+                    spaceId: context.spaceId,
+                    activeWidget: context.activeWidget,
+                    spaceTitle: context.spaceTitle,
+                    currentFolderName: context.currentFolderName,
+                    activeModal: context.activeModal,
+                    userRole: context.userRole
+                  },
+                  liveData
+                }
+          )
         });
 
         if (response.ok) {
@@ -79,6 +100,7 @@ export async function queryAIAssistant(
             return {
               text: data.answer,
               proposedAction: data.proposedAction || null,
+              continueExploring: Boolean(data.continueExploring),
               quotaExceeded: data.quotaExceeded || null,
               source: 'cloud_llm',
               confidence: data.confidence || 'high',
