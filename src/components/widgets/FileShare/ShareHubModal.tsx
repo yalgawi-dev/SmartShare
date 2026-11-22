@@ -135,6 +135,34 @@ export const ShareHubModal: React.FC<ShareHubModalProps> = ({
     );
   }, [allSharedItems, q]);
 
+  // Helper: resolve the actual files contained inside a shared folder (or the file itself)
+  const getContainedFileNames = (sharedItem: FileShareItem): string[] => {
+    if (sharedItem.type !== 'folder') return [];
+    const includeSubtree = Boolean(sharedItem.shareLink?.includeSubtree);
+    if (!includeSubtree) {
+      return (items || [])
+        .filter((f) => f.type !== 'folder' && f.parentId === sharedItem.id)
+        .map((f) => f.name)
+        .filter(Boolean);
+    }
+    // Collect recursive folder IDs when subtree sharing is enabled
+    const folderIds = new Set<string>([sharedItem.id]);
+    let added = true;
+    while (added) {
+      added = false;
+      for (const f of items || []) {
+        if (f.type === 'folder' && f.parentId && folderIds.has(f.parentId) && !folderIds.has(f.id)) {
+          folderIds.add(f.id);
+          added = true;
+        }
+      }
+    }
+    return (items || [])
+      .filter((f) => f.type !== 'folder' && f.parentId && folderIds.has(f.parentId))
+      .map((f) => f.name)
+      .filter(Boolean);
+  };
+
   if (!isOpen || typeof document === 'undefined') return null;
 
   const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://smart-share-tvwn-delta.vercel.app';
@@ -267,7 +295,7 @@ export const ShareHubModal: React.FC<ShareHubModalProps> = ({
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 99990,
+        zIndex: 100020,
         background: 'rgba(15, 23, 42, 0.58)',
         backdropFilter: 'blur(6px)',
         display: 'flex',
@@ -347,9 +375,9 @@ export const ShareHubModal: React.FC<ShareHubModalProps> = ({
           }}
         >
           {[
-            { id: 'people', label: `👥 לפי אנשים (${peopleList.length})` },
-            { id: 'directory', label: `📇 קבועים וקבוצות (${directory.contacts.length})` },
-            { id: 'items', label: `📂 לפי קבצים (${allSharedItems.length})` },
+            { id: 'people', label: `👥 אנשים (${peopleList.length})` },
+            { id: 'directory', label: `📇 קבועים (${directory.contacts.length})` },
+            { id: 'items', label: `📂 פריטים (${allSharedItems.length})` },
           ].map((t) => {
             const active = activeTab === t.id;
             return (
@@ -462,91 +490,130 @@ export const ShareHubModal: React.FC<ShareHubModalProps> = ({
                       </span>
                     </div>
 
-                    {/* Shared items chips for this person */}
+                    {/* Shared items chips for this person — including exact contained file names! */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      {person.entries.map(({ item, recipient }) => (
-                        <div
-                          key={`${item.id}_${recipient.id}`}
-                          style={{
-                            background: '#f8fafc',
-                            border: '1px solid #e2e8f0',
-                            borderRadius: '10px',
-                            padding: '7px 9px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            gap: '6px',
-                            flexWrap: 'wrap',
-                          }}
-                        >
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', minWidth: '120px', flex: 1 }}>
-                            <span style={{ fontWeight: 800, fontSize: '0.78rem', color: '#1e293b' }}>
-                              {item.type === 'folder' ? '📁' : '📄'} {item.name}
-                            </span>
-                            <span style={{ fontSize: '0.67rem', color: '#64748b' }}>
-                              {recipient.enabled ? `🟢 פעיל • 👁️ ${recipient.viewCount || 0} צפיות` : '🔴 חסום'}
-                            </span>
+                      {person.entries.map(({ item, recipient }) => {
+                        const containedFiles = getContainedFileNames(item);
+                        return (
+                          <div
+                            key={`${item.id}_${recipient.id}`}
+                            style={{
+                              background: '#f8fafc',
+                              border: '1px solid #e2e8f0',
+                              borderRadius: '10px',
+                              padding: '8px 10px',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '6px',
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', flexWrap: 'wrap' }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', minWidth: '120px', flex: 1 }}>
+                                <span style={{ fontWeight: 800, fontSize: '0.8rem', color: '#1e293b' }}>
+                                  {item.type === 'folder' ? '📁 תיקייה:' : '📄 קובץ:'} {item.name}
+                                  {containedFiles.length > 0 && (
+                                    <span style={{ fontWeight: 700, fontSize: '0.7rem', color: '#4f46e5', marginRight: '5px' }}>
+                                      ({containedFiles.length} קבצים)
+                                    </span>
+                                  )}
+                                </span>
+                                <span style={{ fontSize: '0.67rem', color: '#64748b' }}>
+                                  {recipient.enabled ? `🟢 פעיל • 👁️ ${recipient.viewCount || 0} צפיות` : '🔴 חסום'}
+                                </span>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => handleWhatsApp(item, recipient)}
+                                  disabled={!recipient.enabled}
+                                  style={{
+                                    background: '#25D366',
+                                    color: '#ffffff',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    padding: '4px 8px',
+                                    fontSize: '0.7rem',
+                                    fontWeight: 800,
+                                    cursor: recipient.enabled ? 'pointer' : 'not-allowed',
+                                    opacity: recipient.enabled ? 1 : 0.45,
+                                  }}
+                                >
+                                  וואטסאפ
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopyLink(item, recipient)}
+                                  disabled={!recipient.enabled}
+                                  style={{
+                                    background: '#ffffff',
+                                    color: '#1e293b',
+                                    border: '1px solid #cbd5e1',
+                                    borderRadius: '8px',
+                                    padding: '4px 8px',
+                                    fontSize: '0.7rem',
+                                    fontWeight: 800,
+                                    cursor: recipient.enabled ? 'pointer' : 'not-allowed',
+                                    opacity: recipient.enabled ? 1 : 0.45,
+                                  }}
+                                >
+                                  {copiedToken === recipient.token ? '✓ הועתק' : 'העתק'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    onClose();
+                                    onOpenItemShare(item);
+                                  }}
+                                  title="ניהול קישור וחסימה"
+                                  style={{
+                                    background: '#eef2ff',
+                                    color: '#4338ca',
+                                    border: '1px solid #c7d2fe',
+                                    borderRadius: '8px',
+                                    padding: '4px 7px',
+                                    fontSize: '0.7rem',
+                                    fontWeight: 800,
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  ⚙️
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Exact shared files inside this folder so user knows immediately WHAT was shared! */}
+                            {containedFiles.length > 0 && (
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', paddingTop: '4px', borderTop: '1px dashed #e2e8f0' }}>
+                                {containedFiles.slice(0, 6).map((fname, fIdx) => (
+                                  <span
+                                    key={fIdx}
+                                    style={{
+                                      background: '#ffffff',
+                                      border: '1px solid #dbeafe',
+                                      color: '#1e40af',
+                                      borderRadius: '7px',
+                                      padding: '2px 7px',
+                                      fontSize: '0.68rem',
+                                      fontWeight: 700,
+                                      maxWidth: '100%',
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                    }}
+                                  >
+                                    📄 {fname}
+                                  </span>
+                                ))}
+                                {containedFiles.length > 6 && (
+                                  <span style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700, padding: '2px 4px' }}>
+                                    +{containedFiles.length - 6} נוספים
+                                  </span>
+                                )}
+                              </div>
+                            )}
                           </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <button
-                              type="button"
-                              onClick={() => handleWhatsApp(item, recipient)}
-                              disabled={!recipient.enabled}
-                              style={{
-                                background: '#25D366',
-                                color: '#ffffff',
-                                border: 'none',
-                                borderRadius: '8px',
-                                padding: '4px 8px',
-                                fontSize: '0.7rem',
-                                fontWeight: 800,
-                                cursor: recipient.enabled ? 'pointer' : 'not-allowed',
-                                opacity: recipient.enabled ? 1 : 0.45,
-                              }}
-                            >
-                              וואטסאפ
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleCopyLink(item, recipient)}
-                              disabled={!recipient.enabled}
-                              style={{
-                                background: '#ffffff',
-                                color: '#1e293b',
-                                border: '1px solid #cbd5e1',
-                                borderRadius: '8px',
-                                padding: '4px 8px',
-                                fontSize: '0.7rem',
-                                fontWeight: 800,
-                                cursor: recipient.enabled ? 'pointer' : 'not-allowed',
-                                opacity: recipient.enabled ? 1 : 0.45,
-                              }}
-                            >
-                              {copiedToken === recipient.token ? '✓ הועתק' : 'העתק'}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                onClose();
-                                onOpenItemShare(item);
-                              }}
-                              title="ניהול קישור וחסימה"
-                              style={{
-                                background: '#eef2ff',
-                                color: '#4338ca',
-                                border: '1px solid #c7d2fe',
-                                borderRadius: '8px',
-                                padding: '4px 7px',
-                                fontSize: '0.7rem',
-                                fontWeight: 800,
-                                cursor: 'pointer',
-                              }}
-                            >
-                              ⚙️
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 ))
