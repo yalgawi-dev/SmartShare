@@ -146,27 +146,26 @@ export default function CadDocumentViewer({ url, filename = 'drawing.dwg' }: Cad
                 const newDist = getTouchDistance(e.touches[0], e.touches[1]);
                 const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
                 const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-                const rect = overlayCanvas.getBoundingClientRect();
-                const originX = startX - rect.left;
-                const originY = startY - rect.top;
 
-                currentScale = Math.max(0.25, Math.min(6, newDist / initialDist));
+                currentScale = Math.max(0.35, Math.min(5, newDist / initialDist));
                 currentPanDeltaX = midX - startX;
                 currentPanDeltaY = midY - startY;
 
-                const cssTx = currentPanDeltaX + originX * (1 - currentScale);
-                const cssTy = currentPanDeltaY + originY * (1 - currentScale);
-                stageRoot.style.transform = `translate3d(${cssTx}px, ${cssTy}px, 0) scale(${currentScale})`;
+                // Keep zoom anchored around screen center so drawing never flies off-screen
+                stageRoot.style.transformOrigin = '50% 50%';
+                stageRoot.style.transform = `translate3d(${currentPanDeltaX}px, ${currentPanDeltaY}px, 0) scale(${currentScale})`;
               } else if (gestureMode === 'pan' && e.touches.length === 1) {
                 e.preventDefault();
                 currentPanDeltaX = e.touches[0].clientX - startX;
                 currentPanDeltaY = e.touches[0].clientY - startY;
+                stageRoot.style.transformOrigin = '50% 50%';
                 stageRoot.style.transform = `translate3d(${currentPanDeltaX}px, ${currentPanDeltaY}px, 0)`;
               }
             };
 
-            const onTouchEnd = () => {
+            const onTouchEnd = (e: TouchEvent) => {
               if (gestureMode === 'none') return;
+              // If user lifted one finger of a 2-finger pinch, commit the pinch now and lock gesture until all fingers lift
               const mode = gestureMode;
               gestureMode = 'none';
               const finalScale = currentScale;
@@ -176,20 +175,15 @@ export default function CadDocumentViewer({ url, filename = 'drawing.dwg' }: Cad
               stageRoot.style.transform = '';
               stageRoot.style.willChange = 'auto';
 
-              const rect = overlayCanvas.getBoundingClientRect();
               const dpr = (dwfViewer as any).currentDpr || Math.min(window.devicePixelRatio || 1, 2);
 
               if (mode === 'pinch') {
-                if (Math.abs(finalScale - 1) > 0.02) {
-                  const cx = (startX - rect.left) * dpr;
-                  const cy = (startY - rect.top) * dpr;
-                  if ((dwfViewer as any).zoomAroundPoint) {
-                    (dwfViewer as any).zoomAroundPoint(finalScale, cx, cy);
-                  } else if ((dwfViewer as any).zoomAtCenter) {
+                if (Math.abs(finalScale - 1) > 0.03) {
+                  if ((dwfViewer as any).zoomAtCenter) {
                     (dwfViewer as any).zoomAtCenter(finalScale);
                   }
                 }
-                if (Math.abs(finalPanDx) > 1 || Math.abs(finalPanDy) > 1) {
+                if (Math.abs(finalPanDx) > 2 || Math.abs(finalPanDy) > 2) {
                   (dwfViewer as any).panX = ((dwfViewer as any).panX || 0) + finalPanDx * dpr;
                   (dwfViewer as any).panY = ((dwfViewer as any).panY || 0) + finalPanDy * dpr;
                 }
@@ -200,10 +194,19 @@ export default function CadDocumentViewer({ url, filename = 'drawing.dwg' }: Cad
                 (dwfViewer as any).requestRender?.();
               }
 
+              // Clamp pan so the drawing can never get lost off-screen
+              const maxPan = Math.max(overlayCanvas.width, overlayCanvas.height) * Math.max(1.5, ((dwfViewer as any).zoom || 1) * 1.2);
+              (dwfViewer as any).panX = Math.max(-maxPan, Math.min(maxPan, (dwfViewer as any).panX || 0));
+              (dwfViewer as any).panY = Math.max(-maxPan, Math.min(maxPan, (dwfViewer as any).panY || 0));
+
               initialDist = 0;
               currentScale = 1;
               currentPanDeltaX = 0;
               currentPanDeltaY = 0;
+              if (e.touches.length > 0) {
+                // Ignore remaining single finger until a fresh touchstart
+                gestureMode = 'none';
+              }
             };
 
             overlayCanvas.addEventListener('touchstart', onTouchStart, { passive: false });

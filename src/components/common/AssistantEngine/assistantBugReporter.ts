@@ -85,9 +85,40 @@ export function paintLiveViewportToCanvas(
   ctx.fillStyle = '#f8fafc';
   ctx.fillRect(0, 0, logicalW, logicalH);
 
-  // Collect visible structural elements including live canvases (DWFx/CAD/PDF viewers!)
+  // Detect if a fullscreen modal/viewer (e.g. UniversalViewerModal) is open on top of the page.
+  // If so, paint ONLY elements inside that topmost overlay so hidden background page buttons NEVER bleed through!
+  let captureRoot: ParentNode = document;
+  const fixedCandidates = Array.from(document.querySelectorAll('div, section, [role="dialog"]')) as HTMLElement[];
+  let topOverlay: HTMLElement | null = null;
+  let topZ = 40;
+  for (const cand of fixedCandidates) {
+    if (
+      cand.closest('[data-assistant-drawer="true"]') ||
+      cand.closest('[data-bug-recorder-hud="true"]')
+    ) {
+      continue;
+    }
+    const st = window.getComputedStyle(cand);
+    if (st.position !== 'fixed' || st.display === 'none' || st.visibility === 'hidden') continue;
+    const z = parseInt(st.zIndex || '0', 10) || 0;
+    const r = cand.getBoundingClientRect();
+    if (z >= topZ && r.width >= logicalW * 0.7 && r.height >= logicalH * 0.65) {
+      topZ = z;
+      topOverlay = cand;
+    }
+  }
+  if (topOverlay) {
+    captureRoot = topOverlay;
+    const overlayBg = window.getComputedStyle(topOverlay).backgroundColor;
+    if (overlayBg && overlayBg !== 'rgba(0, 0, 0, 0)' && overlayBg !== 'transparent') {
+      ctx.fillStyle = overlayBg;
+      ctx.fillRect(0, 0, logicalW, logicalH);
+    }
+  }
+
+  // Collect visible structural elements ONLY from captureRoot
   const selectors = 'canvas, header, nav, main, section, [class*="card"], [class*="Card"], [role="dialog"], button, input, h1, h2, h3, h4, span, p';
-  const elements = Array.from(document.querySelectorAll(selectors));
+  const elements = Array.from(captureRoot.querySelectorAll(selectors));
 
   let drawnCount = 0;
   for (const el of elements) {
@@ -148,14 +179,14 @@ export function paintLiveViewportToCanvas(
       drawnCount++;
     }
 
-    // Draw direct leaf text or input value (excluding password fields)
+    // Draw ONLY leaf text (never duplicate text on both parent button/heading AND inner span!)
     const isInput = tag === 'input';
     if (isInput && (htmlEl as HTMLInputElement).type === 'password') continue;
 
     const hasElementChildren = el.children.length > 0;
     const directText = isInput
       ? (htmlEl as HTMLInputElement).value || (htmlEl as HTMLInputElement).placeholder || ''
-      : !hasElementChildren || tag === 'button' || tag.startsWith('h')
+      : !hasElementChildren
         ? (htmlEl.innerText || htmlEl.textContent || '').replace(/\s+/g, ' ').trim()
         : '';
 
