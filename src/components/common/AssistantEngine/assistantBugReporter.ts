@@ -249,16 +249,24 @@ export class LiveBugVideoRecorder {
     this.hasFinished = false;
     onCountdownTick(this.remainingSec);
 
-    const width = Math.min(window.innerWidth || 390, 540);
-    const height = Math.min(window.innerHeight || 780, 960);
-    const scaleX = width / (window.innerWidth || width);
-    const scaleY = height / (window.innerHeight || height);
+    // HiDPI 2x HD Canvas Resolution (crisp Hebrew text & drawings even in fullscreen playback!)
+    const logicalW = window.innerWidth || 390;
+    const logicalH = window.innerHeight || 780;
+    const dprScale = Math.min(window.devicePixelRatio || 2, 2);
+    const width = Math.min(Math.round(logicalW * dprScale), 820);
+    const height = Math.min(Math.round(logicalH * dprScale), 1560);
+    const scaleX = width / logicalW;
+    const scaleY = height / logicalH;
 
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
     this.canvas = canvas;
     const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+    }
 
     // Track user touches/clicks during recording so Admin sees exact tap positions
     this.pointerListener = (e: PointerEvent) => {
@@ -278,15 +286,15 @@ export class LiveBugVideoRecorder {
     };
     window.addEventListener('pointerdown', this.pointerListener, { passive: true });
 
-    // Initial frame + lightweight 8 FPS painter (125ms interval -> <2% CPU overhead!)
+    // Initial frame + smooth 15 FPS HD painter (66ms interval)
     if (ctx) {
       paintLiveViewportToCanvas(ctx, width, height, this.lastTouch);
       this.paintInterval = setInterval(() => {
         paintLiveViewportToCanvas(ctx, width, height, this.lastTouch);
-      }, 125);
+      }, 66);
     }
 
-    const canvasStream = (canvas as any).captureStream ? (canvas as any).captureStream(10) : null;
+    const canvasStream = (canvas as any).captureStream ? (canvas as any).captureStream(15) : null;
     if (!canvasStream) {
       this.cleanup();
       throw new Error('דפדפן זה אינו תומך בהקלטת וידאו ישירה. אנא השתמש בצילום מסך.');
@@ -301,6 +309,7 @@ export class LiveBugVideoRecorder {
     }
 
     const mimeTypes = [
+      'video/webm;codecs=vp9,opus',
       'video/webm;codecs=vp8,opus',
       'video/webm',
       'video/mp4'
@@ -308,8 +317,8 @@ export class LiveBugVideoRecorder {
     const selectedMime = mimeTypes.find((m) => typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(m)) || '';
 
     this.mediaRecorder = selectedMime
-      ? new MediaRecorder(canvasStream, { mimeType: selectedMime, videoBitsPerSecond: 600000 })
-      : new MediaRecorder(canvasStream);
+      ? new MediaRecorder(canvasStream, { mimeType: selectedMime, videoBitsPerSecond: 2200000 })
+      : new MediaRecorder(canvasStream, { videoBitsPerSecond: 2200000 });
 
     this.mediaRecorder.ondataavailable = (evt) => {
       if (evt.data && evt.data.size > 0) {
