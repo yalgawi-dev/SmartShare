@@ -2159,13 +2159,15 @@ export function FileShareWidget({
       )}
 
       {/* SHARE, RECIPIENTS & GROUPS HUB MODAL */}
-      <ShareHubModal
-        isOpen={showShareHub}
-        onClose={() => setShowShareHub(false)}
-        spaceTitle={space?.title || 'מרחב שיתוף'}
-        items={activeItems || []}
-        onOpenItemShare={(targetItem) => setActiveShareItem(targetItem)}
-      />
+      {showShareHub && (
+        <ShareHubModal
+          isOpen={showShareHub}
+          onClose={() => setShowShareHub(false)}
+          spaceTitle={space?.title || 'מרחב שיתוף'}
+          items={activeItems || []}
+          onOpenItemShare={(targetItem) => setActiveShareItem(targetItem)}
+        />
+      )}
 
       {/* FLOATING ACTION FEEDBACK TOAST */}
       {saveFeedbackToast && (

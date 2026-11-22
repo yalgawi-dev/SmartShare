@@ -88,21 +88,23 @@ export const ShareHubModal: React.FC<ShareHubModalProps> = ({
   const peopleList = useMemo<AggregatedPersonShare[]>(() => {
     const map = new Map<string, AggregatedPersonShare>();
     for (const item of allSharedItems) {
-      const recs = item.shareLink?.recipients || [];
+      const recs = Array.isArray(item.shareLink?.recipients) ? item.shareLink!.recipients : [];
       for (const r of recs) {
-        if (!r?.recipientName) continue;
-        const phoneDigits = (r.phone || '').replace(/\D/g, '');
-        const key = phoneDigits.length >= 7 ? `ph_${phoneDigits.slice(-9)}` : `nm_${r.recipientName.trim().toLowerCase()}`;
+        const cleanName = String(r?.recipientName || '').trim();
+        if (!cleanName) continue;
+        const rawPhone = r?.phone ? String(r.phone) : '';
+        const phoneDigits = rawPhone.replace(/\D/g, '');
+        const key = phoneDigits.length >= 7 ? `ph_${phoneDigits.slice(-9)}` : `nm_${cleanName.toLowerCase()}`;
         const existing = map.get(key);
         if (existing) {
           existing.totalViews += Number(r.viewCount || 0);
-          if (!existing.phone && r.phone) existing.phone = r.phone;
+          if (!existing.phone && rawPhone) existing.phone = rawPhone;
           existing.entries.push({ item, recipient: r });
         } else {
           map.set(key, {
             key,
-            name: r.recipientName.trim(),
-            phone: r.phone,
+            name: cleanName,
+            phone: rawPhone || undefined,
             role: r.role,
             totalViews: Number(r.viewCount || 0),
             entries: [{ item, recipient: r }],

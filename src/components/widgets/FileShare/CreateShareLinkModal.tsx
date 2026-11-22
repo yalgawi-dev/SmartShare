@@ -75,6 +75,13 @@ export function CreateShareLinkModal({
   const [editingRecipientId, setEditingRecipientId] = useState<string | null>(null);
   const [editInternalNote, setEditInternalNote] = useState('');
   const [editPublicMessage, setEditPublicMessage] = useState('');
+  const [savedDirectory, setSavedDirectory] = useState<SavedShareDirectory>({ contacts: [], groups: [], updatedAt: 0 });
+  const [quickPickPanel, setQuickPickPanel] = useState<'none' | 'contacts' | 'groups'>('none');
+
+  useEffect(() => {
+    if (!isOpen || !user?.id) return;
+    loadSavedShareDirectory(user.id).then(setSavedDirectory).catch(() => {});
+  }, [isOpen, user?.id]);
 
   // Compute registered members list from space and shared contacts
   const registeredMembers: SelectableMember[] = useMemo(() => {
@@ -383,14 +390,6 @@ export function CreateShareLinkModal({
       return false;
     }
   };
-
-  const [savedDirectory, setSavedDirectory] = useState<SavedShareDirectory>({ contacts: [], groups: [], updatedAt: 0 });
-  const [quickPickPanel, setQuickPickPanel] = useState<'none' | 'contacts' | 'groups'>('none');
-
-  useEffect(() => {
-    if (!isOpen || !user?.id) return;
-    loadSavedShareDirectory(user.id).then(setSavedDirectory).catch(() => {});
-  }, [isOpen, user?.id]);
 
   const handleAddSavedContact = async (contact: SavedShareContact) => {
     const exists = recipients.some(
