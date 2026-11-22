@@ -74,24 +74,54 @@ export default function CadDocumentViewer({ url, filename = 'drawing.dwg' }: Cad
           const dwfViewer = new DwfViewer(containerRef.current, {
             background: theme === 'dark' ? '#0f172a' : '#ffffff',
             preferWebgl: true,
-            preferWasm: false,
+            preferWasm: true,
             lineWeightMode: 'adaptive'
           });
 
           await dwfViewer.load(buffer, { fileName: filename });
           viewerRef.current = dwfViewer;
 
-          // Attach mobile touch pinch-to-zoom & two-finger pan handlers to the overlay canvas
+          // Attach mobile touch pinch-to-zoom & two-finger pan handlers throttled via requestAnimationFrame
+          // so heavy architectural DWFx sheets stay silky smooth even on mid/low-end phones!
           const overlayCanvas = containerRef.current.querySelector<HTMLCanvasElement>('.dwfv-overlay-canvas');
           if (overlayCanvas) {
             let initialDist = 0;
             let lastTouchX = 0;
             let lastTouchY = 0;
+            let rafPending = false;
+            let pendingFactor = 1;
+            let pendingMidX = 0;
+            let pendingMidY = 0;
+            let pendingPanDx = 0;
+            let pendingPanDy = 0;
 
             const getTouchDistance = (t1: Touch, t2: Touch) => {
               const dx = t1.clientX - t2.clientX;
               const dy = t1.clientY - t2.clientY;
               return Math.hypot(dx, dy);
+            };
+
+            const flushPinchFrame = () => {
+              rafPending = false;
+              const dpr = (dwfViewer as any).currentDpr || Math.min(window.devicePixelRatio || 1, 2);
+              if (Math.abs(pendingFactor - 1) > 0.015) {
+                const rect = overlayCanvas.getBoundingClientRect();
+                const cx = (pendingMidX - rect.left) * dpr;
+                const cy = (pendingMidY - rect.top) * dpr;
+                if ((dwfViewer as any).zoomAroundPoint) {
+                  (dwfViewer as any).zoomAroundPoint(pendingFactor, cx, cy);
+                } else if ((dwfViewer as any).zoomAtCenter) {
+                  (dwfViewer as any).zoomAtCenter(pendingFactor);
+                }
+                pendingFactor = 1;
+              }
+              if (Math.abs(pendingPanDx) > 0.5 || Math.abs(pendingPanDy) > 0.5) {
+                (dwfViewer as any).panX = ((dwfViewer as any).panX || 0) + pendingPanDx * dpr;
+                (dwfViewer as any).panY = ((dwfViewer as any).panY || 0) + pendingPanDy * dpr;
+                pendingPanDx = 0;
+                pendingPanDy = 0;
+              }
+              (dwfViewer as any).requestRender?.();
             };
 
             const onTouchStart = (e: TouchEvent) => {
@@ -100,6 +130,9 @@ export default function CadDocumentViewer({ url, filename = 'drawing.dwg' }: Cad
                 initialDist = getTouchDistance(e.touches[0], e.touches[1]);
                 lastTouchX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
                 lastTouchY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+                pendingFactor = 1;
+                pendingPanDx = 0;
+                pendingPanDy = 0;
               }
             };
 
@@ -111,29 +144,22 @@ export default function CadDocumentViewer({ url, filename = 'drawing.dwg' }: Cad
                 const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
                 const factor = newDist / initialDist;
 
-                if (Math.abs(factor - 1) > 0.02) {
-                  const rect = overlayCanvas.getBoundingClientRect();
-                  const dpr = (dwfViewer as any).currentDpr || window.devicePixelRatio || 1;
-                  const cx = (midX - rect.left) * dpr;
-                  const cy = (midY - rect.top) * dpr;
-                  if ((dwfViewer as any).zoomAroundPoint) {
-                    (dwfViewer as any).zoomAroundPoint(factor, cx, cy);
-                  } else if ((dwfViewer as any).zoomAtCenter) {
-                    (dwfViewer as any).zoomAtCenter(factor);
-                  }
+                if (Math.abs(factor - 1) > 0.015) {
+                  pendingFactor *= factor;
+                  pendingMidX = midX;
+                  pendingMidY = midY;
                   initialDist = newDist;
                 }
 
-                const dx = (midX - lastTouchX) * ((dwfViewer as any).currentDpr || 1);
-                const dy = (midY - lastTouchY) * ((dwfViewer as any).currentDpr || 1);
-                if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
-                  (dwfViewer as any).panX = ((dwfViewer as any).panX || 0) + dx;
-                  (dwfViewer as any).panY = ((dwfViewer as any).panY || 0) + dy;
-                  lastTouchX = midX;
-                  lastTouchY = midY;
-                }
+                pendingPanDx += midX - lastTouchX;
+                pendingPanDy += midY - lastTouchY;
+                lastTouchX = midX;
+                lastTouchY = midY;
 
-                (dwfViewer as any).requestRender?.();
+                if (!rafPending) {
+                  rafPending = true;
+                  requestAnimationFrame(flushPinchFrame);
+                }
               }
             };
 
