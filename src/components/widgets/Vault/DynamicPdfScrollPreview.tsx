@@ -378,18 +378,34 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
 
       viewerMetrics.recordStep(sliceSessionId, `מיפוי קואורדינטות מסך (${Math.round(visibleWidth)}x${Math.round(visibleHeight)} px)`);
 
-      // Normalized coordinates within the full image (0.0 to 1.0)
-      const normX = (visibleLeft - imgRect.left) / imgRect.width;
-      const normY = (visibleTop - imgRect.top) / imgRect.height;
-      const normW = visibleWidth / imgRect.width;
-      const normH = visibleHeight / imgRect.height;
+      // Normalized coordinates within the full image (0.0 to 1.0) + 30% Overscan margin!
+      // Rendering +30% extra padding around the viewport makes slight pans reveal ALREADY-SHARP CAD details (0ms wait!).
+      const rawNormX = (visibleLeft - imgRect.left) / imgRect.width;
+      const rawNormY = (visibleTop - imgRect.top) / imgRect.height;
+      const rawNormW = visibleWidth / imgRect.width;
+      const rawNormH = visibleHeight / imgRect.height;
 
-      // Retina 2x DPR cap on mobile (2.25x faster than 3x DPR on Galaxy screens, visually identical sharpness!)
+      const padX = rawNormW * 0.30;
+      const padY = rawNormH * 0.30;
+      const normX = Math.max(0, rawNormX - padX);
+      const normY = Math.max(0, rawNormY - padY);
+      const normRight = Math.min(1, rawNormX + rawNormW + padX);
+      const normBottom = Math.min(1, rawNormY + rawNormH + padY);
+      const normW = Math.max(0.001, normRight - normX);
+      const normH = Math.max(0.001, normBottom - normY);
+
+      // Retina 2x DPR cap on mobile + proportional overscan canvas capped at safe mobile memory limit
       const isMobileDevice = typeof window !== 'undefined' && window.innerWidth < 768;
       const maxDpr = isMobileDevice ? 2 : 2.5;
       const dpr = Math.min(maxDpr, typeof window !== 'undefined' ? (window.devicePixelRatio || 2) : 2);
-      const canvasW = Math.max(1, Math.round(visibleWidth * dpr));
-      const canvasH = Math.max(1, Math.round(visibleHeight * dpr));
+      let canvasW = Math.max(1, Math.round(normW * imgRect.width * dpr));
+      let canvasH = Math.max(1, Math.round(normH * imgRect.height * dpr));
+      const maxSliceDim = isMobileDevice ? 2400 : 3200;
+      if (canvasW > maxSliceDim || canvasH > maxSliceDim) {
+        const shrink = maxSliceDim / Math.max(canvasW, canvasH);
+        canvasW = Math.max(1, Math.round(canvasW * shrink));
+        canvasH = Math.max(1, Math.round(canvasH * shrink));
+      }
 
       viewerMetrics.recordStep(sliceSessionId, `מתחיל רינדור וקטורי (PDFium WASM ${canvasW}x${canvasH}px, DPR=${dpr})`);
       let sliceDataUrl: string | null = null;
@@ -595,7 +611,7 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
             if (currentScale > 1.3 && hasPdfReady && isWideBlueprintRef.current) {
               autoFocusTimeoutRef.current = setTimeout(() => {
                 handleRenderFocusedRegion();
-              }, 400);
+              }, 220);
             } else if (currentScale <= 1.1 && regionSlice) {
               setRegionSlice(null);
             }
@@ -609,7 +625,7 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
             if (transformStateRef.current.scale > 1.3 && hasPdfReady && isWideBlueprintRef.current) {
               autoFocusTimeoutRef.current = setTimeout(() => {
                 handleRenderFocusedRegion();
-              }, 300);
+              }, 180);
             }
           }}
           onPinchStop={() => {
@@ -621,11 +637,11 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
             if (transformStateRef.current.scale > 1.3 && hasPdfReady && isWideBlueprintRef.current) {
               autoFocusTimeoutRef.current = setTimeout(() => {
                 handleRenderFocusedRegion();
-              }, 300);
+              }, 180);
             }
           }}
         >
-          {({ zoomIn, zoomOut, resetTransform }: any) => (
+          {({ zoomIn, zoomOut, resetTransform, centerView }: any) => (
             <>
               <TransformComponent
                 wrapperStyle={{
@@ -845,6 +861,45 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
                 >
                   −
                 </button>
+                {/* 1-Tap Fit Height button for wide Garmoshka blueprints */}
+                {isWideBlueprintRef.current && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (pdfScale > 1.8) {
+                        resetTransform(200);
+                        return;
+                      }
+                      const wrapper = wrapperRef.current;
+                      const img = imgRef.current;
+                      if (wrapper && img) {
+                        const curScale = Math.max(0.5, transformStateRef.current.scale);
+                        const baseHeight = img.getBoundingClientRect().height / curScale;
+                        const targetScale = Math.min(8, Math.max(2.4, (wrapper.clientHeight * 0.78) / Math.max(50, baseHeight)));
+                        if (typeof centerView === 'function') {
+                          centerView(targetScale, 220);
+                        } else {
+                          zoomIn(Math.max(0.8, Math.log(targetScale / curScale)), 220);
+                        }
+                      }
+                    }}
+                    title={pdfScale > 1.8 ? 'הצג את כל הגרמושקה' : 'התאם לגובה המסך לקריאה נוחה'}
+                    style={{
+                      padding: '2px 7px',
+                      borderRadius: '8px',
+                      background: pdfScale > 1.8 ? 'rgba(99, 102, 241, 0.85)' : 'rgba(255, 255, 255, 0.14)',
+                      border: 'none',
+                      color: '#ffffff',
+                      fontSize: '0.68rem',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      userSelect: 'none',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {pdfScale > 1.8 ? '⤢ הכל' : '⤢ לגובה'}
+                  </button>
+                )}
                 {/* Manual Sharpness Trigger Button */}
                 <button
                   type="button"

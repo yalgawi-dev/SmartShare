@@ -2,7 +2,66 @@ import { init, type WrappedPdfiumModule } from '@embedpdf/pdfium';
 
 let pdfiumPromise: Promise<WrappedPdfiumModule> | null = null;
 
-// Cache the currently open PDFium document AND active parsed page in WASM memory.
+// Dedicated Web Worker for 60 FPS off-main-thread C++ PDFium WASM rendering
+let pdfiumWorker: Worker | null = null;
+let workerDisabled = false;
+let workerReqId = 0;
+let workerLoadedDocKey: string | null = null;
+const workerPending = new Map<number, { resolve: (val: any) => void; reject: (err: any) => void }>();
+
+function getPdfiumWorker(): Worker | null {
+  if (typeof window === 'undefined' || typeof Worker === 'undefined' || workerDisabled) {
+    return null;
+  }
+  if (!pdfiumWorker) {
+    try {
+      pdfiumWorker = new Worker(new URL('../workers/pdfium.worker.ts', import.meta.url), {
+        type: 'module',
+      });
+      pdfiumWorker.onmessage = (event: MessageEvent<any>) => {
+        const data = event.data;
+        const pending = workerPending.get(data?.id);
+        if (!pending) return;
+        workerPending.delete(data.id);
+        if (data.ok) {
+          pending.resolve(data);
+        } else {
+          pending.reject(new Error(data.error || 'PDFium Worker error'));
+        }
+      };
+      pdfiumWorker.onerror = (err) => {
+        console.warn('[PDFium Worker] Error, falling back to main thread:', err?.message || err);
+        workerDisabled = true;
+        workerLoadedDocKey = null;
+        for (const [, p] of workerPending) {
+          p.reject(new Error('PDFium Worker crashed'));
+        }
+        workerPending.clear();
+        try { pdfiumWorker?.terminate(); } catch {}
+        pdfiumWorker = null;
+      };
+    } catch (err) {
+      console.warn('[PDFium Worker] Unavailable, using main thread:', err);
+      workerDisabled = true;
+      return null;
+    }
+  }
+  return pdfiumWorker;
+}
+
+function callPdfiumWorker(payload: Record<string, any>): Promise<any> {
+  const worker = getPdfiumWorker();
+  if (!worker) {
+    return Promise.reject(new Error('Worker unavailable'));
+  }
+  const id = ++workerReqId;
+  return new Promise((resolve, reject) => {
+    workerPending.set(id, { resolve, reject });
+    worker.postMessage({ ...payload, id });
+  });
+}
+
+// Cache the currently open PDFium document AND active parsed page in WASM memory (main-thread fallback).
 // Caching pagePtr eliminates re-parsing 150,000+ CAD vector paths on every zoom/pan sharpen!
 let cachedDocKey: string | null = null;
 let cachedDocPtr = 0;
@@ -13,7 +72,7 @@ let cachedPageW = 595;
 let cachedPageH = 842;
 
 /**
- * Lazily initializes PDFium WASM once per session.
+ * Lazily initializes PDFium WASM once per session (main-thread fallback).
  */
 async function getPdfium(): Promise<WrappedPdfiumModule> {
   if (!pdfiumPromise) {
@@ -28,11 +87,18 @@ async function getPdfium(): Promise<WrappedPdfiumModule> {
 }
 
 /**
- * Pre-warms PDFium WASM in the background so opening a PDF has 0ms WASM init delay.
+ * Pre-warms PDFium WASM in the background (Worker first) so opening a PDF has 0ms WASM init delay.
  */
 export function prewarmPdfium(): void {
   if (typeof window === 'undefined') return;
-  getPdfium().catch(() => {});
+  const worker = getPdfiumWorker();
+  if (worker) {
+    callPdfiumWorker({ type: 'prewarm' }).catch(() => {
+      getPdfium().catch(() => {});
+    });
+  } else {
+    getPdfium().catch(() => {});
+  }
 }
 
 /**
@@ -122,6 +188,52 @@ export async function renderSliceWithPdfium(params: {
   onStep?: (label: string) => void;
 }): Promise<string> {
   const { pdfBytes, docKey, pageIndex, normX, normY, normW, normH, canvasW, canvasH, onStep } = params;
+
+  // Primary Fast-Path: Dedicated Web Worker (100% off-main-thread -> 60 FPS UI while rendering!)
+  if (getPdfiumWorker()) {
+    try {
+      const needsBytes = workerLoadedDocKey !== docKey;
+      const res = await callPdfiumWorker({
+        type: 'renderSlice',
+        docKey,
+        pdfBytes: needsBytes ? pdfBytes : undefined,
+        pageIndex,
+        normX,
+        normY,
+        normW,
+        normH,
+        canvasW,
+        canvasH,
+      });
+      workerLoadedDocKey = docKey;
+      onStep?.('PDFium Worker: רינדור C++ הסתיים ברקע');
+
+      if (res.blob instanceof Blob) {
+        return URL.createObjectURL(res.blob);
+      }
+      if (res.rgbaBuffer) {
+        const rgba = new Uint8ClampedArray(res.rgbaBuffer);
+        const canvas = document.createElement('canvas');
+        canvas.width = res.canvasW || canvasW;
+        canvas.height = res.canvasH || canvasH;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('Could not get 2d context');
+        ctx.putImageData(new ImageData(rgba, canvas.width, canvas.height), 0, 0);
+        const outUrl = await new Promise<string>((resolve, reject) => {
+          canvas.toBlob(
+            (blob) => (blob ? resolve(URL.createObjectURL(blob)) : reject(new Error('toBlob failed'))),
+            'image/webp',
+            0.88
+          );
+        });
+        return outUrl;
+      }
+    } catch (workerErr) {
+      console.warn('[PDFium] Worker renderSlice fallback to main thread:', workerErr);
+      workerLoadedDocKey = null;
+    }
+  }
+
   const pdfium = await getPdfium();
   onStep?.('PDFium: מנוע WASM מוכן');
   const docPtr = await getOrLoadDocument(pdfium, pdfBytes, docKey);
@@ -268,6 +380,22 @@ export async function inspectPdfStructureWithPdfium(
   pdfBytes: Uint8Array,
   docKey: string
 ): Promise<PdfiumStructureInspection> {
+  if (getPdfiumWorker()) {
+    try {
+      const needsBytes = workerLoadedDocKey !== docKey;
+      const res = await callPdfiumWorker({
+        type: 'inspect',
+        docKey,
+        pdfBytes: needsBytes ? pdfBytes : undefined,
+      });
+      workerLoadedDocKey = docKey;
+      if (res?.result) return res.result;
+    } catch (workerErr) {
+      console.warn('[PDFium] Worker inspect fallback to main thread:', workerErr);
+      workerLoadedDocKey = null;
+    }
+  }
+
   const pdfium = await getPdfium();
   const docPtr = await getOrLoadDocument(pdfium, pdfBytes, docKey);
 
