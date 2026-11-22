@@ -397,6 +397,43 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return installPassiveUiMapLearner();
   }, []);
 
+  // Interactive Step-by-Step iOS Install Walkthrough triggered from GlobalPWAPrompt (0 API tokens, voice + chat!)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleStartIosCoach = (e: Event) => {
+      const isChromeIOS = Boolean((e as CustomEvent)?.detail?.isChromeIOS);
+      const introText = isChromeIOS
+        ? 'אני מלווה אותך בהתקנת מיי ספייס באייפון! שלב 1 מתוך 3: לחץ על סמל השיתוף (ריבוע עם חץ למעלה) בפינה העליונה של Chrome. אם אתה לא רואה אותו או סיימת, תלחץ על הכפתור למטה או תדבר איתי.'
+        : 'אני מלווה אותך בהתקנת מיי ספייס באייפון! שלב 1 מתוך 3: אל תסגור אותי — תסתכל למטה באמצע הסרגל של Safari ולחץ על סמל השיתוף הכחול (ריבוע עם חץ עולה למעלה). מה קרה אחרי שלחצת?';
+
+      setIsOpen(true);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `ios_coach_${Date.now()}`,
+          sender: 'assistant',
+          text: introText,
+          timestamp: Date.now(),
+          source: 'local_brain',
+          confidence: 'high',
+          followUps: [
+            'לחצתי על סמל השיתוף, מה שלב 2?',
+            'אני לא רואה את סמל השיתוף למטה',
+            'התפריט שלי באנגלית, מה לבחור?'
+          ]
+        }
+      ]);
+      if (autoSpeak) {
+        speakText(introText);
+      } else {
+        prefetchAudio(introText);
+      }
+    };
+
+    window.addEventListener('smartshare:start_ios_install_coach', handleStartIosCoach);
+    return () => window.removeEventListener('smartshare:start_ios_install_coach', handleStartIosCoach);
+  }, [autoSpeak, speakText, prefetchAudio]);
+
   // Send message with security validation + Hybrid Self-Healing 3-Step Autonomous Loop
   const sendMessage = useCallback(async (text: string) => {
     const { safe, sanitizedText, reason } = sanitizeAssistantQuery(text);
@@ -417,6 +454,49 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         timestamp: Date.now()
       };
       setMessages(prev => [...prev, blockedMsg]);
+      return;
+    }
+
+    // 0-Token Instant Interactive iOS Install Coach Steps
+    const lowerQ = sanitizedText.toLowerCase();
+    let instantIosReply: { text: string; followUps: string[] } | null = null;
+    if (lowerQ.includes('לחצתי על סמל השיתוף') || lowerQ.includes('מה שלב 2')) {
+      instantIosReply = {
+        text: 'מעולה! שלב 2 מתוך 3: בתפריט הלבן שנפתח למטה, גלול מעט כלפי מטה עד שתראה את השורה "הוסף למסך הבית" (לידה יש סמל של ריבוע עם סימן פלוס). לחץ עליה!',
+        followUps: ['לחצתי הוסף למסך הבית, מה שלב 3?', 'התפריט שלי באנגלית, מה לבחור?']
+      };
+    } else if (lowerQ.includes('מה שלב 3') || lowerQ.includes('לחצתי הוסף למסך הבית')) {
+      instantIosReply = {
+        text: 'אתה כמעט שם! שלב 3 ואחרון: בפינה העליונה של המסך לחץ על הכפתור הכחול "הוסף" (או Add). תוך שנייה הסמל של מיי ספייס יופיע על מסך הבית שלך כמו כל אפליקציה רגילה!',
+        followUps: ['הותקן בהצלחה, תודה!']
+      };
+    } else if (lowerQ.includes('לא רואה את סמל השיתוף')) {
+      instantIosReply = {
+        text: 'שתי אפשרויות מהירות: אם הסרגל התחתון של Safari נעלם בגלל גלילה, פשוט גע קלות בקצה התחתון של המסך והוא יקפוץ חזרה. אם נכנסת מתוך וואטסאפ, לחץ על סמל המצפן הקטן בפינה התחתונה כדי לפתוח ב-Safari.',
+        followUps: ['מצאתי! לחצתי על סמל השיתוף, מה שלב 2?']
+      };
+    } else if (lowerQ.includes('באנגלית') && (lowerQ.includes('תפריט') || lowerQ.includes('התקנ') || lowerQ.includes('לבחור'))) {
+      instantIosReply = {
+        text: 'באנגלית זה פשוט מאוד: גלול למטה בתפריט השיתוף ובחר Add to Home Screen (עם סימן הפלוס), ובמסך הבא לחץ Add בפינה העליונה.',
+        followUps: ['לחצתי הוסף למסך הבית, מה שלב 3?']
+      };
+    }
+
+    if (instantIosReply) {
+      setMessages(prev => [
+        ...prev,
+        {
+          id: `ios_step_${Date.now()}`,
+          sender: 'assistant',
+          text: instantIosReply!.text,
+          timestamp: Date.now(),
+          source: 'local_brain',
+          confidence: 'high',
+          followUps: instantIosReply!.followUps
+        }
+      ]);
+      if (autoSpeak) speakText(instantIosReply.text);
+      else prefetchAudio(instantIosReply.text);
       return;
     }
 
