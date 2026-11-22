@@ -485,7 +485,10 @@ export function CreateShareLinkModal({
   const handleCopyRecipientLink = async (r: RecipientShareLink) => {
     const url = `${currentOrigin}/share/${r.token}`;
     const itemTypeHeb = item?.type === 'folder' ? 'תיקיית' : 'מסמך';
-    const senderName = businessCard?.businessName || user?.realName || user?.nickname || spaceTitle || 'חבר';
+    const senderPersonName = user?.realName || user?.nickname || (user as any)?.displayName || businessCard?.contactName;
+    const senderName = senderPersonName
+      ? `${senderPersonName}${businessCard?.businessName ? ` (${businessCard.businessName})` : (spaceTitle ? ` ממרחב "${spaceTitle}"` : '')}`
+      : (businessCard?.businessName || spaceTitle || 'חבר');
     const pinText = requirePin && pin ? `\n🔐 קוד גישה: ${pin}` : '';
     const richMessage = `שלום ${r.recipientName},\n${senderName} שיתף איתך ${itemTypeHeb} "${item?.name}" באפליקציית MySpace.${pinText}\nלצפייה מאובטחת והעלאת קבצים לחץ כאן:\n${url}`;
     try {
@@ -509,15 +512,18 @@ export function CreateShareLinkModal({
     const itemTypeHeb = item?.type === 'folder' ? 'תיקיית' : 'מסמך';
     const pinText = requirePin && pin ? `\n🔐 קוד גישה: ${pin}` : '';
     
-    // Business Branding details
-    const bizName = businessCard?.businessName || spaceTitle;
+    // Personal Sender Identity + Space / Business context
+    const senderPersonName = user?.realName || user?.nickname || (user as any)?.displayName || businessCard?.contactName;
+    const senderDisplay = senderPersonName
+      ? `${senderPersonName}${businessCard?.businessName ? ` (${businessCard.businessName})` : (spaceTitle ? ` ממרחב "${spaceTitle}"` : '')}`
+      : (businessCard?.businessName || spaceTitle || 'חבר');
     const slogan = businessCard?.slogan ? `\n✨ ${businessCard.slogan}` : '';
     const phone = businessCard?.phone || businessCard?.whatsapp;
     const phoneText = phone ? `\n📞 ליצירת קשר: ${phone}` : '';
     const portfolioText = businessCard?.portfolioUrl ? `\n🎨 לתיק עבודות: ${businessCard.portfolioUrl}` : '';
 
     const text = encodeURIComponent(`שלום ${r.recipientName},
-${bizName} שיתף איתך ${itemTypeHeb} "${item?.name}":${pinText}
+${senderDisplay} שיתף איתך ${itemTypeHeb} "${item?.name}":${pinText}
 ${url}
 ${slogan}${phoneText}${portfolioText}`);
     window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
@@ -575,7 +581,10 @@ ${slogan}${phoneText}${portfolioText}`);
     if (!shareUrl) return;
     if (token) await ensurePersisted(token);
     const itemTypeHeb = item?.type === 'folder' ? 'תיקיית' : 'מסמך';
-    const senderName = businessCard?.businessName || user?.realName || user?.nickname || spaceTitle || 'חבר';
+    const senderPersonName = user?.realName || user?.nickname || (user as any)?.displayName || businessCard?.contactName;
+    const senderName = senderPersonName
+      ? `${senderPersonName}${businessCard?.businessName ? ` (${businessCard.businessName})` : (spaceTitle ? ` ממרחב "${spaceTitle}"` : '')}`
+      : (businessCard?.businessName || spaceTitle || 'חבר');
     const pinText = requirePin && pin ? `\n🔐 קוד גישה: ${pin}` : '';
     const richMessage = `שלום,\n${senderName} שיתף איתך ${itemTypeHeb} "${item?.name}" באפליקציית MySpace.${pinText}\nלצפייה מאובטחת והעלאת קבצים לחץ כאן:\n${shareUrl}`;
     try {
@@ -601,14 +610,17 @@ ${slogan}${phoneText}${portfolioText}`);
     const itemTypeHeb = item.type === 'folder' ? 'תיקיית' : 'מסמך';
     const pinText = requirePin && pin ? `\n🔐 קוד גישה: ${pin}` : '';
 
-    const bizName = businessCard?.businessName || spaceTitle;
+    const senderPersonName = user?.realName || user?.nickname || (user as any)?.displayName || businessCard?.contactName;
+    const senderDisplay = senderPersonName
+      ? `${senderPersonName}${businessCard?.businessName ? ` (${businessCard.businessName})` : (spaceTitle ? ` ממרחב "${spaceTitle}"` : '')}`
+      : (businessCard?.businessName || spaceTitle || 'חבר');
     const slogan = businessCard?.slogan ? `\n✨ ${businessCard.slogan}` : '';
     const phone = businessCard?.phone || businessCard?.whatsapp;
     const phoneText = phone ? `\n📞 ליצירת קשר: ${phone}` : '';
     const portfolioText = businessCard?.portfolioUrl ? `\n🎨 לתיק עבודות: ${businessCard.portfolioUrl}` : '';
 
     const text = encodeURIComponent(`שלום,
-${bizName} שיתף איתך ${itemTypeHeb} "${item.name}":${pinText}
+${senderDisplay} שיתף איתך ${itemTypeHeb} "${item.name}":${pinText}
 ${shareUrl}
 ${slogan}${phoneText}${portfolioText}`);
     window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
