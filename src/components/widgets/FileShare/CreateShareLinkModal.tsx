@@ -9,6 +9,13 @@ import { useChat } from '@/app/context/ChatContext';
 import { getSharedContactsForUser } from '@/utils/partnerUtils';
 import { FileShareItem, ShareLinkConfig, RecipientShareLink, RecipientRole, createOrUpdatePublicShare, revokePublicShare, generateShareToken, sanitizeFirestoreData } from '@/utils/fileShareUtils';
 import { RegisteredMemberPickerModal, SelectableMember } from './RegisteredMemberPickerModal';
+import {
+  loadSavedShareDirectory,
+  upsertSavedContact,
+  type SavedShareContact,
+  type SavedShareDirectory,
+  type SavedShareGroup,
+} from '@/utils/shareContactsStore';
 import { APP_VERSION } from '@/constants/version';
 
 interface CreateShareLinkModalProps {
@@ -377,13 +384,92 @@ export function CreateShareLinkModal({
     }
   };
 
+  const [savedDirectory, setSavedDirectory] = useState<SavedShareDirectory>({ contacts: [], groups: [], updatedAt: 0 });
+  const [quickPickPanel, setQuickPickPanel] = useState<'none' | 'contacts' | 'groups'>('none');
+
+  useEffect(() => {
+    if (!isOpen || !user?.id) return;
+    loadSavedShareDirectory(user.id).then(setSavedDirectory).catch(() => {});
+  }, [isOpen, user?.id]);
+
+  const handleAddSavedContact = async (contact: SavedShareContact) => {
+    const exists = recipients.some(
+      (r) =>
+        r.recipientName.trim().toLowerCase() === contact.name.trim().toLowerCase() ||
+        (contact.phone && r.phone && r.phone.replace(/\D/g, '') === contact.phone.replace(/\D/g, ''))
+    );
+    if (exists) {
+      setQuickPickPanel('none');
+      return;
+    }
+    const recipientToken = generateShareToken();
+    const newRecipient: RecipientShareLink = {
+      id: `rcp_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      recipientName: contact.name.trim(),
+      role: contact.role || newRecipientRole,
+      phone: contact.phone || '',
+      token: recipientToken,
+      enabled: true,
+      createdAt: Date.now(),
+      viewCount: 0,
+      totalDurationSeconds: 0,
+      lastViewedAt: null,
+      chatChannelId: `guest_${recipientToken}`,
+    };
+    const nextRecipients = [...recipients, newRecipient];
+    setRecipients(nextRecipients);
+    setQuickPickPanel('none');
+    if (token) {
+      await ensurePersisted(token, nextRecipients);
+    }
+  };
+
+  const handleAddSavedGroup = async (group: SavedShareGroup) => {
+    const members = group.contactIds
+      .map((id) => savedDirectory.contacts.find((c) => c.id === id))
+      .filter((c): c is SavedShareContact => Boolean(c));
+    if (members.length === 0) return;
+
+    const toAdd: RecipientShareLink[] = [];
+    for (const c of members) {
+      const exists = recipients.some(
+        (r) =>
+          r.recipientName.trim().toLowerCase() === c.name.trim().toLowerCase() ||
+          (c.phone && r.phone && r.phone.replace(/\D/g, '') === c.phone.replace(/\D/g, ''))
+      );
+      if (exists) continue;
+      const recipientToken = generateShareToken();
+      toAdd.push({
+        id: `rcp_${Date.now()}_${Math.random().toString(36).substring(2, 6)}_${toAdd.length}`,
+        recipientName: c.name.trim(),
+        role: c.role || newRecipientRole,
+        phone: c.phone || '',
+        token: recipientToken,
+        enabled: true,
+        createdAt: Date.now(),
+        viewCount: 0,
+        totalDurationSeconds: 0,
+        lastViewedAt: null,
+        chatChannelId: `guest_${recipientToken}`,
+      });
+    }
+    setQuickPickPanel('none');
+    if (toAdd.length === 0) return;
+    const nextRecipients = [...recipients, ...toAdd];
+    setRecipients(nextRecipients);
+    if (token) {
+      await ensurePersisted(token, nextRecipients);
+    }
+  };
+
   const handleAddRecipient = async () => {
     if (!newRecipientName.trim()) return;
     const recipientToken = generateShareToken();
     const phoneVal = newRecipientPhone.trim();
+    const cleanName = newRecipientName.trim();
     const newRecipient: RecipientShareLink = {
       id: `rcp_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-      recipientName: newRecipientName.trim(),
+      recipientName: cleanName,
       role: newRecipientRole,
       phone: phoneVal || '',
       token: recipientToken,
@@ -404,6 +490,14 @@ export function CreateShareLinkModal({
     setNewRecipientInternalNote('');
     setNewRecipientPublicMessage('');
     setShowNoteFields(false);
+
+    // Auto-save to permanent personal address book for 1-tap reuse across all spaces!
+    if (user?.id) {
+      upsertSavedContact(user.id, { name: cleanName, phone: phoneVal || undefined, role: newRecipientRole })
+        .then(setSavedDirectory)
+        .catch(() => {});
+    }
+
     if (token) {
       await ensurePersisted(token, nextRecipients);
     }
@@ -1282,7 +1376,102 @@ ${slogan}${phoneText}${portfolioText}`);
                     <span>📖</span>
                     <span>אנשי קשר</span>
                   </button>
+
+                  {savedDirectory.contacts.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setQuickPickPanel((p) => (p === 'contacts' ? 'none' : 'contacts'))}
+                      style={{
+                        padding: '0.45rem 0.65rem',
+                        borderRadius: '10px',
+                        border: quickPickPanel === 'contacts' ? '1.5px solid #4f46e5' : '1px solid #c7d2fe',
+                        background: quickPickPanel === 'contacts' ? '#e0e7ff' : '#eef2ff',
+                        color: '#3730a3',
+                        fontWeight: 800,
+                        fontSize: '0.76rem',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.25rem'
+                      }}
+                    >
+                      <span>📇</span>
+                      <span>קבועים ({savedDirectory.contacts.length})</span>
+                    </button>
+                  )}
+
+                  {savedDirectory.groups.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setQuickPickPanel((p) => (p === 'groups' ? 'none' : 'groups'))}
+                      style={{
+                        padding: '0.45rem 0.65rem',
+                        borderRadius: '10px',
+                        border: quickPickPanel === 'groups' ? '1.5px solid #059669' : '1px solid #a7f3d0',
+                        background: quickPickPanel === 'groups' ? '#d1fae5' : '#ecfdf5',
+                        color: '#047857',
+                        fontWeight: 800,
+                        fontSize: '0.76rem',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.25rem'
+                      }}
+                    >
+                      <span>🏗️</span>
+                      <span>הזמן קבוצה ({savedDirectory.groups.length})</span>
+                    </button>
+                  )}
                 </div>
+
+                {/* Quick-Pick Drawer: 1-Tap Saved Contacts or Saved Groups */}
+                {quickPickPanel === 'contacts' && savedDirectory.contacts.length > 0 && (
+                  <div style={{ background: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: '11px', padding: '8px', display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                    {savedDirectory.contacts.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => handleAddSavedContact(c)}
+                        style={{
+                          padding: '4px 9px',
+                          borderRadius: '999px',
+                          border: '1px solid #a5b4fc',
+                          background: '#ffffff',
+                          color: '#1e1b4b',
+                          fontSize: '0.74rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        + {c.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {quickPickPanel === 'groups' && savedDirectory.groups.length > 0 && (
+                  <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '11px', padding: '8px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {savedDirectory.groups.map((g) => (
+                      <button
+                        key={g.id}
+                        type="button"
+                        onClick={() => handleAddSavedGroup(g)}
+                        style={{
+                          padding: '5px 10px',
+                          borderRadius: '10px',
+                          border: '1px solid #6ee7b7',
+                          background: '#ffffff',
+                          color: '#065f46',
+                          fontSize: '0.76rem',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {g.icon || '👥'} הזמן את "{g.name}" ({g.contactIds.length})
+                      </button>
+                    ))}
+                  </div>
+                )}
 
                 {/* Input Row: Name + Add Button */}
                 <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'stretch', width: '100%', boxSizing: 'border-box' }}>

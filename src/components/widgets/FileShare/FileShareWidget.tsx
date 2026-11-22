@@ -9,6 +9,7 @@ import { compressImage, analyzePdfStructure, isTrueOriginalPdf, convertPdfToOpti
 import { FileShareItem, formatFileSize, ShareLinkConfig, revokePublicShare, FolderPartnerPermission, sanitizeFirestoreData, syncPublicFolderShares } from '@/utils/fileShareUtils';
 import { FileShareItemCard } from './FileShareItemCard';
 import { CreateShareLinkModal } from './CreateShareLinkModal';
+import { ShareHubModal } from './ShareHubModal';
 import { ImportExistingFileModal } from './ImportExistingFileModal';
 import UniversalViewerModal from '@/components/common/ViewerEngine/UniversalViewerModal';
 import { canAccessItem } from '@/utils/permissionUtils';
@@ -84,6 +85,7 @@ export function FileShareWidget({
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteModalScopeFolder, setInviteModalScopeFolder] = useState<FileShareItem | null>(null);
   const [showRecycleBin, setShowRecycleBin] = useState(false);
+  const [showShareHub, setShowShareHub] = useState(false);
 
   // View Mode: grid_medium (125px) / grid_large (175px) / list (Table)
   const [viewMode, setViewMode] = useState<'grid_medium' | 'grid_large' | 'list'>(() => {
@@ -1082,6 +1084,50 @@ export function FileShareWidget({
             >
               <span>🌐</span>
               <span>שתף קיר</span>
+            </button>
+          )}
+
+          {/* Share & Recipients Hub Button (People, Permanent Contacts & Groups) */}
+          {!isMultiSelect && (
+            <button
+              type="button"
+              onClick={() => setShowShareHub(true)}
+              style={{
+                background: 'rgba(79, 70, 229, 0.1)',
+                color: '#3730a3',
+                border: '1px solid rgba(79, 70, 229, 0.28)',
+                padding: '4px 10px',
+                borderRadius: '10px',
+                fontSize: '0.76rem',
+                fontWeight: 800,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.3rem',
+                whiteSpace: 'nowrap'
+              }}
+              title="מרכז שיתופים, נמענים, ספר כתובות קבוע וקבוצות"
+            >
+              <span>🔗</span>
+              <span>שיתופים</span>
+              {(() => {
+                const totalRecipients = (activeItems || []).reduce(
+                  (acc: number, it: any) => acc + (it?.shareLink?.recipients?.length || 0),
+                  0
+                );
+                return totalRecipients > 0 ? (
+                  <span style={{
+                    background: '#4f46e5',
+                    color: '#ffffff',
+                    borderRadius: '999px',
+                    padding: '0 5px',
+                    fontSize: '0.68rem',
+                    fontWeight: 900
+                  }}>
+                    {totalRecipients}
+                  </span>
+                ) : null;
+              })()}
             </button>
           )}
 
@@ -2111,6 +2157,15 @@ export function FileShareWidget({
           }}
         />
       )}
+
+      {/* SHARE, RECIPIENTS & GROUPS HUB MODAL */}
+      <ShareHubModal
+        isOpen={showShareHub}
+        onClose={() => setShowShareHub(false)}
+        spaceTitle={space?.title || 'מרחב שיתוף'}
+        items={activeItems || []}
+        onOpenItemShare={(targetItem) => setActiveShareItem(targetItem)}
+      />
 
       {/* FLOATING ACTION FEEDBACK TOAST */}
       {saveFeedbackToast && (
