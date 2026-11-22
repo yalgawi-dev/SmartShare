@@ -18,6 +18,9 @@ export default function GlobalPWAPrompt() {
   >(null);
   const [showGuide, setShowGuide] = useState(false);
   const [guideMinimized, setGuideMinimized] = useState(false);
+  const [iosStep, setIosStep] = useState<0 | 1 | 2 | 3>(0);
+  const [visionAnswer, setVisionAnswer] = useState<string | null>(null);
+  const [analyzingShot, setAnalyzingShot] = useState(false);
   const [showIosHelp, setShowIosHelp] = useState(false);
   const [isSpeakingGuide, setIsSpeakingGuide] = useState(false);
   const [coachOffset, setCoachOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -171,8 +174,10 @@ export default function GlobalPWAPrompt() {
       } else if (platform === 'ios-safari' || platform === 'ios-chrome') {
         setShowGuide(true);
         setGuideMinimized(false);
-        // Auto-speak instructions immediately on user tap (NO double overlapping Assistant Drawer!)
-        void speakIosInstallGuide(platform === 'ios-chrome');
+        setIosStep(0);
+        setVisionAnswer(null);
+        // Warm conversational greeting (NOT dumping all 3 steps at once!)
+        void speakCoachLine('שלום! אני הסוכן האישי שלך ואני אלווה אותך לאורך כל הדרך. האם תרצה שאעזור לך שלב אחרי שלב בהתקנה באייפון?');
       }
     }
   };
@@ -291,12 +296,17 @@ export default function GlobalPWAPrompt() {
     );
   }
 
-  const speakIosInstallGuide = async (isChromeIOS: boolean) => {
-    if (isSpeakingGuide) return;
+  const speakCoachLine = async (scriptText: string) => {
     setIsSpeakingGuide(true);
-    const scriptText = isChromeIOS
-      ? 'כדי להתקין את מיי ספייס באייפון: שלב ראשון, לחץ על סמל השיתוף למעלה בשורת הכתובת. שלב שני, החלק למעלה על התפריט הלבן ובחר הוסף למסך הבית. שלב שלישי, לחץ הוסף בפינה העליונה.'
-      : 'כדי להתקין את מיי ספייס באייפון, אל תסגור את ההסבר. שלב ראשון, לחץ על סמל השיתוף הכחול למטה. שלב שני, החלק עם האצבע כלפי מעלה על התפריט הלבן שנפתח ובחר הוסף למסך הבית. שלב שלישי, לחץ הוסף בפינה העליונה.';
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('smartshare:assistant_speaking', { detail: { speaking: true } }));
+    }
+    const finishSpeaking = () => {
+      setIsSpeakingGuide(false);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('smartshare:assistant_speaking', { detail: { speaking: false } }));
+      }
+    };
     try {
       const res = await fetch('/api/assistant/tts', {
         method: 'POST',
@@ -309,11 +319,11 @@ export default function GlobalPWAPrompt() {
         const audio = new Audio(url);
         audio.onended = () => {
           URL.revokeObjectURL(url);
-          setIsSpeakingGuide(false);
+          finishSpeaking();
         };
         audio.onerror = () => {
           URL.revokeObjectURL(url);
-          setIsSpeakingGuide(false);
+          finishSpeaking();
         };
         await audio.play();
         return;
@@ -321,13 +331,102 @@ export default function GlobalPWAPrompt() {
     } catch {
       // Silent fallback
     }
-    setIsSpeakingGuide(false);
+    finishSpeaking();
   };
 
-  // ── iOS Safari / iOS Chrome: Top-Anchored Live Coach (stays visible ABOVE Safari's Share Sheet!) + Minimized Floating Bubble ──
+  // Dedicated Install-Only Screenshot Analyzer right inside the compact Siri bar (ZERO giant drawer!)
+  const handleCompactInstallScreenshot = async (file: File) => {
+    if (!file || analyzingShot) return;
+    setAnalyzingShot(true);
+    setVisionAnswer('⏳ סורק את צילום המסך שלך...');
+    try {
+      const imgUrl = URL.createObjectURL(file);
+      const imageBase64 = await new Promise<string>((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const scale = Math.min(1, 900 / Math.max(img.width, img.height));
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.max(1, Math.round(img.width * scale));
+            canvas.height = Math.max(1, Math.round(img.height * scale));
+            const ctx = canvas.getContext('2d');
+            if (!ctx) throw new Error('no ctx');
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            URL.revokeObjectURL(imgUrl);
+            resolve(canvas.toDataURL('image/jpeg', 0.72));
+          } catch (err) {
+            URL.revokeObjectURL(imgUrl);
+            reject(err);
+          }
+        };
+        img.onerror = (err) => {
+          URL.revokeObjectURL(imgUrl);
+          reject(err);
+        };
+        img.src = imgUrl;
+      });
+      const res = await fetch('/api/assistant/install-vision', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageBase64, mimeType: 'image/jpeg' }),
+      });
+      const data = await res.json().catch(() => ({}));
+      const reply = data?.answer || 'לא הצלחתי לזהות את המסך. נסה לצלם שוב או לחץ על המשך.';
+      setVisionAnswer(reply);
+      void speakCoachLine(reply);
+    } catch {
+      setVisionAnswer('שגיאה בטעינת התמונה. נסה שוב.');
+    } finally {
+      setAnalyzingShot(false);
+    }
+  };
+
+  // ── iOS Safari / iOS Chrome: Compact 1-Row Siri-Style Interactive Step Coach + Minimized Bubble ──
   if ((platform === 'ios-safari' || platform === 'ios-chrome') && showGuide) {
     const isChromeIOS = platform === 'ios-chrome';
-    const playVoiceGuide = () => speakIosInstallGuide(isChromeIOS);
+
+    const stepContent: Record<0 | 1 | 2 | 3, { badge: string; text: string; voice: string; nextLabel: string }> = {
+      0: {
+        badge: '🤖 הסוכן האישי',
+        text: 'שלום! אני הסוכן האישי שלך ואלווה אותך לאורך כל הדרך. רוצה שאעזור לך להתקין באייפון?',
+        voice: 'שלום! אני הסוכן האישי שלך ואני אלווה אותך לאורך כל הדרך. האם תרצה שאעזור לך שלב אחרי שלב בהתקנה באייפון?',
+        nextLabel: '✅ כן, בוא נתחיל'
+      },
+      1: {
+        badge: 'שלב 1 מתוך 3',
+        text: isChromeIOS
+          ? 'לחץ על סמל השיתוף ⬆️ למעלה בשורת הכתובת של Chrome. הצלחת?'
+          : 'לחץ על סמל השיתוף הכחול ⬆️ למטה באמצע הסרגל של Safari. הצלחת?',
+        voice: isChromeIOS
+          ? 'שלב ראשון: לחץ על סמל השיתוף למעלה בשורת הכתובת. הצלחת? לחץ המשך, או שלח לי צילום מסך.'
+          : 'שלב ראשון: לחץ על סמל השיתוף הכחול למטה באמצע המסך. הצלחת? לחץ המשך, ואם הסתבכת שלח לי צילום מסך.',
+        nextLabel: '✅ לחצתי, המשך'
+      },
+      2: {
+        badge: 'שלב 2 מתוך 3',
+        text: 'שים אצבע על האייקונים הירוקים בחלונית הלבנה ומשוך למעלה ☝️ ← בחר ➕ "הוסף למסך הבית".',
+        voice: 'מצוין! שלב שני: שים אצבע על האייקונים הירוקים בחלונית הלבנה ומשוך כלפי מעלה. תראה שורה בשם הוסף למסך הבית עם סימן פלוס — לחץ עליה!',
+        nextLabel: '✅ מצאתי, מה הלאה?'
+      },
+      3: {
+        badge: 'שלב 3 ואחרון',
+        text: 'מעולה! במסך שנפתח לחץ על "הוסף" (Add) בפינה העליונה והאפליקציה על מסך הבית שלך! 🎉',
+        voice: 'אתה בשלב האחרון! במסך שנפתח עכשיו, פשוט לחץ על הכפתור הכחול הוסף בפינה העליונה — והאפליקציה תופיע מיד על מסך הבית שלך!',
+        nextLabel: '🎉 הותקן, תודה!'
+      }
+    };
+
+    const currentStepObj = stepContent[iosStep];
+    const goToNextStep = () => {
+      setVisionAnswer(null);
+      if (iosStep === 3) {
+        dismiss();
+        return;
+      }
+      const next = (iosStep + 1) as 1 | 2 | 3;
+      setIosStep(next);
+      void speakCoachLine(stepContent[next].voice);
+    };
 
     const startDrag = (
       e: React.PointerEvent,
@@ -458,136 +557,182 @@ export default function GlobalPWAPrompt() {
             fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif',
           }}
         >
-          {/* Draggable Top Handle + Header Row */}
+          {/* Compact Draggable Siri-Style Interactive Coach Bar (NEVER covers Safari Share Sheet!) */}
           <div
             onPointerDown={(e) => startDrag(e, coachOffset, setCoachOffset, false)}
-            style={{ touchAction: 'none', cursor: 'grab', paddingBottom: '4px' }}
+            style={{ touchAction: 'none', cursor: 'grab' }}
           >
-            <div style={{ width: '38px', height: '4px', borderRadius: '999px', background: '#cbd5e1', margin: '0 auto 6px' }} />
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
-              <img src="/icons/icon-192x192.png" alt="MySpace" style={{ width: '26px', height: '26px', borderRadius: '7px', flexShrink: 0 }} />
-              <div style={{ fontSize: '0.86rem', fontWeight: 900, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                התקנה באייפון (אל תסגור!)
+            <div style={{ width: '36px', height: '4px', borderRadius: '999px', background: '#cbd5e1', margin: '0 auto 6px' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '7px', minWidth: 0 }}>
+                <div style={{
+                  width: '28px',
+                  height: '28px',
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #4f46e5, #06b6d4)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '0.95rem',
+                  flexShrink: 0,
+                  boxShadow: isSpeakingGuide ? '0 0 0 4px rgba(6, 182, 212, 0.35)' : 'none',
+                  animation: isSpeakingGuide ? 'pwaBounceDown 0.8s infinite' : 'none',
+                }}>
+                  🤖
+                </div>
+                <span style={{ fontSize: '0.78rem', fontWeight: 900, color: '#1e3a8a', background: '#eff6ff', padding: '2px 8px', borderRadius: '999px' }}>
+                  {currentStepObj.badge}
+                </span>
+                {isSpeakingGuide && (
+                  <span style={{ fontSize: '0.68rem', fontWeight: 800, color: '#0284c7' }}>🔊 מדבר...</span>
+                )}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                <button
+                  type="button"
+                  onClick={() => void speakCoachLine(visionAnswer || currentStepObj.voice)}
+                  title="הקרא שוב"
+                  style={{
+                    background: '#eff6ff',
+                    color: '#1d4ed8',
+                    border: '1px solid #bfdbfe',
+                    borderRadius: '999px',
+                    padding: '3px 7px',
+                    fontSize: '0.7rem',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                  }}
+                >
+                  🔊
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGuideMinimized(true)}
+                  title="מזער לבועה צפה"
+                  style={{
+                    background: '#f1f5f9',
+                    color: '#334155',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '999px',
+                    padding: '3px 8px',
+                    fontSize: '0.68rem',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                  }}
+                >
+                  מזער ⌄
+                </button>
+                <button
+                  type="button"
+                  onClick={dismiss}
+                  aria-label="סגור"
+                  style={{
+                    background: '#f1f5f9',
+                    border: 'none',
+                    borderRadius: '50%',
+                    width: '24px',
+                    height: '24px',
+                    fontSize: '0.76rem',
+                    cursor: 'pointer',
+                    color: '#475569',
+                    fontWeight: 900,
+                  }}
+                >
+                  ✕
+                </button>
               </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-              <button
-                type="button"
-                onClick={playVoiceGuide}
-                disabled={isSpeakingGuide}
-                title="הקראה קולית של שלבי ההתקנה"
-                style={{
-                  background: isSpeakingGuide ? '#dbeafe' : '#eff6ff',
-                  color: '#1d4ed8',
-                  border: '1px solid #bfdbfe',
-                  borderRadius: '999px',
-                  padding: '3px 8px',
-                  fontSize: '0.7rem',
-                  fontWeight: 800,
-                  cursor: 'pointer',
-                }}
-              >
-                {isSpeakingGuide ? '🔊 מקריא...' : '🔊 הקרא'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setGuideMinimized(true)}
-                title="מזער לבועה צפה"
-                style={{
-                  background: '#f1f5f9',
-                  color: '#334155',
-                  border: '1px solid #cbd5e1',
-                  borderRadius: '999px',
-                  padding: '3px 8px',
-                  fontSize: '0.7rem',
-                  fontWeight: 800,
-                  cursor: 'pointer',
-                }}
-              >
-                מזער ⌄
-              </button>
+          </div>
+
+          {/* Single Clean Live Speech Line (current step OR AI screenshot vision reply) */}
+          <div style={{
+            background: visionAnswer ? '#fef3c7' : '#f8fafc',
+            border: visionAnswer ? '1.5px solid #f59e0b' : '1px solid #e2e8f0',
+            borderRadius: '12px',
+            padding: '8px 10px',
+            fontSize: '0.82rem',
+            fontWeight: 800,
+            color: '#0f172a',
+            lineHeight: 1.4,
+            marginBottom: '7px',
+          }}>
+            {visionAnswer || currentStepObj.text}
+          </div>
+
+          {/* 1-Row Interactive Action Bar: Next Step + Built-in Screenshot Vision (Zero Drawer!) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <button
+              type="button"
+              onClick={goToNextStep}
+              style={{
+                flex: 1.4,
+                background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '10px',
+                padding: '7px 10px',
+                fontSize: '0.78rem',
+                fontWeight: 900,
+                cursor: 'pointer',
+                boxShadow: '0 3px 10px rgba(37, 99, 235, 0.28)',
+              }}
+            >
+              {currentStepObj.nextLabel}
+            </button>
+
+            {iosStep === 0 ? (
               <button
                 type="button"
                 onClick={dismiss}
-                aria-label="סגור"
                 style={{
+                  flex: 0.9,
                   background: '#f1f5f9',
-                  border: 'none',
-                  borderRadius: '50%',
-                  width: '26px',
-                  height: '26px',
-                  fontSize: '0.8rem',
-                  cursor: 'pointer',
                   color: '#475569',
-                  fontWeight: 900,
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '10px',
+                  padding: '7px 8px',
+                  fontSize: '0.74rem',
+                  fontWeight: 800,
+                  cursor: 'pointer',
                 }}
               >
-                ✕
+                אסתדר לבד
               </button>
-            </div>
-            </div>
+            ) : (
+              <label
+                style={{
+                  flex: 1,
+                  background: analyzingShot ? '#cbd5e1' : '#eef2ff',
+                  color: '#3730a3',
+                  border: '1.5px solid #c7d2fe',
+                  borderRadius: '10px',
+                  padding: '7px 8px',
+                  fontSize: '0.74rem',
+                  fontWeight: 800,
+                  cursor: analyzingShot ? 'wait' : 'pointer',
+                  textAlign: 'center',
+                  whiteSpace: 'nowrap',
+                }}
+                title="צלם צילום מסך ושלח לסוכן לניתוח מיידי"
+              >
+                <span>{analyzingShot ? '⏳ סורק...' : '📸 צילום מסך'}</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  disabled={analyzingShot}
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void handleCompactInstallScreenshot(f);
+                    e.target.value = '';
+                  }}
+                />
+              </label>
+            )}
           </div>
 
-          {/* Ultra-Clear 3-Step Visual Strip (stays visible right above Safari Share Sheet!) */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#eff6ff', border: '1px solid #bfdbfe', padding: '6px 9px', borderRadius: '11px' }}>
-              <span style={{ fontWeight: 900, color: '#2563eb', fontSize: '0.82rem' }}>1.</span>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#007AFF" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-                <polyline points="16 6 12 2 8 6" />
-                <line x1="12" y1="2" x2="12" y2="15" />
-              </svg>
-              <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#0f172a' }}>
-                לחץ על סמל השיתוף {isChromeIOS ? 'למעלה בשורת הכתובת' : 'למטה בסרגל Safari'}
-              </span>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#fef3c7', border: '1.5px solid #f59e0b', padding: '6px 9px', borderRadius: '11px' }}>
-              <span style={{ fontWeight: 900, color: '#b45309', fontSize: '0.82rem' }}>2.</span>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#92400e" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                <rect x="3" y="3" width="18" height="18" rx="4" ry="4" />
-                <line x1="12" y1="8" x2="12" y2="16" />
-                <line x1="8" y1="12" x2="16" y2="12" />
-              </svg>
-              <span style={{ fontSize: '0.78rem', fontWeight: 900, color: '#78350f' }}>
-                החלק למעלה על התפריט הלבן ☝️ ובחר &quot;הוסף למסך הבית&quot;
-              </span>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#ecfdf5', border: '1px solid #a7f3d0', padding: '6px 9px', borderRadius: '11px' }}>
-              <span style={{ fontWeight: 900, color: '#047857', fontSize: '0.82rem' }}>3.</span>
-              <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#065f46' }}>
-                לחץ &quot;הוסף&quot; (Add) בפינה העליונה וסיימת! 🎉
-              </span>
-            </div>
-          </div>
-
-          {/* Clean Action Footer: Open AI Screenshot Helper (minimizes top card so zero overlap!) */}
-          <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
-            <button
-              type="button"
-              onClick={() => {
-                setGuideMinimized(true);
-                window.dispatchEvent(
-                  new CustomEvent('smartshare:start_ios_install_coach', {
-                    detail: { isChromeIOS, autoSpeakNow: false }
-                  })
-                );
-              }}
-              style={{
-                background: '#eef2ff',
-                border: '1px solid #c7d2fe',
-                color: '#3730a3',
-                borderRadius: '8px',
-                padding: '3px 8px',
-                fontSize: '0.7rem',
-                fontWeight: 800,
-                cursor: 'pointer',
-              }}
-            >
-              📸 הסתבכת? עזרה עם צילום מסך AI
-            </button>
+          {/* Subtle Help Toggle */}
+          <div style={{ marginTop: '5px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <button
               type="button"
               onClick={() => setShowIosHelp((v) => !v)}
@@ -595,15 +740,31 @@ export default function GlobalPWAPrompt() {
                 background: 'transparent',
                 border: 'none',
                 color: '#64748b',
-                fontSize: '0.7rem',
+                fontSize: '0.68rem',
                 fontWeight: 700,
                 cursor: 'pointer',
-                padding: '2px 0',
+                padding: 0,
                 textDecoration: 'underline',
               }}
             >
-              {showIosHelp ? 'הסתר ▴' : 'לא רואה שיתוף?'}
+              {showIosHelp ? 'הסתר ▴' : 'לא רואה סמל שיתוף?'}
             </button>
+            {iosStep > 0 && (
+              <div style={{ display: 'flex', gap: '4px' }}>
+                {[1, 2, 3].map((s) => (
+                  <span
+                    key={s}
+                    style={{
+                      width: iosStep === s ? '16px' : '6px',
+                      height: '6px',
+                      borderRadius: '999px',
+                      background: iosStep >= s ? '#2563eb' : '#cbd5e1',
+                      transition: 'all 0.2s ease',
+                    }}
+                  />
+                ))}
+              </div>
+            )}
           </div>
 
           {showIosHelp && (

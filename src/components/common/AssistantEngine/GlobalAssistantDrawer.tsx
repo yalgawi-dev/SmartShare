@@ -47,6 +47,16 @@ export const GlobalAssistantDrawer: React.FC = () => {
   const router = useRouter();
 
   const [inputVal, setInputVal] = useState('');
+  const [externalSpeaking, setExternalSpeaking] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onSpeakEvt = (e: Event) => {
+      setExternalSpeaking(Boolean((e as CustomEvent)?.detail?.speaking));
+    };
+    window.addEventListener('smartshare:assistant_speaking', onSpeakEvt);
+    return () => window.removeEventListener('smartshare:assistant_speaking', onSpeakEvt);
+  }, []);
   const [isListening, setIsListening] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const recognitionRef = useRef<any>(null);
@@ -677,6 +687,29 @@ export const GlobalAssistantDrawer: React.FC = () => {
           userSelect: 'none'
         }}
       >
+        <style>{`
+          @keyframes assistantSpeakRipple {
+            0% { transform: scale(1); opacity: 0.85; }
+            100% { transform: scale(1.65); opacity: 0; }
+          }
+          @keyframes assistantSpeakBounce {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.09); }
+          }
+        `}</style>
+        {(isSpeaking || externalSpeaking) && !isOpen && (
+          <div
+            style={{
+              position: 'absolute',
+              inset: '-4px',
+              borderRadius: '50%',
+              border: '3px solid #06b6d4',
+              background: 'rgba(6, 182, 212, 0.22)',
+              pointerEvents: 'none',
+              animation: 'assistantSpeakRipple 1.15s ease-out infinite'
+            }}
+          />
+        )}
         <button
           type="button"
           onClick={() => {
@@ -686,10 +719,13 @@ export const GlobalAssistantDrawer: React.FC = () => {
             }
           }}
           style={{
+            position: 'relative',
             width: '54px',
             height: '54px',
             borderRadius: '50%',
-            background: 'linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%)',
+            background: (isSpeaking || externalSpeaking)
+              ? 'linear-gradient(135deg, #2563eb 0%, #06b6d4 100%)'
+              : 'linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%)',
             border: '2.5px solid #ffffff',
             color: '#ffffff',
             fontSize: '1.4rem',
@@ -697,9 +733,12 @@ export const GlobalAssistantDrawer: React.FC = () => {
             alignItems: 'center',
             justifyContent: 'center',
             cursor: 'grab',
-            boxShadow: '0 8px 24px rgba(79, 70, 229, 0.45)',
+            boxShadow: (isSpeaking || externalSpeaking)
+              ? '0 0 0 5px rgba(6, 182, 212, 0.35), 0 8px 28px rgba(37, 99, 235, 0.6)'
+              : '0 8px 24px rgba(79, 70, 229, 0.45)',
             transition: 'transform 0.15s ease',
-            transform: isOpen ? 'scale(0.92)' : 'scale(1)'
+            transform: isOpen ? 'scale(0.92)' : 'scale(1)',
+            animation: (isSpeaking || externalSpeaking) && !isOpen ? 'assistantSpeakBounce 0.9s ease-in-out infinite' : 'none'
           }}
           title="עוזר אישי חכם (גרור כדי להזיז לכל מקום)"
         >
