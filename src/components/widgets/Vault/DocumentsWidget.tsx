@@ -622,22 +622,66 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
     }
   }, [shelves]);
 
+  // Android / Galaxy Hardware Back Button & 1-Step Back Navigation (Single Source of Truth)
+  // Step-by-step: child folder -> parent folder -> shelf root -> shelves list -> space/home!
+  const isPopStateNavigatingRef = useRef(false);
+  const lastPushedNavKeyRef = useRef<string>('root');
+
+  const navigateBackOneStep = React.useCallback((): boolean => {
+    if (!activeShelfId) return false;
+    if (currentFolderId) {
+      const currentFolderObj = (space.documentFolders || []).find((f: any) => f.id === currentFolderId);
+      setCurrentFolderId(currentFolderObj?.parentId || null);
+      return true;
+    }
+    setActiveShelfId(null);
+    return true;
+  }, [activeShelfId, currentFolderId, space.documentFolders]);
+
+  // Push browser history state whenever user enters a shelf, folder, or nested child folder
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const navKey = `${activeShelfId || 'none'}::${currentFolderId || 'root'}`;
+    if (isPopStateNavigatingRef.current) {
+      isPopStateNavigatingRef.current = false;
+      lastPushedNavKeyRef.current = navKey;
+      return;
+    }
+    if (navKey !== lastPushedNavKeyRef.current && (activeShelfId || currentFolderId)) {
+      try {
+        window.history.pushState(
+          { ...(window.history.state || {}), __vaultNav: true, shelfId: activeShelfId, folderId: currentFolderId },
+          ''
+        );
+        lastPushedNavKeyRef.current = navKey;
+      } catch (_) {}
+    } else if (!activeShelfId && !currentFolderId) {
+      lastPushedNavKeyRef.current = 'none::root';
+    }
+  }, [activeShelfId, currentFolderId]);
+
+  // Intercept Android/Galaxy Hardware Back Button (popstate) to step back 1 level instead of jumping to home!
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handlePopState = () => {
+      if (activeShelfId || currentFolderId) {
+        isPopStateNavigatingRef.current = true;
+        navigateBackOneStep();
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [activeShelfId, currentFolderId, navigateBackOneStep]);
+
   React.useEffect(() => {
     const handleBackStep = (e: any) => {
-      if (activeShelfId) {
-        if (currentFolderId) {
-          // If inside a folder in shelf, go up to shelf root
-          setCurrentFolderId(null);
-        } else {
-          // If in shelf root, exit shelf back to shelves list
-          setActiveShelfId(null);
-        }
+      if (navigateBackOneStep()) {
         if (e?.detail) e.detail.handled = true;
       }
     };
     window.addEventListener('smartshare:navigate_back_one_step', handleBackStep);
     return () => window.removeEventListener('smartshare:navigate_back_one_step', handleBackStep);
-  }, [activeShelfId, currentFolderId]);
+  }, [navigateBackOneStep]);
 
   React.useEffect(() => {
     const handleSwitchSubTab = (e: any) => {

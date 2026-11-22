@@ -278,6 +278,32 @@ export function calculateSpaceNotifications(spaces: Space[], user: any): AppNoti
               actionable: true
             });
           }
+        } else if (convo.id && convo.id.startsWith('guest_')) {
+          // Guest-to-Owner conversation from external share link: visible to space creator & admins!
+          if (!isCreator) return;
+
+          const unreadGuestMessages = (convo.messages || []).filter((msg: any) => {
+            if (msg.senderId === user?.id || (myActualId && msg.senderId === myActualId)) return false;
+            const isRead = (user?.id && msg.readBy?.includes(user?.id)) || (myActualId && msg.readBy?.includes(myActualId));
+            return !isRead;
+          });
+
+          if (unreadGuestMessages.length > 0) {
+            const latestMsg = unreadGuestMessages[unreadGuestMessages.length - 1];
+            notifs.push({
+              id: 'chat-guest-' + space.id + '-' + convo.id + '-' + latestMsg.id,
+              type: 'chat',
+              chatType: 'p2p',
+              targetId: convo.id,
+              priority: 'high',
+              title: '💬 הודעה מלקוח/אורח (קישור שיתוף)',
+              text: latestMsg.text ? `"${String(latestMsg.text).slice(0, 70)}"` : `יש לך ${unreadGuestMessages.length} הודעות חדשות מאורח בקישור השיתוף.`,
+              spaceId: space.id,
+              spaceName: space.title || 'מרחב',
+              createdAt: latestMsg.createdAt || space.createdAt || new Date().toISOString(),
+              actionable: true
+            });
+          }
         } else {
           // P2P conversation
           const participants = convo.participants || (convo.id ? convo.id.split('_') : []);

@@ -116,8 +116,8 @@ export function paintLiveViewportToCanvas(
     }
   }
 
-  // Collect visible structural elements ONLY from captureRoot
-  const selectors = 'canvas, header, nav, main, section, [class*="card"], [class*="Card"], [role="dialog"], button, input, h1, h2, h3, h4, span, p';
+  // Collect visible structural elements ONLY from captureRoot (including <img> for rendered PDF/Garmoshka pages!)
+  const selectors = 'canvas, img, header, nav, main, section, [class*="card"], [class*="Card"], [role="dialog"], button, input, h1, h2, h3, h4, span, p';
   const elements = Array.from(captureRoot.querySelectorAll(selectors));
 
   let drawnCount = 0;
@@ -141,7 +141,7 @@ export function paintLiveViewportToCanvas(
 
     const tag = el.tagName.toLowerCase();
 
-    // Draw live <canvas> elements (CAD/DWFx/PDF drawings!) directly into the video frame
+    // Draw live <canvas> elements (CAD/DWFx drawings!) directly into the video frame
     if (tag === 'canvas') {
       const srcCanvas = el as HTMLCanvasElement;
       if (srcCanvas.width > 0 && srcCanvas.height > 0) {
@@ -150,6 +150,20 @@ export function paintLiveViewportToCanvas(
           drawnCount++;
         } catch {
           // Ignore tainted/WebGL non-preserved buffers safely
+        }
+      }
+      continue;
+    }
+
+    // Draw rendered <img> elements (e.g. Garmoshka / PDF pages & document previews!) into the video frame
+    if (tag === 'img') {
+      const imgEl = el as HTMLImageElement;
+      if (imgEl.complete && imgEl.naturalWidth > 0) {
+        try {
+          ctx.drawImage(imgEl, rect.left, rect.top, rect.width, rect.height);
+          drawnCount++;
+        } catch {
+          // Ignore cross-origin tainted images safely
         }
       }
       continue;
@@ -392,24 +406,27 @@ export class LiveBugVideoRecorder {
 
     this.mediaRecorder.start(500);
 
-    // 35-second countdown timer (strictly stops at 00:00 and forces finish even if mobile browser delays onstop)
+    // Hard wall-clock deadline (prevents mobile timer throttling or accidental restart after 35s!)
+    const hardDeadlineMs = this.startTime + BUG_VIDEO_MAX_SECONDS * 1000;
+    const forceComplete = () => {
+      if (this.hasFinished) return;
+      this.hasFinished = true;
+      const finalMime = this.mediaRecorder?.mimeType || selectedMime || 'video/webm';
+      const blob = new Blob(this.chunks, { type: finalMime });
+      this.cleanup();
+      onAutoFinish(blob, BUG_VIDEO_MAX_SECONDS);
+    };
+
+    // 35-second countdown timer using real wall-clock elapsed time
     this.timerInterval = setInterval(() => {
-      this.remainingSec -= 1;
-      onCountdownTick(Math.max(0, this.remainingSec));
-      if (this.remainingSec <= 0) {
+      const remaining = Math.max(0, Math.ceil((hardDeadlineMs - Date.now()) / 1000));
+      this.remainingSec = remaining;
+      onCountdownTick(remaining);
+      if (remaining <= 0) {
         this.stop();
-        // Safety fallback: if mobile browser doesn't fire onstop within 600ms, finalize cleanly
-        setTimeout(() => {
-          if (!this.hasFinished) {
-            this.hasFinished = true;
-            const finalMime = this.mediaRecorder?.mimeType || selectedMime || 'video/webm';
-            const blob = new Blob(this.chunks, { type: finalMime });
-            this.cleanup();
-            onAutoFinish(blob, BUG_VIDEO_MAX_SECONDS);
-          }
-        }, 600);
+        setTimeout(forceComplete, 450);
       }
-    }, 1000);
+    }, 250);
   }
 
   /**

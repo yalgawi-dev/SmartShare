@@ -2094,16 +2094,32 @@ const updateMemberPermissions = (spaceId: string, userId: string, permissions: P
       const updatedConvos = [...convos.filter(c => c.id !== conversationId), { ...convo, messages: [...convo.messages, newMsg] }];
       
       setTimeout(() => {
-        const title = conversationId === 'group' ? "הודעה חדשה בקבוצה: " + (space.title || 'מרחב') : "הודעה חדשה בפרטי: " + (space.title || 'מרחב');
-        const senderName = senderId === space.creatorId ? (space.createdBy || 'מנהל') : (space.members?.find((m: any) => m.userId === senderId)?.name || 'שותף');
+        const isGuestChat = conversationId.startsWith('guest_');
+        const title = isGuestChat
+          ? "💬 הודעה חדשה מלקוח/אורח: " + (space.title || 'מרחב')
+          : conversationId === 'group'
+            ? "הודעה חדשה בקבוצה: " + (space.title || 'מרחב')
+            : "הודעה חדשה בפרטי: " + (space.title || 'מרחב');
+        const senderName =
+          senderId === space.creatorId
+            ? (space.createdBy || 'מנהל')
+            : (space.members?.find((m: any) => m.userId === senderId)?.name || (isGuestChat ? 'אורח מקישור שיתוף' : 'שותף'));
         const body = senderName + ": " + text.trim();
         let otherUserIds: string[] = [];
         if (conversationId === 'group') {
           otherUserIds = [space.creatorId, ...(space.members || []).map((m: any) => m.userId)].filter(id => id && id !== senderId);
+        } else if (isGuestChat) {
+          // Guest-to-Owner chat: ALWAYS notify space creator and admins!
+          const adminIds = (space.members || [])
+            .filter((m: any) => m.role === 'admin' && m.userId)
+            .map((m: any) => m.userId);
+          otherUserIds = Array.from(new Set([space.creatorId, ...adminIds])).filter(id => id && id !== senderId);
         } else {
           otherUserIds = conversationId.split('_').filter(id => id && id !== senderId);
         }
-        triggerPushNotification(otherUserIds, title, body, { url: '/space/' + spaceId, tag: 'chat-' + spaceId + '-' + conversationId });
+        if (otherUserIds.length > 0) {
+          triggerPushNotification(otherUserIds, title, body, { url: '/space/' + spaceId, tag: 'chat-' + spaceId + '-' + conversationId });
+        }
       }, 0);
 
       return { ...space, conversations: updatedConvos };

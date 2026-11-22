@@ -146,12 +146,16 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
           // so every CAD measurement number and fine line is crystal clear!
           // For standard A4 documents: render at 2600px (Retina 3x) so text stays razor-sharp even when zooming in without needing focus slicing!
           let scale: number;
+          const isMobileDevice = typeof window !== 'undefined' && window.innerWidth < 768;
           if (aspectRatio >= 2.5) {
-            const targetByMin = 2200 / currentMin;
-            const maxBudget = Math.sqrt(32000000 / (unscaledViewport.width * unscaledViewport.height));
+            // Wide architectural blueprints (Garmoshka): cap pixel budget on mobile for 2-3x faster open & low RAM
+            const targetByMin = (isMobileDevice ? 1600 : 2200) / currentMin;
+            const pixelBudget = isMobileDevice ? 16000000 : 32000000;
+            const maxBudget = Math.sqrt(pixelBudget / (unscaledViewport.width * unscaledViewport.height));
             scale = Math.min(1.0, Math.min(targetByMin, maxBudget));
           } else {
-            scale = Math.min(3.2, Math.max(1.2, 2600 / currentMax));
+            const targetMax = isMobileDevice ? 1900 : 2600;
+            scale = Math.min(isMobileDevice ? 2.4 : 3.2, Math.max(1.1, targetMax / currentMax));
           }
 
           // Fast-path: render full page with C++ PDFium WASM
@@ -162,8 +166,9 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
               const fullW = unscaledViewport.width * scale;
               const fullH = unscaledViewport.height * scale;
               const isWideBlueprint = pageNum === 1 && aspectRatio >= 2.5;
-              const initialW = isWideBlueprint ? Math.round(fullW * 0.5) : fullW;
-              const initialH = isWideBlueprint ? Math.round(fullH * 0.5) : fullH;
+              // Instant First Paint: 32% preview pass on wide blueprints (~2.5x fewer pixels = instant open!)
+              const initialW = isWideBlueprint ? Math.max(800, Math.round(fullW * 0.32)) : fullW;
+              const initialH = isWideBlueprint ? Math.max(300, Math.round(fullH * 0.32)) : fullH;
 
               if (initSessionId) viewerMetrics.recordStep(initSessionId, `מתחיל רינדור עמוד ${pageNum} (PDFium WASM ${Math.round(initialW)}x${Math.round(initialH)})`);
               const { renderFullPageWithPdfium } = await import('@/utils/pdfiumSliceRenderer');
