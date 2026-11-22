@@ -455,8 +455,23 @@ export default function PublicSharePage({ params }: SharePageProps) {
               transition: 'all 0.15s ease'
             }}
           >
-            <span>פתח מרחב משלך בחינם</span>
-            <span>↗</span>
+            {Boolean(
+              user &&
+              (user.isAdmin ||
+                (user.realName && !['משתמש', 'אורח', 'אורח אנונימי', 'Guest'].includes(user.realName)) ||
+                user.phone ||
+                user.email)
+            ) ? (
+              <>
+                <span>🏠</span>
+                <span>כניסה לחשבון שלי</span>
+              </>
+            ) : (
+              <>
+                <span>פתח מרחב משלך בחינם</span>
+                <span>↗</span>
+              </>
+            )}
           </Link>
         </div>
 
