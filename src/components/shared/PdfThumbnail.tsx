@@ -27,18 +27,26 @@ export default function PdfThumbnail({ base64Uri, url, style, onClick }: PdfThum
     if (!targetPdf) return;
     
     const renderPdf = async () => {
-      // Fast-path: try C++ PDFium WASM for thumbnail rendering
+      // Fast-path: try C++ PDFium WASM (Dedicated Web Worker) for crisp proportional thumbnail
       try {
-        const res = await fetch(targetPdf);
-        if (res.ok) {
+        let res = await fetch(targetPdf).catch(() => null);
+        if (!res || !res.ok) {
+          res = await fetch(`/api/pdf-proxy?url=${encodeURIComponent(targetPdf)}`).catch(() => null);
+        }
+        if (res && res.ok) {
           const bytes = new Uint8Array(await res.arrayBuffer());
-          const { renderFullPageWithPdfium } = await import('@/utils/pdfiumSliceRenderer');
+          const { inspectPdfStructureWithPdfium, renderFullPageWithPdfium } = await import('@/utils/pdfiumSliceRenderer');
+          const info = await inspectPdfStructureWithPdfium(bytes, targetPdf);
+          const ratio = (info.pageWidthPt || 595) / Math.max(1, info.pageHeightPt || 842);
+          const maxDim = 360;
+          const targetW = ratio >= 1 ? maxDim : Math.max(120, Math.round(maxDim * ratio));
+          const targetH = ratio >= 1 ? Math.max(120, Math.round(maxDim / ratio)) : maxDim;
           const thumbUrl = await renderFullPageWithPdfium({
             pdfBytes: bytes,
             docKey: targetPdf,
             pageIndex: 0,
-            targetW: 240,
-            targetH: 240,
+            targetW,
+            targetH,
           });
           if (isMounted && thumbUrl) {
             setImgSrc(thumbUrl);

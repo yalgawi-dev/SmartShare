@@ -17,6 +17,7 @@ import ChatEngineUI from '@/components/widgets/Chat/ChatEngineUI';
 import { onSnapshot } from 'firebase/firestore';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
 import { prewarmPdfium } from '@/utils/pdfiumSliceRenderer';
+import { getDocumentFormatInfo } from '@/utils/documentUtils';
 
 interface SharePageProps {
   params: Promise<{ token: string }>;
@@ -814,9 +815,34 @@ export default function PublicSharePage({ params }: SharePageProps) {
                 gap: '0.85rem'
               }}>
                 {visibleFiles.map((f, idx) => {
-                  const isPdf = f.fileType === 'pdf' || f.name?.toLowerCase().endsWith('.pdf') || f.url?.toLowerCase().includes('.pdf');
-                  const isImg = f.fileType === 'image' || f.url?.match(/\.(jpg|jpeg|png|webp|gif)/i);
-                  const previewUrl = f.thumbnailUrl || (Array.isArray(f.pages) && f.pages.length > 0 ? f.pages[0] : (isImg ? f.url : ''));
+                  const fmtInfo = getDocumentFormatInfo({ url: f.url, type: f.fileType, title: f.name, thumbnailUrl: f.thumbnailUrl });
+                  const isPdf = fmtInfo.category === 'pdf' || f.fileType === 'pdf' || f.name?.toLowerCase().endsWith('.pdf') || f.url?.toLowerCase().includes('.pdf');
+                  const isCad = fmtInfo.category === 'cad';
+                  const isImg = f.fileType === 'image' || Boolean(f.url?.match(/\.(jpg|jpeg|png|webp|gif)($|\?)/i));
+                  const isRealImageUrl = (u?: string) => {
+                    if (!u || typeof u !== 'string') return false;
+                    const low = u.toLowerCase();
+                    if (low.startsWith('data:image/')) return true;
+                    if (
+                      low.includes('.pdf') ||
+                      low.includes('.dwfx') ||
+                      low.includes('.dwf') ||
+                      low.includes('.dwg') ||
+                      low.includes('.dxf') ||
+                      low.includes('.doc') ||
+                      low.includes('.xls') ||
+                      low.includes('.zip') ||
+                      low.startsWith('data:application/')
+                    ) {
+                      return false;
+                    }
+                    return true;
+                  };
+                  const previewUrl = isRealImageUrl(f.thumbnailUrl)
+                    ? f.thumbnailUrl!
+                    : (Array.isArray(f.pages) && f.pages.length > 0 && isRealImageUrl(f.pages[0])
+                      ? f.pages[0]
+                      : (isImg && isRealImageUrl(f.url) ? f.url : ''));
 
                   return (
                     <div
@@ -868,12 +894,62 @@ export default function PublicSharePage({ params }: SharePageProps) {
                           #{idx + 1}
                         </div>
 
-                        {/* Fallback PDF Thumbnail when no image */}
+                        {/* Fallback Thumbnail when no real image URL (PDFium live preview or crisp CAD/Doc badge) */}
                         {!previewUrl && (
                           isPdf && f.url ? (
-                            <PdfThumbnail url={f.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            <PdfThumbnail url={f.url} style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#ffffff' }} />
+                          ) : isCad ? (
+                            <div style={{
+                              width: '100%',
+                              height: '100%',
+                              background: 'linear-gradient(135deg, #1e293b 0%, #312e81 100%)',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '6px',
+                              color: '#e0e7ff',
+                              padding: '10px',
+                              textAlign: 'center',
+                              backgroundImage: 'radial-gradient(rgba(129, 140, 248, 0.22) 1px, transparent 1px)',
+                              backgroundSize: '14px 14px'
+                            }}>
+                              <span style={{ fontSize: '2.1rem', lineHeight: 1 }}>📐</span>
+                              <span style={{
+                                background: 'rgba(99, 102, 241, 0.9)',
+                                color: '#ffffff',
+                                padding: '2px 10px',
+                                borderRadius: '999px',
+                                fontSize: '0.72rem',
+                                fontWeight: 800,
+                                letterSpacing: '0.04em',
+                                boxShadow: '0 2px 6px rgba(0,0,0,0.25)'
+                              }}>
+                                {fmtInfo.tag} • שרטוט CAD
+                              </span>
+                            </div>
                           ) : (
-                            <span style={{ fontSize: '2.5rem' }}>{isPdf ? '📕' : '📄'}</span>
+                            <div style={{
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '4px'
+                            }}>
+                              <span style={{ fontSize: '2.4rem' }}>{isPdf ? '📕' : '📄'}</span>
+                              {fmtInfo.tag && (
+                                <span style={{
+                                  fontSize: '0.68rem',
+                                  fontWeight: 800,
+                                  color: fmtInfo.badgeColor,
+                                  background: fmtInfo.badgeBg,
+                                  padding: '1px 8px',
+                                  borderRadius: '8px'
+                                }}>
+                                  {fmtInfo.tag}
+                                </span>
+                              )}
+                            </div>
                           )
                         )}
 
