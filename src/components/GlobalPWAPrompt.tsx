@@ -17,6 +17,9 @@ export default function GlobalPWAPrompt() {
     'android-chrome' | 'android-webview' | 'ios-safari' | 'ios-chrome' | 'ios-webview' | 'other' | null
   >(null);
   const [showGuide, setShowGuide] = useState(false);
+  const [guideMinimized, setGuideMinimized] = useState(false);
+  const [showIosHelp, setShowIosHelp] = useState(false);
+  const [isSpeakingGuide, setIsSpeakingGuide] = useState(false);
   const [installing, setInstalling] = useState(false);
   const [menuOpened, setMenuOpened] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
@@ -283,9 +286,109 @@ export default function GlobalPWAPrompt() {
     );
   }
 
-  // ── iOS Safari / iOS Chrome: Visual Step-by-Step Guide with Live Pointer ─────
+  // ── iOS Safari / iOS Chrome: Top-Anchored Live Coach (stays visible ABOVE Safari's Share Sheet!) + Minimized Floating Bubble ──
   if ((platform === 'ios-safari' || platform === 'ios-chrome') && showGuide) {
     const isChromeIOS = platform === 'ios-chrome';
+
+    const playVoiceGuide = async () => {
+      if (isSpeakingGuide) return;
+      setIsSpeakingGuide(true);
+      const scriptText = isChromeIOS
+        ? 'כדי להתקין את מיי ספייס באייפון: שלב ראשון, לחץ על סמל השיתוף למעלה בשורת הכתובת. שלב שני, גלול למטה בתפריט ובחר הוסף למסך הבית. שלב שלישי, לחץ הוסף בפינה העליונה.'
+        : 'כדי להתקין את מיי ספייס באייפון, אל תסגור את ההסבר. שלב ראשון, לחץ על כפתור השיתוף הכחול בתחתית המסך, ריבוע עם חץ עולה למעלה. שלב שני, גלול מעט למטה בתפריט שנפתח ובחר הוסף למסך הבית. שלב שלישי, לחץ הוסף בפינה העליונה.';
+      try {
+        const res = await fetch('/api/assistant/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: scriptText }),
+        });
+        if (res.ok) {
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
+          const audio = new Audio(url);
+          audio.onended = () => {
+            URL.revokeObjectURL(url);
+            setIsSpeakingGuide(false);
+          };
+          audio.onerror = () => {
+            URL.revokeObjectURL(url);
+            setIsSpeakingGuide(false);
+          };
+          await audio.play();
+          return;
+        }
+      } catch {
+        // Silent fallback
+      }
+      setIsSpeakingGuide(false);
+    };
+
+    // Minimized Floating Bubble (accompanies user until they tap it to expand or press ✕)
+    if (guideMinimized) {
+      return (
+        <div
+          style={{
+            position: 'fixed',
+            top: 'max(12px, env(safe-area-inset-top))',
+            right: '12px',
+            zIndex: 9999999,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            background: 'linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)',
+            color: '#ffffff',
+            padding: '7px 10px 7px 12px',
+            borderRadius: '999px',
+            boxShadow: '0 8px 24px rgba(37, 99, 235, 0.45)',
+            border: '1.5px solid rgba(255,255,255,0.35)',
+            direction: 'rtl',
+            fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif',
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setGuideMinimized(false)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#ffffff',
+              fontWeight: 800,
+              fontSize: '0.8rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: 0,
+            }}
+          >
+            <span>📲</span>
+            <span>המשך התקנה באייפון</span>
+          </button>
+          <button
+            type="button"
+            onClick={dismiss}
+            aria-label="סגור מדריך התקנה"
+            style={{
+              width: '22px',
+              height: '22px',
+              borderRadius: '50%',
+              background: 'rgba(255,255,255,0.2)',
+              color: '#ffffff',
+              border: 'none',
+              fontWeight: 900,
+              fontSize: '0.72rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            ✕
+          </button>
+        </div>
+      );
+    }
+
     return (
       <>
         <style>{`
@@ -293,138 +396,178 @@ export default function GlobalPWAPrompt() {
             0%, 100% { transform: translateY(0); }
             50% { transform: translateY(7px); }
           }
-          @keyframes pwaBounceUp {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-7px); }
-          }
         `}</style>
-        <div
-          onClick={dismiss}
-          style={{
-            position: 'fixed', inset: 0, zIndex: 9999998,
-            background: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(4px)'
-          }}
-        />
-        {/* Floating Guide Card positioned to leave the browser toolbar visible */}
+
+        {/* Top-Anchored Compact Live Coach: stays 100% VISIBLE ABOVE Safari's Share Sheet! */}
         <div
           style={{
             position: 'fixed',
-            bottom: isChromeIOS ? '16px' : '68px',
-            left: '12px',
-            right: '12px',
+            top: 'max(8px, env(safe-area-inset-top))',
+            left: '10px',
+            right: '10px',
             maxWidth: '430px',
             margin: '0 auto',
-            maxHeight: 'calc(100vh - 96px)',
-            overflowY: 'auto',
             zIndex: 9999999,
             background: '#ffffff',
-            borderRadius: '24px',
-            padding: '1.15rem 1.15rem 1.25rem',
-            boxShadow: '0 20px 50px rgba(0,0,0,0.35)',
+            borderRadius: '20px',
+            padding: '10px 12px',
+            boxShadow: '0 14px 38px rgba(15, 23, 42, 0.32)',
+            border: '2px solid #2563eb',
             direction: 'rtl',
             fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif',
           }}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <img src="/icons/icon-192x192.png" alt="MySpace" style={{ width: '36px', height: '36px', borderRadius: '10px' }} />
-              <div>
-                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 900, color: '#0f172a' }}>התקנת MySpace באייפון</h3>
-                <p style={{ margin: 0, fontSize: '0.76rem', color: '#64748b' }}>3 לחיצות פשוטות והאפליקציה על מסך הבית שלך</p>
+          {/* Compact Header Row */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+              <img src="/icons/icon-192x192.png" alt="MySpace" style={{ width: '26px', height: '26px', borderRadius: '7px', flexShrink: 0 }} />
+              <div style={{ fontSize: '0.86rem', fontWeight: 900, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                התקנה באייפון (אל תסגור!)
               </div>
             </div>
-            <button onClick={dismiss} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '30px', height: '30px', fontSize: '0.95rem', cursor: 'pointer', color: '#475569', fontWeight: 'bold' }}>✕</button>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem', marginBottom: '0.85rem' }}>
-            {/* STEP 1: Real Apple Share Icon */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: '#eff6ff', border: '1.5px solid #bfdbfe', padding: '0.7rem 0.85rem', borderRadius: '14px' }}>
-              <div style={{ width: '44px', height: '44px', background: '#ffffff', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(37,99,235,0.15)', flexShrink: 0, border: '1px solid #dbeafe' }}>
-                {/* Exact Apple iOS Share SVG (Square with arrow pointing UP) */}
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#007AFF" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-                  <polyline points="16 6 12 2 8 6" />
-                  <line x1="12" y1="2" x2="12" y2="15" />
-                </svg>
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#0f172a' }}>
-                  1. לחץ על כפתור השיתוף {isChromeIOS ? 'למעלה בשורת הכתובת' : 'בתחתית המסך'}
-                </div>
-                <div style={{ fontSize: '0.76rem', color: '#334155', marginTop: '2px', lineHeight: 1.35 }}>
-                  חפש את הסמל הכחול של <strong>ריבוע עם חץ עולה למעלה</strong> {isChromeIOS ? 'בצד העליון של הדפדפן' : 'באמצע הסרגל התחתון של הדפדפן'}.
-                </div>
-              </div>
-            </div>
-
-            {/* STEP 2: Scroll Down + Add to Home Screen */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '0.7rem 0.85rem', borderRadius: '14px' }}>
-              <div style={{ width: '44px', height: '44px', background: '#ffffff', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', flexShrink: 0, border: '1px solid #e2e8f0' }}>
-                {/* Exact Apple Add to Home Screen SVG (Rounded square with +) */}
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0f172a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="3" width="18" height="18" rx="4" ry="4" />
-                  <line x1="12" y1="8" x2="12" y2="16" />
-                  <line x1="8" y1="12" x2="16" y2="12" />
-                </svg>
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#0f172a' }}>
-                  2. גלול למטה בתפריט ובחר &quot;הוסף למסך הבית&quot;
-                </div>
-                <div style={{ fontSize: '0.75rem', color: '#b45309', background: '#fef3c7', padding: '3px 7px', borderRadius: '6px', marginTop: '4px', fontWeight: 700, display: 'inline-block' }}>
-                  ⚠️ חשוב: יש לגלול את התפריט שנפתח כלפי מטה כדי לראות זאת!
-                </div>
-              </div>
-            </div>
-
-            {/* STEP 3: Tap Add in Top Corner */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '0.7rem 0.85rem', borderRadius: '14px' }}>
-              <div style={{ width: '44px', height: '44px', background: '#ffffff', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', flexShrink: 0, border: '1px solid #e2e8f0' }}>
-                <span style={{ color: '#007AFF', fontWeight: 900, fontSize: '0.85rem' }}>הוסף</span>
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#0f172a' }}>
-                  3. לחץ על &quot;הוסף&quot; (Add) בפינה העליונה
-                </div>
-                <div style={{ fontSize: '0.76rem', color: '#475569', marginTop: '2px' }}>
-                  האפליקציה תופיע מיד על מסך הבית של האייפון שלך! 🎉
-                </div>
-              </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+              <button
+                type="button"
+                onClick={playVoiceGuide}
+                disabled={isSpeakingGuide}
+                title="הקראה קולית של שלבי ההתקנה"
+                style={{
+                  background: isSpeakingGuide ? '#dbeafe' : '#eff6ff',
+                  color: '#1d4ed8',
+                  border: '1px solid #bfdbfe',
+                  borderRadius: '999px',
+                  padding: '3px 8px',
+                  fontSize: '0.7rem',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                }}
+              >
+                {isSpeakingGuide ? '🔊 מקריא...' : '🔊 הקרא'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setGuideMinimized(true)}
+                title="מזער לבועה צפה"
+                style={{
+                  background: '#f1f5f9',
+                  color: '#334155',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '999px',
+                  padding: '3px 8px',
+                  fontSize: '0.7rem',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                }}
+              >
+                מזער ⌄
+              </button>
+              <button
+                type="button"
+                onClick={dismiss}
+                aria-label="סגור"
+                style={{
+                  background: '#f1f5f9',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '26px',
+                  height: '26px',
+                  fontSize: '0.8rem',
+                  cursor: 'pointer',
+                  color: '#475569',
+                  fontWeight: 900,
+                }}
+              >
+                ✕
+              </button>
             </div>
           </div>
 
-          {/* Troubleshooting Box for users who don't see the browser toolbar or opened from WhatsApp */}
-          <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '14px', padding: '0.7rem 0.85rem', marginBottom: '0.75rem', fontSize: '0.76rem', color: '#92400e', lineHeight: 1.4 }}>
-            <div style={{ fontWeight: 800, marginBottom: '3px', color: '#78350f' }}>💡 לא רואה את סרגל הדפדפן או כפתור השיתוף?</div>
-            <div>• <strong>הסרגל הוסתר בגלילה:</strong> גע קלות בקצה התחתון של המסך (בשורת הכתובת) והכפתורים יופיעו.</div>
-            <div style={{ marginTop: '2px' }}>• <strong>נכנסת דרך וואטסאפ?</strong> לחץ על סמל המצפן <strong>🧭</strong> למטה בפינה, או העתק את הקישור והדבק ב-Safari:</div>
+          {/* Ultra-Clear 3-Step Visual Strip (stays visible right above Safari Share Sheet!) */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#eff6ff', border: '1px solid #bfdbfe', padding: '6px 9px', borderRadius: '11px' }}>
+              <span style={{ fontWeight: 900, color: '#2563eb', fontSize: '0.82rem' }}>1.</span>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#007AFF" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                <polyline points="16 6 12 2 8 6" />
+                <line x1="12" y1="2" x2="12" y2="15" />
+              </svg>
+              <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#0f172a' }}>
+                לחץ על סמל השיתוף {isChromeIOS ? 'למעלה בשורת הכתובת' : 'למטה בסרגל Safari'}
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#fef3c7', border: '1.5px solid #f59e0b', padding: '6px 9px', borderRadius: '11px' }}>
+              <span style={{ fontWeight: 900, color: '#b45309', fontSize: '0.82rem' }}>2.</span>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#92400e" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <rect x="3" y="3" width="18" height="18" rx="4" ry="4" />
+                <line x1="12" y1="8" x2="12" y2="16" />
+                <line x1="8" y1="12" x2="16" y2="12" />
+              </svg>
+              <span style={{ fontSize: '0.8rem', fontWeight: 900, color: '#78350f' }}>
+                גלול למטה בתפריט ← בחר &quot;הוסף למסך הבית&quot;
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#ecfdf5', border: '1px solid #a7f3d0', padding: '6px 9px', borderRadius: '11px' }}>
+              <span style={{ fontWeight: 900, color: '#047857', fontSize: '0.82rem' }}>3.</span>
+              <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#065f46' }}>
+                לחץ &quot;הוסף&quot; (Add) בפינה העליונה וסיימת! 🎉
+              </span>
+            </div>
+          </div>
+
+          {/* Collapsible Help Footer (no visual clutter!) */}
+          <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
             <button
               type="button"
-              onClick={copyCurrentUrl}
+              onClick={() => setShowIosHelp((v) => !v)}
               style={{
-                marginTop: '0.45rem',
-                width: '100%',
-                padding: '0.5rem',
-                borderRadius: '10px',
-                border: '1px solid #f59e0b',
-                background: copiedLink ? '#16a34a' : '#ffffff',
-                color: copiedLink ? '#ffffff' : '#b45309',
-                fontWeight: 800,
-                fontSize: '0.78rem',
-                cursor: 'pointer'
+                background: 'transparent',
+                border: 'none',
+                color: '#64748b',
+                fontSize: '0.72rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                padding: '2px 0',
+                textDecoration: 'underline',
               }}
             >
-              {copiedLink ? '✅ הקישור הועתק! פתח את דפדפן Safari והדבק' : '📋 העתק קישור (לפתיחה ב-Safari)'}
+              {showIosHelp ? 'הסתר עזרה ▴' : '💡 לא רואה את סמל השיתוף?'}
             </button>
+            <span style={{ fontSize: '0.68rem', color: '#2563eb', fontWeight: 800 }}>
+              נשאר גלוי גם כשהתפריט נפתח ✓
+            </span>
           </div>
 
-          <button onClick={dismiss} style={{ ...primaryBtnStyle, marginBottom: 0, padding: '0.8rem' }}>הבנתי, תודה!</button>
+          {showIosHelp && (
+            <div style={{ marginTop: '6px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '10px', padding: '7px 9px', fontSize: '0.72rem', color: '#92400e', lineHeight: 1.4 }}>
+              <div>• גע קלות בשורת הכתובת למטה אם הסרגל הוסתר בגלילה.</div>
+              <div>• נכנסת מוואטסאפ? לחץ על <strong>🧭</strong> למטה או העתק ל-Safari:</div>
+              <button
+                type="button"
+                onClick={copyCurrentUrl}
+                style={{
+                  marginTop: '5px',
+                  width: '100%',
+                  padding: '5px',
+                  borderRadius: '8px',
+                  border: '1px solid #f59e0b',
+                  background: copiedLink ? '#16a34a' : '#ffffff',
+                  color: copiedLink ? '#ffffff' : '#b45309',
+                  fontWeight: 800,
+                  fontSize: '0.74rem',
+                  cursor: 'pointer',
+                }}
+              >
+                {copiedLink ? '✅ הועתק! הדבק ב-Safari' : '📋 העתק קישור ל-Safari'}
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* Live Animated Pointer pointing directly to the iPhone Safari Bottom Share Button */}
+        {/* Non-blocking Bouncing Bottom Pointer directly above Safari's Share Icon */}
         {!isChromeIOS && (
           <div
-            onClick={dismiss}
             style={{
               position: 'fixed',
               bottom: '8px',
@@ -433,20 +576,21 @@ export default function GlobalPWAPrompt() {
               zIndex: 9999999,
               background: '#2563eb',
               color: '#ffffff',
-              padding: '6px 16px',
+              padding: '6px 15px',
               borderRadius: '999px',
               fontWeight: 800,
-              fontSize: '0.82rem',
+              fontSize: '0.8rem',
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
               boxShadow: '0 4px 16px rgba(37,99,235,0.5)',
               whiteSpace: 'nowrap',
-              direction: 'rtl'
+              direction: 'rtl',
+              pointerEvents: 'none',
             }}
           >
             <span style={{ display: 'inline-block', animation: 'pwaBounceDown 1s infinite' }}>⬇️</span>
-            <span>כפתור השיתוף נמצא ממש כאן למטה בדפדפן</span>
+            <span>לחץ כאן למטה על סמל השיתוף ⬆️</span>
             <span style={{ display: 'inline-block', animation: 'pwaBounceDown 1s infinite' }}>⬇️</span>
           </div>
         )}
