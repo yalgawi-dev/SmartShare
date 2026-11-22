@@ -16,8 +16,18 @@ import { inspectLiveScreenDOM, isDestructiveUiLabel } from './assistantDomIntros
 import {
   installPassiveUiMapLearner,
   recordUiTransition,
-  markUiTransitionMissed
+  markUiTransitionMissed,
+  wasTriggerLearnedOnRoute
 } from './assistantUiMapLearner';
+
+export interface AgentExecutionStep {
+  stepNumber: number;
+  description: string;
+  source: 'sdk_tool' | 'learned_map' | 'cloud_ai';
+  learnedHits?: number;
+  status: 'running' | 'done' | 'failed';
+  detail?: string;
+}
 import { useAuth } from '@/app/context/AuthContext';
 import { useSpaces } from '@/app/context/SpacesContext';
 
@@ -37,6 +47,7 @@ interface ChatMessage {
   proposedAction?: AgentActionProposal | null;
   actionStatus?: 'pending' | 'executing' | 'executed' | 'rejected' | 'failed';
   actionResult?: AgentActionExecutionResult;
+  executionSteps?: AgentExecutionStep[];
 }
 
 interface AssistantContextType {
@@ -491,6 +502,8 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     // Autonomous Multi-Step Loop (Hard-capped at MAX_AUTONOMOUS_STEPS = 3, zero user intervention for safe steps!)
     const completedSteps: string[] = [];
+    const timelineSteps: AgentExecutionStep[] = [];
+
     for (let stepNum = 1; stepNum <= MAX_AUTONOMOUS_STEPS; stepNum++) {
       if (!proposal || proposal.requiresConfirmation) break;
 
@@ -502,8 +515,46 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           ? currentDom.interactiveElements.find((e) => e.agentId === String(proposal?.params?.agentId || ''))
           : null;
 
+      // Determine true step source transparently: Registered SDK Tool vs Learned UI Map vs Cloud AI
+      let stepSource: AgentExecutionStep['source'] = 'cloud_ai';
+      let learnedHits: number | undefined;
+      if (!proposal.tool.startsWith('ui_')) {
+        stepSource = 'sdk_tool';
+      } else if (clickedEl?.label) {
+        const learnedCheck = wasTriggerLearnedOnRoute(beforePath, clickedEl.label);
+        if (learnedCheck.learned) {
+          stepSource = 'learned_map';
+          learnedHits = learnedCheck.hitCount;
+        }
+      }
+
+      const humanDesc =
+        proposal.title ||
+        (clickedEl
+          ? `${clickedEl.label}${clickedEl.contextHint ? ` (${clickedEl.contextHint})` : ''}`
+          : proposal.summary || proposal.tool);
+
+      const stepRecord: AgentExecutionStep = {
+        stepNumber: stepNum,
+        description: humanDesc,
+        source: stepSource,
+        learnedHits,
+        status: 'running'
+      };
+      timelineSteps.push(stepRecord);
+
+      setMessages(prev =>
+        prev.map(m =>
+          m.id === msgId
+            ? { ...m, executionSteps: [...timelineSteps] }
+            : m
+        )
+      );
+
       const execRes = await executeApprovedAgentAction(proposal, execCtx);
-      completedSteps.push(proposal.title || clickedEl?.label || proposal.tool);
+      completedSteps.push(humanDesc);
+      stepRecord.status = execRes.success ? 'done' : 'failed';
+      stepRecord.detail = execRes.message;
 
       setMessages(prev =>
         prev.map(m =>
@@ -513,7 +564,8 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                 text: finalAnswer,
                 proposedAction: proposal,
                 actionStatus: execRes.success ? 'executed' : 'failed',
-                actionResult: execRes
+                actionResult: execRes,
+                executionSteps: [...timelineSteps]
               }
             : m
         )

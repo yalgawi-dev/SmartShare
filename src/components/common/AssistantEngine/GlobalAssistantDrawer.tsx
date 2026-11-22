@@ -1482,12 +1482,47 @@ export const GlobalAssistantDrawer: React.FC = () => {
                       </div>
                     )}
 
-                    {m.proposedAction.details && m.proposedAction.details.length > 0 && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', background: 'rgba(255,255,255,0.75)', padding: '6px 8px', borderRadius: '8px', fontSize: '0.71rem', color: '#334155' }}>
-                        {m.proposedAction.details.map((line, i) => (
-                          <div key={i}>• {line}</div>
-                        ))}
+                    {/* Transparent Step-by-Step Execution Timeline with Source Badges (AI vs Self-Learning vs SDK) */}
+                    {m.executionSteps && m.executionSteps.length > 0 ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', background: 'rgba(255,255,255,0.85)', padding: '7px 8px', borderRadius: '8px', border: '1px solid rgba(15,23,42,0.06)' }}>
+                        {m.executionSteps.map((st, idx) => {
+                          const badge =
+                            st.source === 'learned_map'
+                              ? { text: `🧠 לימוד עצמי${st.learnedHits && st.learnedHits > 1 ? ` ×${st.learnedHits}` : ''}`, bg: '#f3e8ff', color: '#7e22ce' }
+                              : st.source === 'sdk_tool'
+                                ? { text: '⚡ פונקציה מובנית', bg: '#e0f2fe', color: '#0369a1' }
+                                : { text: '✨ AI חכם', bg: '#eef2ff', color: '#4338ca' };
+                          return (
+                            <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', fontSize: '0.71rem', color: '#1e293b' }}>
+                              <span style={{ fontWeight: 700, flex: 1 }}>
+                                {st.status === 'done' ? '✅' : st.status === 'failed' ? '⚠️' : '⏳'}{' '}
+                                שלב {st.stepNumber}: {st.description}
+                              </span>
+                              <span style={{
+                                background: badge.bg,
+                                color: badge.color,
+                                padding: '1px 6px',
+                                borderRadius: '999px',
+                                fontSize: '0.62rem',
+                                fontWeight: 800,
+                                whiteSpace: 'nowrap'
+                              }}>
+                                {badge.text}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
+                    ) : (
+                      m.proposedAction.details && m.proposedAction.details.length > 0 && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', background: 'rgba(255,255,255,0.75)', padding: '6px 8px', borderRadius: '8px', fontSize: '0.71rem', color: '#334155' }}>
+                          {m.proposedAction.details
+                            .filter((line) => !/ui_\d+/i.test(line))
+                            .map((line, i) => (
+                              <div key={i}>• {line}</div>
+                            ))}
+                        </div>
+                      )
                     )}
 
                     {m.actionStatus === 'pending' && (
