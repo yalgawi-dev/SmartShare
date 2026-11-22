@@ -1329,14 +1329,22 @@ export default function AdminUsersPage() {
                 {(() => {
                   const totalAiTokens = allUsers.reduce((sum, u: any) => sum + (Number(u?.aiUsage?.totalTokens) || 0), 0);
                   const totalAiReqs = allUsers.reduce((sum, u: any) => sum + (Number(u?.aiUsage?.totalRequests) || 0), 0);
+                  const totalQuotaHits = allUsers.reduce((sum, u: any) => sum + (Number(u?.aiUsage?.quotaHitsCount) || 0), 0);
                   const todayStr = new Date().toISOString().slice(0, 10);
                   const todayAiTokens = allUsers.reduce(
                     (sum, u: any) => sum + (u?.aiUsage?.lastDate === todayStr ? Number(u?.aiUsage?.todayTokens) || 0 : 0),
                     0
                   );
                   return (
-                    <div style={{ background: '#f5f3ff', padding: '1rem', borderRadius: '14px', border: '1px solid #ddd6fe' }}>
-                      <div style={{ color: '#5b21b6', fontSize: '0.8rem', fontWeight: 800 }}>🤖 צריכת AI (טוקנים)</div>
+                    <div style={{ background: totalQuotaHits > 0 ? '#fff1f2' : '#f5f3ff', padding: '1rem', borderRadius: '14px', border: `1px solid ${totalQuotaHits > 0 ? '#fecdd3' : '#ddd6fe'}` }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '4px' }}>
+                        <div style={{ color: '#5b21b6', fontSize: '0.8rem', fontWeight: 800 }}>🤖 צריכת AI (טוקנים)</div>
+                        {totalQuotaHits > 0 && (
+                          <span style={{ background: '#e11d48', color: '#ffffff', fontSize: '0.66rem', fontWeight: 900, padding: '1px 6px', borderRadius: '999px' }}>
+                            ⚠️ {totalQuotaHits} חריגות מכסה
+                          </span>
+                        )}
+                      </div>
                       <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#4c1d95', marginTop: '0.2rem' }}>
                         {totalAiTokens.toLocaleString()}
                       </div>

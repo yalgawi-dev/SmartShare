@@ -65,7 +65,8 @@ export async function POST(request: Request) {
 
     if (!checkUserRateLimit(verifiedUid)) {
       return NextResponse.json({
-        answer: 'שלחת הרבה בקשות בדקה האחרונה. המתן מספר שניות ונסה שוב.',
+        answer: 'שלחת הרבה בקשות בדקה האחרונה (הגבלת קצב אישית להגנת המערכת). אנא המתן מספר שניות ונסה שוב.',
+        quotaExceeded: 'user_rate_limit',
         source: 'cloud_llm',
         confidence: 'high'
       });
@@ -197,6 +198,16 @@ ${formattedHistory}`;
     }
 
     if (!geminiData) {
+      // Explicit transparent notification when shared API quota (429) is temporarily exhausted
+      if (lastStatus === 429) {
+        return NextResponse.json({
+          answer:
+            'מנוע ה-AI של המערכת חווה כרגע עומס זמני (חריגת מכסת פניות לדקה מצד מספר משתמשים במקביל). אנא המתן כ-30 שניות ונסה שוב — המנהל קיבל על כך התראה אוטומטית.',
+          quotaExceeded: 'provider_quota_429',
+          source: 'cloud_llm',
+          confidence: 'high'
+        });
+      }
       return NextResponse.json({ error: 'AI unavailable', reason: `gemini_${lastStatus}` }, { status: 502 });
     }
 

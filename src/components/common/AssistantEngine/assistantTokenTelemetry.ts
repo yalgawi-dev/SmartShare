@@ -6,6 +6,9 @@ export interface UserAiUsageStats {
   totalRequests: number;
   todayTokens: number;
   todayRequests: number;
+  quotaHitsCount?: number;
+  lastQuotaHitAt?: string;
+  lastQuotaHitType?: 'user_rate_limit' | 'provider_quota_429';
   lastDate: string; // YYYY-MM-DD
   lastUpdatedAt: string;
 }
@@ -56,5 +59,37 @@ export async function recordUserAiTokenUsage(uid: string | undefined, tokensUsed
   } catch (err) {
     // Non-fatal telemetry error; never interrupt user flow
     console.warn('AI token telemetry warning:', err);
+  }
+}
+
+/**
+ * Records a quota exceeded event (429 shared provider quota or per-user rate limit)
+ * on the affected user record so Admin immediately sees an alert badge in /admin/users.
+ */
+export async function recordAiQuotaHit(
+  uid: string | undefined,
+  hitType: 'user_rate_limit' | 'provider_quota_429'
+): Promise<void> {
+  if (!uid) return;
+  const nowIso = new Date().toISOString();
+  try {
+    const userRef = doc(db, 'users', uid);
+    const snap = await getDoc(userRef);
+    const prev: Partial<UserAiUsageStats> = snap.exists() ? (snap.data()?.aiUsage || {}) : {};
+    await setDoc(
+      userRef,
+      {
+        aiUsage: {
+          ...prev,
+          quotaHitsCount: (Number(prev.quotaHitsCount) || 0) + 1,
+          lastQuotaHitAt: nowIso,
+          lastQuotaHitType: hitType,
+          lastUpdatedAt: nowIso
+        }
+      },
+      { merge: true }
+    );
+  } catch (err) {
+    console.warn('AI quota hit telemetry warning:', err);
   }
 }

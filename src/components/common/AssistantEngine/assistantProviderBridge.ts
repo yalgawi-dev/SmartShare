@@ -21,6 +21,7 @@ export interface AIProviderConfig {
 export interface AIQueryResponse {
   text: string;
   proposedAction?: AgentActionProposal | null;
+  quotaExceeded?: 'user_rate_limit' | 'provider_quota_429' | null;
   source: 'local_brain' | 'cloud_llm';
   fallbackReason?: string;
   tokensUsed?: number;
@@ -78,6 +79,7 @@ export async function queryAIAssistant(
             return {
               text: data.answer,
               proposedAction: data.proposedAction || null,
+              quotaExceeded: data.quotaExceeded || null,
               source: 'cloud_llm',
               confidence: data.confidence || 'high',
               tokensUsed: data.tokensUsed
