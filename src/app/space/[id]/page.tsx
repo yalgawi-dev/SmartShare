@@ -37,6 +37,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 import InstallAppHeaderButton from '../../../components/InstallAppHeaderButton';
 import { SpaceAnnouncementBanner } from '../../../components/common/SpaceAnnouncementBanner';
 import VersionBadge from '../../../components/common/VersionBadge';
+import { useHardwareBack } from '@/hooks/useHardwareBack';
 
 function EmptyStateCarousel() {
   return (
@@ -112,6 +113,17 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
     }
     return null;
   });
+
+  // Android / Galaxy Hardware Back Button — step back 1 level at a time across Space tabs & overlays
+  useHardwareBack(financeTab !== 'summary', () => setFinanceTab('summary'), 'space-tab');
+  useHardwareBack(showFeatureMenu, () => setShowFeatureMenu(false), 'space-tools-menu');
+  useHardwareBack(showPartnersModal, () => setShowPartnersModal(false), 'space-partners');
+  useHardwareBack(showInviteModal, () => setShowInviteModal(false), 'space-invite-modal');
+  useHardwareBack(showInvite, () => setShowInvite(false), 'space-invite');
+  useHardwareBack(isAnnouncementEditorOpen, () => setIsAnnouncementEditorOpen(false), 'space-announcement');
+  useHardwareBack(isAddingExpense, () => setIsAddingExpense(false), 'space-add-expense');
+  useHardwareBack(isScannerOpen, () => setIsScannerOpen(false), 'space-scanner');
+  useHardwareBack(!!activeChatId, () => setActiveChatId(null), 'space-chat');
 
   const unreadChatCount = useMemo(() => {
     if (!user || !space || !space.features?.includes('chat')) return 0;

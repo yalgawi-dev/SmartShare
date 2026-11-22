@@ -34,8 +34,27 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
   const [regionSlices, setRegionSlices] = useState<RegionSliceState[]>([]);
   const regionSlice = regionSlices.length > 0 ? regionSlices[regionSlices.length - 1] : null;
   const setRegionSlice = (val: RegionSliceState | null) => {
-    if (!val) setRegionSlices([]);
-    else setRegionSlices((prev) => [...prev.slice(-24), val]);
+    if (!val) {
+      setRegionSlices((prev) => {
+        prev.forEach((s) => {
+          if (s.dataUrl?.startsWith('blob:')) {
+            try { URL.revokeObjectURL(s.dataUrl); } catch {}
+          }
+        });
+        return [];
+      });
+    } else {
+      setRegionSlices((prev) => {
+        if (prev.length >= 25) {
+          prev.slice(0, prev.length - 24).forEach((s) => {
+            if (s.dataUrl?.startsWith('blob:')) {
+              try { URL.revokeObjectURL(s.dataUrl); } catch {}
+            }
+          });
+        }
+        return [...prev.slice(-24), val];
+      });
+    }
   };
   const [isSlicing, setIsSlicing] = useState<boolean>(false);
   const pdfDocRef = React.useRef<any>(null);
@@ -63,8 +82,7 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
           if (onPagesLoaded) onPagesLoaded(cachedPages);
         }
 
-        await ensurePdfJsLoaded();
-
+        // Defer heavy PDF.js script download — PDFium WASM is the fast-path primary engine!
         let bytes: Uint8Array | null = null;
         // 1. Check in-memory Map
         const memoryCache = (window as any).__smartshare_pdf_bytes_cache || new Map<string, Uint8Array>();
@@ -109,49 +127,76 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
 
         if (!bytes) throw new Error('Failed to obtain PDF bytes');
 
-        const loadingTask = window.pdfjsLib.getDocument({ data: bytes.slice(), disableFontFace: true });
-        const pdf = await loadingTask.promise;
-        if (!isMounted) return;
-        pdfDocRef.current = pdf;
+        // Fast-path: Inspect PDF dimensions & pageCount in C++ PDFium WASM (<5ms) BEFORE touching heavy PDF.js!
+        let numPages = 1;
+        let pdfiumPage1W = 0;
+        let pdfiumPage1H = 0;
+        let pdf: any = null;
 
-        const numPages = pdf.numPages || 1;
+        try {
+          const { inspectPdfStructureWithPdfium } = await import('@/utils/pdfiumSliceRenderer');
+          const info = await inspectPdfStructureWithPdfium(bytes, url);
+          numPages = info.pageCount || 1;
+          pdfiumPage1W = info.pageWidthPt || 595;
+          pdfiumPage1H = info.pageHeightPt || 842;
+          const pMax = Math.max(pdfiumPage1W, pdfiumPage1H);
+          const pMin = Math.min(pdfiumPage1W, pdfiumPage1H);
+          isWideBlueprintRef.current = (pMax / Math.max(1, pMin)) >= 1.3 || pMax > 1200;
+        } catch (_) {
+          // Fallback to PDF.js only if PDFium structure inspection fails
+          await ensurePdfJsLoaded();
+          const loadingTask = window.pdfjsLib.getDocument({ data: bytes.slice(), disableFontFace: true });
+          pdf = await loadingTask.promise;
+          if (!isMounted) return;
+          pdfDocRef.current = pdf;
+          numPages = pdf.numPages || 1;
+        }
+
+        if (!isMounted) return;
         setTotalPageCount(numPages);
 
-        // If we already had cached pages and it covers all pages, we're done loading!
-        // But do NOT return early without setting up pdfDocRef.current and isWideBlueprintRef!
-        // (Otherwise zoom focus slicing and sharpen mechanisms won't work on cached files!)
+        // Lazy background PDF.js load ONLY if needed for fallback (does not block initial PDFium C++ paint!)
+        const ensurePdfJsDoc = async () => {
+          if (pdf) return pdf;
+          await ensurePdfJsLoaded();
+          const loadingTask = window.pdfjsLib.getDocument({ data: bytes!.slice(), disableFontFace: true });
+          pdf = await loadingTask.promise;
+          pdfDocRef.current = pdf;
+          return pdf;
+        };
+
+        // If we already had cached pages and it covers all pages, we're done loading immediately!
         if (cachedPages && cachedPages.length >= numPages) {
-          try {
-            const firstPage = await pdf.getPage(1);
-            const unscaledViewport = firstPage.getViewport({ scale: 1.0 });
-            const currentMax = Math.max(unscaledViewport.width, unscaledViewport.height);
-            const currentMin = Math.min(unscaledViewport.width, unscaledViewport.height);
-            const aspectRatio = currentMax / Math.max(1, currentMin);
-            isWideBlueprintRef.current = aspectRatio >= 1.3 || currentMax > 1200;
-          } catch (_) {}
           return;
         }
 
         const renderPageCanvas = async (pageNum: number) => {
-          const page = await pdf.getPage(pageNum);
-          const unscaledViewport = page.getViewport({ scale: 1.0 });
-          const currentMax = Math.max(unscaledViewport.width, unscaledViewport.height);
-          const currentMin = Math.min(unscaledViewport.width, unscaledViewport.height);
+          let unscaledW = pdfiumPage1W;
+          let unscaledH = pdfiumPage1H;
+          let page: any = null;
+
+          if (pageNum > 1 || !unscaledW || !unscaledH) {
+            const pdfDoc = await ensurePdfJsDoc();
+            page = await pdfDoc.getPage(pageNum);
+            const vp = page.getViewport({ scale: 1.0 });
+            unscaledW = vp.width;
+            unscaledH = vp.height;
+          }
+
+          const currentMax = Math.max(unscaledW, unscaledH);
+          const currentMin = Math.min(unscaledW, unscaledH);
           const aspectRatio = currentMax / Math.max(1, currentMin);
           if (pageNum === 1) {
             isWideBlueprintRef.current = aspectRatio >= 1.3 || currentMax > 1200;
           }
 
-          // For blueprints / megilot / CAD (aspect ratio >= 2.5): guarantee short axis is at least 2200px
-          // so every CAD measurement number and fine line is crystal clear!
-          // For standard A4 documents: render at 2600px (Retina 3x) so text stays razor-sharp even when zooming in without needing focus slicing!
           let scale: number;
           const isMobileDevice = typeof window !== 'undefined' && window.innerWidth < 768;
           if (aspectRatio >= 2.5) {
             // Wide architectural blueprints (Garmoshka): cap pixel budget on mobile for 2-3x faster open & low RAM
             const targetByMin = (isMobileDevice ? 1600 : 2200) / currentMin;
             const pixelBudget = isMobileDevice ? 16000000 : 32000000;
-            const maxBudget = Math.sqrt(pixelBudget / (unscaledViewport.width * unscaledViewport.height));
+            const maxBudget = Math.sqrt(pixelBudget / (unscaledW * unscaledH));
             scale = Math.min(1.0, Math.min(targetByMin, maxBudget));
           } else {
             const targetMax = isMobileDevice ? 1900 : 2600;
@@ -163,8 +208,8 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
             const initSessionId = pageNum === 1 ? `pdf_init_${Date.now()}` : null;
             if (initSessionId) viewerMetrics.startSession(initSessionId, 'pdf');
             try {
-              const fullW = unscaledViewport.width * scale;
-              const fullH = unscaledViewport.height * scale;
+              const fullW = unscaledW * scale;
+              const fullH = unscaledH * scale;
               const isWideBlueprint = pageNum === 1 && aspectRatio >= 2.5;
               // Instant First Paint: 32% preview pass on wide blueprints (~2.5x fewer pixels = instant open!)
               const initialW = isWideBlueprint ? Math.max(800, Math.round(fullW * 0.32)) : fullW;
@@ -185,13 +230,17 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
                 viewerMetrics.endSession(initSessionId, true);
               }
 
-              // Progressive HD upgrade in background for wide blueprints
-              // Defer by 150ms so the browser paints the initial image + indicator first!
+              // Progressive HD upgrade in background for wide blueprints.
+              // Defer by 650ms and skip if user already zoomed in (Focus Slicing handles zoomed view directly!).
               if (isWideBlueprint) {
                 setBgUpgrading(true);
                 setBgUpgradeDone(false);
                 setTimeout(() => {
                   if (!isMounted) return;
+                  if (transformStateRef.current.scale > 1.35) {
+                    setBgUpgrading(false);
+                    return;
+                  }
                   renderFullPageWithPdfium({
                     pdfBytes: bytes,
                     docKey: url,
@@ -208,7 +257,7 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
                   }).catch(() => {
                     if (isMounted) setBgUpgrading(false);
                   });
-                }, 150);
+                }, 650);
               }
 
               return dataUrl;
@@ -221,7 +270,10 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
             }
           }
 
-          const viewport = page.getViewport({ scale });
+          // Fallback to PDF.js only if PDFium failed
+          const pdfDoc = await ensurePdfJsDoc();
+          const fallbackPage = page || await pdfDoc.getPage(pageNum);
+          const viewport = fallbackPage.getViewport({ scale });
           const canvas = document.createElement('canvas');
           canvas.width = viewport.width;
           canvas.height = viewport.height;
@@ -229,7 +281,7 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
           if (ctx) {
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-            await page.render({ canvasContext: ctx, viewport }).promise;
+            await fallbackPage.render({ canvasContext: ctx, viewport }).promise;
             return compressCanvasWebP(canvas, 0.92);
           }
           return '';
@@ -290,10 +342,12 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
     };
   }, [url]);
 
-  // High-Resolution Local Viewport Slicing:
+  // High-Resolution Local Viewport Slicing (100% PDFium-Native Fast-Path, zero PDF.js required!):
   // Renders ONLY the currently visible on-screen rectangle at razor-sharp vector scale!
   const handleRenderFocusedRegion = async () => {
-    if (!pdfDocRef.current || isSlicing) return;
+    const memoryCache = (typeof window !== 'undefined' ? (window as any).__smartshare_pdf_bytes_cache : undefined) as Map<string, Uint8Array> | undefined;
+    const pdfBytes = memoryCache?.get(url);
+    if ((!pdfBytes && !pdfDocRef.current) || isSlicing) return;
     const wrapper = wrapperRef.current;
     const img = imgRef.current;
     if (!wrapper || !img) return;
@@ -330,57 +384,15 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
       const normW = visibleWidth / imgRect.width;
       const normH = visibleHeight / imgRect.height;
 
-      // Map to PDF Page 1 vector space
-      viewerMetrics.recordStep(sliceSessionId, 'טוען עמוד 1 מ-PDF.js');
-      const page = await pdfDocRef.current.getPage(1);
-      const unscaledViewport = page.getViewport({ scale: 1.0 });
+      // Retina 2x DPR cap on mobile (2.25x faster than 3x DPR on Galaxy screens, visually identical sharpness!)
+      const isMobileDevice = typeof window !== 'undefined' && window.innerWidth < 768;
+      const maxDpr = isMobileDevice ? 2 : 2.5;
+      const dpr = Math.min(maxDpr, typeof window !== 'undefined' ? (window.devicePixelRatio || 2) : 2);
+      const canvasW = Math.max(1, Math.round(visibleWidth * dpr));
+      const canvasH = Math.max(1, Math.round(visibleHeight * dpr));
 
-      const pdfX = normX * unscaledViewport.width;
-      const pdfY = normY * unscaledViewport.height;
-      const pdfW = normW * unscaledViewport.width;
-      const pdfH = normH * unscaledViewport.height;
-
-      // Device Pixel Ratio for retina-grade sharpness (2x to 3x)
-      const dpr = Math.min(3, typeof window !== 'undefined' ? (window.devicePixelRatio || 2) : 2);
-      const canvasW = Math.round(visibleWidth * dpr);
-      const canvasH = Math.round(visibleHeight * dpr);
-
-      viewerMetrics.recordStep(sliceSessionId, `הקצאת קנבס חיתוך (${canvasW}x${canvasH} px, DPR=${dpr})`);
-
-      // Dedicated slice canvas sized EXACTLY to screen viewport (typically ~800x1600 px = 1.2MP only!)
-      const canvas = document.createElement('canvas');
-      canvas.width = canvasW;
-      canvas.height = canvasH;
-      const ctx = canvas.getContext('2d');
-
-      if (!ctx) {
-        setIsSlicing(false);
-        viewerMetrics.endSession(sliceSessionId, false, 'שגיאת יצירת Canvas 2D');
-        return;
-      }
-
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, canvasW, canvasH);
-
-      // Calculate slice scale relative to PDF space
-      const renderScale = Math.min(canvasW / pdfW, canvasH / pdfH);
-
-      // Build target viewport at the exact renderScale
-      const scaledViewport = page.getViewport({ scale: renderScale });
-
-      const transform = [
-        1,
-        0,
-        0,
-        1,
-        -pdfX * renderScale,
-        -pdfY * renderScale
-      ];
-
-      viewerMetrics.recordStep(sliceSessionId, 'מתחיל רינדור וקטורי (PDFium WASM)');
+      viewerMetrics.recordStep(sliceSessionId, `מתחיל רינדור וקטורי (PDFium WASM ${canvasW}x${canvasH}px, DPR=${dpr})`);
       let sliceDataUrl: string | null = null;
-      const memoryCache = (window as any).__smartshare_pdf_bytes_cache as Map<string, Uint8Array> | undefined;
-      const pdfBytes = memoryCache?.get(url);
       if (pdfBytes) {
         try {
           const { renderSliceWithPdfium } = await import('@/utils/pdfiumSliceRenderer');
@@ -392,19 +404,52 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
             normY,
             normW,
             normH,
-            canvasW: canvas.width,
-            canvasH: canvas.height,
+            canvasW,
+            canvasH,
+            onStep: (lbl) => viewerMetrics.recordStep(sliceSessionId, lbl),
           });
           viewerMetrics.recordStep(sliceSessionId, 'רינדור PDFium WASM הושלם');
         } catch (pdfiumErr: any) {
           console.warn('[PDFium] Fallback to PDF.js:', pdfiumErr);
           viewerMetrics.recordStep(sliceSessionId, `PDFium נכשל (${pdfiumErr?.message || 'שגיאה'}), עובר ל-PDF.js`);
         }
-      } else {
-        viewerMetrics.recordStep(sliceSessionId, 'אין pdfBytes בזיכרון, עובר ל-PDF.js');
       }
 
       if (!sliceDataUrl) {
+        // Lazy fallback to PDF.js only if PDFium failed
+        if (!pdfDocRef.current && pdfBytes) {
+          await ensurePdfJsLoaded();
+          const pdfjsLib = (window as any).pdfjsLib;
+          if (pdfjsLib) {
+            pdfDocRef.current = await pdfjsLib.getDocument({ data: pdfBytes.slice() }).promise;
+          }
+        }
+        if (!pdfDocRef.current) {
+          throw new Error('לא ניתן לטעון מנוע חידוד חלופי');
+        }
+        const page = await pdfDocRef.current.getPage(1);
+        const unscaledViewport = page.getViewport({ scale: 1.0 });
+        const pdfX = normX * unscaledViewport.width;
+        const pdfY = normY * unscaledViewport.height;
+        const pdfW = normW * unscaledViewport.width;
+        const pdfH = normH * unscaledViewport.height;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = canvasW;
+        canvas.height = canvasH;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          setIsSlicing(false);
+          viewerMetrics.endSession(sliceSessionId, false, 'שגיאת יצירת Canvas 2D');
+          return;
+        }
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvasW, canvasH);
+
+        const renderScale = Math.min(canvasW / pdfW, canvasH / pdfH);
+        const scaledViewport = page.getViewport({ scale: renderScale });
+        const transform = [1, 0, 0, 1, -pdfX * renderScale, -pdfY * renderScale];
+
         await page.render({
           canvasContext: ctx,
           viewport: scaledViewport,

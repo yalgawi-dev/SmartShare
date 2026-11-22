@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAssistant } from './AssistantContext';
+import { useHardwareBack } from '@/hooks/useHardwareBack';
 import { useAuth } from '@/app/context/AuthContext';
 import { APP_VERSION } from '@/constants/version';
 import {
@@ -70,6 +71,11 @@ export const GlobalAssistantDrawer: React.FC = () => {
   const [bugSentSuccess, setBugSentSuccess] = useState(false);
   const videoRecorderRef = useRef<LiveBugVideoRecorder | null>(null);
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Android / Galaxy Hardware Back Button closes Assistant overlays step-by-step (Lightbox -> Bug Composer -> Drawer)
+  useHardwareBack(Boolean(lightboxMedia), () => setLightboxMedia(null), 'assistant_lightbox');
+  useHardwareBack(isOpen && isBugComposerOpen && !lightboxMedia, () => setIsBugComposerOpen(false), 'assistant_bug_composer');
+  useHardwareBack(isOpen && !isBugComposerOpen && !lightboxMedia, () => setIsOpen(false), 'assistant_drawer');
 
   const setScreenshotWithPreview = (blob: Blob | null) => {
     if (bugScreenshotUrl) URL.revokeObjectURL(bugScreenshotUrl);

@@ -543,8 +543,21 @@ export async function getCachedPdfPages(url: string): Promise<string[] | null> {
         getReq.onsuccess = () => {
           const res = getReq.result;
           if (res && Array.isArray(res) && res.length > 0) {
-            pdfPagesMemoryCache.set(url, res);
-            resolve(res);
+            // Rehydrate native binary Blobs into fresh ObjectURLs (Rule 21: Zero Base64!)
+            // Reject stale 'blob:' strings from previous sessions so they re-render cleanly.
+            const hydrated: string[] = [];
+            for (const item of res) {
+              if (item instanceof Blob) {
+                hydrated.push(URL.createObjectURL(item));
+              } else if (typeof item === 'string' && !item.startsWith('blob:')) {
+                hydrated.push(item);
+              } else {
+                resolve(null);
+                return;
+              }
+            }
+            pdfPagesMemoryCache.set(url, hydrated);
+            resolve(hydrated);
           } else {
             resolve(null);
           }
@@ -563,10 +576,20 @@ export async function setCachedPdfPages(url: string, pages: string[]): Promise<v
   if (typeof window === 'undefined' || !pages || pages.length === 0) return;
   pdfPagesMemoryCache.set(url, pages);
   try {
+    // Convert ephemeral blob: URLs to persistent native Binary Blobs before storing in IndexedDB (Rule 21)
+    const persistable: Array<Blob | string> = await Promise.all(
+      pages.map(async (p) => {
+        if (typeof p === 'string' && p.startsWith('blob:')) {
+          const res = await fetch(p);
+          return await res.blob();
+        }
+        return p;
+      })
+    );
     const db = await openPdfCacheDb();
     const tx = db.transaction(PDF_CACHE_STORE, 'readwrite');
     const store = tx.objectStore(PDF_CACHE_STORE);
-    store.put(pages, url);
+    store.put(persistable, url);
   } catch {}
 }
 

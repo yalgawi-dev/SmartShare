@@ -26,6 +26,7 @@ import { DuplicateWarningModal } from './DuplicateWarningModal';
 import { CreateShareLinkModal } from '../FileShare/CreateShareLinkModal';
 import { ImportExistingFileModal } from '../FileShare/ImportExistingFileModal';
 import { FileShareItem, ShareLinkConfig } from '@/utils/fileShareUtils';
+import { useHardwareBackStep } from '@/hooks/useHardwareBack';
 
 export interface DocumentsWidgetRef {
   addDocument: (url: string, type: 'document' | 'image' | 'pdf', allPages?: string[], targetEventId?: string, explicitShelfId?: string, bypassDuplicateCheck?: boolean, explicitFolderId?: string | null, initialFileName?: string) => Promise<string | undefined>;
@@ -622,11 +623,8 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
     }
   }, [shelves]);
 
-  // Android / Galaxy Hardware Back Button & 1-Step Back Navigation (Single Source of Truth)
+  // Android / Galaxy Hardware Back Button & 1-Step Back Navigation (Single Global LIFO Stack)
   // Step-by-step: child folder -> parent folder -> shelf root -> shelves list -> space/home!
-  const isPopStateNavigatingRef = useRef(false);
-  const lastPushedNavKeyRef = useRef<string>('root');
-
   const navigateBackOneStep = React.useCallback((): boolean => {
     if (!activeShelfId) return false;
     if (currentFolderId) {
@@ -638,40 +636,10 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
     return true;
   }, [activeShelfId, currentFolderId, space.documentFolders]);
 
-  // Push browser history state whenever user enters a shelf, folder, or nested child folder
-  React.useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const navKey = `${activeShelfId || 'none'}::${currentFolderId || 'root'}`;
-    if (isPopStateNavigatingRef.current) {
-      isPopStateNavigatingRef.current = false;
-      lastPushedNavKeyRef.current = navKey;
-      return;
-    }
-    if (navKey !== lastPushedNavKeyRef.current && (activeShelfId || currentFolderId)) {
-      try {
-        window.history.pushState(
-          { ...(window.history.state || {}), __vaultNav: true, shelfId: activeShelfId, folderId: currentFolderId },
-          ''
-        );
-        lastPushedNavKeyRef.current = navKey;
-      } catch (_) {}
-    } else if (!activeShelfId && !currentFolderId) {
-      lastPushedNavKeyRef.current = 'none::root';
-    }
-  }, [activeShelfId, currentFolderId]);
-
-  // Intercept Android/Galaxy Hardware Back Button (popstate) to step back 1 level instead of jumping to home!
-  React.useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const handlePopState = () => {
-      if (activeShelfId || currentFolderId) {
-        isPopStateNavigatingRef.current = true;
-        navigateBackOneStep();
-      }
-    };
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, [activeShelfId, currentFolderId, navigateBackOneStep]);
+  const vaultBackStepKey = activeShelfId ? `${activeShelfId}::${currentFolderId || 'root'}` : null;
+  useHardwareBackStep(vaultBackStepKey, () => {
+    navigateBackOneStep();
+  }, 'vault-folder');
 
   React.useEffect(() => {
     const handleBackStep = (e: any) => {

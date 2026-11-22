@@ -7,6 +7,7 @@ import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { downloadDocument, cleanDisplayTitle } from '@/utils/documentUtils';
 import DynamicPdfScrollPreview from '@/components/widgets/Vault/DynamicPdfScrollPreview';
 import { extractPdfPages } from '@/utils/imageOptimizer';
+import { useHardwareBack } from '@/hooks/useHardwareBack';
 
 const CadDocumentViewer = dynamic(() => import('@/components/widgets/Vault/CadDocumentViewer'), {
   ssr: false,
@@ -74,6 +75,9 @@ export default function UniversalViewerModal({
   useEffect(() => {
     if (onIndexChange) onIndexChange(currentIndex);
   }, [currentIndex, onIndexChange]);
+
+  // Android / Galaxy Hardware Back Button closes the viewer cleanly (1 step back) instead of leaving the page
+  useHardwareBack(true, onClose, 'universal_viewer');
 
   // Touch swipe handling
   const touchStartXRef = useRef<number | null>(null);

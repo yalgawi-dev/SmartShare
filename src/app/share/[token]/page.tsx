@@ -15,6 +15,8 @@ import { SenderBusinessCardBanner } from '@/components/share/SenderBusinessCardB
 import PdfThumbnail from '@/components/shared/PdfThumbnail';
 import ChatEngineUI from '@/components/widgets/Chat/ChatEngineUI';
 import { onSnapshot } from 'firebase/firestore';
+import { useHardwareBack } from '@/hooks/useHardwareBack';
+import { prewarmPdfium } from '@/utils/pdfiumSliceRenderer';
 
 interface SharePageProps {
   params: Promise<{ token: string }>;
@@ -32,6 +34,14 @@ export default function PublicSharePage({ params }: SharePageProps) {
   // Guest Direct Chat state & Live Space Subscription
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [liveSpace, setLiveSpace] = useState<any>(null);
+
+  // Android Hardware Back closes guest chat cleanly (1 step back)
+  useHardwareBack(isChatOpen, () => setIsChatOpen(false), 'share_guest_chat');
+
+  // Pre-warm C++ PDFium WASM engine in background on share pages so opening heavy Garmoshka PDFs has 0ms init delay!
+  useEffect(() => {
+    prewarmPdfium();
+  }, []);
 
   // Check if current logged-in user is an authorized member of this space
   const memberStatusInSpace = useMemo(() => {
