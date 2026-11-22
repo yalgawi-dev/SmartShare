@@ -171,14 +171,8 @@ export default function GlobalPWAPrompt() {
       } else if (platform === 'ios-safari' || platform === 'ios-chrome') {
         setShowGuide(true);
         setGuideMinimized(false);
-        // Proactively launch the Assistant in iOS Install Coach mode + speak instructions aloud!
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(
-            new CustomEvent('smartshare:start_ios_install_coach', {
-              detail: { isChromeIOS: platform === 'ios-chrome', autoSpeakNow: true }
-            })
-          );
-        }
+        // Auto-speak instructions immediately on user tap (NO double overlapping Assistant Drawer!)
+        void speakIosInstallGuide(platform === 'ios-chrome');
       }
     }
   };
@@ -297,42 +291,43 @@ export default function GlobalPWAPrompt() {
     );
   }
 
+  const speakIosInstallGuide = async (isChromeIOS: boolean) => {
+    if (isSpeakingGuide) return;
+    setIsSpeakingGuide(true);
+    const scriptText = isChromeIOS
+      ? 'כדי להתקין את מיי ספייס באייפון: שלב ראשון, לחץ על סמל השיתוף למעלה בשורת הכתובת. שלב שני, החלק למעלה על התפריט הלבן ובחר הוסף למסך הבית. שלב שלישי, לחץ הוסף בפינה העליונה.'
+      : 'כדי להתקין את מיי ספייס באייפון, אל תסגור את ההסבר. שלב ראשון, לחץ על סמל השיתוף הכחול למטה. שלב שני, החלק עם האצבע כלפי מעלה על התפריט הלבן שנפתח ובחר הוסף למסך הבית. שלב שלישי, לחץ הוסף בפינה העליונה.';
+    try {
+      const res = await fetch('/api/assistant/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: scriptText }),
+      });
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        audio.onended = () => {
+          URL.revokeObjectURL(url);
+          setIsSpeakingGuide(false);
+        };
+        audio.onerror = () => {
+          URL.revokeObjectURL(url);
+          setIsSpeakingGuide(false);
+        };
+        await audio.play();
+        return;
+      }
+    } catch {
+      // Silent fallback
+    }
+    setIsSpeakingGuide(false);
+  };
+
   // ── iOS Safari / iOS Chrome: Top-Anchored Live Coach (stays visible ABOVE Safari's Share Sheet!) + Minimized Floating Bubble ──
   if ((platform === 'ios-safari' || platform === 'ios-chrome') && showGuide) {
     const isChromeIOS = platform === 'ios-chrome';
-
-    const playVoiceGuide = async () => {
-      if (isSpeakingGuide) return;
-      setIsSpeakingGuide(true);
-      const scriptText = isChromeIOS
-        ? 'כדי להתקין את מיי ספייס באייפון: שלב ראשון, לחץ על סמל השיתוף למעלה בשורת הכתובת. שלב שני, גלול למטה בתפריט ובחר הוסף למסך הבית. שלב שלישי, לחץ הוסף בפינה העליונה.'
-        : 'כדי להתקין את מיי ספייס באייפון, אל תסגור את ההסבר. שלב ראשון, לחץ על כפתור השיתוף הכחול בתחתית המסך, ריבוע עם חץ עולה למעלה. שלב שני, גלול מעט למטה בתפריט שנפתח ובחר הוסף למסך הבית. שלב שלישי, לחץ הוסף בפינה העליונה.';
-      try {
-        const res = await fetch('/api/assistant/tts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: scriptText }),
-        });
-        if (res.ok) {
-          const blob = await res.blob();
-          const url = URL.createObjectURL(blob);
-          const audio = new Audio(url);
-          audio.onended = () => {
-            URL.revokeObjectURL(url);
-            setIsSpeakingGuide(false);
-          };
-          audio.onerror = () => {
-            URL.revokeObjectURL(url);
-            setIsSpeakingGuide(false);
-          };
-          await audio.play();
-          return;
-        }
-      } catch {
-        // Silent fallback
-      }
-      setIsSpeakingGuide(false);
-    };
+    const playVoiceGuide = () => speakIosInstallGuide(isChromeIOS);
 
     const startDrag = (
       e: React.PointerEvent,
@@ -555,8 +550,8 @@ export default function GlobalPWAPrompt() {
                 <line x1="12" y1="8" x2="12" y2="16" />
                 <line x1="8" y1="12" x2="16" y2="12" />
               </svg>
-              <span style={{ fontSize: '0.8rem', fontWeight: 900, color: '#78350f' }}>
-                גלול למטה בתפריט ← בחר &quot;הוסף למסך הבית&quot;
+              <span style={{ fontSize: '0.78rem', fontWeight: 900, color: '#78350f' }}>
+                החלק למעלה על התפריט הלבן ☝️ ובחר &quot;הוסף למסך הבית&quot;
               </span>
             </div>
 
@@ -568,8 +563,31 @@ export default function GlobalPWAPrompt() {
             </div>
           </div>
 
-          {/* Collapsible Help Footer (no visual clutter!) */}
-          <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+          {/* Clean Action Footer: Open AI Screenshot Helper (minimizes top card so zero overlap!) */}
+          <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+            <button
+              type="button"
+              onClick={() => {
+                setGuideMinimized(true);
+                window.dispatchEvent(
+                  new CustomEvent('smartshare:start_ios_install_coach', {
+                    detail: { isChromeIOS, autoSpeakNow: false }
+                  })
+                );
+              }}
+              style={{
+                background: '#eef2ff',
+                border: '1px solid #c7d2fe',
+                color: '#3730a3',
+                borderRadius: '8px',
+                padding: '3px 8px',
+                fontSize: '0.7rem',
+                fontWeight: 800,
+                cursor: 'pointer',
+              }}
+            >
+              📸 הסתבכת? עזרה עם צילום מסך AI
+            </button>
             <button
               type="button"
               onClick={() => setShowIosHelp((v) => !v)}
@@ -577,18 +595,15 @@ export default function GlobalPWAPrompt() {
                 background: 'transparent',
                 border: 'none',
                 color: '#64748b',
-                fontSize: '0.72rem',
+                fontSize: '0.7rem',
                 fontWeight: 700,
                 cursor: 'pointer',
                 padding: '2px 0',
                 textDecoration: 'underline',
               }}
             >
-              {showIosHelp ? 'הסתר עזרה ▴' : '💡 לא רואה את סמל השיתוף?'}
+              {showIosHelp ? 'הסתר ▴' : 'לא רואה שיתוף?'}
             </button>
-            <span style={{ fontSize: '0.68rem', color: '#2563eb', fontWeight: 800 }}>
-              נשאר גלוי גם כשהתפריט נפתח ✓
-            </span>
           </div>
 
           {showIosHelp && (
