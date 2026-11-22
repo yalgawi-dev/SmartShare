@@ -3,35 +3,8 @@
 // This is the SINGLE SOURCE OF TRUTH (Engine) for all image compression in the app.
 
 // ============================================================================
-// PDF DUAL-CHECK DETECTION (Digital-Born & Electronic Signatures)
+// PDF STRUCTURE DETECTION (100% Pure C++ PDFium WASM - ADR-006)
 // ============================================================================
-
-let pdfjsLoadPromise: Promise<any> | null = null;
-
-/**
- * Single Source of Truth loader for PDF.js library (DRY Principle - Rules 2 & 4)
- */
-export async function ensurePdfJsLoaded(): Promise<any> {
-  if (typeof window === 'undefined') return null;
-  if ((window as any).pdfjsLib) return (window as any).pdfjsLib;
-  if (!pdfjsLoadPromise) {
-    pdfjsLoadPromise = new Promise((resolve, reject) => {
-      const script = document.createElement('script');
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-      script.onload = () => {
-        if ((window as any).pdfjsLib) {
-          (window as any).pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-          resolve((window as any).pdfjsLib);
-        } else {
-          reject(new Error('pdfjsLib not found on window'));
-        }
-      };
-      script.onerror = reject;
-      document.head.appendChild(script);
-    });
-  }
-  return pdfjsLoadPromise;
-}
 
 export interface PdfAnalysisResult {
   hasDigitalSignature: boolean;
@@ -91,12 +64,11 @@ export async function analyzePdfStructure(arrayBuffer: ArrayBuffer): Promise<Pdf
   let hasFullPageImage = false;
   let inspectedByPdfium = false;
 
-  // 2. Primary Engine: C++ PDFium WASM structure inspection (ADR-006)
+  // 2. Primary Engine: 100% Pure C++ PDFium WASM structure inspection (ADR-006)
   if (typeof window !== 'undefined') {
     try {
       const { inspectPdfStructureWithPdfium } = await import('./pdfiumSliceRenderer');
       const info = await inspectPdfStructureWithPdfium(bytes, `analyze_${fileSize}_${bytes[0]}_${bytes[bytes.length - 1]}`);
-      inspectedByPdfium = true;
       pageCount = info.pageCount;
       if (info.signatureCount > 0) {
         hasDigitalSignature = true;
@@ -105,38 +77,7 @@ export async function analyzePdfStructure(arrayBuffer: ArrayBuffer): Promise<Pdf
       hasVectorPaths = info.hasVectorPaths;
       hasFullPageImage = info.hasImageObjects;
     } catch (pdfiumErr) {
-      console.warn('PDFium structure inspection fallback to PDF.js:', pdfiumErr);
-    }
-  }
-
-  // 3. Fallback to PDF.js only if PDFium WASM wasn't available
-  if (!inspectedByPdfium) {
-    try {
-      const pdfjs = await ensurePdfJsLoaded();
-      if (pdfjs) {
-        const task = pdfjs.getDocument({ data: bytes.slice(), disableFontFace: true });
-        const pdf = await task.promise;
-        pageCount = pdf.numPages || 1;
-
-        if (pageCount > 0) {
-          const page1 = await pdf.getPage(1);
-          const textData = await page1.getTextContent();
-          if (Array.isArray(textData.items)) {
-            const totalTextChars = textData.items.reduce((sum: number, item: any) => sum + (typeof item?.str === 'string' ? item.str.trim().length : 0), 0);
-            hasTextItems = totalTextChars >= 10;
-          }
-
-          const opList = await page1.getOperatorList();
-          if (opList && opList.fnArray) {
-            const OPS = pdfjs.OPS || {};
-            const paintImageCode = OPS.paintImageXObject ?? 85;
-            const paintInlineCode = OPS.paintInlineImageXObject ?? 86;
-            hasFullPageImage = opList.fnArray.some((fn: number) => fn === paintImageCode || fn === paintInlineCode);
-          }
-        }
-      }
-    } catch (err) {
-      console.warn('PDF.js structure deep inspection fallback:', err);
+      console.warn('[PDFium] Structure inspection warning:', pdfiumErr);
     }
   }
 
@@ -346,117 +287,12 @@ export async function compressImage(file: File, maxWidth = 1200, maxHeight = 120
 export async function convertPdfToOptimizedImage(pdfSource: string, maxDim = 1200, quality = 0.80): Promise<string> {
   if (typeof window === 'undefined') return pdfSource;
   try {
-    await ensurePdfJsLoaded();
-
-    let bytes: Uint8Array;
-    if (pdfSource.startsWith('data:')) {
-      const base64Data = pdfSource.includes('base64,') ? pdfSource.split('base64,')[1] : pdfSource;
-      const binaryString = window.atob(base64Data);
-      bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-    } else {
-      const res = await fetch(pdfSource);
-      const arrayBuffer = await res.arrayBuffer();
-      bytes = new Uint8Array(arrayBuffer);
-    }
-
-    const loadingTask = window.pdfjsLib.getDocument({ data: bytes });
-    const pdf = await loadingTask.promise;
-    const numPages = pdf.numPages || 1;
-
-    const renderedCanvases: HTMLCanvasElement[] = [];
-    let maxWidth = 0;
-
-    for (let pageNum = 1; pageNum <= numPages; pageNum++) {
-      const page = await pdf.getPage(pageNum);
-      const unscaledViewport = page.getViewport({ scale: 1.0 });
-      const currentMax = Math.max(unscaledViewport.width, unscaledViewport.height);
-      const currentMin = Math.min(unscaledViewport.width, unscaledViewport.height);
-      const aspectRatio = currentMax / Math.max(1, currentMin);
-
-      let scale: number;
-      if (aspectRatio >= 2.5) {
-        const targetScaleByMin = 1800 / currentMin;
-        const maxBudgetScale = Math.sqrt(18000000 / (unscaledViewport.width * unscaledViewport.height));
-        scale = Math.min(1.0, Math.min(targetScaleByMin, maxBudgetScale));
-      } else {
-        scale = Math.min(1.8, Math.max(0.2, maxDim / currentMax));
-      }
-
-      const viewport = page.getViewport({ scale });
-
-      const pageCanvas = document.createElement('canvas');
-      pageCanvas.width = viewport.width;
-      pageCanvas.height = viewport.height;
-      const pageCtx = pageCanvas.getContext('2d');
-      if (pageCtx) {
-        pageCtx.fillStyle = '#ffffff';
-        pageCtx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
-        await page.render({ canvasContext: pageCtx, viewport }).promise;
-        renderedCanvases.push(pageCanvas);
-        if (pageCanvas.width > maxWidth) {
-          maxWidth = pageCanvas.width;
-        }
-      }
-    }
-
-    if (renderedCanvases.length === 0) {
-      return pdfSource;
-    }
-
-    if (renderedCanvases.length === 1) {
-      return compressCanvas(renderedCanvases[0], quality);
-    }
-
-    // Stitch all pages vertically into a continuous scroll ("Megilah")
-    const gap = 24;
-    const paddingX = 20;
-    const paddingY = 20;
-    const canvasWidth = maxWidth + paddingX * 2;
-    const totalHeight = paddingY * 2 + renderedCanvases.reduce((sum, c) => sum + (maxWidth / c.width) * c.height, 0) + (renderedCanvases.length - 1) * gap;
-
-    const scrollCanvas = document.createElement('canvas');
-    scrollCanvas.width = canvasWidth;
-    scrollCanvas.height = totalHeight;
-    const scrollCtx = scrollCanvas.getContext('2d');
-    if (!scrollCtx) return compressCanvas(renderedCanvases[0], quality);
-
-    scrollCtx.fillStyle = '#0f172a';
-    scrollCtx.fillRect(0, 0, scrollCanvas.width, scrollCanvas.height);
-
-    let currentY = paddingY;
-    for (let i = 0; i < renderedCanvases.length; i++) {
-      const c = renderedCanvases[i];
-      const scaledH = (maxWidth / c.width) * c.height;
-
-      scrollCtx.save();
-      scrollCtx.shadowColor = 'rgba(0, 0, 0, 0.4)';
-      scrollCtx.shadowBlur = 12;
-      scrollCtx.shadowOffsetY = 4;
-      scrollCtx.fillStyle = '#ffffff';
-      scrollCtx.fillRect(paddingX, currentY, maxWidth, scaledH);
-      scrollCtx.restore();
-
-      scrollCtx.drawImage(c, paddingX, currentY, maxWidth, scaledH);
-
-      if (i < renderedCanvases.length - 1) {
-        const gapMiddleY = currentY + scaledH + gap / 2;
-        scrollCtx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-        scrollCtx.lineWidth = 1;
-        scrollCtx.beginPath();
-        scrollCtx.moveTo(paddingX + 40, gapMiddleY);
-        scrollCtx.lineTo(canvasWidth - paddingX - 40, gapMiddleY);
-        scrollCtx.stroke();
-      }
-
-      currentY += scaledH + gap;
-    }
-
-    return compressCanvas(scrollCanvas, quality);
+    const pages = await extractPdfPages(pdfSource, maxDim, quality);
+    if (!pages || pages.length === 0) return pdfSource;
+    if (pages.length === 1) return pages[0];
+    return await mergeImagesCleanly(pages);
   } catch (err) {
-    console.error('Failed to convert multi-page PDF to scroll image:', err);
+    console.error('[PDFium] Failed to convert PDF to scroll image:', err);
     return pdfSource;
   }
 }
@@ -593,78 +429,49 @@ export async function setCachedPdfPages(url: string, pages: string[]): Promise<v
   } catch {}
 }
 
-export async function generatePdfFirstPageThumbnail(source: Blob | string, maxDim = 800, quality = 0.80): Promise<string> {
+export async function generatePdfFirstPageThumbnail(source: Blob | string, maxDim = 800, _quality = 0.80): Promise<string> {
   if (typeof window === 'undefined') return '';
 
-  await ensurePdfJsLoaded();
-
-  let loadingTask: any;
+  let bytes: Uint8Array;
+  let docKey = '';
   if (source instanceof Blob) {
-    const arrayBuffer = await source.arrayBuffer();
-    loadingTask = window.pdfjsLib.getDocument({
-      data: new Uint8Array(arrayBuffer),
-      stopAtErrors: true,
-      disableFontFace: true
-    });
+    bytes = new Uint8Array(await source.arrayBuffer());
+    docKey = `upload_${source.size}_${source.type}`;
   } else if (typeof source === 'string') {
+    docKey = source;
     if (source.startsWith('data:')) {
       const base64Data = source.includes('base64,') ? source.split('base64,')[1] : source;
       const binaryString = window.atob(base64Data);
-      const bytes = new Uint8Array(binaryString.length);
+      bytes = new Uint8Array(binaryString.length);
       for (let i = 0; i < binaryString.length; i++) {
         bytes[i] = binaryString.charCodeAt(i);
       }
-      loadingTask = window.pdfjsLib.getDocument({
-        data: bytes,
-        stopAtErrors: true,
-        disableFontFace: true
-      });
     } else {
-      loadingTask = window.pdfjsLib.getDocument({
-        url: source,
-        stopAtErrors: true,
-        disableFontFace: true
-      });
+      let res = await fetch(source).catch(() => null);
+      if (!res || !res.ok) {
+        res = await fetch(`/api/pdf-proxy?url=${encodeURIComponent(source)}`);
+      }
+      bytes = new Uint8Array(await res.arrayBuffer());
     }
   } else {
     throw new Error('Unsupported PDF source for thumbnail');
   }
 
-  const pdf = await loadingTask.promise;
-  const page = await pdf.getPage(1);
-  const unscaledViewport = page.getViewport({ scale: 1.0 });
-  const currentMax = Math.max(unscaledViewport.width, unscaledViewport.height);
-  const scale = Math.min(1.5, maxDim / currentMax);
-  const viewport = page.getViewport({ scale: Math.max(0.3, scale) });
+  // 100% Pure C++ PDFium WASM thumbnail generation
+  const { inspectPdfStructureWithPdfium, renderFullPageWithPdfium } = await import('./pdfiumSliceRenderer');
+  const info = await inspectPdfStructureWithPdfium(bytes, docKey);
+  const wPt = info.pageWidthPt || 595;
+  const hPt = info.pageHeightPt || 842;
+  const currentMax = Math.max(wPt, hPt);
+  const scale = Math.max(0.3, Math.min(1.5, maxDim / currentMax));
 
-  // Fast-path: use C++ PDFium WASM for thumbnail generation
-  if (source instanceof Blob) {
-    try {
-      const bytes = new Uint8Array(await source.arrayBuffer());
-      const { renderFullPageWithPdfium } = await import('./pdfiumSliceRenderer');
-      return await renderFullPageWithPdfium({
-        pdfBytes: bytes,
-        docKey: `upload_${source.size}_${source.type}`,
-        pageIndex: 0,
-        targetW: viewport.width,
-        targetH: viewport.height,
-      });
-    } catch {
-      // Fallback to PDF.js below
-    }
-  }
-
-  const canvas = document.createElement('canvas');
-  canvas.width = viewport.width;
-  canvas.height = viewport.height;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Could not get 2d context for PDF thumbnail');
-
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  await page.render({ canvasContext: ctx, viewport }).promise;
-
-  return compressCanvasWebP(canvas, quality);
+  return await renderFullPageWithPdfium({
+    pdfBytes: bytes,
+    docKey,
+    pageIndex: 0,
+    targetW: Math.max(1, Math.round(wPt * scale)),
+    targetH: Math.max(1, Math.round(hPt * scale)),
+  });
 }
 
 export async function extractPdfPages(
@@ -714,77 +521,17 @@ export async function extractPdfPages(
       return [];
     }
 
-    // 1. Primary Engine: C++ PDFium WASM (ADR-006 - 10x faster than PDF.js)
-    try {
-      const { extractAllPagesWithPdfium } = await import('./pdfiumSliceRenderer');
-      const docKey = cacheKey || `blob_${bytes.byteLength}_${bytes[0] || 0}`;
-      const pdfiumPages = await extractAllPagesWithPdfium(bytes, docKey, maxDim, onProgress);
-      if (pdfiumPages && pdfiumPages.length > 0) {
-        if (cacheKey) {
-          setCachedPdfPages(cacheKey, pdfiumPages).catch(() => {});
-        }
-        return pdfiumPages;
+    // 100% Pure C++ PDFium WASM (ADR-006)
+    const { extractAllPagesWithPdfium } = await import('./pdfiumSliceRenderer');
+    const docKey = cacheKey || `blob_${bytes.byteLength}_${bytes[0] || 0}`;
+    const pdfiumPages = await extractAllPagesWithPdfium(bytes, docKey, maxDim, onProgress);
+    if (pdfiumPages && pdfiumPages.length > 0) {
+      if (cacheKey) {
+        setCachedPdfPages(cacheKey, pdfiumPages).catch(() => {});
       }
-    } catch (pdfiumErr) {
-      console.warn('PDFium page extraction fallback to PDF.js:', pdfiumErr);
+      return pdfiumPages;
     }
-
-    // 2. Fallback to PDF.js only if PDFium WASM failed
-    await ensurePdfJsLoaded();
-    const loadingTask = window.pdfjsLib.getDocument({ data: bytes.slice(), disableFontFace: true });
-    const pdf = await loadingTask.promise;
-    const numPages = pdf.numPages || 1;
-    const pageUrls: string[] = [];
-
-    for (let pageNum = 1; pageNum <= numPages; pageNum++) {
-      onProgress?.(pageNum, numPages);
-      if (pageNum > 1) {
-        await new Promise(resolve => setTimeout(resolve, 0));
-      }
-
-      // Adaptive budget: if > 4 pages and page >= 4, throttle resolution
-      const effectiveMaxDim = (numPages > 4 && pageNum > 3)
-        ? Math.min(maxDim, 1450)
-        : maxDim;
-
-      const page = await pdf.getPage(pageNum);
-      const unscaledViewport = page.getViewport({ scale: 1.0 });
-      const currentMax = Math.max(unscaledViewport.width, unscaledViewport.height);
-      const currentMin = Math.min(unscaledViewport.width, unscaledViewport.height);
-      const aspectRatio = currentMax / Math.max(1, currentMin);
-
-      let scale: number;
-      if (aspectRatio >= 2.5) {
-        const isHighResRequest = effectiveMaxDim >= 3000;
-        const targetDim = isHighResRequest ? 2400 : 1800;
-        const maxPixels = isHighResRequest ? 30000000 : 18000000;
-        const targetScaleByMin = targetDim / currentMin;
-        const maxBudgetScale = Math.sqrt(maxPixels / (unscaledViewport.width * unscaledViewport.height));
-        scale = Math.min(1.0, Math.min(targetScaleByMin, maxBudgetScale));
-      } else {
-        scale = Math.min(3.2, Math.max(0.5, effectiveMaxDim / currentMax));
-      }
-
-      const viewport = page.getViewport({ scale });
-
-      const pageCanvas = document.createElement('canvas');
-      pageCanvas.width = viewport.width;
-      pageCanvas.height = viewport.height;
-      const pageCtx = pageCanvas.getContext('2d');
-      if (pageCtx) {
-        pageCtx.fillStyle = '#ffffff';
-        pageCtx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
-        await page.render({ canvasContext: pageCtx, viewport }).promise;
-        const effectiveQuality = (numPages > 4 && pageNum > 3) ? Math.min(quality, 0.82) : quality;
-        pageUrls.push(compressCanvasWebP(pageCanvas, effectiveQuality));
-      }
-    }
-
-    if (cacheKey && pageUrls.length > 0) {
-      setCachedPdfPages(cacheKey, pageUrls).catch(() => {});
-    }
-
-    return pageUrls;
+    return [];
   } catch (err) {
     console.error('Failed to extract PDF pages:', err);
     return [];

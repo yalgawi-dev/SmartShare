@@ -1,18 +1,10 @@
 'use client';
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  ensurePdfJsLoaded,
   getCachedPdfPages,
   getCachedPdfBytes,
   setCachedPdfBytes,
 } from '@/utils/imageOptimizer';
-
-// Declare global pdfjsLib to avoid TS errors
-declare global {
-  interface Window {
-    pdfjsLib: any;
-  }
-}
 
 interface PdfThumbnailProps {
   base64Uri?: string;
@@ -24,15 +16,14 @@ interface PdfThumbnailProps {
 export default function PdfThumbnail({ base64Uri, url, style, onClick }: PdfThumbnailProps) {
   const [imgSrc, setImgSrc] = useState<string | null>(null);
   const [error, setError] = useState<boolean>(false);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const targetPdf = url || base64Uri;
 
   useEffect(() => {
     let isMounted = true;
     if (!targetPdf) return;
-    
+
     const renderPdf = async () => {
-      // Safety timeout: NEVER leave user staring at an infinite hourglass!
+      // Safety timeout: NEVER leave user staring at an infinite spinner!
       const safetyTimer = setTimeout(() => {
         if (isMounted) setError(true);
       }, 12000);
@@ -48,7 +39,7 @@ export default function PdfThumbnail({ base64Uri, url, style, onClick }: PdfThum
           }
         }
 
-        // 2. Fast-path: IndexedDB / memory bytes cache or fetch -> PDFium Web Worker
+        // 2. Load PDF bytes (memory cache -> IndexedDB -> fetch / proxy)
         let bytes: Uint8Array | null = null;
         const memCache = (typeof window !== 'undefined' ? (window as any).__smartshare_pdf_bytes_cache : null) as Map<string, Uint8Array> | null;
         if (memCache?.has(targetPdf)) {
@@ -68,70 +59,32 @@ export default function PdfThumbnail({ base64Uri, url, style, onClick }: PdfThum
           }
         }
 
-        if (bytes && bytes.byteLength > 0) {
-          try {
-            const { inspectPdfStructureWithPdfium, renderFullPageWithPdfium } = await import('@/utils/pdfiumSliceRenderer');
-            const info = await inspectPdfStructureWithPdfium(bytes, targetPdf);
-            const ratio = (info.pageWidthPt || 595) / Math.max(1, info.pageHeightPt || 842);
-            const maxDim = 360;
-            const targetW = ratio >= 1 ? maxDim : Math.max(120, Math.round(maxDim * ratio));
-            const targetH = ratio >= 1 ? Math.max(120, Math.round(maxDim / ratio)) : maxDim;
-            const thumbUrl = await renderFullPageWithPdfium({
-              pdfBytes: bytes,
-              docKey: targetPdf,
-              pageIndex: 0,
-              targetW,
-              targetH,
-            });
-            if (isMounted && thumbUrl) {
-              clearTimeout(safetyTimer);
-              setImgSrc(thumbUrl);
-              return;
-            }
-          } catch {
-            // Fall through to PDF.js fallback using bytes (no CORS failure!)
-          }
+        if (!bytes || bytes.byteLength === 0) {
+          throw new Error('Empty PDF bytes');
         }
 
-        // 3. Fallback: PDF.js using already-downloaded bytes
-        const pdfjs = await ensurePdfJsLoaded();
-        if (!pdfjs) throw new Error('PDF.js unavailable');
+        // 3. 100% Pure C++ PDFium WASM (Dedicated Web Worker)
+        const { inspectPdfStructureWithPdfium, renderFullPageWithPdfium } = await import('@/utils/pdfiumSliceRenderer');
+        const info = await inspectPdfStructureWithPdfium(bytes, targetPdf);
+        const ratio = (info.pageWidthPt || 595) / Math.max(1, info.pageHeightPt || 842);
+        const maxDim = 360;
+        const targetW = ratio >= 1 ? maxDim : Math.max(120, Math.round(maxDim * ratio));
+        const targetH = ratio >= 1 ? Math.max(120, Math.round(maxDim / ratio)) : maxDim;
+        const thumbUrl = await renderFullPageWithPdfium({
+          pdfBytes: bytes,
+          docKey: targetPdf,
+          pageIndex: 0,
+          targetW,
+          targetH,
+        });
 
-        const loadingTask = pdfjs.getDocument(
-          bytes
-            ? { data: bytes.slice(), stopAtErrors: true, disableFontFace: true }
-            : { url: `/api/pdf-proxy?url=${encodeURIComponent(targetPdf)}`, stopAtErrors: true, disableFontFace: true }
-        );
-        const pdf = await loadingTask.promise;
-        const page = await pdf.getPage(1);
-        
-        const unscaledViewport = page.getViewport({ scale: 1.0 });
-        const scale = Math.min(0.25, 200 / Math.max(unscaledViewport.width, unscaledViewport.height));
-        const viewport = page.getViewport({ scale: Math.max(0.04, scale) });
-        
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d');
-        if (!context) throw new Error('No 2d context');
-        
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
-
-        await page.render({ canvasContext: context, viewport }).promise;
-        
         if (isMounted) {
           clearTimeout(safetyTimer);
-          const outUrl = await new Promise<string>((resolve) => {
-            canvas.toBlob(
-              (blob) => resolve(blob ? URL.createObjectURL(blob) : ''),
-              'image/webp',
-              0.75
-            );
-          });
-          if (outUrl) setImgSrc(outUrl);
+          if (thumbUrl) setImgSrc(thumbUrl);
           else setError(true);
         }
       } catch (err) {
-        console.error('Failed to render PDF thumbnail:', err);
+        console.error('[PDFium] Failed to render PDF thumbnail:', err);
         clearTimeout(safetyTimer);
         if (isMounted) setError(true);
       }
@@ -145,27 +98,33 @@ export default function PdfThumbnail({ base64Uri, url, style, onClick }: PdfThum
   }, [targetPdf]);
 
   if (error || !imgSrc) {
-    // Fallback UI: distinct crisp PDF badge on error, subtle loading state while fetching
     return (
-      <div 
+      <div
         onClick={onClick}
-        style={{ 
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', 
-          backgroundColor: error ? '#fef2f2' : '#f1f5f9', cursor: onClick ? 'zoom-in' : 'default', ...style 
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: error ? '#fef2f2' : '#f1f5f9',
+          cursor: onClick ? 'zoom-in' : 'default',
+          ...style,
         }}
       >
         <span style={{ fontSize: error ? '2.2rem' : '1.9rem', animation: error ? 'none' : 'pulse 1.5s infinite' }}>
           {error ? '📕' : '📄'}
         </span>
-        <span style={{
-          fontSize: '0.72rem',
-          color: error ? '#b91c1c' : '#475569',
-          background: error ? '#fee2e2' : 'transparent',
-          padding: error ? '2px 8px' : '0',
-          borderRadius: '8px',
-          fontWeight: 800,
-          marginTop: '4px'
-        }}>
+        <span
+          style={{
+            fontSize: '0.72rem',
+            color: error ? '#b91c1c' : '#475569',
+            background: error ? '#fee2e2' : 'transparent',
+            padding: error ? '2px 8px' : '0',
+            borderRadius: '8px',
+            fontWeight: 800,
+            marginTop: '4px',
+          }}
+        >
           {error ? 'מסמך PDF' : 'טוען תצוגה...'}
         </span>
       </div>
@@ -173,9 +132,9 @@ export default function PdfThumbnail({ base64Uri, url, style, onClick }: PdfThum
   }
 
   return (
-    <img 
-      src={imgSrc} 
-      alt="PDF Preview" 
+    <img
+      src={imgSrc}
+      alt="PDF Preview"
       onClick={onClick}
       style={{ ...style, cursor: onClick ? 'zoom-in' : 'default' }}
     />

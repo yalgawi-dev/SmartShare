@@ -358,6 +358,32 @@ export async function renderFullPageWithPdfium(params: {
   });
 }
 
+export async function getPdfPageSizeWithPdfium(
+  pdfBytes: Uint8Array,
+  docKey: string,
+  pageIndex: number
+): Promise<{ width: number; height: number }> {
+  if (getPdfiumWorker()) {
+    try {
+      const needsBytes = workerLoadedDocKey !== docKey;
+      const res = await callPdfiumWorker({
+        type: 'pageSize',
+        docKey,
+        pdfBytes: needsBytes ? pdfBytes : undefined,
+        pageIndex,
+      });
+      workerLoadedDocKey = docKey;
+      if (res?.result) return res.result;
+    } catch {
+      workerLoadedDocKey = null;
+    }
+  }
+  const pdfium = await getPdfium();
+  const docPtr = await getOrLoadDocument(pdfium, pdfBytes, docKey);
+  const { pageW, pageH } = getOrLoadPage(pdfium, docPtr, pageIndex);
+  return { width: pageW, height: pageH };
+}
+
 export interface PdfiumStructureInspection {
   pageCount: number;
   signatureCount: number;

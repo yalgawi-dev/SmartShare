@@ -97,6 +97,7 @@ function getOrLoadPage(
 type WorkerRequest =
   | { id: number; type: 'prewarm' }
   | { id: number; type: 'inspect'; docKey: string; pdfBytes?: Uint8Array }
+  | { id: number; type: 'pageSize'; docKey: string; pdfBytes?: Uint8Array; pageIndex: number }
   | {
       id: number;
       type: 'renderSlice';
@@ -117,6 +118,14 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
     if (msg.type === 'prewarm') {
       await getPdfium();
       self.postMessage({ id: msg.id, ok: true });
+      return;
+    }
+
+    if (msg.type === 'pageSize') {
+      const pdfium = await getPdfium();
+      const docPtr = getOrLoadDocument(pdfium, msg.pdfBytes, msg.docKey);
+      const { pageW, pageH } = getOrLoadPage(pdfium, docPtr, msg.pageIndex);
+      self.postMessage({ id: msg.id, ok: true, result: { width: pageW, height: pageH } });
       return;
     }
 
