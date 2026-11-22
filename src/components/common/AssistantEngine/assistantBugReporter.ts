@@ -232,6 +232,8 @@ export class LiveBugVideoRecorder {
   private lastTouch: { x: number; y: number; label: string; time: number } | null = null;
   private remainingSec = BUG_VIDEO_MAX_SECONDS;
   private startTime = 0;
+  private isMuted = false;
+  private hasFinished = false;
   private pointerListener: ((e: PointerEvent) => void) | null = null;
 
   async start(
@@ -243,6 +245,8 @@ export class LiveBugVideoRecorder {
     this.chunks = [];
     this.remainingSec = BUG_VIDEO_MAX_SECONDS;
     this.startTime = Date.now();
+    this.isMuted = false;
+    this.hasFinished = false;
     onCountdownTick(this.remainingSec);
 
     const width = Math.min(window.innerWidth || 390, 540);
@@ -314,7 +318,9 @@ export class LiveBugVideoRecorder {
     };
 
     this.mediaRecorder.onstop = () => {
-      const durationSec = Math.max(1, Math.round((Date.now() - this.startTime) / 1000));
+      if (this.hasFinished) return;
+      this.hasFinished = true;
+      const durationSec = Math.max(1, Math.min(BUG_VIDEO_MAX_SECONDS, Math.round((Date.now() - this.startTime) / 1000)));
       const finalMime = this.mediaRecorder?.mimeType || selectedMime || 'video/webm';
       const blob = new Blob(this.chunks, { type: finalMime });
       this.cleanup();
@@ -323,14 +329,38 @@ export class LiveBugVideoRecorder {
 
     this.mediaRecorder.start(500);
 
-    // 35-second countdown timer
+    // 35-second countdown timer (strictly stops at 00:00 and forces finish even if mobile browser delays onstop)
     this.timerInterval = setInterval(() => {
       this.remainingSec -= 1;
       onCountdownTick(Math.max(0, this.remainingSec));
       if (this.remainingSec <= 0) {
         this.stop();
+        // Safety fallback: if mobile browser doesn't fire onstop within 600ms, finalize cleanly
+        setTimeout(() => {
+          if (!this.hasFinished) {
+            this.hasFinished = true;
+            const finalMime = this.mediaRecorder?.mimeType || selectedMime || 'video/webm';
+            const blob = new Blob(this.chunks, { type: finalMime });
+            this.cleanup();
+            onAutoFinish(blob, BUG_VIDEO_MAX_SECONDS);
+          }
+        }, 600);
       }
     }, 1000);
+  }
+
+  /**
+   * Mutes or unmutes the live microphone track while screen recording continues uninterrupted
+   * (ideal for noisy environments).
+   */
+  toggleMute(): boolean {
+    this.isMuted = !this.isMuted;
+    if (this.audioStream) {
+      this.audioStream.getAudioTracks().forEach((track) => {
+        track.enabled = !this.isMuted;
+      });
+    }
+    return this.isMuted;
   }
 
   stop(): void {

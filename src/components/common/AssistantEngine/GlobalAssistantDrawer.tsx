@@ -62,6 +62,9 @@ export const GlobalAssistantDrawer: React.FC = () => {
   const [isRecordingBugVideo, setIsRecordingBugVideo] = useState(false);
   const [recordingRemainingSec, setRecordingRemainingSec] = useState(BUG_VIDEO_MAX_SECONDS);
   const [isVideoRecordingAssistantVisible, setIsVideoRecordingAssistantVisible] = useState(false);
+  const [isRecordingMicMuted, setIsRecordingMicMuted] = useState(false);
+  const [isPreviewVideoExpanded, setIsPreviewVideoExpanded] = useState(false);
+  const [isPreviewVideoMuted, setIsPreviewVideoMuted] = useState(false);
   const [isUploadingBugReport, setIsUploadingBugReport] = useState(false);
   const [bugUploadProgress, setBugUploadProgress] = useState(0);
   const [bugSentSuccess, setBugSentSuccess] = useState(false);
@@ -158,6 +161,7 @@ export const GlobalAssistantDrawer: React.FC = () => {
     setIsHidingForCapture(true);
     setIsRecordingBugVideo(true);
     setIsVideoRecordingAssistantVisible(false);
+    setIsRecordingMicMuted(false);
     setRecordingRemainingSec(BUG_VIDEO_MAX_SECONDS);
 
     await new Promise((r) => setTimeout(r, 180));
@@ -581,6 +585,31 @@ export const GlobalAssistantDrawer: React.FC = () => {
           >
             ⏱️ 00:{String(recordingRemainingSec).padStart(2, '0')}
           </span>
+
+          {/* Toggle Mic Mute while recording (ideal for noisy environments) */}
+          <button
+            type="button"
+            onClick={() => {
+              if (videoRecorderRef.current) {
+                const muted = videoRecorderRef.current.toggleMute();
+                setIsRecordingMicMuted(muted);
+              }
+            }}
+            style={{
+              background: isRecordingMicMuted ? '#f59e0b' : 'rgba(255,255,255,0.22)',
+              color: '#ffffff',
+              border: '1px solid rgba(255,255,255,0.4)',
+              borderRadius: '999px',
+              padding: '4px 9px',
+              fontSize: '0.73rem',
+              fontWeight: 800,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap'
+            }}
+            title={isRecordingMicMuted ? 'המיקרופון מושתק — לחץ להפעלת קול' : 'השתק מיקרופון בזמן ההקלטה (לסביבה רועשת)'}
+          >
+            {isRecordingMicMuted ? '🔇 מושתק' : '🎤 קול'}
+          </button>
 
           {/* Toggle Assistant Visibility while recording so user can capture bugs IN the Assistant itself! */}
           <button
@@ -1201,11 +1230,49 @@ export const GlobalAssistantDrawer: React.FC = () => {
                       </div>
                     )}
                     {bugVideoUrl && (
-                      <div style={{ flex: 1, position: 'relative', background: '#0f172a', borderRadius: '8px', overflow: 'hidden', height: '84px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <video src={bugVideoUrl} controls style={{ maxHeight: '80px', maxWidth: '100%' }} />
-                        <span style={{ position: 'absolute', bottom: '3px', right: '5px', background: 'rgba(15,23,42,0.8)', color: '#fff', fontSize: '0.62rem', padding: '1px 5px', borderRadius: '4px', pointerEvents: 'none' }}>
-                          🎥 סרטון
-                        </span>
+                      <div style={{ flex: 1, position: 'relative', background: '#0f172a', borderRadius: '8px', overflow: 'hidden', height: '94px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <video
+                          src={bugVideoUrl}
+                          muted={isPreviewVideoMuted}
+                          controls
+                          style={{ maxHeight: '90px', maxWidth: '100%' }}
+                        />
+                        <div style={{ position: 'absolute', top: '4px', right: '4px', display: 'flex', gap: '4px' }}>
+                          <button
+                            type="button"
+                            onClick={() => setIsPreviewVideoExpanded(true)}
+                            style={{
+                              background: 'rgba(37, 99, 235, 0.92)',
+                              color: '#fff',
+                              border: 'none',
+                              borderRadius: '5px',
+                              padding: '2px 7px',
+                              fontSize: '0.66rem',
+                              fontWeight: 800,
+                              cursor: 'pointer'
+                            }}
+                            title="פתח סרטון במסך מלא לצפייה ברורה"
+                          >
+                            ⛶ הגדל
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setIsPreviewVideoMuted((m) => !m)}
+                            style={{
+                              background: isPreviewVideoMuted ? 'rgba(245, 158, 11, 0.92)' : 'rgba(15, 23, 42, 0.85)',
+                              color: '#fff',
+                              border: 'none',
+                              borderRadius: '5px',
+                              padding: '2px 6px',
+                              fontSize: '0.66rem',
+                              fontWeight: 800,
+                              cursor: 'pointer'
+                            }}
+                            title={isPreviewVideoMuted ? 'הפעל קול' : 'השתק קול'}
+                          >
+                            {isPreviewVideoMuted ? '🔇' : '🔊'}
+                          </button>
+                        </div>
                         <button
                           type="button"
                           onClick={() => setVideoWithPreview(null, 0)}
@@ -1217,7 +1284,7 @@ export const GlobalAssistantDrawer: React.FC = () => {
                             color: '#fff',
                             border: 'none',
                             borderRadius: '5px',
-                            padding: '1px 6px',
+                            padding: '2px 6px',
                             fontSize: '0.65rem',
                             fontWeight: 800,
                             cursor: 'pointer'
@@ -1751,6 +1818,86 @@ export const GlobalAssistantDrawer: React.FC = () => {
         </div>
         );
       })()}
+
+      {/* FULLSCREEN LIGHTBOX FOR BUG VIDEO PREVIEW (Large, clear playback + mute toggle) */}
+      {isPreviewVideoExpanded && bugVideoUrl && (
+        <div
+          data-assistant-drawer="true"
+          onClick={() => setIsPreviewVideoExpanded(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 2147483647,
+            background: 'rgba(15, 23, 42, 0.94)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+            gap: '12px',
+            direction: 'rtl'
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%',
+              maxWidth: '520px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '8px'
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setIsPreviewVideoMuted((m) => !m)}
+              style={{
+                background: isPreviewVideoMuted ? '#f59e0b' : 'rgba(255,255,255,0.18)',
+                color: '#ffffff',
+                border: '1px solid rgba(255,255,255,0.35)',
+                borderRadius: '10px',
+                padding: '6px 14px',
+                fontSize: '0.82rem',
+                fontWeight: 800,
+                cursor: 'pointer'
+              }}
+            >
+              {isPreviewVideoMuted ? '🔇 הקול מושתק — לחץ להפעלה' : '🔊 השתק קול'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsPreviewVideoExpanded(false)}
+              style={{
+                background: '#ef4444',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '10px',
+                padding: '6px 14px',
+                fontSize: '0.82rem',
+                fontWeight: 900,
+                cursor: 'pointer'
+              }}
+            >
+              ✕ סגור צפייה
+            </button>
+          </div>
+          <video
+            onClick={(e) => e.stopPropagation()}
+            src={bugVideoUrl}
+            muted={isPreviewVideoMuted}
+            controls
+            autoPlay
+            style={{
+              maxWidth: '100%',
+              maxHeight: '80dvh',
+              borderRadius: '14px',
+              background: '#000000',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.6)'
+            }}
+          />
+        </div>
+      )}
     </>
   );
 };
