@@ -59,6 +59,40 @@ export function FinanceTransactions({
   const [editSplitMode, setEditSplitMode] = useState<PayerSplitMode>('single');
   const [editPayerSplits, setEditPayerSplits] = useState<Record<string, number>>({});
 
+  // Robustly parse any stored invoice date (DD.MM.YYYY, DD/MM/YYYY, YYYY-MM-DD, ISO) into <input type="date"> YYYY-MM-DD
+  const toHtmlDateInputValue = (rawDate?: string): string => {
+    if (!rawDate) return '';
+    const cleaned = String(rawDate).replace(/[\u200E\u200F\u202A-\u202E]/g, '').trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(cleaned)) return cleaned.slice(0, 10);
+    const norm = normalizeToYMD(cleaned);
+    if (norm && /^\d{4}-\d{2}-\d{2}$/.test(norm)) return norm;
+    const dotOrSlash = cleaned.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
+    if (dotOrSlash) {
+      return `${dotOrSlash[3]}-${dotOrSlash[2].padStart(2, '0')}-${dotOrSlash[1].padStart(2, '0')}`;
+    }
+    return '';
+  };
+
+  // Guarantee editForm ALWAYS hydrates with the real invoice values whenever editingInvoice opens
+  React.useEffect(() => {
+    if (!editingInvoice) return;
+    const standardCategories = ['כללי', 'רכבים ותחבורה', 'תקשורת', 'חומרים', 'הנהלת חשבונות', ...(space?.settings?.customCategories || [])];
+    const isStandard = standardCategories.includes(editingInvoice.category || '');
+    const rawAmt = editingInvoice.amount ?? editingInvoice.total;
+    const rawSupplier = editingInvoice.supplier || editingInvoice.vendor || editingInvoice.description || '';
+    setEditForm({
+      amount: rawAmt !== null && rawAmt !== undefined && rawAmt !== '' ? String(rawAmt) : '',
+      supplier: rawSupplier,
+      date: toHtmlDateInputValue(editingInvoice.date),
+      category: isStandard ? (editingInvoice.category || 'כללי') : (editingInvoice.category ? 'other' : 'כללי'),
+      customCategory: !isStandard && editingInvoice.category ? editingInvoice.category : '',
+      isNoVat: Boolean(editingInvoice.isNoVat)
+    });
+    setEditPayerId(editingInvoice.payerId === 'me' ? (space?.creatorId || 'me') : (editingInvoice.payerId || space?.creatorId || 'me'));
+    setEditSplitMode(editingInvoice.payerSplitMode || (editingInvoice.payerSplits && Object.keys(editingInvoice.payerSplits).length > 0 ? 'custom_split' : 'single'));
+    setEditPayerSplits(editingInvoice.payerSplits || {});
+  }, [editingInvoice?.id]);
+
   const allPartnerOptions: SplitPartnerOption[] = React.useMemo(() => {
     const sharesSnap = calculateCurrentSharesSnapshot(space);
     const creatorUid = space?.creatorId || 'me';
@@ -1438,59 +1472,62 @@ export function FinanceTransactions({
               
               <div 
                 onClick={() => setExpandedInvoiceId(expandedInvoiceId === inv.id ? null : inv.id)}
-                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', cursor: 'pointer' }}
+                style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', padding: '0.9rem 1rem', cursor: 'pointer' }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, minWidth: 0 }}>
-                  {(() => {
-                    const meta = getInvoiceApprovalMeta(inv);
-                    const isActuallyApproved = inv.status === 'approved' || meta.isAutoApprovedPast;
-                    return (
-                      <div style={{ 
-                        width: '40px', height: '40px', flexShrink: 0,
-                        borderRadius: '50%', 
-                        background: isActuallyApproved ? '#d1fae5' : inv.status === 'pending' ? '#fef3c7' : '#fee2e2',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: '1.1rem'
-                      }}>
-                        {isActuallyApproved ? '✓' : inv.status === 'pending' ? '⏳' : '❌'}
-                      </div>
-                    );
-                  })()}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <h4 style={{ margin: '0 0 0.1rem 0', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%', display: 'inline-block' }}>{inv.supplier}</span>
+                {/* Row 1: Status Icon + Full Supplier Title (never awkwardly clipped!) | Amount + Chevron */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.65rem', flex: 1, minWidth: 0 }}>
+                    {(() => {
+                      const meta = getInvoiceApprovalMeta(inv);
+                      const isActuallyApproved = inv.status === 'approved' || meta.isAutoApprovedPast;
+                      return (
+                        <div style={{ 
+                          width: '36px', height: '36px', flexShrink: 0,
+                          borderRadius: '50%', 
+                          background: isActuallyApproved ? '#d1fae5' : inv.status === 'pending' ? '#fef3c7' : '#fee2e2',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: '1rem',
+                          marginTop: '1px'
+                        }}>
+                          {isActuallyApproved ? '✓' : inv.status === 'pending' ? '⏳' : '❌'}
+                        </div>
+                      );
+                    })()}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <h4 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 800, lineHeight: 1.3, color: 'var(--text-primary)', wordBreak: 'break-word' }}>
+                        {inv.supplier}
+                        {' '}
+                        {inv.hasAttachment ? (
+                          <span title="מצורפת חשבונית" style={{ fontSize: '0.88rem' }}>📎</span>
+                        ) : (
+                          <span title="חסר מסמך/קבלה" style={{ fontSize: '0.88rem', color: '#ef4444' }}>⚠️</span>
+                        )}
+                      </h4>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.35rem 0.5rem', fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+                        <span style={{ whiteSpace: 'nowrap' }}>{formatDisplayDate(inv.date)}</span>
+                        <span>• {inv.type === 'transfer' ? 'הועבר ע"י:' : inv.type === 'income' ? 'הוכנס ע"י:' : 'שולם ע"י:'} {inv.payerName}</span>
                         {inv.isNoVat && (
-                          <span title="הוצאה ללא מע״מ (פטור ממע״מ / מיסי מקרקעין)" style={{ background: '#f0fdf4', color: '#16a34a', padding: '0.1rem 0.45rem', borderRadius: '12px', fontSize: '0.68rem', display: 'inline-flex', alignItems: 'center', gap: '0.2rem', whiteSpace: 'nowrap', border: '1px solid #bbf7d0', fontWeight: 800 }}>
+                          <span title="הוצאה ללא מע״מ (פטור ממע״מ / מיסי מקרקעין)" style={{ background: '#f0fdf4', color: '#16a34a', padding: '0.08rem 0.45rem', borderRadius: '10px', fontSize: '0.68rem', display: 'inline-flex', alignItems: 'center', gap: '0.2rem', whiteSpace: 'nowrap', border: '1px solid #bbf7d0', fontWeight: 800 }}>
                             🛡️ ללא מע״מ
                           </span>
                         )}
                         {inv.source === 'inbox' && (
-                          <span title="הגיע ממחסן - עבר אוטומציה" style={{ background: '#fef3c7', color: '#d97706', padding: '0.1rem 0.4rem', borderRadius: '12px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '0.2rem', whiteSpace: 'nowrap', border: '1px solid #fde68a' }}>
+                          <span title="הגיע ממחסן - עבר אוטומציה" style={{ background: '#fef3c7', color: '#d97706', padding: '0.08rem 0.4rem', borderRadius: '10px', fontSize: '0.68rem', display: 'inline-flex', alignItems: 'center', gap: '0.2rem', whiteSpace: 'nowrap', border: '1px solid #fde68a' }}>
                             🗃️ ממחסן
                           </span>
                         )}
-                      {inv.hasAttachment ? (
-                        <span title="מצורפת חשבונית" style={{ fontSize: '0.9rem' }}>📎</span>
-                      ) : (
-                        <span title="חסר מסמך/קבלה" style={{ fontSize: '0.9rem', color: '#ef4444' }}>⚠️</span>
-                      )}
-                    </h4>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                        <span style={{ whiteSpace: 'nowrap' }}>{formatDisplayDate(inv.date)}</span>
-                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>• {inv.type === 'transfer' ? 'הועבר ע"י:' : inv.type === 'income' ? 'הוכנס ע"י:' : 'שולם ע"י:'} {inv.payerName}</span>
                         {inv.status === 'dispute' && (
                           <span style={{ color: '#ef4444', fontWeight: 'bold' }}>• נדחה ע"י {inv.rejectedBy || 'שותף'}</span>
                         )}
                       </div>
+                    </div>
                   </div>
-                </div>
 
-                <div style={{ textAlign: 'left', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <div>
-                    
+                  <div style={{ textAlign: 'left', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <div>
                       {inv.amount < 0 ? (
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                          <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.1rem', color: '#ef4444' }}>
+                          <h3 style={{ margin: '0 0 0.2rem 0', fontSize: '1.05rem', color: '#ef4444', whiteSpace: 'nowrap' }}>
                             -₪{Math.abs(inv.amount)?.toLocaleString()}
                           </h3>
                           <span style={{ fontSize: '0.65rem', background: '#fef2f2', color: '#ef4444', padding: '0.1rem 0.3rem', borderRadius: '4px', border: '1px solid #fecaca' }}>
@@ -1498,17 +1535,17 @@ export function FinanceTransactions({
                           </span>
                         </div>
                       ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', margin: '0 0 0.25rem 0' }}>
-                          <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-primary)' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', margin: '0 0 0.2rem 0' }}>
+                          <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 900, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
                             ₪{inv.amount?.toLocaleString()}
                           </h3>
                           {inv.previousAmount && inv.previousAmount !== inv.amount && (
-                            <span style={{ fontSize: '0.72rem', color: '#94a3b8', textDecoration: 'line-through' }}>
+                            <span style={{ fontSize: '0.72rem', color: '#94a3b8', textDecoration: 'line-through', whiteSpace: 'nowrap' }}>
                               ₪{inv.previousAmount?.toLocaleString()}
                             </span>
                           )}
                           {inv.isOcrMismatched && (
-                            <span style={{ fontSize: '0.65rem', background: '#fee2e2', color: '#991b1b', border: '1px solid #fecdd3', padding: '1px 5px', borderRadius: '4px', fontWeight: 'bold', marginTop: '2px' }} title="סכום ההוצאה שונה מסריקת ה-OCR">
+                            <span style={{ fontSize: '0.65rem', background: '#fee2e2', color: '#991b1b', border: '1px solid #fecdd3', padding: '1px 5px', borderRadius: '4px', fontWeight: 'bold', marginTop: '2px', whiteSpace: 'nowrap' }} title="סכום ההוצאה שונה מסריקת ה-OCR">
                               ⚠️ שונה מ-OCR
                             </span>
                           )}
@@ -1540,6 +1577,7 @@ export function FinanceTransactions({
                   <div style={{ fontSize: '1.2rem', color: 'var(--text-secondary)', transform: expandedInvoiceId === inv.id ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>
                     ⌄
                   </div>
+                </div>
                 </div>
               </div>
 
