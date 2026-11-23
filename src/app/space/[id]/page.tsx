@@ -352,13 +352,13 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const triggerScanWhenReady = (targetFile: string, allPages?: string[], rawPdfBlob?: Blob) => {
+    const triggerScanWhenReady = (targetFile: string, allPages?: string[], rawPdfBlob?: Blob, skipOcr?: boolean) => {
       let attempts = 0;
       const checkAndTrigger = setInterval(() => {
         attempts++;
         if (financeRef.current && typeof financeRef.current.processScan === 'function') {
           clearInterval(checkAndTrigger);
-          financeRef.current.processScan(targetFile, allPages, undefined, rawPdfBlob);
+          financeRef.current.processScan(targetFile, allPages, undefined, rawPdfBlob, skipOcr);
           try {
             if (typeof window !== 'undefined') {
               (window as any).__SMARTSHARE_PENDING_SHARED_EXPENSE__ = null;
@@ -392,7 +392,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
       const detail = ev.detail;
       if (detail && (!detail.spaceId || detail.spaceId === space?.id)) {
         setIsAddingExpense(true);
-        triggerScanWhenReady(detail.primary, detail.allPages, detail.rawPdfBlob);
+        triggerScanWhenReady(detail.primary, detail.allPages, detail.rawPdfBlob, Boolean(detail.skipOcr));
       }
     };
     window.addEventListener('smartshare:trigger_shared_expense', handleTriggerShared);
@@ -405,7 +405,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
         const pendingMemory = (window as any).__SMARTSHARE_PENDING_SHARED_EXPENSE__;
         if (pendingMemory && (!pendingMemory.spaceId || pendingMemory.spaceId === space?.id)) {
           (window as any).__SMARTSHARE_PENDING_SHARED_EXPENSE__ = null;
-          triggerScanWhenReady(pendingMemory.primary, pendingMemory.allPages, pendingMemory.rawPdfBlob);
+          triggerScanWhenReady(pendingMemory.primary, pendingMemory.allPages, pendingMemory.rawPdfBlob, Boolean(pendingMemory.skipOcr));
         } else {
           // 2. Check SmartShareSharedBlobsDB
           try {
@@ -419,7 +419,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
                 getReq.onsuccess = () => {
                   const bRes = getReq.result;
                   if (bRes && (!bRes.spaceId || bRes.spaceId === space?.id)) {
-                    triggerScanWhenReady(bRes.primary, bRes.allPages, bRes.rawPdfBlob);
+                    triggerScanWhenReady(bRes.primary, bRes.allPages, bRes.rawPdfBlob, Boolean(bRes.skipOcr));
                   }
                 };
               }

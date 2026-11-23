@@ -88,8 +88,9 @@ export function calculateSpaceNotifications(spaces: Space[], user: any): AppNoti
     const { myId: myActualId, isCreator } = resolveUserSpaceIdentity(space, user);
     const hasPartners = space.features?.includes('partners');
 
-    // 1. Invoices (pending, missing, dispute)
+    // 1. Invoices (pending, missing, dispute) — strictly exclude deleted/archived invoices!
     (space.invoices || []).forEach(inv => {
+      if (!inv || inv.isActive === false || (inv as any).deletedAt) return;
       if (inv.status === 'pending' || inv.status === 'missing' || inv.status === 'dispute') {
         if (isCreator || inv.payerId === user.id || (inv as any).uploaderId === user.id) {
           notifs.push({

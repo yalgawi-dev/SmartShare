@@ -91,7 +91,7 @@ export default function SharedFileHandler() {
     }
   }, [isProcessing]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [routeDestination, setRouteDestination] = useState<'direct' | 'inbox' | 'personal' | 'vault' | 'fileshare' | 'attach_existing'>(() => {
+  const [routeDestination, setRouteDestination] = useState<'direct' | 'direct_manual' | 'inbox' | 'personal' | 'vault' | 'fileshare' | 'attach_existing'>(() => {
     if (typeof window !== 'undefined') {
       try {
         const saved = JSON.parse(localStorage.getItem('smartshare_last_share_target') || '{}');
@@ -1225,7 +1225,8 @@ export default function SharedFileHandler() {
             allPages: convertedPages,
             files: convertedPages,
             rawPdfBlob: rawPdfBlobToKeep,
-            spaceId: selectedSpaceId
+            spaceId: selectedSpaceId,
+            skipOcr: routeDestination === 'direct_manual'
           };
 
           // 1. In-memory storage on window (0ms, no quota limits, passes raw Blob directly)
@@ -1753,6 +1754,32 @@ export default function SharedFileHandler() {
                         </div>
                         <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.15rem' }}>
                           פותח טופס הוצאה ומפעיל חילוץ כספי (ספק, סכום ומע&quot;מ).
+                        </div>
+                      </div>
+                    </label>
+                  )}
+
+                  {/* Option 3.5: Direct Manual Expense WITHOUT OCR */}
+                  {spaceHasFinance && (
+                    <label style={{
+                      display: 'flex', alignItems: 'flex-start', gap: '0.75rem', padding: '0.75rem 0.85rem',
+                      borderRadius: '12px', cursor: 'pointer', transition: 'all 0.15s ease',
+                      border: routeDestination === 'direct_manual' ? '2px solid #0284c7' : '1px solid #e2e8f0',
+                      backgroundColor: routeDestination === 'direct_manual' ? '#f0f9ff' : '#ffffff'
+                    }}>
+                      <input
+                        type="radio"
+                        name="routeDest"
+                        checked={routeDestination === 'direct_manual'}
+                        onChange={() => setRouteDestination('direct_manual')}
+                        style={{ marginTop: '0.2rem', accentColor: '#0284c7', width: '16px', height: '16px' }}
+                      />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: '800', fontSize: '0.88rem', color: '#1e293b' }}>
+                          ✍️ הוצאה כספית ידנית (ללא סריקת OCR)
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.15rem' }}>
+                          פותח טופס הוצאה ידני עם הקובץ מצורף — ללא חישוב AI וללא ניצול מכסת OCR.
                         </div>
                       </div>
                     </label>
@@ -2390,7 +2417,9 @@ export default function SharedFileHandler() {
                       ? '📥 העבר למחסן ההמתנה'
                       : routeDestination === 'attach_existing'
                         ? '🔗 אתר הוצאה וצרף חשבונית'
-                        : '🧾 פתח והפעל סריקה ⚡'}
+                        : routeDestination === 'direct_manual'
+                          ? '✍️ פתח טופס ידני (ללא OCR)'
+                          : '🧾 פתח והפעל סריקה ⚡'}
             </button>
           </div>
         </div>

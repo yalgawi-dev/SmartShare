@@ -65,11 +65,11 @@ const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddi
   const runOcrPipelineRef = useRef<any>(null);
   
   useImperativeHandle(ref, () => ({
-    processScan: (url: string, allPages?: string[], retroInvoice?: any, rawPdfSource?: Blob | string) => {
+    processScan: (url: string, allPages?: string[], retroInvoice?: any, rawPdfSource?: Blob | string, skipOcr?: boolean) => {
       if (runOcrPipelineRef.current) {
-        runOcrPipelineRef.current(url, allPages, retroInvoice, rawPdfSource);
+        runOcrPipelineRef.current(url, allPages, retroInvoice, rawPdfSource, skipOcr);
       } else {
-        runOcrPipeline(url, allPages, retroInvoice, rawPdfSource);
+        runOcrPipeline(url, allPages, retroInvoice, rawPdfSource, skipOcr);
       }
     },
     processBatch: (urls: string[]) => {
@@ -178,15 +178,40 @@ const [isMounted, setIsMounted] = useState(false);
   
   
 
-  const runOcrPipeline = async (imgUrl: string, allPages?: string[], retroInvoice?: any, rawPdfSource?: Blob | string) => {
+  const runOcrPipeline = async (imgUrl: string, allPages?: string[], retroInvoice?: any, rawPdfSource?: Blob | string, skipOcr?: boolean) => {
     if (retroInvoice) setRetroInvoiceToEdit(retroInvoice); else setRetroInvoiceToEdit(null);
     setIsScanning(false);
     if(setIsAddingExpense) setIsAddingExpense(true); // Open the form immediately
-    setIsAnalyzing(true);
     setOcrData({}); // Clear old data
     setOcrElapsedTime(0);
     rawPdfUploadPromiseRef.current = null;
     setRawPdfUrl(null);
+
+    // Manual-Only External Share (WITHOUT OCR): attach & upload in background, 0 OCR API calls!
+    if (skipOcr) {
+      setIsAnalyzing(false);
+      setScannedImage(imgUrl);
+      try {
+        const { uploadImageToStorage, uploadBlobToStorage } = await import('../../lib/firebase');
+        if (rawPdfSource instanceof Blob) {
+          rawPdfUploadPromiseRef.current = uploadBlobToStorage(
+            rawPdfSource,
+            `invoices/${space.id}/manual_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.pdf`
+          ).then((u) => { setRawPdfUrl(u); return u; }).catch(() => undefined);
+        }
+        if (imgUrl && !imgUrl.startsWith('http')) {
+          uploadPromiseRef.current = uploadImageToStorage(
+            imgUrl,
+            `invoices/${space.id}/manual_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.webp`
+          );
+        }
+      } catch (err) {
+        console.warn('Manual background upload warning:', err);
+      }
+      return;
+    }
+
+    setIsAnalyzing(true);
     
     if (imgUrl && (imgUrl.includes('image/heic') || imgUrl.includes('image/heif'))) {
       alert("סוג קובץ זה (HEIC) אינו נתמך כרגע בסורק המהיר. אנא העלה תמונה רגילה (JPG/PNG).");
