@@ -1,46 +1,54 @@
 /**
- * Single source of truth for forcing a clean, crash-free PWA update across Android/iOS/Desktop.
+ * Single source of truth for crash-free PWA version updates on Android WebAPK, iOS PWA & Desktop.
  *
- * Root-Cause Note: Deleting CacheStorage while an old Workbox Service Worker is STILL active
- * causes Chrome Android PWA to fail the immediate navigation with "This page couldn't load".
- * We MUST unregister the active app Service Worker FIRST (preserving firebase-messaging-sw.js),
- * purge stale caches SECOND, and then perform a clean replace() navigation straight to the network.
+ * Root-Cause Fix:
+ * - NEVER call `reg.unregister()` on `sw.js` mid-navigation: in Chrome Android WebAPK,
+ *   killing the active SW controller right before navigating triggers Chrome's native
+ *   "This page couldn't load" white error screen (and breaks Web Share Target).
+ * - Instead: pre-fetch the current URL with `{ cache: 'reload' }` FIRST so Chrome refreshes
+ *   its HTTP cache with the brand-new Vercel HTML (retrying once on cellular blip),
+ *   and ONLY THEN trigger a clean `window.location.reload()`.
  */
 export async function forceAppUpdate(): Promise<void> {
   if (typeof window === 'undefined') return;
 
   try {
-    // 1. Unregister stale PWA Service Worker(s) FIRST so they cannot intercept the reload with wiped caches!
+    // 1. Clean any legacy ?v_reload= query param so we reload the canonical URL
+    const cleanUrl = new URL(window.location.href);
+    cleanUrl.searchParams.delete('v_reload');
+    const targetHref = cleanUrl.toString();
+
+    // 2. Pre-fetch fresh HTML directly from network (bypasses HTTP cache) & verify 200 OK
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const res = await fetch(targetHref, {
+          cache: 'reload',
+          credentials: 'same-origin',
+          headers: { 'Cache-Control': 'no-cache' },
+        });
+        if (res.ok) break;
+      } catch {
+        if (attempt === 0) {
+          await new Promise((r) => setTimeout(r, 450));
+        }
+      }
+    }
+
+    // 3. Softly check for SW updates in background without killing the active WebAPK controller
     if ('serviceWorker' in navigator) {
-      const registrations = await navigator.serviceWorker.getRegistrations();
-      await Promise.all(
-        registrations.map(async (reg) => {
-          try {
-            const scriptUrl = reg.active?.scriptURL || reg.waiting?.scriptURL || reg.installing?.scriptURL || '';
-            // Keep Firebase Push SW intact; unregister app/Workbox SW so reload hits network directly
-            if (scriptUrl.includes('firebase-messaging-sw')) {
-              await reg.update().catch(() => {});
-              return;
-            }
-            await reg.unregister();
-          } catch (e) {
-            console.warn('SW unregister warning:', e);
-          }
-        })
-      );
+      navigator.serviceWorker
+        .getRegistrations()
+        .then((regs) => regs.forEach((r) => r.update().catch(() => {})))
+        .catch(() => {});
     }
 
-    // 2. Purge all stale CacheStorage entries AFTER SW is unregistered
-    if ('caches' in window) {
-      const cacheKeys = await caches.keys();
-      await Promise.all(cacheKeys.map((key) => caches.delete(key)));
+    // 4. Clean reload without dead SW race condition
+    if (window.location.href !== targetHref) {
+      window.location.replace(targetHref);
+    } else {
+      window.location.reload();
     }
-  } catch (err) {
-    console.warn('Cache purge failed:', err);
+  } catch {
+    window.location.reload();
   }
-
-  // 3. Clean hard navigation directly to network (replace() avoids polluting Back button history!)
-  const url = new URL(window.location.href);
-  url.searchParams.set('v_reload', Date.now().toString());
-  window.location.replace(url.toString());
 }
