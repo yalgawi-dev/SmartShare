@@ -18,6 +18,7 @@ import {
   type RecipientShareLink,
   type ShareLinkConfig,
 } from '@/utils/fileShareUtils';
+import { buildPersonalHebrewShareMessage } from '@/utils/shareMessageFormatter';
 
 let smartSharePrimitivesRegistered = false;
 
@@ -434,6 +435,16 @@ export function registerSmartShareUniversalPrimitives(): void {
 
       const origin = typeof window !== 'undefined' ? window.location.origin : 'https://smart-share-tvwn-delta.vercel.app';
       const shareUrl = `${origin}/share/${activeTokenToShare}`;
+      const personalMsg = buildPersonalHebrewShareMessage({
+        recipientName: recName || undefined,
+        senderRawName: user?.realName || user?.nickname || user?.displayName || '',
+        spaceTitle: space.title,
+        itemName: target.name,
+        itemType: target.type === 'folder' ? 'folder' : 'file',
+        url: shareUrl,
+        pin: newConfig.requirePin && newConfig.pin ? newConfig.pin : undefined,
+      });
+      const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(personalMsg)}`;
 
       return {
         success: true,
@@ -442,7 +453,7 @@ export function registerSmartShareUniversalPrimitives(): void {
           : `קישור השיתוף עבור "${target.name}" הופעל בהצלחה!`,
         proofUrl: shareUrl,
         proofLabel: recName ? `🔗 פתח את הקישור של ${recName}` : '🔗 פתח קישור שיתוף',
-        data: { shareUrl, token: activeTokenToShare },
+        data: { shareUrl, whatsappUrl, token: activeTokenToShare },
       };
     },
   });

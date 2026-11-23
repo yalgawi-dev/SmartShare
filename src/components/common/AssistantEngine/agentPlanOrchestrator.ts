@@ -146,6 +146,7 @@ export async function executeAgentActionPlan(
   let completedSteps = 0;
   let finalProofUrl: string | undefined;
   let finalProofLabel: string | undefined;
+  let finalWhatsappUrl: string | undefined;
 
   for (let i = 0; i < workingSteps.length; i++) {
     const step = workingSteps[i];
@@ -191,6 +192,9 @@ export async function executeAgentActionPlan(
       finalProofUrl = result.proofUrl;
       finalProofLabel = result.proofLabel;
     }
+    if (result.data?.whatsappUrl) {
+      finalWhatsappUrl = String(result.data.whatsappUrl);
+    }
     options?.onStepProgress?.([...workingSteps]);
   }
 
@@ -213,5 +217,6 @@ export async function executeAgentActionPlan(
     finalMessage: lastMessage,
     finalProofUrl,
     finalProofLabel,
+    finalWhatsappUrl,
   };
 }

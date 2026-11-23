@@ -200,6 +200,12 @@ ${JSON.stringify(activeToolsList.filter((t: any) => String(t?.name || '').starts
 רשימת כלי הפעולות הזמינים כרגע (availableActionTools):
 ${JSON.stringify(liveData?.availableActionTools || [])}
 
+מניפסט האפליקציה המארחת (hostManifest — אגנוסטי לכל מערכת):
+${JSON.stringify(liveData?.hostManifest || {})}
+
+תבניות מערכה נלמדות שהצליחו בעבר (learnedPlaybooks — העדף להשתמש בהן אם הבקשה תואמת):
+${JSON.stringify((liveData?.learnedPlaybooks || []).map((p: any) => ({ title: p.title, tools: p.toolSequence, uses: p.uses })))}
+
 תוצאות ריצת הכלים החיים (Live Tools Output):
 - כלי משתמשים ושותפים (usersAndPartnersTool): ${JSON.stringify(liveData?.usersAndPartnersTool || {})}
 - כלי סיכום מרחבים (spacesSummaryTool): ${JSON.stringify(liveData?.spacesSummaryTool || {})}
@@ -289,14 +295,19 @@ ${formattedHistory}`;
           .filter(Boolean);
 
         if (validatedSteps.length > 0) {
+          const seqKey = validatedSteps.map((s: any) => s.tool).join('->');
+          const matchedPb = Array.isArray(liveData?.learnedPlaybooks)
+            ? liveData.learnedPlaybooks.find((pb: any) => Array.isArray(pb?.toolSequence) && pb.toolSequence.join('->') === seqKey)
+            : null;
           proposedPlan = {
             id: `plan_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-            appId: 'smartshare',
+            appId: liveData?.hostManifest?.appId || 'smartshare',
             title: String(parsed.proposedPlan.title || 'תוכנית פעולה מאחורי הקלעים'),
             summary: String(parsed.proposedPlan.summary || ''),
             steps: validatedSteps,
             requiresConfirmation: true,
-            riskLevel: validatedSteps.some((s: any) => s.riskLevel === 'high') ? 'high' : 'medium'
+            riskLevel: validatedSteps.some((s: any) => s.riskLevel === 'high') ? 'high' : 'medium',
+            ...(matchedPb?.uses ? { matchedPlaybookUses: Number(matchedPb.uses) } : {})
           };
         }
       }

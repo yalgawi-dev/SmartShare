@@ -1570,7 +1570,7 @@ export const GlobalAssistantDrawer: React.FC = () => {
                       gap: '7px',
                     }}
                   >
-                    <div style={{ fontWeight: 800, fontSize: '0.8rem', color: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                    <div style={{ fontWeight: 800, fontSize: '0.8rem', color: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', flexWrap: 'wrap' }}>
                       <span>
                         {m.planStatus === 'executed'
                           ? `✅ המערכה הושלמה: ${m.proposedPlan.title}`
@@ -1582,6 +1582,11 @@ export const GlobalAssistantDrawer: React.FC = () => {
                                 ? `❌ בוטל: ${m.proposedPlan.title}`
                                 : `🧠 תוכנית מערכה (${m.proposedPlan.steps.length} צעדים)`}
                       </span>
+                      {m.proposedPlan.matchedPlaybookUses && m.proposedPlan.matchedPlaybookUses > 0 && (
+                        <span style={{ fontSize: '0.67rem', fontWeight: 800, padding: '2px 7px', borderRadius: '999px', background: '#e0e7ff', color: '#4338ca' }}>
+                          🧠 תבנית נלמדת ({m.proposedPlan.matchedPlaybookUses})
+                        </span>
+                      )}
                     </div>
 
                     {m.proposedPlan.summary && m.planStatus === 'pending' && (
@@ -1624,27 +1629,51 @@ export const GlobalAssistantDrawer: React.FC = () => {
                       </div>
                     )}
 
-                    {m.planReport?.finalProofUrl && m.planStatus === 'executed' && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const url = m.planReport!.finalProofUrl!;
-                          if (url.startsWith('http')) window.open(url, '_blank');
-                          else window.location.href = url;
-                        }}
-                        style={{
-                          padding: '6px 10px',
-                          borderRadius: '9px',
-                          border: 'none',
-                          background: '#059669',
-                          color: '#fff',
-                          fontWeight: 800,
-                          fontSize: '0.76rem',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        {m.planReport.finalProofLabel || '🔗 צפה בתוצאה'}
-                      </button>
+                    {(m.planReport?.finalProofUrl || m.planReport?.finalWhatsappUrl) && m.planStatus === 'executed' && (
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                        {m.planReport.finalWhatsappUrl && (
+                          <button
+                            type="button"
+                            onClick={() => window.open(m.planReport!.finalWhatsappUrl!, '_blank')}
+                            style={{
+                              flex: 1,
+                              padding: '7px 10px',
+                              borderRadius: '9px',
+                              border: 'none',
+                              background: '#16a34a',
+                              color: '#fff',
+                              fontWeight: 800,
+                              fontSize: '0.76rem',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            💬 שלח בוואטסאפ
+                          </button>
+                        )}
+                        {m.planReport.finalProofUrl && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const url = m.planReport!.finalProofUrl!;
+                              if (url.startsWith('http')) window.open(url, '_blank');
+                              else window.location.href = url;
+                            }}
+                            style={{
+                              flex: 1,
+                              padding: '7px 10px',
+                              borderRadius: '9px',
+                              border: 'none',
+                              background: '#059669',
+                              color: '#fff',
+                              fontWeight: 800,
+                              fontSize: '0.76rem',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {m.planReport.finalProofLabel || '🔗 צפה בתוצאה'}
+                          </button>
+                        )}
+                      </div>
                     )}
 
                     {m.planStatus === 'pending' && (

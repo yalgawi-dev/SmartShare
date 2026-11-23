@@ -46,6 +46,7 @@ export interface AgentActionPlan {
   steps: AgentPlanStep[];
   requiresConfirmation: boolean;
   riskLevel: ActionRiskLevel;
+  matchedPlaybookUses?: number;
 }
 
 export interface AgentPlanExecutionReport {
@@ -57,6 +58,7 @@ export interface AgentPlanExecutionReport {
   finalMessage: string;
   finalProofUrl?: string;
   finalProofLabel?: string;
+  finalWhatsappUrl?: string;
 }
 
 /**

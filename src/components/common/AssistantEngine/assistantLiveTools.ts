@@ -11,6 +11,9 @@ import { inspectLiveScreenDOM, LiveScreenDomInspection } from './assistantDomInt
 import { getCompactUiMapForRoute } from './assistantUiMapLearner';
 import { agentActionRegistry, type AgentToolSchema } from './assistantActionRegistry';
 import { ensureDefaultAgentActionsRegistered } from './assistantActionExecutor';
+import { getSmartShareHostManifest } from './smartShareHostAdapter';
+import { loadLearnedPlaybooks } from './agentPlanOrchestrator';
+import type { AgentPlaybook, HostEntitySummary } from './agentManifest';
 import { getSharedContactsForUser } from '@/utils/partnerUtils';
 
 export interface VaultItemAccess {
@@ -76,6 +79,12 @@ export interface LiveSpaceExecutionResult {
       allowedPartnerNames: string[];
     }>;
   };
+  fileShare: {
+    foldersCount: number;
+    filesCount: number;
+    folders: Array<{ id: string; name: string; parentId: string | null; recipients: string[] }>;
+    files: Array<{ id: string; name: string; parentId: string | null; shareEnabled: boolean; recipients: string[] }>;
+  };
 }
 
 export interface LiveAssistantToolPayload {
@@ -122,6 +131,12 @@ export interface LiveAssistantToolPayload {
   };
   liveSpacesData: LiveSpaceExecutionResult[];
   learnedUiMap?: string[];
+  hostManifest?: {
+    appId: string;
+    appName: string;
+    entities: HostEntitySummary[];
+  };
+  learnedPlaybooks?: AgentPlaybook[];
   appMapSummary: string;
 }
 
@@ -633,7 +648,47 @@ export function executeLiveAssistantTools(
         folders: selectedFolders,
         documentsCount: accessibleDocs.length,
         documents: selectedDocs
-      }
+      },
+      fileShare: (() => {
+        const activeFs = Array.isArray(space.fileShareItems)
+          ? space.fileShareItems.filter((i: any) => !i?.deletedAt && canSeeItem(i))
+          : [];
+        const allFsFolders = activeFs
+          .filter((i: any) => i.type === 'folder')
+          .map((i: any) => ({
+            id: String(i.id || ''),
+            name: String(i.name || 'תיקייה'),
+            parentId: i.parentId || null,
+            recipients: Array.isArray(i.shareLink?.recipients)
+              ? i.shareLink.recipients.map((r: any) => String(r.recipientName || '')).filter(Boolean)
+              : []
+          }));
+        const allFsFiles = activeFs
+          .filter((i: any) => i.type !== 'folder')
+          .map((i: any) => ({
+            id: String(i.id || ''),
+            name: String(i.name || i.fileName || 'קובץ'),
+            parentId: i.parentId || null,
+            shareEnabled: Boolean(i.shareLink?.enabled),
+            recipients: Array.isArray(i.shareLink?.recipients)
+              ? i.shareLink.recipients.map((r: any) => String(r.recipientName || '')).filter(Boolean)
+              : []
+          }));
+        return {
+          foldersCount: allFsFolders.length,
+          filesCount: allFsFiles.length,
+          folders: isQueriedSpace
+            ? allFsFolders.slice(0, 40)
+            : queryTokens.length > 0
+              ? allFsFolders.filter((f) => queryTokens.some((tok) => f.name.toLowerCase().includes(tok))).slice(0, 12)
+              : [],
+          files: isQueriedSpace
+            ? allFsFiles.slice(0, 50)
+            : queryTokens.length > 0
+              ? allFsFiles.filter((f) => queryTokens.some((tok) => f.name.toLowerCase().includes(tok))).slice(0, 15)
+              : []
+        };
+      })()
     };
   });
 
@@ -710,6 +765,8 @@ export function executeLiveAssistantTools(
   // Ensure generic + host action tools are registered and expose their live schemas dynamically
   ensureDefaultAgentActionsRegistered();
   const availableActionTools = agentActionRegistry.listSchemas();
+  const manifest = getSmartShareHostManifest();
+  const learnedPlaybooks = loadLearnedPlaybooks(manifest.appId).slice(0, 5);
 
   // Deduplicate DOM payload for LLM (interactiveElements already contains all visible buttons + agentIds)
   const slimLiveScreenDOM: LiveScreenDomInspection = {
@@ -743,6 +800,12 @@ export function executeLiveAssistantTools(
       currentActiveSpaceTitle: currentActiveSpace?.title || screenContext.spaceTitle
     },
     liveSpacesData,
+    hostManifest: {
+      appId: manifest.appId,
+      appName: manifest.appName,
+      entities: manifest.entities
+    },
+    learnedPlaybooks,
     appMapSummary
   };
 }
