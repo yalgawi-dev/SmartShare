@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useState, useEffect, useRef, useMemo } from 'react';
+import { use, useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import styles from './page.module.css';
 import Link from 'next/link';
@@ -37,7 +37,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 import InstallAppHeaderButton from '../../../components/InstallAppHeaderButton';
 import { SpaceAnnouncementBanner } from '../../../components/common/SpaceAnnouncementBanner';
 import VersionBadge from '../../../components/common/VersionBadge';
-import { useHardwareBack } from '@/hooks/useHardwareBack';
+import { useHardwareBack, useHardwareBackStep } from '@/hooks/useHardwareBack';
 
 function EmptyStateCarousel() {
   return (
@@ -105,7 +105,20 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [scannerMode, setScannerMode] = useState<'camera' | 'upload'>('camera');
   const [scannerCategory, setScannerCategory] = useState<'receipt' | 'document' | 'image'>('receipt');
-  const [financeTab, setFinanceTab] = useState<'summary' | 'transactions' | 'inbox' | 'shelves' | 'documents' | 'fileshare'>(() => { if (typeof window !== 'undefined') { const t = new URLSearchParams(window.location.search).get('tab'); if (t === 'inbox' || t === 'transactions' || t === 'documents' || t === 'shelves' || t === 'fileshare') return t as any; } return 'summary'; });
+  const [financeTab, setFinanceTabState] = useState<'summary' | 'transactions' | 'inbox' | 'shelves' | 'documents' | 'fileshare'>(() => { if (typeof window !== 'undefined') { const t = new URLSearchParams(window.location.search).get('tab'); if (t === 'inbox' || t === 'transactions' || t === 'documents' || t === 'shelves' || t === 'fileshare') return t as any; } return 'summary'; });
+  const tabHistoryRef = useRef<Array<'summary' | 'transactions' | 'inbox' | 'shelves' | 'documents' | 'fileshare'>>([]);
+  const [tabStepDepth, setTabStepDepth] = useState(0);
+  const setFinanceTab = useCallback((next: any, opts?: { replace?: boolean }) => {
+    setFinanceTabState((prev) => {
+      const resolved = typeof next === 'function' ? next(prev) : next;
+      if (resolved === prev) return prev;
+      if (!opts?.replace) {
+        tabHistoryRef.current = [...tabHistoryRef.current.slice(-19), prev];
+        setTabStepDepth(tabHistoryRef.current.length);
+      }
+      return resolved;
+    });
+  }, []);
   const [tooltipData, setTooltipData] = useState<{ id: string, text: string, target: 'tools' | 'settings' } | null>(null);
   const [activeChatId, setActiveChatId] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
@@ -114,8 +127,18 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
     return null;
   });
 
-  // Android / Galaxy Hardware Back Button — step back 1 level at a time across Space tabs & overlays
-  useHardwareBack(financeTab !== 'summary', () => setFinanceTab('summary'), 'space-tab');
+  // Android / Galaxy & iOS Hardware Back Button — step back EXACTLY 1 tab/overlay at a time, remembering previous tabs!
+  useHardwareBackStep(
+    tabStepDepth > 0 ? `${tabStepDepth}:${financeTab}` : null,
+    () => {
+      const prevTab = tabHistoryRef.current.pop();
+      setTabStepDepth(tabHistoryRef.current.length);
+      if (prevTab) {
+        setFinanceTabState(prevTab);
+      }
+    },
+    'space-tab'
+  );
   useHardwareBack(showFeatureMenu, () => setShowFeatureMenu(false), 'space-tools-menu');
   useHardwareBack(showPartnersModal, () => setShowPartnersModal(false), 'space-partners');
   useHardwareBack(showInviteModal, () => setShowInviteModal(false), 'space-invite-modal');
@@ -470,7 +493,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
     }
   }, []);
 
-  // Handle tab URL param (?tab=partners, ?tab=inbox) and smartshare:open_tab events
+  // Handle tab URL param (?tab=partners, ?tab=inbox, ?tab=fileshare, etc.) and smartshare:open_tab events
   useEffect(() => {
     const handleCheckTabs = () => {
       if (typeof window === 'undefined') return;
@@ -478,8 +501,8 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
       const tabParam = params.get('tab');
       if (tabParam === 'partners') {
         setShowPartnersModal(true);
-      } else if (tabParam === 'inbox' || tabParam === 'transactions' || tabParam === 'documents') {
-        setFinanceTab(tabParam as any);
+      } else if (tabParam === 'inbox' || tabParam === 'transactions' || tabParam === 'documents' || tabParam === 'shelves' || tabParam === 'fileshare') {
+        setFinanceTab(tabParam as any, { replace: true });
       }
     };
 
@@ -491,20 +514,18 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
       if (!detail.spaceId || detail.spaceId === id) {
         if (detail.tab === 'partners') {
           setShowPartnersModal(true);
-        } else if (detail.tab === 'inbox' || detail.tab === 'transactions' || detail.tab === 'documents') {
+        } else if (detail.tab === 'inbox' || detail.tab === 'transactions' || detail.tab === 'documents' || detail.tab === 'shelves' || detail.tab === 'fileshare') {
           setFinanceTab(detail.tab);
         }
       }
     };
 
     window.addEventListener('smartshare:open_tab', handleCustomOpenTab);
-    window.addEventListener('popstate', handleCheckTabs);
 
     return () => {
       window.removeEventListener('smartshare:open_tab', handleCustomOpenTab);
-      window.removeEventListener('popstate', handleCheckTabs);
     };
-  }, [id]);
+  }, [id, setFinanceTab]);
 
   // Handle Group Invite URL param (?groupInvite=true)
   useEffect(() => {
@@ -597,12 +618,14 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   const hasVault = spaceFeatures.includes('vault');
   const hasFileShare = spaceFeatures.includes('fileshare');
 
-  // If space does not have finance, automatically switch active tab to shelves
+  // If space does not have finance, automatically switch active tab to shelves or fileshare without polluting back stack
   useEffect(() => {
     if (!hasFinance && hasVault && financeTab === 'summary') {
-      setFinanceTab('shelves');
+      setFinanceTab('shelves', { replace: true });
+    } else if (!hasFinance && !hasVault && hasFileShare && financeTab === 'summary') {
+      setFinanceTab('fileshare', { replace: true });
     }
-  }, [hasFinance, hasVault, financeTab]);
+  }, [hasFinance, hasVault, hasFileShare, financeTab, setFinanceTab]);
 
   const hasPartners = spaceFeatures.includes('partners');
   const creatorId = space.creatorId || space.createdBy;

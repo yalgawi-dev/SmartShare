@@ -91,7 +91,8 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     addDocumentFolder,
     updateDocumentFolder,
     removeDocument,
-    updateInvoice
+    updateInvoice,
+    updateFileShareItems
   } = useSpaces();
 
   // Extract spaceId from pathname if on /space/[id]
@@ -623,7 +624,7 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       user,
       spaces,
       router,
-      spacesApi: { updateDocument, addDocumentFolder, updateDocumentFolder, removeDocument, updateInvoice }
+      spacesApi: { updateDocument, addDocumentFolder, updateDocumentFolder, removeDocument, updateInvoice, updateFileShareItems }
     };
 
     // Step 1: Full Zero-Trust Live Tools + Live DOM + Learned UI Map
@@ -868,7 +869,7 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       user,
       spaces,
       router,
-      spacesApi: { updateDocument, addDocumentFolder, updateDocumentFolder, removeDocument, updateInvoice }
+      spacesApi: { updateDocument, addDocumentFolder, updateDocumentFolder, removeDocument, updateInvoice, updateFileShareItems }
     });
 
     setMessages(prev =>

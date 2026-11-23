@@ -20,6 +20,7 @@ import GlobalRecycleBinModal, { TrashItem } from '@/components/common/GlobalRecy
 import ConfirmModal from '@/components/common/ConfirmModal';
 import { PartnersInviteModal } from '@/components/widgets/Partners/PartnersInviteModal';
 import { useAssistant } from '@/components/common/AssistantEngine/AssistantContext';
+import { useHardwareBack, useHardwareBackStep } from '@/hooks/useHardwareBack';
 
 interface FileShareWidgetProps {
   space: any;
@@ -86,6 +87,26 @@ export function FileShareWidget({
   const [inviteModalScopeFolder, setInviteModalScopeFolder] = useState<FileShareItem | null>(null);
   const [showRecycleBin, setShowRecycleBin] = useState(false);
   const [showShareHub, setShowShareHub] = useState(false);
+
+  // Android/Galaxy & iOS 1-Step Hardware Back Navigation for ALL FileShare nested folders & modals
+  useHardwareBackStep(
+    currentFolderId,
+    () => {
+      if (!currentFolderId) return;
+      const cur = (Array.isArray(space?.fileShareItems) ? space.fileShareItems : []).find((i: any) => i.id === currentFolderId);
+      setCurrentFolderId(cur?.parentId || null);
+    },
+    'fileshare-folder'
+  );
+  useHardwareBack(isMultiSelect, () => { setIsMultiSelect(false); setSelectedItemIds([]); }, 'fileshare-multiselect');
+  useHardwareBack(showNewFolderModal, () => setShowNewFolderModal(false), 'fileshare-new-folder');
+  useHardwareBack(showImportModal, () => setShowImportModal(false), 'fileshare-import');
+  useHardwareBack(Boolean(privacyItem), () => setPrivacyItem(null), 'fileshare-privacy');
+  useHardwareBack(Boolean(moveModalState), () => setMoveModalState(null), 'fileshare-move');
+  useHardwareBack(showRecycleBin, () => setShowRecycleBin(false), 'fileshare-recycle');
+  useHardwareBack(showInviteModal, () => { setShowInviteModal(false); setInviteModalScopeFolder(null); }, 'fileshare-invite');
+  useHardwareBack(Boolean(activeShareItem), () => setActiveShareItem(null), 'fileshare-share-modal');
+  useHardwareBack(showShareHub, () => setShowShareHub(false), 'fileshare-share-hub');
 
   // View Mode: grid_medium (125px) / grid_large (175px) / list (Table)
   const [viewMode, setViewMode] = useState<'grid_medium' | 'grid_large' | 'list'>(() => {

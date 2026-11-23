@@ -126,6 +126,8 @@ export function FileShareItemCard({
 
   const privacyBadge = getPrivacyBadge();
 
+  const [thumbFailed, setThumbFailed] = useState(false);
+
   // Unified document format detection via getDocumentFormatInfo (Rule 2 - DRY Single Source of Truth)
   const formatInfo = getDocumentFormatInfo({
     url: item.url,
@@ -137,8 +139,33 @@ export function FileShareItemCard({
 
   const isPdf = formatInfo.category === 'pdf';
   const isCad = formatInfo.category === 'cad';
-  const isImg = formatInfo.category === 'webp' || (item.url && item.url.match(/\.(jpg|jpeg|png|webp|gif)/i));
-  const previewUrl = item.thumbnailUrl || (Array.isArray(item.pages) && item.pages.length > 0 ? item.pages[0] : (isImg && item.url ? item.url : ''));
+  const isImg = formatInfo.category === 'webp' || Boolean(item.url && item.url.match(/\.(jpg|jpeg|png|webp|gif)($|\?)/i));
+  const isRealImageUrl = (u?: string) => {
+    if (!u || typeof u !== 'string') return false;
+    if ((isPdf || isCad) && item.url && u === item.url) return false;
+    const low = u.toLowerCase();
+    if (low.startsWith('data:image/')) return true;
+    if (
+      low.includes('.pdf') ||
+      low.includes('.dwfx') ||
+      low.includes('.dwf') ||
+      low.includes('.dwg') ||
+      low.includes('.dxf') ||
+      low.includes('.doc') ||
+      low.includes('.xls') ||
+      low.includes('.zip') ||
+      low.startsWith('data:application/')
+    ) {
+      return false;
+    }
+    return true;
+  };
+  const candidatePreview = isRealImageUrl(item.thumbnailUrl)
+    ? item.thumbnailUrl!
+    : (Array.isArray(item.pages) && item.pages.length > 0 && isRealImageUrl(item.pages[0])
+      ? item.pages[0]
+      : (isImg && isRealImageUrl(item.url) ? item.url! : ''));
+  const previewUrl = thumbFailed ? '' : candidatePreview;
 
   // FOLDER CARD VIEW (Uniform with Vault Folders)
   if (isFolder) {
@@ -755,10 +782,7 @@ export function FileShareItemCard({
       <div
         style={{
           height: docCardHeight,
-          background: '#e2e8f0',
-          backgroundImage: previewUrl ? `url(${previewUrl})` : 'none',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
+          background: '#f1f5f9',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -769,6 +793,19 @@ export function FileShareItemCard({
           cursor: 'pointer'
         }}
       >
+        {previewUrl && (
+          <img
+            src={previewUrl}
+            alt={item.name || 'תצוגה מקדימה'}
+            onError={() => setThumbFailed(true)}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              display: 'block'
+            }}
+          />
+        )}
         {/* Index Badge */}
         {typeof itemIndex === 'number' && (
           <div style={{
@@ -821,10 +858,39 @@ export function FileShareItemCard({
           </button>
         )}
 
-        {/* Fallback Icon / PDF Thumbnail */}
+        {/* Fallback Icon / PDFium Live Thumbnail / Crisp CAD Blueprint Card */}
         {!previewUrl && (
-          isPdf && item.url ? (
-            <PdfThumbnail url={item.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          isPdf && (item.rawPdfUrl || item.url) ? (
+            <PdfThumbnail url={item.rawPdfUrl || item.url} style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#ffffff' }} />
+          ) : isCad ? (
+            <div style={{
+              width: '100%',
+              height: '100%',
+              background: 'linear-gradient(135deg, #1e293b 0%, #312e81 100%)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '5px',
+              color: '#e0e7ff',
+              padding: '8px',
+              textAlign: 'center',
+              backgroundImage: 'radial-gradient(rgba(129, 140, 248, 0.22) 1px, transparent 1px)',
+              backgroundSize: '14px 14px'
+            }}>
+              <span style={{ fontSize: '2rem', lineHeight: 1 }}>📐</span>
+              <span style={{
+                background: 'rgba(99, 102, 241, 0.92)',
+                color: '#ffffff',
+                padding: '2px 9px',
+                borderRadius: '999px',
+                fontSize: '0.68rem',
+                fontWeight: 800,
+                letterSpacing: '0.03em'
+              }}>
+                {formatInfo.tag} • שרטוט CAD
+              </span>
+            </div>
           ) : (
             <span style={{ fontSize: '2.5rem' }}>📄</span>
           )

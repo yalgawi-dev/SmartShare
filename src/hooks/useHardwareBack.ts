@@ -124,7 +124,7 @@ export function useHardwareBackStep(
   const onBackRef = useRef(onBack);
   onBackRef.current = onBack;
 
-  const entryIdsRef = useRef<string[]>([]);
+  const stepEntriesRef = useRef<Array<{ id: string; key: string }>>([]);
   const lastStepKeyRef = useRef<string | null>(null);
   const poppedByHardwareRef = useRef(false);
 
@@ -136,9 +136,9 @@ export function useHardwareBackStep(
       lastStepKeyRef.current = stepKey;
       if (!stepKey) {
         // Reached root: clean any leftover entries
-        while (entryIdsRef.current.length > 0) {
-          const oldId = entryIdsRef.current.pop()!;
-          removeStackEntry(oldId);
+        while (stepEntriesRef.current.length > 0) {
+          const old = stepEntriesRef.current.pop()!;
+          removeStackEntry(old.id);
         }
       }
       return;
@@ -146,24 +146,35 @@ export function useHardwareBackStep(
 
     if (!stepKey) {
       lastStepKeyRef.current = null;
-      while (entryIdsRef.current.length > 0) {
-        const oldId = entryIdsRef.current.pop()!;
-        removeStackEntry(oldId);
+      while (stepEntriesRef.current.length > 0) {
+        const old = stepEntriesRef.current.pop()!;
+        removeStackEntry(old.id);
       }
       return;
     }
 
     if (stepKey !== lastStepKeyRef.current) {
       lastStepKeyRef.current = stepKey;
+      // If user clicked a UI breadcrumb/back arrow to jump UP to an already-visited ancestor step,
+      // pop the deeper entries instead of pushing a duplicate history state!
+      const existingIdx = stepEntriesRef.current.findIndex((e) => e.key === stepKey);
+      if (existingIdx !== -1) {
+        while (stepEntriesRef.current.length > existingIdx + 1) {
+          const popped = stepEntriesRef.current.pop()!;
+          removeStackEntry(popped.id);
+        }
+        return;
+      }
+
       const id = `hwb_${keyTag}_${++seqCounter}_${Date.now()}`;
-      entryIdsRef.current.push(id);
+      stepEntriesRef.current.push({ id, key: stepKey });
       pushStackEntry({
         id,
         keyTag,
         onBack: () => {
           poppedByHardwareRef.current = true;
-          const idx = entryIdsRef.current.indexOf(id);
-          if (idx !== -1) entryIdsRef.current.splice(idx, 1);
+          const idx = stepEntriesRef.current.findIndex((e) => e.id === id);
+          if (idx !== -1) stepEntriesRef.current.splice(idx, 1);
           onBackRef.current();
         },
       });
@@ -172,9 +183,9 @@ export function useHardwareBackStep(
 
   useEffect(() => {
     return () => {
-      while (entryIdsRef.current.length > 0) {
-        const oldId = entryIdsRef.current.pop()!;
-        removeStackEntry(oldId);
+      while (stepEntriesRef.current.length > 0) {
+        const old = stepEntriesRef.current.pop()!;
+        removeStackEntry(old.id);
       }
     };
   }, []);

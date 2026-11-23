@@ -16,6 +16,7 @@ export interface HostActionRuntimeContext {
     updateDocumentFolder: (spaceId: string, folderId: string, updates: any) => void;
     removeDocument: (spaceId: string, docId: string) => void;
     updateInvoice: (spaceId: string, invoiceId: string, updates: any, performedBy?: string, actionDetail?: string) => void;
+    updateFileShareItems: (spaceId: string, items: any[]) => void;
   };
 }
 
@@ -164,6 +165,9 @@ export function ensureDefaultAgentActionsRegistered(): void {
       const proofUrl = `/space/${space.id}?tab=documents${targetFolder ? `&folderId=${targetFolder.id}` : ''}`;
 
       // Automatically navigate user to the new location so they physically see the moved file!
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('smartshare:open_tab', { detail: { spaceId: space.id, tab: 'documents' } }));
+      }
       router.push(proofUrl);
 
       return {
@@ -171,6 +175,128 @@ export function ensureDefaultAgentActionsRegistered(): void {
         message: `המסמך "${doc.title || doc.name}" הועבר בהצלחה אל ${destName} במרחב "${space.title}".`,
         proofUrl,
         proofLabel: `📂 צפה במיקום החדש (${destName})`
+      };
+    }
+  });
+
+  agentActionRegistry.register({
+    schema: {
+      name: 'export_documents_to_fileshare',
+      description: 'מעתיק/מעביר מסמך אחד או יותר (או תיקייה שלמה) מהכספת/מסמכים (vault.documents) אל "קיר שיתוף" (fileShareItems) במרחב, ומנווט אוטומטית את המשתמש לקיר השיתוף כדי שיראה את הקבצים במקום. חובה להשתמש בכלי זה בכל בקשה להעביר/לייבא/לשלוח קבצים לקיר שיתוף!',
+      riskLevel: 'medium',
+      requiresConfirmation: true,
+      parameters: {
+        spaceId: { type: 'string', description: 'מזהה המרחב (id)', required: true },
+        docIds: { type: 'string[]', description: 'מערך מזהי המסמכים (id) מתוך vault.documents להעברה לקיר השיתוף', required: false },
+        sourceFolderId: { type: 'string', description: 'אופציונלי: מזהה תיקייה ב-vault.folders אם רוצים להעביר את כל הקבצים שבתוכה', required: false },
+        targetFileShareFolderName: { type: 'string', description: 'אופציונלי: שם תיקייה קיימת בתוך קיר השיתוף (למשל "אינסטלטור") אם המשתמש ביקש להעביר לתוכה', required: false }
+      }
+    },
+    execute: async (params, ctx) => {
+      const { user, spaces, spacesApi, router } = ctx as HostActionRuntimeContext;
+      const envelope = createSecurityEnvelope(user);
+      const space = (spaces || []).find((s: any) => s.id === params.spaceId);
+      if (!space || !canCallerAccessSpace(envelope, space)) {
+        return { success: false, message: 'אין הרשאה לבצע פעולה במרחב זה.' };
+      }
+
+      const activeDocs = (space.documents || []).filter((d: any) => !d.deletedAt);
+      const requestedIds: string[] = Array.isArray(params.docIds)
+        ? params.docIds.map((x: any) => String(x))
+        : params.docId
+          ? [String(params.docId)]
+          : [];
+
+      let docsToExport = requestedIds.length > 0
+        ? activeDocs.filter((d: any) => requestedIds.includes(d.id))
+        : [];
+
+      if (docsToExport.length === 0 && params.sourceFolderId) {
+        docsToExport = activeDocs.filter((d: any) => d.folderId === params.sourceFolderId);
+      }
+
+      if (docsToExport.length === 0) {
+        return { success: false, message: 'לא נמצאו מסמכים תואמים להעברה לקיר השיתוף.' };
+      }
+
+      const existingItems: any[] = Array.isArray(space.fileShareItems) ? [...space.fileShareItems] : [];
+      let targetParentId: string | null = null;
+      let targetFolderLabel = 'התיקייה הראשית של קיר השיתוף';
+
+      if (params.targetFileShareFolderName) {
+        const needle = String(params.targetFileShareFolderName).trim().toLowerCase();
+        const foundFolder = existingItems.find(
+          (i: any) => !i.deletedAt && i.type === 'folder' && String(i.name || '').trim().toLowerCase() === needle
+        );
+        if (foundFolder) {
+          targetParentId = foundFolder.id;
+          targetFolderLabel = `תיקיית "${foundFolder.name}" בקיר השיתוף`;
+        }
+      }
+
+      const addedNames: string[] = [];
+      const skippedNames: string[] = [];
+      const nowIso = new Date().toISOString();
+
+      for (const doc of docsToExport) {
+        const primaryUrl = doc.rawPdfUrl || doc.fileUrl || doc.url || (Array.isArray(doc.pages) && doc.pages[0]) || '';
+        const docName = String(doc.title || doc.name || doc.fileName || 'מסמך');
+        const alreadyExists = existingItems.some(
+          (item: any) => !item.deletedAt && item.type === 'file' && (item.parentId || null) === targetParentId && ((primaryUrl && (item.url === primaryUrl || item.rawPdfUrl === primaryUrl)) || item.name === docName)
+        );
+        if (alreadyExists) {
+          skippedNames.push(docName);
+          continue;
+        }
+
+        const newItem: any = {
+          id: `fs_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+          type: 'file',
+          name: docName,
+          fileName: doc.fileName || docName,
+          parentId: targetParentId,
+          url: primaryUrl,
+          ...(doc.rawPdfUrl ? { rawPdfUrl: doc.rawPdfUrl } : {}),
+          ...(doc.thumbnailUrl ? { thumbnailUrl: doc.thumbnailUrl } : {}),
+          ...(Array.isArray(doc.pages) && doc.pages.length > 0 ? { pages: doc.pages } : {}),
+          ...(doc.mimeType ? { mimeType: doc.mimeType } : {}),
+          ...(doc.fileType ? { fileType: doc.fileType } : {}),
+          ...(doc.size ? { size: doc.size } : {}),
+          createdAt: nowIso,
+          uploadedBy: user?.id || 'assistant',
+          uploadedByName: user?.realName || user?.name || 'משתמש',
+          isPublic: true, // Rule 20: Open to all by default
+          allowedPartners: []
+        };
+
+        existingItems.push(newItem);
+        addedNames.push(docName);
+      }
+
+      if (addedNames.length > 0) {
+        spacesApi.updateFileShareItems(space.id, existingItems);
+      }
+
+      const proofUrl = `/space/${space.id}?tab=fileshare`;
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('smartshare:open_tab', { detail: { spaceId: space.id, tab: 'fileshare' } }));
+      }
+      router.push(proofUrl);
+
+      if (addedNames.length === 0 && skippedNames.length > 0) {
+        return {
+          success: true,
+          message: `הקבצים (${skippedNames.join(', ')}) כבר נמצאים ב-${targetFolderLabel}. העברתי אותך לקיר השיתוף לצפייה.`,
+          proofUrl,
+          proofLabel: '🔗 צפה בקיר השיתוף'
+        };
+      }
+
+      return {
+        success: true,
+        message: `הועברו בהצלחה ${addedNames.length} קבצים (${addedNames.join(', ')}) אל ${targetFolderLabel} במרחב "${space.title}"! העברתי אותך כעת ישירות לקיר השיתוף כדי שתראה אותם.`,
+        proofUrl,
+        proofLabel: '🔗 צפה בקיר השיתוף'
       };
     }
   });
