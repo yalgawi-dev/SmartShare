@@ -19,6 +19,7 @@ export interface AssistantPersona {
   gcpVoiceName: string;
   sampleLine: string;
   accentColor: string;
+  isPremium?: boolean;
 }
 
 export const ASSISTANT_PERSONAS: AssistantPersona[] = [
@@ -27,12 +28,13 @@ export const ASSISTANT_PERSONAS: AssistantPersona[] = [
     name: 'דנה',
     gender: 'female',
     roleLabel: 'העוזרת האישית שלך',
-    voiceTagline: 'קול נשי צלול וצעיר',
+    voiceTagline: 'קול נשי צלול ומהיר (חינם)',
     avatarUrl: '/avatars/assistant/dana.jpg',
     geminiVoiceName: 'Kore',
     gcpVoiceName: 'he-IL-Wavenet-A',
     sampleLine: 'היי! אני דנה, שמחה לעזור לך לנהל את הכל בקלות ובמהירות.',
     accentColor: '#4f46e5',
+    isPremium: false,
   },
   {
     id: 'shimrit',
@@ -45,6 +47,7 @@ export const ASSISTANT_PERSONAS: AssistantPersona[] = [
     gcpVoiceName: 'he-IL-Wavenet-C',
     sampleLine: 'שלום, אני שימרית. אני כאן איתך לכל שאלה, סידור או שיתוף.',
     accentColor: '#7c3aed',
+    isPremium: true,
   },
   {
     id: 'avi',
@@ -57,6 +60,7 @@ export const ASSISTANT_PERSONAS: AssistantPersona[] = [
     gcpVoiceName: 'he-IL-Wavenet-B',
     sampleLine: 'אהלן, אני אבי. תגיד לי מה צריך לבצע ואני מטפל בזה מיד.',
     accentColor: '#0284c7',
+    isPremium: true,
   },
   {
     id: 'asaf',
@@ -69,6 +73,7 @@ export const ASSISTANT_PERSONAS: AssistantPersona[] = [
     gcpVoiceName: 'he-IL-Wavenet-D',
     sampleLine: 'היי! אני אסף, בוא נתקתק יחד את כל המשימות והקבצים שלך.',
     accentColor: '#059669',
+    isPremium: true,
   },
 ];
 
@@ -83,9 +88,8 @@ export function loadSavedPersonaId(): AssistantPersonaId {
   if (typeof window === 'undefined') return 'dana';
   try {
     const saved = localStorage.getItem(PERSONA_STORAGE_KEY);
-    if (saved && ASSISTANT_PERSONAS.some((p) => p.id === saved)) {
-      return saved as AssistantPersonaId;
-    }
+    const found = ASSISTANT_PERSONAS.find((p) => p.id === saved && !p.isPremium);
+    if (found) return found.id;
   } catch {}
   return 'dana';
 }

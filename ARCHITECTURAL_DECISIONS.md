@@ -90,3 +90,10 @@
   - שלב 1: יצירת `agentManifest.ts` + `agentPlanOrchestrator.ts` (ליבה אוניברסלית) + `smartShareHostAdapter.ts` (`transfer_items`, `manage_entity`, `share_resource`).
   - שלב 2: שדרוג `assistantUiMapLearner.ts` לתמיכה ב-Playbooks רב-שלביים לצד שימור ה-Q&A ומדריך המשתמש.
   - שלב 3: כרטיס תוכנית מערכה רב-שלבית ב-`GlobalAssistantDrawer.tsx` עם אישור יחיד והוכחה חיה בסיום.
+
+---
+
+## ADR-010: מודל עסקי לקולות הסוכן האישי (Freemium Voice Personas)
+- **החלטה:**
+  - **מסלול חינם (`דנה`):** פועל על מנוע ההקראה החינמי והמהיר (`~0.4s`, עלות `\$0`).
+  - **מסלול Pro עתידי (`שימרית`, `אבי`, `אסף` — נעולים כרגע עם תג `🔒 Pro`):** התשתית הטכנית ב-`/api/assistant/tts` כבר מוכנה לחלוטין לקולות `he-IL-Wavenet-A/B/C/D` של Google Cloud (מהירות ~0.3s) ותיפתח בקליק אחד בעת השקת המודל העסקי.
