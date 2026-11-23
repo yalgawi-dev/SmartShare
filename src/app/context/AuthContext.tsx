@@ -144,31 +144,24 @@ export const useAuth = () => useContext(AuthContext);
 const CACHED_USER_STORAGE_KEY = 'smartshare_cached_user_v1';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  // Instant Cache-First Boot: hydrate last verified user profile immediately (<50ms)
-  // while Firebase Auth + Firestore silently verify & refresh in the background!
-  const [user, setUser] = useState<UserProfile | null>(() => {
-    if (typeof window === 'undefined') return null;
-    try {
-      const raw = localStorage.getItem(CACHED_USER_STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed && parsed.id && !parsed.isBlocked) return parsed as UserProfile;
-      }
-    } catch {}
-    return null;
-  });
+  // Hydration-safe initial state (matches SSR 100% — zero React #418/#425 mismatch!)
+  const [user, setUser] = useState<UserProfile | null>(null);
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
-  const [isLoaded, setIsLoaded] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
+  const [isLoaded, setIsLoaded] = useState<boolean>(false);
+
+  // Instant Cache-First Boot right after hydration (<10ms) while Firebase verifies live in background!
+  useEffect(() => {
     try {
       const raw = localStorage.getItem(CACHED_USER_STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (parsed && parsed.id && !parsed.isBlocked) return true;
+        if (parsed && parsed.id && !parsed.isBlocked) {
+          setUser((prev) => prev || (parsed as UserProfile));
+          setIsLoaded(true);
+        }
       }
     } catch {}
-    return false;
-  });
+  }, []);
 
   // Load all users for the CRM (admin view) - now in REAL-TIME
   useEffect(() => {

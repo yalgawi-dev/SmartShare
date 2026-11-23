@@ -514,6 +514,8 @@ export const GlobalAssistantDrawer: React.FC = () => {
       };
 
       recognition.onresult = (event: any) => {
+        // Ignore stale results if recognition was already detached/sent
+        if (recognitionRef.current !== recognition) return;
         // On Android Chrome with continuous=false & interimResults=true,
         // the latest result entry holds the cumulative utterance without duplication
         const lastIdx = event.results.length - 1;
@@ -548,11 +550,17 @@ export const GlobalAssistantDrawer: React.FC = () => {
   };
 
   const handleSend = async (textToSend?: string) => {
-    if (isListening && recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch (_) {}
+    const activeRec = recognitionRef.current;
+    if (activeRec) {
+      // Detach handlers FIRST and abort() so Android SpeechRecognition cannot flush a late
+      // final onresult event that re-populates the cleared input box!
       recognitionRef.current = null;
+      try {
+        activeRec.onresult = null;
+        activeRec.onend = null;
+        activeRec.onerror = null;
+        activeRec.abort();
+      } catch (_) {}
       setIsListening(false);
     }
     const text = (textToSend || inputVal).trim();
