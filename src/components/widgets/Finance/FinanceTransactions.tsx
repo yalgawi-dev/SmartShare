@@ -184,7 +184,10 @@ export function FinanceTransactions({
       if (!inv.rejectedById && inv.rejectedBy && filterUser && inv.rejectedBy.trim() === filterUser.name.trim()) return true;
       return false;
     } else {
-      if (effectivePayer !== memberFilter) return false;
+      const hasSplitShare =
+        (inv.payerSplits && Number(inv.payerSplits[memberFilter]) > 0) ||
+        (inv.payerSplitMode === 'all_by_shares' && !(inv.excludedMembers || []).includes(memberFilter));
+      if (effectivePayer !== memberFilter && !hasSplitShare) return false;
     }
 
     return true;
@@ -1372,7 +1375,27 @@ export function FinanceTransactions({
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', position: 'sticky', top: '73px', zIndex: 40, background: 'var(--bg-main)', borderBottom: '1px solid var(--border-light)', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', paddingBottom: '1rem', margin: '0 -0.5rem 0 -0.5rem' }}>
         <div style={{ fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--text-secondary)' }}>
-          סך הכל: ₪{finallyFiltered.reduce((sum, inv) => sum + (Number(inv.amount) || 0), 0).toLocaleString()}
+          {memberFilter === 'all' ? (
+            <>סך הכל: ₪{finallyFiltered.reduce((sum, inv) => sum + (Number(inv.amount) || 0), 0).toLocaleString()}</>
+          ) : (
+            <>
+              חלק משולם ({allUsers.find(u => u.id === memberFilter)?.name || 'שותף'}): ₪
+              {Math.round(
+                finallyFiltered.reduce((sum, inv) => {
+                  if (inv.payerSplits && inv.payerSplits[memberFilter] !== undefined) {
+                    return sum + (Number(inv.payerSplits[memberFilter]) || 0);
+                  }
+                  if (inv.payerSplitMode === 'all_by_shares') {
+                    const partnerCount = Math.max(1, allPartnerOptions.length);
+                    const pOpt = allPartnerOptions.find(p => p.userId === memberFilter);
+                    const pct = pOpt?.defaultSharePct ? pOpt.defaultSharePct / 100 : 1 / partnerCount;
+                    return sum + (Number(inv.amount) || 0) * pct;
+                  }
+                  return sum + (Number(inv.amount) || 0);
+                }, 0)
+              ).toLocaleString()}
+            </>
+          )}
         </div>
         <button 
           onClick={() => setViewMode(prev => prev === 'cards' ? 'table' : 'cards')}
