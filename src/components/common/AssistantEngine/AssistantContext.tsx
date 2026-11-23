@@ -208,9 +208,22 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setScreenContext(prev => ({ ...prev, ...updates }));
   }, []);
 
+  const hasGreetedRef = React.useRef(false);
+
   const toggleOpen = useCallback(() => {
-    setIsOpen(prev => !prev);
-  }, []);
+    setIsOpen((prev) => {
+      const next = !prev;
+      if (next && !hasGreetedRef.current && autoSpeak) {
+        hasGreetedRef.current = true;
+        const firstWelcome = messages.find((m) => m.id === 'welcome' && m.sender === 'assistant');
+        if (firstWelcome?.text) {
+          // Trigger inside user click gesture so iOS/Android allow immediate audio!
+          void speakText(firstWelcome.text);
+        }
+      }
+      return next;
+    });
+  }, [autoSpeak, messages]);
 
   const clearChat = useCallback(() => {
     setMessages([

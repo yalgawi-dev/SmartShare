@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 /**
  * GlobalPWAPrompt v4
@@ -26,6 +26,7 @@ export default function GlobalPWAPrompt() {
   const [coachOffset, setCoachOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [bubbleOffset, setBubbleOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [installing, setInstalling] = useState(false);
+  const coachAudioRef = useRef<HTMLAudioElement | null>(null);
   const [menuOpened, setMenuOpened] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
 
@@ -297,15 +298,29 @@ export default function GlobalPWAPrompt() {
   }
 
   const speakCoachLine = async (scriptText: string) => {
-    setIsSpeakingGuide(true);
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('smartshare:assistant_speaking', { detail: { speaking: true } }));
+    // CRITICAL iOS SAFARI FIX: Create & unlock Audio element SYNCHRONOUSLY inside the tap gesture
+    // BEFORE awaiting fetch(), otherwise iOS Safari blocks autoplay after the async boundary!
+    if (typeof window === 'undefined') return;
+    let audio = coachAudioRef.current;
+    if (!audio) {
+      audio = new Audio();
+      (audio as any).playsInline = true;
+      coachAudioRef.current = audio;
     }
+    try {
+      audio.pause();
+      // Unlock audio playback within the synchronous user tap gesture on iOS Safari
+      audio.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+      await audio.play().catch(() => {});
+      audio.pause();
+    } catch {}
+
+    setIsSpeakingGuide(true);
+    window.dispatchEvent(new CustomEvent('smartshare:assistant_speaking', { detail: { speaking: true } }));
+
     const finishSpeaking = () => {
       setIsSpeakingGuide(false);
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('smartshare:assistant_speaking', { detail: { speaking: false } }));
-      }
+      window.dispatchEvent(new CustomEvent('smartshare:assistant_speaking', { detail: { speaking: false } }));
     };
     try {
       const res = await fetch('/api/assistant/tts', {
@@ -316,7 +331,7 @@ export default function GlobalPWAPrompt() {
       if (res.ok) {
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
-        const audio = new Audio(url);
+        audio.src = url;
         audio.onended = () => {
           URL.revokeObjectURL(url);
           finishSpeaking();
