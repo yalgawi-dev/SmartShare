@@ -16,6 +16,7 @@ export interface AssistantPersona {
   voiceTagline: string;
   avatarUrl: string;
   geminiVoiceName: string;
+  gcpVoiceName: string;
   sampleLine: string;
   accentColor: string;
 }
@@ -29,6 +30,7 @@ export const ASSISTANT_PERSONAS: AssistantPersona[] = [
     voiceTagline: 'קול נשי צלול וצעיר',
     avatarUrl: '/avatars/assistant/dana.jpg',
     geminiVoiceName: 'Kore',
+    gcpVoiceName: 'he-IL-Wavenet-A',
     sampleLine: 'היי! אני דנה, שמחה לעזור לך לנהל את הכל בקלות ובמהירות.',
     accentColor: '#4f46e5',
   },
@@ -40,6 +42,7 @@ export const ASSISTANT_PERSONAS: AssistantPersona[] = [
     voiceTagline: 'קול נשי חם ורגוע',
     avatarUrl: '/avatars/assistant/shimrit.jpg',
     geminiVoiceName: 'Leda',
+    gcpVoiceName: 'he-IL-Wavenet-C',
     sampleLine: 'שלום, אני שימרית. אני כאן איתך לכל שאלה, סידור או שיתוף.',
     accentColor: '#7c3aed',
   },
@@ -51,6 +54,7 @@ export const ASSISTANT_PERSONAS: AssistantPersona[] = [
     voiceTagline: 'קול גברי עמוק ויציב',
     avatarUrl: '/avatars/assistant/avi.jpg',
     geminiVoiceName: 'Charon',
+    gcpVoiceName: 'he-IL-Wavenet-B',
     sampleLine: 'אהלן, אני אבי. תגיד לי מה צריך לבצע ואני מטפל בזה מיד.',
     accentColor: '#0284c7',
   },
@@ -62,6 +66,7 @@ export const ASSISTANT_PERSONAS: AssistantPersona[] = [
     voiceTagline: 'קול גברי קליל וידידותי',
     avatarUrl: '/avatars/assistant/asaf.svg',
     geminiVoiceName: 'Puck',
+    gcpVoiceName: 'he-IL-Wavenet-D',
     sampleLine: 'היי! אני אסף, בוא נתקתק יחד את כל המשימות והקבצים שלך.',
     accentColor: '#059669',
   },

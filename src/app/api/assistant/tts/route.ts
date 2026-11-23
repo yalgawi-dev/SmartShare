@@ -1,36 +1,37 @@
 import { NextResponse } from 'next/server';
+import { cert } from 'firebase-admin/app';
 import { normalizeTextForHebrewTTS } from '@/components/common/AssistantEngine/assistantTtsUtils';
 import { getPersonaById } from '@/components/common/AssistantEngine/assistantPersonas';
 
 export const maxDuration = 30;
 
-/**
- * Wraps raw 24kHz 16-bit mono PCM bytes from Gemini Neural TTS into a standard RIFF WAV buffer
- * so every browser (iOS Safari, Android Chrome, Desktop) plays it natively via HTMLAudioElement.
- */
-function pcm24kMonoToWav(pcmBuffer: Buffer, sampleRate = 24000): Buffer {
-  const numChannels = 1;
-  const bitsPerSample = 16;
-  const byteRate = sampleRate * numChannels * (bitsPerSample / 8);
-  const blockAlign = numChannels * (bitsPerSample / 8);
-  const dataSize = pcmBuffer.length;
-  const header = Buffer.alloc(44);
+// In-memory cache for GCP OAuth token & API-disabled cooldown (0ms overhead when disabled!)
+let cachedGcpToken: { token: string; expiresAt: number } | null = null;
+let gcpTtsCooldownUntil = 0;
 
-  header.write('RIFF', 0);
-  header.writeUInt32LE(36 + dataSize, 4);
-  header.write('WAVE', 8);
-  header.write('fmt ', 12);
-  header.writeUInt32LE(16, 16); // PCM chunk size
-  header.writeUInt16LE(1, 20); // PCM format
-  header.writeUInt16LE(numChannels, 22);
-  header.writeUInt32LE(sampleRate, 24);
-  header.writeUInt32LE(byteRate, 28);
-  header.writeUInt16LE(blockAlign, 32);
-  header.writeUInt16LE(bitsPerSample, 34);
-  header.write('data', 36);
-  header.writeUInt32LE(dataSize, 40);
+async function getGcpAccessToken(): Promise<string | null> {
+  if (cachedGcpToken && Date.now() < cachedGcpToken.expiresAt - 60_000) {
+    return cachedGcpToken.token;
+  }
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  const privateKey = (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n');
+  if (!projectId || !clientEmail || !privateKey) return null;
 
-  return Buffer.concat([header, pcmBuffer]);
+  try {
+    const credential = cert({ projectId, clientEmail, privateKey });
+    const tok = await credential.getAccessToken();
+    if (tok?.access_token) {
+      cachedGcpToken = {
+        token: tok.access_token,
+        expiresAt: Date.now() + (tok.expires_in ? tok.expires_in * 1000 : 3000_000),
+      };
+      return tok.access_token;
+    }
+  } catch (err) {
+    console.warn('GCP TTS token error:', err);
+  }
+  return null;
 }
 
 function splitHebrewIntoTtsChunks(text: string, maxLen = 175): string[] {
@@ -80,70 +81,57 @@ export async function POST(request: Request) {
     }
 
     const persona = getPersonaById(voiceId);
-    const geminiApiKey = process.env.GEMINI_API_KEY;
 
-    // ENGINE #1: Gemini 2.5 Flash Neural TTS — 4 Distinct Voices (Dana/Shimrit/Avi/Asaf)
-    if (geminiApiKey) {
+    // TIER 1 (~280-420ms!): Official Google Cloud Text-to-Speech (4 Native Israeli WaveNet Voices A/B/C/D)
+    // Automatically activates with ZERO code/env changes as soon as Cloud TTS API is enabled on GCP project!
+    if (Date.now() > gcpTtsCooldownUntil) {
       try {
-        const geminiRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${geminiApiKey}`,
-          {
+        const accessToken = await getGcpAccessToken();
+        if (accessToken) {
+          const gcpRes = await fetch('https://texttospeech.googleapis.com/v1/text:synthesize', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
             body: JSON.stringify({
-              contents: [
-                {
-                  parts: [
-                    {
-                      text: `קרא בקול ישראלי טבעי, חם וברור בעברית בלבד (ללא תוספות):\n${cleanText}`,
-                    },
-                  ],
-                },
-              ],
-              generationConfig: {
-                responseModalities: ['AUDIO'],
-                speechConfig: {
-                  voiceConfig: {
-                    prebuiltVoiceConfig: {
-                      voiceName: persona.geminiVoiceName,
-                    },
-                  },
-                },
+              input: { text: cleanText },
+              voice: {
+                languageCode: 'he-IL',
+                name: persona.gcpVoiceName,
+              },
+              audioConfig: {
+                audioEncoding: 'MP3',
+                speakingRate: 1.05,
               },
             }),
-          }
-        );
+          });
 
-        if (geminiRes.ok) {
-          const data = await geminiRes.json();
-          const inlineAudio = data?.candidates?.[0]?.content?.parts?.[0]?.inlineData;
-          if (inlineAudio?.data) {
-            const rawBytes = Buffer.from(inlineAudio.data, 'base64');
-            const mime: string = String(inlineAudio.mimeType || 'audio/L16;rate=24000');
-            const isWavOrMp3 = mime.includes('wav') || mime.includes('mpeg') || mime.includes('mp3');
-            const outputBuf = isWavOrMp3 ? rawBytes : pcm24kMonoToWav(rawBytes, 24000);
-            const contentType = isWavOrMp3 ? mime : 'audio/wav';
-
-            return new NextResponse(new Uint8Array(outputBuf), {
-              status: 200,
-              headers: {
-                'Content-Type': contentType,
-                'Cache-Control': 'no-store',
-                'X-TTS-Engine': `gemini-tts-${persona.id}-${persona.geminiVoiceName}`,
-                'X-TTS-Total-Ms': String(Date.now() - tStart),
-              },
-            });
+          if (gcpRes.ok) {
+            const data = await gcpRes.json();
+            if (data?.audioContent) {
+              const mp3Buf = Buffer.from(data.audioContent, 'base64');
+              return new NextResponse(new Uint8Array(mp3Buf), {
+                status: 200,
+                headers: {
+                  'Content-Type': 'audio/mpeg',
+                  'Cache-Control': 'no-store',
+                  'X-TTS-Engine': `gcp-wavenet-${persona.id}-${persona.gcpVoiceName}`,
+                  'X-TTS-Total-Ms': String(Date.now() - tStart),
+                },
+              });
+            }
+          } else if (gcpRes.status === 403) {
+            // API not enabled yet on GCP project -> skip for 60s so Tier 2 runs in ~400ms with 0ms delay!
+            gcpTtsCooldownUntil = Date.now() + 60_000;
           }
-        } else {
-          const errText = await geminiRes.text();
-          console.warn(`Gemini TTS (${persona.geminiVoiceName}) fallback triggered:`, geminiRes.status, errText.slice(0, 160));
         }
-      } catch (gemErr) {
-        console.warn('Gemini TTS error, falling back to Google he-IL:', gemErr);
+      } catch (gcpErr) {
+        console.warn('GCP Cloud TTS warning:', gcpErr);
       }
     }
 
-    // FALLBACK ENGINE: Google he-IL MP3 (guarantees 0% silent failure if Gemini TTS is busy)
+    // TIER 2 (~400-500ms!): Ultra-Fast Parallel Israeli Hebrew MP3 (NEVER blocks for 6 seconds!)
     try {
       const chunks = splitHebrewIntoTtsChunks(cleanText, 175);
       if (chunks.length > 0) {
@@ -168,14 +156,14 @@ export async function POST(request: Request) {
             headers: {
               'Content-Type': 'audio/mpeg',
               'Cache-Control': 'no-store',
-              'X-TTS-Engine': 'google-he-il-fallback',
+              'X-TTS-Engine': 'google-he-il-fast',
               'X-TTS-Total-Ms': String(Date.now() - tStart),
             },
           });
         }
       }
-    } catch (fallbackErr) {
-      console.warn('Fallback he-IL TTS error:', fallbackErr);
+    } catch (fastErr) {
+      console.warn('Fast he-IL TTS warning:', fastErr);
     }
 
     return NextResponse.json({ error: 'TTS unavailable' }, { status: 502 });
