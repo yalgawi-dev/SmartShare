@@ -5,6 +5,7 @@ import { db, uploadBlobToStorage, uploadImageToStorage } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '@/app/context/AuthContext';
 import { useSpaces } from '@/app/context/SpacesContext';
+import { useChat } from '@/app/context/ChatContext';
 import { compressImage, analyzePdfStructure, isTrueOriginalPdf, convertPdfToOptimizedImage, generatePdfFirstPageThumbnail, extractPdfPages, dataUrlBytes } from '@/utils/imageOptimizer';
 import { FileShareItem, formatFileSize, ShareLinkConfig, revokePublicShare, FolderPartnerPermission, sanitizeFirestoreData, syncPublicFolderShares } from '@/utils/fileShareUtils';
 import { FileShareItemCard } from './FileShareItemCard';
@@ -43,6 +44,7 @@ export function FileShareWidget({
 }: FileShareWidgetProps) {
   const { user } = useAuth();
   const { spaces, updateFileShareItems, getRoleForSpace, getTokenForSpace } = useSpaces();
+  const { openChat } = useChat();
   const { updateScreenContext } = useAssistant();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -1319,6 +1321,87 @@ export function FileShareWidget({
             actions={actions}
             topPosition="70px"
           />
+        );
+      })()}
+
+      {/* 2.5. LIVE GUEST CHAT INBOX BAR (Shows incoming messages from external share-link recipients!) */}
+      {(() => {
+        const guestConvos = (space?.conversations || []).filter(
+          (c: any) => typeof c?.id === 'string' && c.id.startsWith('guest_') && Array.isArray(c.messages) && c.messages.length > 0
+        );
+        if (guestConvos.length === 0) return null;
+        const myIds = new Set([user?.id, space?.creatorId].filter(Boolean));
+        return (
+          <div
+            style={{
+              background: 'linear-gradient(135deg, rgba(16,185,129,0.09), rgba(6,182,212,0.07))',
+              border: '1.5px solid rgba(16,185,129,0.35)',
+              borderRadius: '14px',
+              padding: '0.65rem 0.8rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.45rem',
+            }}
+          >
+            <div style={{ fontSize: '0.8rem', fontWeight: 900, color: '#065f46', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              <span>💬 הודעות מאורחים מקישורי שיתוף ({guestConvos.length})</span>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+              {guestConvos.map((convo: any) => {
+                const guestToken = convo.id.replace('guest_', '');
+                let guestLabel = 'אורח מקישור';
+                for (const it of allItems) {
+                  const found = (it.shareLink?.recipients || []).find((r: any) => r.token === guestToken || r.chatChannelId === convo.id);
+                  if (found?.recipientName) {
+                    guestLabel = found.recipientName;
+                    break;
+                  }
+                }
+                const unreadCount = (convo.messages || []).filter(
+                  (m: any) => !myIds.has(m.senderId) && !(Array.isArray(m.readBy) && (m.readBy.includes(user?.id) || m.readBy.includes(space?.creatorId)))
+                ).length;
+                const lastMsg = convo.messages[convo.messages.length - 1];
+                return (
+                  <button
+                    key={convo.id}
+                    type="button"
+                    onClick={() => openChat(convo.id)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                      padding: '0.42rem 0.7rem',
+                      borderRadius: '999px',
+                      border: unreadCount > 0 ? '1.5px solid #059669' : '1px solid #a7f3d0',
+                      background: '#ffffff',
+                      color: '#065f46',
+                      fontSize: '0.77rem',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      boxShadow: '0 2px 6px rgba(16,185,129,0.12)',
+                    }}
+                    title={lastMsg?.text || 'פתח שיחה'}
+                  >
+                    <span>💬 {guestLabel}</span>
+                    {unreadCount > 0 && (
+                      <span
+                        style={{
+                          background: '#ef4444',
+                          color: '#fff',
+                          borderRadius: '999px',
+                          padding: '1px 6px',
+                          fontSize: '0.68rem',
+                          fontWeight: 900,
+                        }}
+                      >
+                        {unreadCount} חדש
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         );
       })()}
 

@@ -40,23 +40,19 @@ export async function analyzePdfStructure(arrayBuffer: ArrayBuffer): Promise<Pdf
   const hasByteRange = headChunk.includes('/ByteRange') || tailChunk.includes('/ByteRange');
   let hasDigitalSignature = hasSigDict && hasByteRange;
 
-  let hasBinaryFontMarkers = false;
-  let hasBinaryImageMarkers = false;
-  const chunkSize = 2 * 1024 * 1024;
-  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
-    const chunk = decoder.decode(bytes.subarray(offset, Math.min(bytes.length, offset + chunkSize + 128)));
-    if (!hasBinaryImageMarkers) {
-      if (chunk.includes('/Subtype/Image') || chunk.includes('/Subtype /Image') || chunk.includes('/DCTDecode') || chunk.includes('/JPXDecode') || chunk.includes('/CCITTFaxDecode')) {
-        hasBinaryImageMarkers = true;
-      }
-    }
-    if (!hasBinaryFontMarkers) {
-      if (chunk.includes('/Type/Font') || chunk.includes('/Type /Font') || chunk.includes('/FontDescriptor')) {
-        hasBinaryFontMarkers = true;
-      }
-    }
-    if (hasBinaryImageMarkers && hasBinaryFontMarkers) break;
-  }
+  // Fast head + tail binary marker scan (512KB head + 128KB tail instead of decoding 20MB+ on main thread;
+  // deep object/vector/text/signature inspection is performed accurately by C++ PDFium WASM below).
+  const sampleText = headChunk + '\n' + tailChunk;
+  const hasBinaryImageMarkers =
+    sampleText.includes('/Subtype/Image') ||
+    sampleText.includes('/Subtype /Image') ||
+    sampleText.includes('/DCTDecode') ||
+    sampleText.includes('/JPXDecode') ||
+    sampleText.includes('/CCITTFaxDecode');
+  const hasBinaryFontMarkers =
+    sampleText.includes('/Type/Font') ||
+    sampleText.includes('/Type /Font') ||
+    sampleText.includes('/FontDescriptor');
 
   let pageCount = 1;
   let hasTextItems = false;

@@ -2118,7 +2118,7 @@ const updateMemberPermissions = (spaceId: string, userId: string, permissions: P
           otherUserIds = conversationId.split('_').filter(id => id && id !== senderId);
         }
         if (otherUserIds.length > 0) {
-          triggerPushNotification(otherUserIds, title, body, { url: '/space/' + spaceId, tag: 'chat-' + spaceId + '-' + conversationId });
+          triggerPushNotification(otherUserIds, title, body, { url: `/space/${spaceId}?chat=${encodeURIComponent(conversationId)}`, tag: 'chat-' + spaceId + '-' + conversationId });
         }
       }, 0);
 

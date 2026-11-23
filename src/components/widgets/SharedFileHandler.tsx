@@ -6,7 +6,7 @@ import { useSpaces } from '../../app/context/SpacesContext';
 import { useAuth } from '../../app/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { uploadImageToStorage, uploadBlobToStorage } from '../../lib/firebase';
-import { downscaleBase64, extractPdfPages, analyzePdfStructure, isTrueOriginalPdf, dataUrlBytes, generatePdfFirstPageThumbnail } from '../../utils/imageOptimizer';
+import { downscaleBase64, extractPdfPages, analyzePdfStructure, isTrueOriginalPdf, dataUrlBytes, generatePdfFirstPageThumbnail, setCachedPdfBytes } from '../../utils/imageOptimizer';
 import { saveLocalDeviceFile } from '../../utils/localDeviceStorage';
 import InvoiceAttachMatchModal, { ScannedReceiptInput } from './Finance/InvoiceAttachMatchModal';
 import DynamicPdfScrollPreview from './Vault/DynamicPdfScrollPreview';
@@ -58,6 +58,38 @@ export default function SharedFileHandler() {
   const [selectedPayerId, setSelectedPayerId] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
+  const [uploadPercent, setUploadPercent] = useState<number | null>(null);
+  const [uploadStage, setUploadStage] = useState<string>('');
+  const preAnalyzedPdfRef = useRef<Map<string, Promise<{ buffer: ArrayBuffer; analysis: Awaited<ReturnType<typeof analyzePdfStructure>> }>>>(new Map());
+
+  // Background Pre-Analysis: While the user picks their destination folder (3-8s),
+  // pre-run full C++ PDFium Dual-Check (vectors/text/signatures) so clicking Save starts uploading IMMEDIATELY!
+  useEffect(() => {
+    if (!isModalOpen || !Array.isArray(sharedBlobs) || sharedBlobs.length === 0) return;
+    sharedBlobs.forEach((item: any) => {
+      const blob = item?.blob;
+      const name = String(item?.name || blob?.name || '');
+      const isPdfBlob = blob instanceof Blob && (blob.type === 'application/pdf' || /\.pdf$/i.test(name));
+      if (!isPdfBlob) return;
+      const cacheKey = `${name}_${blob.size}`;
+      if (!preAnalyzedPdfRef.current.has(cacheKey)) {
+        const task = (async () => {
+          const buffer = await blob.arrayBuffer();
+          const analysis = await analyzePdfStructure(buffer);
+          return { buffer, analysis };
+        })();
+        task.catch(() => preAnalyzedPdfRef.current.delete(cacheKey));
+        preAnalyzedPdfRef.current.set(cacheKey, task);
+      }
+    });
+  }, [isModalOpen, sharedBlobs]);
+
+  useEffect(() => {
+    if (!isProcessing) {
+      setUploadPercent(null);
+      setUploadStage('');
+    }
+  }, [isProcessing]);
   const [searchQuery, setSearchQuery] = useState('');
   const [routeDestination, setRouteDestination] = useState<'direct' | 'inbox' | 'personal' | 'vault' | 'fileshare' | 'attach_existing'>(() => {
     if (typeof window !== 'undefined') {
@@ -682,12 +714,24 @@ export default function SharedFileHandler() {
               fileSize: blobToUpload.size
             });
           } else if (isPdf) {
+            setUploadStage('🔍 בודק מבנה, וקטורים וחתימות ב-PDF...');
+            setUploadPercent(0);
             const blobToUpload = (correspondingBlob?.blob instanceof Blob)
               ? correspondingBlob.blob
               : await fetch(cleanUri).then(r => r.blob());
 
-            const buffer = await blobToUpload.arrayBuffer();
-            const analysis = await analyzePdfStructure(buffer);
+            const cacheKey = `${correspondingBlob?.name || cleanUri}_${blobToUpload.size}`;
+            let buffer: ArrayBuffer;
+            let analysis: Awaited<ReturnType<typeof analyzePdfStructure>>;
+            const prePromise = preAnalyzedPdfRef.current.get(cacheKey);
+            if (prePromise) {
+              const pre = await prePromise;
+              buffer = pre.buffer;
+              analysis = pre.analysis;
+            } else {
+              buffer = await blobToUpload.arrayBuffer();
+              analysis = await analyzePdfStructure(buffer);
+            }
             // Strict check: digital signatures OR single-page blueprints/CAD plans retain intact raw PDF!
             const isOriginalSignedOrVector = isTrueOriginalPdf(analysis, blobToUpload.size);
             const isSinglePageBlueprint = (analysis.pageCount === 1 && blobToUpload.size > 2 * 1024 * 1024);
@@ -698,31 +742,46 @@ export default function SharedFileHandler() {
             let compressedSize = 0;
 
             if (shouldRetainRawPdf) {
-              // ── Benchmark: Upload raw PDF directly to cloud storage without phone CPU rendering! ──
+              // ── Parallel Pipeline: Upload Raw PDF (resumable with live %) + Page-1 Thumbnail simultaneously! ──
               logs.push({ step: '1. דילוג על רינדור טלפון (קובץ שרטוט/מסמך דיגיטלי נשמר במקורו)', ms: 0 });
+              setUploadStage(`☁️ מעלה PDF מקורי לענן (${(blobToUpload.size / (1024 * 1024)).toFixed(1)} MB)...`);
 
               const tUploadStart = performance.now();
-              const fileName = correspondingBlob?.name || correspondingBlob?.blob?.name || `doc_${Date.now()}.pdf`;
-              rawPdfDownloadUrl = await uploadBlobToStorage(
+              const pdfUploadPromise = uploadBlobToStorage(
                 blobToUpload,
-                `vault/${selectedSpaceId}/${Date.now()}-${Math.random().toString(36).substring(7)}.pdf`
+                `vault/${selectedSpaceId}/${Date.now()}-${Math.random().toString(36).substring(7)}.pdf`,
+                (pct) => setUploadPercent(pct)
               );
-              const tUploadEnd = performance.now();
-              logs.push({ step: `2. העלאת קובץ PDF מקורי לענן (${(blobToUpload.size / (1024*1024)).toFixed(1)} MB)`, ms: Math.round(tUploadEnd - tUploadStart) });
 
-              // Generate lightweight 1st-page thumbnail for instant gallery display
-              try {
-                const thumbDataUrl = await generatePdfFirstPageThumbnail(blobToUpload, 800, 0.80);
-                if (thumbDataUrl) {
-                  const thumbUploadUrl = await uploadImageToStorage(
-                    thumbDataUrl,
-                    `vault/${selectedSpaceId}/thumb_${Date.now()}-${Math.random().toString(36).substring(7)}.webp`
-                  );
-                  uploadedPages = [thumbUploadUrl];
+              const thumbUploadPromise = (async (): Promise<string | null> => {
+                try {
+                  const thumbDataUrl = await generatePdfFirstPageThumbnail(blobToUpload, 800, 0.80);
+                  if (thumbDataUrl) {
+                    return await uploadImageToStorage(
+                      thumbDataUrl,
+                      `vault/${selectedSpaceId}/thumb_${Date.now()}-${Math.random().toString(36).substring(7)}.webp`
+                    );
+                  }
+                } catch (thumbErr) {
+                  console.warn('Failed to generate thumbnail for raw PDF:', thumbErr);
                 }
-              } catch (thumbErr) {
-                console.warn('Failed to generate thumbnail for raw PDF:', thumbErr);
+                return null;
+              })();
+
+              const [uploadedPdfUrl, uploadedThumbUrl] = await Promise.all([pdfUploadPromise, thumbUploadPromise]);
+              rawPdfDownloadUrl = uploadedPdfUrl;
+              if (uploadedThumbUrl) {
+                uploadedPages = [uploadedThumbUrl];
               }
+              setUploadPercent(100);
+
+              // Write-Through IndexedDB Binary Cache so the VERY FIRST open inside the app is instant (<0.5s, 0ms network!)
+              if (rawPdfDownloadUrl) {
+                setCachedPdfBytes(rawPdfDownloadUrl, new Uint8Array(buffer)).catch(() => {});
+              }
+
+              const tUploadEnd = performance.now();
+              logs.push({ step: `2. העלאת קובץ PDF מקורי + תצוגה מקדימה במקביל (${(blobToUpload.size / (1024*1024)).toFixed(1)} MB)`, ms: Math.round(tUploadEnd - tUploadStart) });
             } else {
               // Standard documents / raster scans: convert pages to optimized WebP
               const tExtractStart = performance.now();
@@ -908,8 +967,20 @@ export default function SharedFileHandler() {
               : await fetch(cleanUri).then(r => r.blob()).catch(() => null);
 
             if (blobToUpload) {
-              const buffer = await blobToUpload.arrayBuffer();
-              const analysis = await analyzePdfStructure(buffer);
+              setUploadStage('🔍 בודק מבנה, וקטורים וחתימות ב-PDF...');
+              setUploadPercent(0);
+              const cacheKey = `${correspondingBlob?.name || cleanUri}_${blobToUpload.size}`;
+              let buffer: ArrayBuffer;
+              let analysis: Awaited<ReturnType<typeof analyzePdfStructure>>;
+              const prePromise = preAnalyzedPdfRef.current.get(cacheKey);
+              if (prePromise) {
+                const pre = await prePromise;
+                buffer = pre.buffer;
+                analysis = pre.analysis;
+              } else {
+                buffer = await blobToUpload.arrayBuffer();
+                analysis = await analyzePdfStructure(buffer);
+              }
               const isOriginalSignedOrVector = isTrueOriginalPdf(analysis, blobToUpload.size);
               const isSinglePageBlueprint = (analysis.pageCount === 1 && blobToUpload.size > 2 * 1024 * 1024);
               const shouldRetainRawPdf = isOriginalSignedOrVector || isSinglePageBlueprint;
@@ -917,23 +988,35 @@ export default function SharedFileHandler() {
               if (shouldRetainRawPdf) {
                 savedAsRawPdf = true;
                 calculatedSize = blobToUpload.size;
-                const rawUrl = await uploadBlobToStorage(
-                  blobToUpload,
-                  `fileshare/${selectedSpaceId}/${Date.now()}-${currentIdx}-${Math.random().toString(36).substring(7)}.pdf`
-                );
-                fileUrl = rawUrl;
+                setUploadStage(`☁️ מעלה PDF מקורי לקיר השיתוף (${(blobToUpload.size / (1024 * 1024)).toFixed(1)} MB)...`);
 
-                // Generate lightweight preview thumbnail for page 1
-                try {
-                  const extracted = await extractPdfPages(blobToUpload, 1200, 0.80);
-                  if (extracted && extracted.length > 0) {
-                    thumbUrl = await uploadImageToStorage(
-                      extracted[0],
-                      `fileshare/${selectedSpaceId}/thumb_${Date.now()}-${currentIdx}.webp`
-                    );
+                // Parallel: Upload Raw PDF (resumable with live %) + Page-1 Thumbnail ONLY (fixes slow extractPdfPages!)
+                const rawUploadPromise = uploadBlobToStorage(
+                  blobToUpload,
+                  `fileshare/${selectedSpaceId}/${Date.now()}-${currentIdx}-${Math.random().toString(36).substring(7)}.pdf`,
+                  (pct) => setUploadPercent(pct)
+                );
+                const thumbPromise = (async (): Promise<string | undefined> => {
+                  try {
+                    const thumbDataUrl = await generatePdfFirstPageThumbnail(blobToUpload, 800, 0.80);
+                    if (thumbDataUrl) {
+                      return await uploadImageToStorage(
+                        thumbDataUrl,
+                        `fileshare/${selectedSpaceId}/thumb_${Date.now()}-${currentIdx}.webp`
+                      );
+                    }
+                  } catch (pdfThumbErr) {
+                    console.warn('Failed generating PDF thumbnail for fileshare item:', pdfThumbErr);
                   }
-                } catch (pdfThumbErr) {
-                  console.warn('Failed generating PDF thumbnail for fileshare item:', pdfThumbErr);
+                  return undefined;
+                })();
+
+                const [rawUrl, uploadedThumb] = await Promise.all([rawUploadPromise, thumbPromise]);
+                fileUrl = rawUrl;
+                thumbUrl = uploadedThumb;
+                setUploadPercent(100);
+                if (rawUrl) {
+                  setCachedPdfBytes(rawUrl, new Uint8Array(buffer)).catch(() => {});
                 }
               } else {
                 // Wrapped Raster Scan: Convert all pages to optimized WebP!
@@ -2227,6 +2310,43 @@ export default function SharedFileHandler() {
                 </div>
               )}
             </>
+          )}
+
+          {/* Live Cloud Upload Progress Bar with Flashing Cloud (Rule 21: bytesTransferred / totalBytes) */}
+          {isProcessing && (
+            <div
+              style={{
+                marginTop: '1rem',
+                padding: '0.75rem 0.85rem',
+                borderRadius: '14px',
+                background: 'linear-gradient(135deg, #eef2ff, #eff6ff)',
+                border: '1.5px solid #c7d2fe',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.45rem',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.82rem', fontWeight: 800, color: '#1e3a8a' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <span style={{ display: 'inline-block', animation: 'pulse 1.1s ease-in-out infinite' }}>☁️</span>
+                  <span>{uploadStage || 'מעביר נתונים לענן...'}</span>
+                </span>
+                <span style={{ fontVariantNumeric: 'tabular-nums', color: '#4338ca', fontWeight: 900 }}>
+                  {uploadPercent !== null ? `${uploadPercent}%` : '...'}
+                </span>
+              </div>
+              <div style={{ width: '100%', height: '8px', borderRadius: '999px', background: '#dbeafe', overflow: 'hidden' }}>
+                <div
+                  style={{
+                    width: `${uploadPercent !== null ? Math.max(4, uploadPercent) : 15}%`,
+                    height: '100%',
+                    borderRadius: '999px',
+                    background: 'linear-gradient(90deg, #4f46e5, #06b6d4)',
+                    transition: 'width 0.2s ease-out',
+                  }}
+                />
+              </div>
+            </div>
           )}
 
           {/* Action Buttons */}
