@@ -25,6 +25,7 @@ import {
   type SavedShareGroup,
 } from '@/utils/shareContactsStore';
 import { APP_VERSION } from '@/constants/version';
+import { buildPersonalHebrewShareMessage } from '@/utils/shareMessageFormatter';
 import { SharePeopleTab } from './SharePeopleTab';
 import { ShareQuickLinkTab } from './ShareQuickLinkTab';
 import { ShareSecuritySettingsTab } from './ShareSecuritySettingsTab';
@@ -551,11 +552,21 @@ export function CreateShareLinkModal({
     }
   };
 
+  const senderRawName = user?.realName || user?.nickname || (user as any)?.displayName || businessCard?.contactName || '';
+
   const handleCopyRecipientLink = async (r: RecipientShareLink) => {
     const url = `${currentOrigin}/share/${r.token}`;
-    const itemTypeHeb = item.type === 'folder' ? 'תיקיית' : 'מסמך';
-    const pinText = requirePin && pin ? `\n🔐 קוד גישה: ${pin}` : '';
-    const richMessage = `שלום ${r.recipientName},\n${getSenderDisplay()} שיתף איתך ${itemTypeHeb} "${item.name}" באפליקציית MySpace.${pinText}\nלצפייה מאובטחת והעלאת קבצים לחץ כאן:\n${url}`;
+    const richMessage = buildPersonalHebrewShareMessage({
+      recipientName: r.recipientName,
+      senderRawName,
+      businessName: businessCard?.businessName,
+      spaceTitle,
+      itemName: item.name,
+      itemType: item.type === 'folder' ? 'folder' : 'file',
+      url,
+      pin: requirePin && pin ? pin : undefined,
+      businessCard,
+    });
     await copyTextSafe(richMessage);
     setCopiedRecipientId(r.id);
     setTimeout(() => setCopiedRecipientId(null), 2500);
@@ -563,24 +574,33 @@ export function CreateShareLinkModal({
 
   const handleWhatsAppRecipient = (r: RecipientShareLink) => {
     const url = `${currentOrigin}/share/${r.token}`;
-    const itemTypeHeb = item.type === 'folder' ? 'תיקיית' : 'מסמך';
-    const pinText = requirePin && pin ? `\n🔐 קוד גישה: ${pin}` : '';
-    const slogan = businessCard?.slogan ? `\n✨ ${businessCard.slogan}` : '';
-    const phone = businessCard?.phone || businessCard?.whatsapp;
-    const phoneText = phone ? `\n📞 ליצירת קשר: ${phone}` : '';
-    const portfolioText = businessCard?.portfolioUrl ? `\n🎨 לתיק עבודות: ${businessCard.portfolioUrl}` : '';
-    const text = encodeURIComponent(
-      `שלום ${r.recipientName},\n${getSenderDisplay()} שיתף איתך ${itemTypeHeb} "${item.name}":${pinText}\n${url}\n${slogan}${phoneText}${portfolioText}`
-    );
-    window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
+    const message = buildPersonalHebrewShareMessage({
+      recipientName: r.recipientName,
+      senderRawName,
+      businessName: businessCard?.businessName,
+      spaceTitle,
+      itemName: item.name,
+      itemType: item.type === 'folder' ? 'folder' : 'file',
+      url,
+      pin: requirePin && pin ? pin : undefined,
+      businessCard,
+    });
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`, '_blank');
   };
 
   const handleCopy = async () => {
     if (!shareUrl) return;
     if (token) await ensurePersisted(token);
-    const itemTypeHeb = item.type === 'folder' ? 'תיקיית' : 'מסמך';
-    const pinText = requirePin && pin ? `\n🔐 קוד גישה: ${pin}` : '';
-    const richMessage = `שלום,\n${getSenderDisplay()} שיתף איתך ${itemTypeHeb} "${item.name}" באפליקציית MySpace.${pinText}\nלצפייה מאובטחת והעלאת קבצים לחץ כאן:\n${shareUrl}`;
+    const richMessage = buildPersonalHebrewShareMessage({
+      senderRawName,
+      businessName: businessCard?.businessName,
+      spaceTitle,
+      itemName: item.name,
+      itemType: item.type === 'folder' ? 'folder' : 'file',
+      url: shareUrl,
+      pin: requirePin && pin ? pin : undefined,
+      businessCard,
+    });
     await copyTextSafe(richMessage);
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
@@ -589,26 +609,35 @@ export function CreateShareLinkModal({
   const handleWhatsAppShare = async () => {
     if (!shareUrl) return;
     if (token) await ensurePersisted(token);
-    const itemTypeHeb = item.type === 'folder' ? 'תיקיית' : 'מסמך';
-    const pinText = requirePin && pin ? `\n🔐 קוד גישה: ${pin}` : '';
-    const slogan = businessCard?.slogan ? `\n✨ ${businessCard.slogan}` : '';
-    const phone = businessCard?.phone || businessCard?.whatsapp;
-    const phoneText = phone ? `\n📞 ליצירת קשר: ${phone}` : '';
-    const portfolioText = businessCard?.portfolioUrl ? `\n🎨 לתיק עבודות: ${businessCard.portfolioUrl}` : '';
-    const text = encodeURIComponent(
-      `שלום,\n${getSenderDisplay()} שיתף איתך ${itemTypeHeb} "${item.name}":${pinText}\n${shareUrl}\n${slogan}${phoneText}${portfolioText}`
-    );
-    window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
+    const message = buildPersonalHebrewShareMessage({
+      senderRawName,
+      businessName: businessCard?.businessName,
+      spaceTitle,
+      itemName: item.name,
+      itemType: item.type === 'folder' ? 'folder' : 'file',
+      url: shareUrl,
+      pin: requirePin && pin ? pin : undefined,
+      businessCard,
+    });
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`, '_blank');
   };
 
   const handleEmailShare = async () => {
     if (!shareUrl) return;
     if (token) await ensurePersisted(token);
-    const itemTypeHeb = item.type === 'folder' ? 'תיקייה' : 'מסמך';
-    const pinText = requirePin && pin ? `\nקוד גישה סודי: ${pin}` : '';
-    const subject = encodeURIComponent(`שיתוף ${itemTypeHeb}: ${item.name} מתוך ${spaceTitle}`);
+    const itemTypeHeb = item.type === 'folder' ? 'תיקייה' : 'קובץ';
+    const subject = encodeURIComponent(`שיתוף ${itemTypeHeb}: ${item.name}`);
     const body = encodeURIComponent(
-      `שלום,\n\nמצורף קישור לצפייה ב${itemTypeHeb} "${item.name}" מתוך ${spaceTitle}:${pinText}\n\nלצפייה ישירה לחץ על הקישור הבא:\n${shareUrl}\n\nבברכה`
+      buildPersonalHebrewShareMessage({
+        senderRawName,
+        businessName: businessCard?.businessName,
+        spaceTitle,
+        itemName: item.name,
+        itemType: item.type === 'folder' ? 'folder' : 'file',
+        url: shareUrl,
+        pin: requirePin && pin ? pin : undefined,
+        businessCard,
+      })
     );
     window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
   };
@@ -618,10 +647,18 @@ export function CreateShareLinkModal({
     if (token) await ensurePersisted(token);
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
-        const itemTypeHeb = item.type === 'folder' ? 'תיקייה' : 'מסמך';
+        const itemTypeHeb = item.type === 'folder' ? 'תיקייה' : 'קובץ';
         await navigator.share({
           title: `${itemTypeHeb}: ${item.name}`,
-          text: `קישור לצפייה ב${itemTypeHeb} "${item.name}" מתוך ${spaceTitle}${requirePin && pin ? ` (קוד גישה: ${pin})` : ''}`,
+          text: buildPersonalHebrewShareMessage({
+            senderRawName,
+            businessName: businessCard?.businessName,
+            spaceTitle,
+            itemName: item.name,
+            itemType: item.type === 'folder' ? 'folder' : 'file',
+            url: shareUrl,
+            pin: requirePin && pin ? pin : undefined,
+          }),
           url: shareUrl,
         });
       } catch (_) {}

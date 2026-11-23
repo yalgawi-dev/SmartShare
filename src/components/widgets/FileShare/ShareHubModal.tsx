@@ -13,6 +13,7 @@ import {
   type SavedShareGroup,
 } from '@/utils/shareContactsStore';
 import { APP_VERSION } from '@/constants/version';
+import { buildPersonalHebrewShareMessage } from '@/utils/shareMessageFormatter';
 
 interface ShareHubModalProps {
   isOpen: boolean;
@@ -171,13 +172,19 @@ export const ShareHubModal: React.FC<ShareHubModalProps> = ({
   if (!isOpen || typeof document === 'undefined') return null;
 
   const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://smart-share-tvwn-delta.vercel.app';
-  const senderPersonName = user?.realName || user?.nickname || (user as any)?.displayName || 'חבר';
-  const senderDisplay = spaceTitle ? `${senderPersonName} ממרחב "${spaceTitle}"` : senderPersonName;
+  const senderPersonName = user?.realName || user?.nickname || (user as any)?.displayName || '';
 
   const handleCopyLink = async (item: FileShareItem, r: RecipientShareLink) => {
     const url = `${currentOrigin}/share/${r.token}`;
-    const itemTypeHeb = item.type === 'folder' ? 'תיקיית' : 'מסמך';
-    const msg = `שלום ${r.recipientName},\n${senderDisplay} שיתף איתך ${itemTypeHeb} "${item.name}" באפליקציית MySpace.\nלצפייה מאובטחת והעלאת קבצים לחץ כאן:\n${url}`;
+    const msg = buildPersonalHebrewShareMessage({
+      recipientName: r.recipientName,
+      senderRawName: senderPersonName,
+      spaceTitle,
+      itemName: item.name,
+      itemType: item.type === 'folder' ? 'folder' : 'file',
+      url,
+      pin: item.shareLink?.requirePin && item.shareLink?.pin ? item.shareLink.pin : undefined,
+    });
     try {
       await navigator.clipboard.writeText(msg);
     } catch {
@@ -194,9 +201,16 @@ export const ShareHubModal: React.FC<ShareHubModalProps> = ({
 
   const handleWhatsApp = (item: FileShareItem, r: RecipientShareLink) => {
     const url = `${currentOrigin}/share/${r.token}`;
-    const itemTypeHeb = item.type === 'folder' ? 'תיקיית' : 'מסמך';
-    const text = encodeURIComponent(`שלום ${r.recipientName},\n${senderDisplay} שיתף איתך ${itemTypeHeb} "${item.name}":\n${url}`);
-    window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
+    const msg = buildPersonalHebrewShareMessage({
+      recipientName: r.recipientName,
+      senderRawName: senderPersonName,
+      spaceTitle,
+      itemName: item.name,
+      itemType: item.type === 'folder' ? 'folder' : 'file',
+      url,
+      pin: item.shareLink?.requirePin && item.shareLink?.pin ? item.shareLink.pin : undefined,
+    });
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
   const handleAddContact = async () => {
