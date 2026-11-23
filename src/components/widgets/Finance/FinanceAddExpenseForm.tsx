@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import PdfThumbnail from '../../shared/PdfThumbnail';
 import ScannerModal from '../ScannerModal';
 import { APP_VERSION } from '@/constants/version';
+import { uploadBlobToStorage } from '@/lib/firebase';
 import { parseCleanAmount, matchInvoiceToExpenses } from '@/utils/invoiceMatcher';
 import { useSpaces } from '@/app/context/SpacesContext';
 import { calculateCurrentSharesSnapshot } from '@/utils/partnerUtils';
@@ -19,7 +20,7 @@ interface FinanceAddExpenseFormProps {
   isAnalyzing: boolean;
   ocrElapsedTime: number;
   ocrDebugMessage: string | null;
-  handleAddExpense: (e: React.FormEvent<HTMLFormElement>) => void;
+  handleAddExpense: (e: React.FormEvent<HTMLFormElement>, options?: { overrideCategory?: string; customPayerId?: string; attachmentUrl?: string | null; rawPdfUrl?: string | null }) => void;
   handleCloseForm: () => void;
   isScanning: boolean;
   setIsScanning: (val: boolean) => void;
@@ -57,6 +58,37 @@ export function FinanceAddExpenseForm({
   onAttachToExisting
 }: FinanceAddExpenseFormProps) {
   const [isCredit, setIsCredit] = React.useState(ocrData?.isCreditInvoice || false);
+  // Manual-only direct attachment WITHOUT OCR (Rule 21: Native Binary Blob upload, 0 OCR calls!)
+  const manualFileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const [manualAttachmentUrl, setManualAttachmentUrl] = React.useState<string | null>(null);
+  const [manualAttachmentRawPdfUrl, setManualAttachmentRawPdfUrl] = React.useState<string | null>(null);
+  const [manualAttachmentName, setManualAttachmentName] = React.useState<string>('');
+  const [manualUploadPercent, setManualUploadPercent] = React.useState<number | null>(null);
+
+  const handleManualAttachWithoutOcr = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !currentSpace?.id) return;
+    setManualUploadPercent(0);
+    setManualAttachmentName(file.name);
+    try {
+      const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+      const ext = isPdf ? 'pdf' : (file.name.split('.').pop()?.toLowerCase() || 'jpg');
+      const url = await uploadBlobToStorage(
+        file,
+        `invoices/${currentSpace.id}/manual_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${ext}`,
+        (pct) => setManualUploadPercent(pct)
+      );
+      setManualAttachmentUrl(url);
+      setManualAttachmentRawPdfUrl(isPdf ? url : null);
+      setManualUploadPercent(null);
+    } catch (err) {
+      console.error('Manual attach without OCR failed:', err);
+      alert('העלאת הקובץ נכשלה. נסה שוב.');
+      setManualUploadPercent(null);
+      setManualAttachmentName('');
+    }
+  };
   const [isStoreCredit, setIsStoreCredit] = React.useState(false);
   const [isNoVat, setIsNoVat] = React.useState<boolean>(() => Boolean(retroInvoiceToEdit?.isNoVat));
   const [payerSplitMode, setPayerSplitMode] = useState<PayerSplitMode>(() => retroInvoiceToEdit?.payerSplitMode || 'single');
@@ -242,7 +274,18 @@ export function FinanceAddExpenseForm({
           <button type="button" onClick={handleCloseForm} style={{ background: 'none', border: 'none', fontSize: '1.5rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>✕</button>
         </div>
         
-        <form key={JSON.stringify(ocrData) + (scannedImage || 'new-expense')} onSubmit={handleAddExpense} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%', maxWidth: '100%' }}>
+        <form
+          key={JSON.stringify(ocrData) + (scannedImage || 'new-expense')}
+          onSubmit={(e) =>
+            handleAddExpense(
+              e,
+              manualAttachmentUrl
+                ? { attachmentUrl: manualAttachmentUrl, rawPdfUrl: manualAttachmentRawPdfUrl }
+                : undefined
+            )
+          }
+          style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%', maxWidth: '100%' }}
+        >
 
           {/* Smart Match Warning (Top Priority): If an unattached existing expense already matches this invoice */}
           {effectiveUnattachedMatch && onAttachToExisting && !retroInvoiceToEdit && (
@@ -720,7 +763,91 @@ export function FinanceAddExpenseForm({
           )}
           
           <textarea name="note" placeholder="הערות (אופציונלי)" rows={2} style={{ padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'rgba(0,0,0,0.02)', resize: 'vertical' }}></textarea>
-          
+
+          {/* Manual-Only Direct Receipt/PDF Attachment WITHOUT OCR (Never affects automatic OCR scan flows!) */}
+          {!scannedImage && !isAnalyzing && (
+            <div
+              style={{
+                padding: '0.75rem 0.9rem',
+                borderRadius: '13px',
+                border: manualAttachmentUrl ? '1.5px solid #86efac' : '1.5px dashed #cbd5e1',
+                background: manualAttachmentUrl ? '#f0fdf4' : '#f8fafc',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.5rem',
+              }}
+            >
+              <input
+                ref={manualFileInputRef}
+                type="file"
+                accept="image/*,application/pdf,.pdf"
+                onChange={handleManualAttachWithoutOcr}
+                style={{ display: 'none' }}
+              />
+              {manualUploadPercent !== null ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', fontWeight: 800, color: '#1e3a8a' }}>
+                    <span>☁️ מצרף קובץ ללא OCR...</span>
+                    <span>{manualUploadPercent}%</span>
+                  </div>
+                  <div style={{ width: '100%', height: '6px', borderRadius: '999px', background: '#dbeafe', overflow: 'hidden' }}>
+                    <div style={{ width: `${Math.max(5, manualUploadPercent)}%`, height: '100%', background: '#4f46e5', transition: 'width 0.15s ease' }} />
+                  </div>
+                </div>
+              ) : manualAttachmentUrl ? (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                  <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#15803d', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    ✅ צורף ללא OCR: {manualAttachmentName || 'קובץ מצורף'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setManualAttachmentUrl(null);
+                      setManualAttachmentRawPdfUrl(null);
+                      setManualAttachmentName('');
+                    }}
+                    style={{
+                      padding: '0.25rem 0.6rem',
+                      borderRadius: '8px',
+                      border: '1px solid #fca5a5',
+                      background: '#fff',
+                      color: '#dc2626',
+                      fontSize: '0.75rem',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      flexShrink: 0,
+                    }}
+                  >
+                    ✕ הסר
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => manualFileInputRef.current?.click()}
+                  style={{
+                    width: '100%',
+                    padding: '0.68rem 0.85rem',
+                    borderRadius: '10px',
+                    border: '1.5px solid #cbd5e1',
+                    background: '#ffffff',
+                    color: '#334155',
+                    fontWeight: 800,
+                    fontSize: '0.86rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.45rem',
+                  }}
+                >
+                  <span>📎</span>
+                  <span>צרף קבלה / PDF ידנית (ללא חישוב OCR)</span>
+                </button>
+              )}
+            </div>
+          )}
+
           <div style={{ marginTop: '0.5rem' }}>
             {ocrData?._duplicateWarning && (
               <button type="button" onClick={() => handleCloseForm()} style={{ width: '100%', marginBottom: '1rem', background: '#fee2e2', color: '#b91c1c', border: '1px solid #f87171', padding: '1rem', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem', transition: 'all 0.2s ease' }}>

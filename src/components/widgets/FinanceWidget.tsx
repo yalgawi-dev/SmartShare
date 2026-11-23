@@ -503,7 +503,7 @@ const [isMounted, setIsMounted] = useState(false);
     validMembers.push(createVirtualTreasury());
   }
 
-  const handleAddExpense = async (e: React.FormEvent<HTMLFormElement>, options?: { overrideCategory?: string, customPayerId?: string, attachmentUrl?: string | null }) => {
+  const handleAddExpense = async (e: React.FormEvent<HTMLFormElement>, options?: { overrideCategory?: string, customPayerId?: string, attachmentUrl?: string | null, rawPdfUrl?: string | null }) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     let amount = Number(formData.get('amount'));
@@ -601,7 +601,7 @@ const [isMounted, setIsMounted] = useState(false);
       }
     }
 
-    let finalRawPdfUrl = rawPdfUrl;
+    let finalRawPdfUrl = options?.rawPdfUrl || rawPdfUrl;
     if (rawPdfUploadPromiseRef.current) {
       try {
         finalRawPdfUrl = (await rawPdfUploadPromiseRef.current) || finalRawPdfUrl;
