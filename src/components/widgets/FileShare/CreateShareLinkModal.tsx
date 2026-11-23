@@ -771,56 +771,50 @@ export function CreateShareLinkModal({
             </button>
           </div>
 
-          {/* Clickable Live Summary Pills (Jump straight to Settings!) */}
+          {/* Read-Only Live Summary Badges (Display Only — Settings live in the Settings tab) */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
-            <button
-              type="button"
-              onClick={() => setActiveTab('settings')}
+            <span
               style={{
-                padding: '0.2rem 0.52rem',
+                padding: '0.2rem 0.55rem',
                 borderRadius: '999px',
-                border: '1px solid rgba(99,102,241,0.22)',
-                background: '#fff',
-                color: '#334155',
-                fontSize: '0.7rem',
-                fontWeight: 700,
-                cursor: 'pointer',
-              }}
-            >
-              📦 {item.type === 'folder' ? (includeSubtree ? `כולל תתי-תיקיות (${effectiveFolderFiles.length})` : `${directFilesCount} קבצים`) : 'קובץ בודד'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('settings')}
-              style={{
-                padding: '0.2rem 0.52rem',
-                borderRadius: '999px',
-                border: requirePin ? '1px solid rgba(245,158,11,0.45)' : '1px solid rgba(148,163,184,0.3)',
-                background: requirePin ? '#fffbeb' : '#fff',
-                color: requirePin ? '#b45309' : '#475569',
-                fontSize: '0.7rem',
-                fontWeight: 700,
-                cursor: 'pointer',
-              }}
-            >
-              {requirePin ? `🔐 PIN: ${pin || '----'}` : '🔓 ללא PIN'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('settings')}
-              style={{
-                padding: '0.2rem 0.52rem',
-                borderRadius: '999px',
-                border: '1px solid rgba(148,163,184,0.3)',
-                background: '#fff',
+                border: '1px solid #e2e8f0',
+                background: '#f8fafc',
                 color: '#475569',
                 fontSize: '0.7rem',
                 fontWeight: 700,
-                cursor: 'pointer',
+                userSelect: 'none',
+              }}
+            >
+              📦 {item.type === 'folder' ? (includeSubtree ? `כולל תתי-תיקיות (${effectiveFolderFiles.length})` : `${directFilesCount} קבצים`) : 'קובץ בודד'}
+            </span>
+            <span
+              style={{
+                padding: '0.2rem 0.55rem',
+                borderRadius: '999px',
+                border: requirePin ? '1px solid #fcd34d' : '1px solid #e2e8f0',
+                background: requirePin ? '#fffbeb' : '#f8fafc',
+                color: requirePin ? '#b45309' : '#475569',
+                fontSize: '0.7rem',
+                fontWeight: 700,
+                userSelect: 'none',
+              }}
+            >
+              {requirePin ? `🔐 PIN: ${pin || '----'}` : '🔓 ללא PIN'}
+            </span>
+            <span
+              style={{
+                padding: '0.2rem 0.55rem',
+                borderRadius: '999px',
+                border: '1px solid #e2e8f0',
+                background: '#f8fafc',
+                color: '#475569',
+                fontSize: '0.7rem',
+                fontWeight: 700,
+                userSelect: 'none',
               }}
             >
               ⏳ {EXPIRY_LABELS[expiryOption]}
-            </button>
+            </span>
           </div>
 
           {/* 3-Tab Segmented Control */}
@@ -993,9 +987,9 @@ export function CreateShareLinkModal({
             style={{
               padding: '0.62rem 0.95rem',
               borderRadius: '11px',
-              border: '1px solid var(--border-color)',
+              border: '1.5px solid #cbd5e1',
               background: '#fff',
-              color: 'var(--text-primary)',
+              color: '#334155',
               fontWeight: 700,
               fontSize: '0.84rem',
               cursor: 'pointer',

@@ -6,6 +6,7 @@ import { ScreenContext, queryAssistantBrain } from './assistantKnowledge';
 import type { KnowledgeNode } from './assistantMatcher';
 import type { LiveAssistantToolPayload } from './assistantLiveTools';
 import type { AgentActionProposal } from './assistantActionRegistry';
+import type { AgentActionPlan } from './agentManifest';
 
 export type AIProviderType = 'local_free' | 'cloud_llm';
 
@@ -21,6 +22,7 @@ export interface AIProviderConfig {
 export interface AIQueryResponse {
   text: string;
   proposedAction?: AgentActionProposal | null;
+  proposedPlan?: AgentActionPlan | null;
   continueExploring?: boolean;
   quotaExceeded?: 'user_rate_limit' | 'provider_quota_429' | null;
   source: 'local_brain' | 'cloud_llm';
@@ -100,6 +102,7 @@ export async function queryAIAssistant(
             return {
               text: data.answer,
               proposedAction: data.proposedAction || null,
+              proposedPlan: data.proposedPlan || null,
               continueExploring: Boolean(data.continueExploring),
               quotaExceeded: data.quotaExceeded || null,
               source: 'cloud_llm',

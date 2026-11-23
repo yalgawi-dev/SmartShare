@@ -37,6 +37,8 @@ export interface AgentActionExecutionResult {
   message: string;
   proofUrl?: string;
   proofLabel?: string;
+  /** Structured output payload for Headless Multi-Step Plan chaining (e.g. { createdId, shareUrl }) */
+  data?: Record<string, any>;
 }
 
 export type AgentToolHandler = (

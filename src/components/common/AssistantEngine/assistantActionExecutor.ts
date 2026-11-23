@@ -5,6 +5,7 @@ import {
 } from './assistantActionRegistry';
 import { executeLiveDomElementAction, executeLiveDomBatch } from './assistantDomIntrospector';
 import { createSecurityEnvelope, canCallerAccessSpace, resolveCallerSpaceRole } from './assistantFirewall';
+import { registerSmartShareUniversalPrimitives } from './smartShareHostAdapter';
 
 export interface HostActionRuntimeContext {
   user: any;
@@ -30,6 +31,8 @@ let isInitialized = false;
 export function ensureDefaultAgentActionsRegistered(): void {
   if (isInitialized) return;
   isInitialized = true;
+  // Register Headless Universal Agent OS Primitives (ADR-009: transfer_items, manage_entity, share_resource)
+  registerSmartShareUniversalPrimitives();
 
   // =========================================================================
   // LAYER 2: UNIVERSAL ZERO-CONFIG UI TOOLS (Work in ANY future host app!)

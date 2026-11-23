@@ -11,6 +11,8 @@ import { normalizeTextForHebrewTTS } from './assistantTtsUtils';
 import { detectBugReportIntent } from './assistantBugReporter';
 import { recordUserAiTokenUsage, recordAiQuotaHit } from './assistantTokenTelemetry';
 import type { AgentActionProposal, AgentActionExecutionResult } from './assistantActionRegistry';
+import type { AgentActionPlan, AgentPlanExecutionReport } from './agentManifest';
+import { executeAgentActionPlan } from './agentPlanOrchestrator';
 import { executeApprovedAgentAction } from './assistantActionExecutor';
 import { inspectLiveScreenDOM, isDestructiveUiLabel } from './assistantDomIntrospector';
 import {
@@ -47,6 +49,9 @@ interface ChatMessage {
   proposedAction?: AgentActionProposal | null;
   actionStatus?: 'pending' | 'executing' | 'executed' | 'rejected' | 'failed';
   actionResult?: AgentActionExecutionResult;
+  proposedPlan?: AgentActionPlan | null;
+  planStatus?: 'pending' | 'executing' | 'executed' | 'rejected' | 'failed';
+  planReport?: AgentPlanExecutionReport;
   executionSteps?: AgentExecutionStep[];
 }
 
@@ -60,6 +65,8 @@ interface AssistantContextType {
   sendMessage: (text: string) => Promise<void>;
   approveProposedAction: (messageId: string) => Promise<void>;
   rejectProposedAction: (messageId: string) => void;
+  approveProposedPlan: (messageId: string) => Promise<void>;
+  rejectProposedPlan: (messageId: string) => void;
   submitFeedback: (messageId: string, rating: 'helpful' | 'not_helpful') => void;
   clearChat: () => void;
   suggestedQuestions: string[];
@@ -695,7 +702,9 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       followUps: aiResult.suggestions?.map(s => s.sampleQuestion).filter(Boolean).slice(0, 3),
       isBugIntent: detectBugReportIntent(sanitizedText),
       proposedAction: proposal,
-      actionStatus: proposal ? (proposal.requiresConfirmation ? 'pending' : 'executing') : undefined
+      actionStatus: proposal ? (proposal.requiresConfirmation ? 'pending' : 'executing') : undefined,
+      proposedPlan: aiResult.proposedPlan || null,
+      planStatus: aiResult.proposedPlan ? 'pending' : undefined
     };
     setMessages(prev => [...prev, assistantMsg]);
 
@@ -895,6 +904,73 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     );
   }, []);
 
+  const approveProposedPlan = useCallback(async (messageId: string) => {
+    const target = messages.find(m => m.id === messageId);
+    if (!target?.proposedPlan || target.planStatus !== 'pending') return;
+
+    setMessages(prev => prev.map(m => (m.id === messageId ? { ...m, planStatus: 'executing' } : m)));
+
+    const report = await executeAgentActionPlan(
+      target.proposedPlan,
+      {
+        user,
+        spaces,
+        router,
+        spacesApi: { updateDocument, addDocumentFolder, updateDocumentFolder, removeDocument, updateInvoice, updateFileShareItems }
+      },
+      {
+        intentText: target.queryText || target.proposedPlan.title,
+        onStepProgress: (liveSteps) => {
+          setMessages(prev =>
+            prev.map(m =>
+              m.id === messageId && m.proposedPlan
+                ? { ...m, proposedPlan: { ...m.proposedPlan, steps: liveSteps } }
+                : m
+            )
+          );
+        }
+      }
+    );
+
+    setMessages(prev =>
+      prev.map(m =>
+        m.id === messageId
+          ? {
+              ...m,
+              planStatus: report.success ? 'executed' : 'failed',
+              planReport: report,
+              proposedPlan: m.proposedPlan ? { ...m.proposedPlan, steps: report.steps } : m.proposedPlan
+            }
+          : m
+      )
+    );
+
+    if (report.finalMessage && autoSpeak) {
+      speakText(report.finalMessage);
+    }
+  }, [messages, user, spaces, router, updateDocument, addDocumentFolder, updateDocumentFolder, removeDocument, updateInvoice, updateFileShareItems, autoSpeak, speakText]);
+
+  const rejectProposedPlan = useCallback((messageId: string) => {
+    setMessages(prev =>
+      prev.map(m =>
+        m.id === messageId
+          ? {
+              ...m,
+              planStatus: 'rejected',
+              planReport: {
+                planId: m.proposedPlan?.id || '',
+                success: false,
+                completedSteps: 0,
+                totalSteps: m.proposedPlan?.steps.length || 0,
+                steps: m.proposedPlan?.steps || [],
+                finalMessage: 'תוכנית הפעולה בוטלה לבקשתך. לא בוצע שום שינוי.'
+              }
+            }
+          : m
+      )
+    );
+  }, []);
+
   const submitFeedback = useCallback((messageId: string, rating: 'helpful' | 'not_helpful') => {
     setMessages(prev => prev.map(m => {
       if (m.id !== messageId || m.feedback) return m;
@@ -928,6 +1004,8 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         sendMessage,
         approveProposedAction,
         rejectProposedAction,
+        approveProposedPlan,
+        rejectProposedPlan,
         submitFeedback,
         clearChat,
         suggestedQuestions,

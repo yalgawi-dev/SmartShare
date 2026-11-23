@@ -27,6 +27,8 @@ export const GlobalAssistantDrawer: React.FC = () => {
     sendMessage,
     approveProposedAction,
     rejectProposedAction,
+    approveProposedPlan,
+    rejectProposedPlan,
     submitFeedback,
     suggestedQuestions,
     isSpeaking,
@@ -1475,6 +1477,152 @@ export const GlobalAssistantDrawer: React.FC = () => {
                 }}
               >
                 {m.text}
+
+                {/* Headless Universal Agent OS — Multi-Step Campaign Card (ADR-009) */}
+                {m.sender === 'assistant' && m.proposedPlan && (
+                  <div
+                    style={{
+                      marginTop: '9px',
+                      padding: '10px 11px',
+                      background:
+                        m.planStatus === 'executed'
+                          ? '#ecfdf5'
+                          : m.planStatus === 'failed'
+                            ? '#fef2f2'
+                            : m.planStatus === 'rejected'
+                              ? '#f8fafc'
+                              : '#eef2ff',
+                      border: `1.5px solid ${
+                        m.planStatus === 'executed'
+                          ? '#10b981'
+                          : m.planStatus === 'failed'
+                            ? '#ef4444'
+                            : m.planStatus === 'rejected'
+                              ? '#cbd5e1'
+                              : '#6366f1'
+                      }`,
+                      borderRadius: '12px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '7px',
+                    }}
+                  >
+                    <div style={{ fontWeight: 800, fontSize: '0.8rem', color: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                      <span>
+                        {m.planStatus === 'executed'
+                          ? `✅ המערכה הושלמה: ${m.proposedPlan.title}`
+                          : m.planStatus === 'executing'
+                            ? `⚙️ מריץ מאחורי הקלעים...`
+                            : m.planStatus === 'failed'
+                              ? `⚠️ נעצר בשגיאה: ${m.proposedPlan.title}`
+                              : m.planStatus === 'rejected'
+                                ? `❌ בוטל: ${m.proposedPlan.title}`
+                                : `🧠 תוכנית מערכה (${m.proposedPlan.steps.length} צעדים)`}
+                      </span>
+                    </div>
+
+                    {m.proposedPlan.summary && m.planStatus === 'pending' && (
+                      <div style={{ fontSize: '0.75rem', color: '#334155' }}>{m.proposedPlan.summary}</div>
+                    )}
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      {m.proposedPlan.steps.map((step, idx) => (
+                        <div
+                          key={step.id || idx}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            fontSize: '0.74rem',
+                            color: step.status === 'failed' ? '#b91c1c' : step.status === 'done' ? '#047857' : '#1e293b',
+                            background: 'rgba(255,255,255,0.75)',
+                            padding: '4px 7px',
+                            borderRadius: '8px',
+                            border: '1px solid rgba(148,163,184,0.28)',
+                          }}
+                        >
+                          <span>
+                            {step.status === 'done'
+                              ? '✅'
+                              : step.status === 'running'
+                                ? '🔄'
+                                : step.status === 'failed'
+                                  ? '❌'
+                                  : `${idx + 1}.`}
+                          </span>
+                          <span style={{ fontWeight: 700, flex: 1 }}>{step.label}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {m.planReport?.finalMessage && m.planStatus !== 'pending' && (
+                      <div style={{ fontSize: '0.75rem', color: m.planStatus === 'failed' ? '#b91c1c' : '#065f46', fontWeight: 700 }}>
+                        {m.planReport.finalMessage}
+                      </div>
+                    )}
+
+                    {m.planReport?.finalProofUrl && m.planStatus === 'executed' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const url = m.planReport!.finalProofUrl!;
+                          if (url.startsWith('http')) window.open(url, '_blank');
+                          else window.location.href = url;
+                        }}
+                        style={{
+                          padding: '6px 10px',
+                          borderRadius: '9px',
+                          border: 'none',
+                          background: '#059669',
+                          color: '#fff',
+                          fontWeight: 800,
+                          fontSize: '0.76rem',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {m.planReport.finalProofLabel || '🔗 צפה בתוצאה'}
+                      </button>
+                    )}
+
+                    {m.planStatus === 'pending' && (
+                      <div style={{ display: 'flex', gap: '6px', marginTop: '2px' }}>
+                        <button
+                          type="button"
+                          onClick={() => approveProposedPlan(m.id)}
+                          style={{
+                            flex: 1,
+                            padding: '7px 10px',
+                            borderRadius: '9px',
+                            border: 'none',
+                            background: 'linear-gradient(135deg, #4f46e5, #2563eb)',
+                            color: '#fff',
+                            fontWeight: 800,
+                            fontSize: '0.77rem',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          ✅ אשר והפעל מאחורי הקלעים
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => rejectProposedPlan(m.id)}
+                          style={{
+                            padding: '7px 10px',
+                            borderRadius: '9px',
+                            border: '1px solid #cbd5e1',
+                            background: '#fff',
+                            color: '#475569',
+                            fontWeight: 700,
+                            fontSize: '0.76rem',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          ביטול
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Interactive Agent Action Confirmation & Proof-of-Execution Card */}
                 {m.sender === 'assistant' && m.proposedAction && (

@@ -156,12 +156,13 @@ ${JSON.stringify(activeToolsList.filter((t: any) => String(t?.name || '').starts
 6. לשאלות על תיקיות, מדפים, מסמכים והרשאות: קרא מתוך vault ב-liveSpacesData (כולל הנתיב המלא folderPath/path והרשאת visibility: 'open_all' פתוח לכולם מול 'restricted' מוגבל ל-allowedPartnerNames).
 7. לשאלות הדרכה או "איפה לוחצים במסך הנוכחי": היעזר גם בסריקת המסך החיה (liveScreenDOM.visibleButtonsAndActions) ובמפת האפליקציה.
 8. דיווח תקלות למנהל המערכת: אם המשתמש מתאר תקלה, באג או משהו שאינו עובד כשורה, עזור לו בקצרה והזכר לו שהוא יכול ללחוץ על כפתורי דיווח התקלה שמופיעים מתחת להודעה (או על סמל החיפושית בכותרת) כדי לצלם מסך או להקליט סרטון מסך קצר שיישלח אוטומטית למנהל המערכת עם כל הפרטים שלו.
-9. ביצוע פעולות באפליקציה (Hybrid Autonomous Agent Protocol — עד 3 צעדים):
-   - עדיפות #1: אם קיים כלי עסקי ייעודי ב-availableActionTools (כגון open_space, create_folder, move_document, export_documents_to_fileshare, set_item_permission) שפותר את הבקשה ישירות — השתמש בו בצעד 1!
-     * חוק העברה לקיר שיתוף: בכל בקשה להעביר/להעתיק/לשלוח קובץ אחד או יותר (או תיקייה) מהמסמכים אל "קיר שיתוף" — חובה להשתמש אך ורק בכלי export_documents_to_fileshare (עם spaceId ו-docIds או sourceFolderId, ובמידת הצורך targetFileShareFolderName).
+9. ביצוע פעולות מאחורי הקלעים (Headless Universal Agent OS — ADR-009):
+   - עדיפות #1 (מוח מקביל 100% Headless — עובד מכל מסך באפליקציה כולל מסך הבית, ללא לחיצות על המסך!):
+     * לפעולה בודדת: השתמש באבני היסוד האוניברסליות (transfer_items להעברה/העתקה מכל מקום לכל מקום, manage_entity ליצירת תיקייה בכספת או בקיר שיתוף, share_resource ליצירת קישור שיתוף לנמען, open_space, set_item_permission) והחזר proposedAction.
+     * למערכה רב-שלבית (למשל: "צור תיקייה 'אינסטלטור' בקיר השיתוף, העבר לשם את 2 הקבצים, ושתף לאלי"): החזר proposedPlan עם מערך steps (עד 5 שלבים)! ניתן לשרשר פלט של שלב קודם באמצעות "$step1.createdId" או "$prev.createdId" בתוך params של השלב הבא!
    - חוק אפס הזיות (Anti-Hallucination — קריטי!):
-     * לעולם אל תכתוב ב-answer "ביצעתי", "הועבר בהצלחה", "העברתי" או "סיימתי" אם proposedAction הוא null!
-     * כאשר אתה מחזיר proposedAction שדורש אישור משתמש (כמו export_documents_to_fileshare או move_document), כתוב בלשון עתיד/הצעה בלבד (למשל: "הכנתי עבורך את ההעברה של 2 הקבצים אל קיר השיתוף. לחץ על אישור למטה ומיד אבצע ואפתח עבורך את קיר השיתוף לצפייה!").
+     * לעולם אל תכתוב ב-answer "ביצעתי", "הועבר בהצלחה", "העברתי" או "סיימתי" אם גם proposedAction וגם proposedPlan הם null!
+     * כאשר אתה מחזיר proposedAction או proposedPlan שדורשים אישור משתמש, כתוב בלשון עתיד/הצעה בלבד (למשל: "הכנתי עבורך תוכנית מערכה של 3 צעדים מאחורי הקלעים. לחץ על אישור למטה ומיד אבצע הכל ברקע ואפתח לך את התוצאה!").
      * אם אין כלי מתאים או לא נמצאו המזהים — אמור זאת בכנות, לעולם אל תעמיד פנים שהפעולה בוצעה!
    - עדיפות #2 (סריקת DOM חיה + למידה עצמית): אם אין כלי עסקי ייעודי או שהיעד (למשל נמען אורח כמו "אלי אינסטלטור") מסתתר מאחורי כפתור/מודאל (למשל "שתף קיר", "🔗", "שותפים", "הגדרות"):
      * אל תוותר ואל תגיד "לא קיים" לפני שבדקת במודאל המתאים!
@@ -181,10 +182,18 @@ ${JSON.stringify(activeToolsList.filter((t: any) => String(t?.name || '').starts
   "continueExploring": false,
   "proposedAction": null | {
     "tool": "שם הכלי מתוך availableActionTools",
-    "title": "כותרת קצרה לפעולה (למשל: פתיחת שיתוף קיר)",
+    "title": "כותרת קצרה לפעולה",
     "summary": "משפט תיאור קצר וברור של הפעולה",
     "details": ["פריט: ...", "יעד: ..."],
     "params": { ... }
+  },
+  "proposedPlan": null | {
+    "title": "כותרת המערכה (למשל: הכנת תיקייה, העברת קבצים ושיתוף)",
+    "summary": "תיאור קצר של התוכנית שתרוץ מאחורי הקלעים",
+    "steps": [
+      { "tool": "manage_entity", "label": "יצירת תיקיית אינסטלטור בקיר השיתוף", "params": { ... } },
+      { "tool": "transfer_items", "label": "העברת 2 קבצים לתיקייה החדשה", "params": { "destFolderId": "$step1.createdId", ... } }
+    ]
   }
 }
 
@@ -216,7 +225,7 @@ ${formattedHistory}`;
           contents: [{ role: 'user', parts: [{ text: `${systemPrompt}\n\nשאלת המשתמש: ${securityCheck.sanitizedText}` }] }],
           generationConfig: {
             temperature: 0.1,
-            maxOutputTokens: 650,
+            maxOutputTokens: 900,
             responseMimeType: 'application/json'
           }
         })
@@ -252,6 +261,7 @@ ${formattedHistory}`;
 
     let parsedAnswer = rawText;
     let proposedAction: any = null;
+    let proposedPlan: any = null;
     let continueExploring = false;
 
     try {
@@ -261,7 +271,36 @@ ${formattedHistory}`;
         parsedAnswer = parsed.answer.trim();
       }
       continueExploring = Boolean(parsed?.continueExploring);
-      if (parsed?.proposedAction && typeof parsed.proposedAction === 'object' && parsed.proposedAction.tool) {
+      if (parsed?.proposedPlan && Array.isArray(parsed.proposedPlan.steps) && parsed.proposedPlan.steps.length > 0) {
+        const validatedSteps = parsed.proposedPlan.steps
+          .slice(0, 5)
+          .map((s: any, idx: number) => {
+            const matched = activeToolsList.find((t: any) => t?.name === s?.tool);
+            if (!matched) return null;
+            return {
+              id: `step_${idx + 1}_${Date.now()}`,
+              tool: String(s.tool),
+              label: String(s.label || matched.name),
+              params: s.params || {},
+              riskLevel: matched.riskLevel || 'medium',
+              status: 'pending'
+            };
+          })
+          .filter(Boolean);
+
+        if (validatedSteps.length > 0) {
+          proposedPlan = {
+            id: `plan_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            appId: 'smartshare',
+            title: String(parsed.proposedPlan.title || 'תוכנית פעולה מאחורי הקלעים'),
+            summary: String(parsed.proposedPlan.summary || ''),
+            steps: validatedSteps,
+            requiresConfirmation: true,
+            riskLevel: validatedSteps.some((s: any) => s.riskLevel === 'high') ? 'high' : 'medium'
+          };
+        }
+      }
+      if (!proposedPlan && parsed?.proposedAction && typeof parsed.proposedAction === 'object' && parsed.proposedAction.tool) {
         // Look up tool metadata from activeToolsList for riskLevel & confirmation policy
         const matchedSchema = activeToolsList.find(
           (t: any) => t?.name === parsed.proposedAction.tool
@@ -291,6 +330,7 @@ ${formattedHistory}`;
     return NextResponse.json({
       answer,
       proposedAction,
+      proposedPlan,
       continueExploring,
       source: 'cloud_llm',
       confidence: 'high',

@@ -61,18 +61,18 @@ export function ShareSecuritySettingsTab({
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: '0.75rem',
-          padding: '0.75rem 0.85rem',
-          borderRadius: '13px',
-          border: isEnabled ? '1.5px solid rgba(16,185,129,0.4)' : '1.5px solid rgba(239,68,68,0.35)',
-          background: isEnabled ? 'rgba(16,185,129,0.06)' : 'rgba(239,68,68,0.05)',
+          padding: '0.8rem 0.9rem',
+          borderRadius: '14px',
+          border: isEnabled ? '1.5px solid #6ee7b7' : '1.5px solid #fca5a5',
+          background: isEnabled ? '#ecfdf5' : '#fef2f2',
           cursor: 'pointer',
         }}
       >
         <div>
-          <div style={{ fontWeight: 800, fontSize: '0.88rem', color: 'var(--text-primary)' }}>
+          <div style={{ fontWeight: 800, fontSize: '0.88rem', color: '#0f172a' }}>
             {isEnabled ? '🟢 שיתוף חיצוני פעיל' : '🔴 שיתוף חיצוני מושבת'}
           </div>
-          <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
+          <div style={{ fontSize: '0.75rem', color: '#475569', marginTop: '0.1rem' }}>
             {isEnabled ? 'בעלי הקישור והנמענים יכולים לצפות.' : 'כיבוי חוסם מיד את כל הקישורים.'}
           </div>
         </div>
@@ -86,54 +86,64 @@ export function ShareSecuritySettingsTab({
 
       {isEnabled && (
         <>
-          {/* 2. Folder Scope (Folders Only) */}
+          {/* 2. Folder Scope (Folders Only) — Crisp Framed Choice Cards */}
           {isFolder && (
             <div
               style={{
-                padding: '0.75rem 0.85rem',
-                borderRadius: '13px',
-                border: '1px solid var(--border-color)',
-                background: 'var(--bg-secondary)',
+                padding: '0.8rem 0.9rem',
+                borderRadius: '14px',
+                border: '1px solid #e2e8f0',
+                background: '#f8fafc',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '0.45rem',
+                gap: '0.55rem',
               }}
             >
-              <div style={{ fontWeight: 800, fontSize: '0.83rem', color: 'var(--text-primary)' }}>
+              <div style={{ fontWeight: 800, fontSize: '0.84rem', color: '#0f172a' }}>
                 📁 מה כלול בשיתוף?
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.45rem' }}>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: '0.5rem',
+                }}
+              >
                 <button
                   type="button"
                   onClick={() => onToggleSubtree(false)}
                   style={{
-                    padding: '0.5rem 0.55rem',
-                    borderRadius: '10px',
-                    border: !includeSubtree ? '1.5px solid #4f46e5' : '1px solid var(--border-color)',
-                    background: !includeSubtree ? 'rgba(79,70,229,0.09)' : '#fff',
-                    color: !includeSubtree ? '#4338ca' : 'var(--text-primary)',
-                    fontWeight: 700,
-                    fontSize: '0.78rem',
+                    padding: '0.62rem 0.55rem',
+                    borderRadius: '11px',
+                    border: !includeSubtree ? '2px solid #4f46e5' : '1.5px solid #cbd5e1',
+                    background: !includeSubtree ? 'linear-gradient(135deg, #4f46e5, #2563eb)' : '#ffffff',
+                    color: !includeSubtree ? '#ffffff' : '#334155',
+                    fontWeight: 800,
+                    fontSize: '0.79rem',
+                    boxShadow: !includeSubtree ? '0 4px 12px rgba(79,70,229,0.28)' : '0 1px 3px rgba(15,23,42,0.06)',
                     cursor: 'pointer',
+                    transition: 'all 0.15s ease',
                   }}
                 >
-                  תיקייה זו בלבד ({directFilesCount})
+                  {!includeSubtree ? '✓ ' : ''}תיקייה זו בלבד ({directFilesCount})
                 </button>
                 <button
                   type="button"
                   onClick={() => onToggleSubtree(true)}
                   style={{
-                    padding: '0.5rem 0.55rem',
-                    borderRadius: '10px',
-                    border: includeSubtree ? '1.5px solid #4f46e5' : '1px solid var(--border-color)',
-                    background: includeSubtree ? 'rgba(79,70,229,0.09)' : '#fff',
-                    color: includeSubtree ? '#4338ca' : 'var(--text-primary)',
-                    fontWeight: 700,
-                    fontSize: '0.78rem',
+                    padding: '0.62rem 0.55rem',
+                    borderRadius: '11px',
+                    border: includeSubtree ? '2px solid #4f46e5' : '1.5px solid #cbd5e1',
+                    background: includeSubtree ? 'linear-gradient(135deg, #4f46e5, #2563eb)' : '#ffffff',
+                    color: includeSubtree ? '#ffffff' : '#334155',
+                    fontWeight: 800,
+                    fontSize: '0.79rem',
+                    boxShadow: includeSubtree ? '0 4px 12px rgba(79,70,229,0.28)' : '0 1px 3px rgba(15,23,42,0.06)',
                     cursor: 'pointer',
+                    transition: 'all 0.15s ease',
                   }}
                 >
-                  כולל תתי-תיקיות ({includeSubtree ? `${subtreeSubfoldersCount} תיקיות • ${subtreeFilesCount} קבצים` : 'הכל'})
+                  {includeSubtree ? '✓ ' : ''}כולל תתי-תיקיות ({includeSubtree ? `${subtreeSubfoldersCount} / ${subtreeFilesCount}` : 'הכל'})
                 </button>
               </div>
             </div>
@@ -142,24 +152,24 @@ export function ShareSecuritySettingsTab({
           {/* 3. PIN Protection */}
           <div
             style={{
-              padding: '0.75rem 0.85rem',
-              borderRadius: '13px',
-              border: '1px solid var(--border-color)',
-              background: 'var(--bg-secondary)',
+              padding: '0.8rem 0.9rem',
+              borderRadius: '14px',
+              border: '1px solid #e2e8f0',
+              background: '#f8fafc',
               display: 'flex',
               flexDirection: 'column',
               gap: '0.55rem',
             }}
           >
             <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
-              <span style={{ fontWeight: 800, fontSize: '0.84rem', color: 'var(--text-primary)' }}>
+              <span style={{ fontWeight: 800, fontSize: '0.84rem', color: '#0f172a' }}>
                 🔐 הגנת קוד PIN (4 ספרות)
               </span>
               <input
                 type="checkbox"
                 checked={requirePin}
                 onChange={(e) => onTogglePin(e.target.checked)}
-                style={{ width: '18px', height: '18px', accentColor: '#4f46e5', cursor: 'pointer' }}
+                style={{ width: '19px', height: '19px', accentColor: '#4f46e5', cursor: 'pointer' }}
               />
             </label>
             {requirePin && (
@@ -173,11 +183,12 @@ export function ShareSecuritySettingsTab({
                   placeholder="למשל: 4829"
                   style={{
                     flex: 1,
-                    padding: '0.48rem 0.7rem',
-                    borderRadius: '9px',
-                    border: '1px solid var(--border-color)',
-                    background: '#fff',
-                    fontSize: '0.92rem',
+                    padding: '0.5rem 0.7rem',
+                    borderRadius: '10px',
+                    border: '1.5px solid #cbd5e1',
+                    background: '#ffffff',
+                    color: '#0f172a',
+                    fontSize: '0.94rem',
                     fontWeight: 800,
                     letterSpacing: '0.15em',
                   }}
@@ -187,12 +198,12 @@ export function ShareSecuritySettingsTab({
                   onClick={onGenerateRandomPin}
                   title="הגרל קוד חדש"
                   style={{
-                    padding: '0.48rem 0.7rem',
-                    borderRadius: '9px',
-                    border: '1px solid rgba(79,70,229,0.35)',
-                    background: '#fff',
+                    padding: '0.5rem 0.75rem',
+                    borderRadius: '10px',
+                    border: '1.5px solid #a5b4fc',
+                    background: '#eef2ff',
                     color: '#4338ca',
-                    fontWeight: 700,
+                    fontWeight: 800,
                     fontSize: '0.78rem',
                     cursor: 'pointer',
                   }}
@@ -203,75 +214,80 @@ export function ShareSecuritySettingsTab({
             )}
           </div>
 
-          {/* 4. Link Expiry */}
+          {/* 4. Link Expiry — Tactile Framed Choice Grid */}
           <div
             style={{
-              padding: '0.75rem 0.85rem',
-              borderRadius: '13px',
-              border: '1px solid var(--border-color)',
-              background: 'var(--bg-secondary)',
+              padding: '0.8rem 0.9rem',
+              borderRadius: '14px',
+              border: '1px solid #e2e8f0',
+              background: '#f8fafc',
               display: 'flex',
               flexDirection: 'column',
-              gap: '0.45rem',
+              gap: '0.55rem',
             }}
           >
-            <div style={{ fontWeight: 800, fontSize: '0.83rem', color: 'var(--text-primary)' }}>
+            <div style={{ fontWeight: 800, fontSize: '0.84rem', color: '#0f172a' }}>
               ⏳ תוקף הקישור
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.35rem' }}>
-              {EXPIRY_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setExpiryOption(opt.value)}
-                  style={{
-                    padding: '0.42rem 0.3rem',
-                    borderRadius: '9px',
-                    border: expiryOption === opt.value ? '1.5px solid #4f46e5' : '1px solid var(--border-color)',
-                    background: expiryOption === opt.value ? 'rgba(79,70,229,0.1)' : '#fff',
-                    color: expiryOption === opt.value ? '#4338ca' : 'var(--text-primary)',
-                    fontWeight: 700,
-                    fontSize: '0.75rem',
-                    cursor: 'pointer',
-                  }}
-                >
-                  {opt.label}
-                </button>
-              ))}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.4rem' }}>
+              {EXPIRY_OPTIONS.map((opt) => {
+                const selected = expiryOption === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setExpiryOption(opt.value)}
+                    style={{
+                      padding: '0.52rem 0.25rem',
+                      borderRadius: '10px',
+                      border: selected ? '2px solid #4f46e5' : '1.5px solid #cbd5e1',
+                      background: selected ? 'linear-gradient(135deg, #4f46e5, #2563eb)' : '#ffffff',
+                      color: selected ? '#ffffff' : '#334155',
+                      fontWeight: 800,
+                      fontSize: '0.75rem',
+                      boxShadow: selected ? '0 4px 10px rgba(79,70,229,0.28)' : '0 1px 2px rgba(15,23,42,0.06)',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
           {/* 5. Guest Permissions */}
           <div
             style={{
-              padding: '0.75rem 0.85rem',
-              borderRadius: '13px',
-              border: '1px solid var(--border-color)',
-              background: 'var(--bg-secondary)',
+              padding: '0.8rem 0.9rem',
+              borderRadius: '14px',
+              border: '1px solid #e2e8f0',
+              background: '#f8fafc',
               display: 'flex',
               flexDirection: 'column',
-              gap: '0.6rem',
+              gap: '0.65rem',
             }}
           >
-            <div style={{ fontWeight: 800, fontSize: '0.83rem', color: 'var(--text-primary)' }}>
+            <div style={{ fontWeight: 800, fontSize: '0.84rem', color: '#0f172a' }}>
               🛡️ הרשאות אורח
             </div>
-            <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600 }}>
+            <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 700, color: '#1e293b' }}>
               <span>⬇️ אפשר הורדת קבצים</span>
               <input
                 type="checkbox"
                 checked={allowDownload}
                 onChange={(e) => setAllowDownload(e.target.checked)}
-                style={{ width: '18px', height: '18px', accentColor: '#4f46e5', cursor: 'pointer' }}
+                style={{ width: '19px', height: '19px', accentColor: '#4f46e5', cursor: 'pointer' }}
               />
             </label>
-            <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600 }}>
+            <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 700, color: '#1e293b' }}>
               <span>📤 אפשר לאורחים להעלות קבצים בחזרה</span>
               <input
                 type="checkbox"
                 checked={allowUploads}
                 onChange={(e) => setAllowUploads(e.target.checked)}
-                style={{ width: '18px', height: '18px', accentColor: '#4f46e5', cursor: 'pointer' }}
+                style={{ width: '19px', height: '19px', accentColor: '#4f46e5', cursor: 'pointer' }}
               />
             </label>
           </div>
