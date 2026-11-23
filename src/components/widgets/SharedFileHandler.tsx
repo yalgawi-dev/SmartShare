@@ -472,8 +472,8 @@ export default function SharedFileHandler() {
     } else if (spaceHasFinance && !spaceHasVault && !spaceHasFileShare) {
       if (routeDestination === 'vault' || routeDestination === 'fileshare') setRouteDestination(sharedFiles.length > 1 ? 'inbox' : 'direct');
     } else if (!spaceHasFinance && spaceHasVault && !spaceHasFileShare) {
-      if (routeDestination === 'direct' || routeDestination === 'inbox' || routeDestination === 'attach_existing' || routeDestination === 'fileshare') setRouteDestination('vault');
-    } else if (spaceHasFileShare && routeDestination !== 'fileshare' && routeDestination !== 'vault' && routeDestination !== 'direct' && routeDestination !== 'inbox' && routeDestination !== 'attach_existing') {
+      if (routeDestination === 'direct' || routeDestination === 'direct_manual' || routeDestination === 'inbox' || routeDestination === 'attach_existing' || routeDestination === 'fileshare') setRouteDestination('vault');
+    } else if (spaceHasFileShare && routeDestination !== 'fileshare' && routeDestination !== 'vault' && routeDestination !== 'direct' && routeDestination !== 'direct_manual' && routeDestination !== 'inbox' && routeDestination !== 'attach_existing') {
       setRouteDestination('fileshare');
     }
   }, [selectedSpaceId, spaceHasFinance, spaceHasVault, spaceHasFileShare, routeDestination, sharedFiles.length]);
@@ -1769,7 +1769,7 @@ export default function SharedFileHandler() {
                     }}>
                       <input
                         type="radio"
-                        name="routeDest"
+                        name="spaceAction"
                         checked={routeDestination === 'direct_manual'}
                         onChange={() => setRouteDestination('direct_manual')}
                         style={{ marginTop: '0.2rem', accentColor: '#0284c7', width: '16px', height: '16px' }}
