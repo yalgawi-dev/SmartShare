@@ -14,6 +14,16 @@ import type { AgentActionProposal, AgentActionExecutionResult } from './assistan
 import type { AgentActionPlan, AgentPlanExecutionReport } from './agentManifest';
 import { executeAgentActionPlan } from './agentPlanOrchestrator';
 import { executeApprovedAgentAction } from './assistantActionExecutor';
+import {
+  type AssistantPersona,
+  type AssistantPersonaId,
+  getPersonaById,
+  loadSavedPersonaId,
+  savePersonaId,
+  hasMetAssistantBefore,
+  markAssistantMet,
+  buildHumanGreeting
+} from './assistantPersonas';
 import { inspectLiveScreenDOM, isDestructiveUiLabel } from './assistantDomIntrospector';
 import {
   installPassiveUiMapLearner,
@@ -84,6 +94,10 @@ interface AssistantContextType {
   isAnalyzingInstallScreenshot: boolean;
   analyzeInstallScreenshot: (file: File) => Promise<void>;
   exitIosInstallCoach: () => void;
+  selectedPersonaId: AssistantPersonaId;
+  activePersona: AssistantPersona;
+  setSelectedPersonaId: (id: AssistantPersonaId) => void;
+  previewPersonaVoice: (id: AssistantPersonaId) => void;
 }
 
 const AssistantContext = createContext<AssistantContextType | undefined>(undefined);
@@ -147,14 +161,44 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, [pathname, matchedSpaceId, currentSpace?.title]);
 
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: 'welcome',
-      sender: 'assistant',
-      text: 'שלום! אני הסוכן האישי שלך. אני מלווה אותך בכל דף, מזהה היכן אתה נמצא ויכול להסביר לך הכל בדיבור או בכתב. במה אוכל לעזור?',
-      timestamp: Date.now()
-    }
-  ]);
+  const [selectedPersonaId, setSelectedPersonaIdState] = useState<AssistantPersonaId>(() => loadSavedPersonaId());
+  const activePersona = useMemo(() => getPersonaById(selectedPersonaId), [selectedPersonaId]);
+  const selectedPersonaIdRef = React.useRef<AssistantPersonaId>(selectedPersonaId);
+  selectedPersonaIdRef.current = selectedPersonaId;
+
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    const initialPersona = getPersonaById(loadSavedPersonaId());
+    const isFirstTime = !hasMetAssistantBefore();
+    return [
+      {
+        id: 'welcome',
+        sender: 'assistant',
+        text: buildHumanGreeting(initialPersona, undefined, isFirstTime),
+        timestamp: Date.now()
+      }
+    ];
+  });
+
+  // Personalize initial welcome greeting with user's Hebrew first name once Auth loads
+  const personalizedWelcomeRef = React.useRef(false);
+  useEffect(() => {
+    const rawName = user?.realName || user?.nickname || (user as any)?.displayName;
+    if (!rawName || personalizedWelcomeRef.current) return;
+    personalizedWelcomeRef.current = true;
+    const isFirstTime = !hasMetAssistantBefore();
+    const greeting = buildHumanGreeting(activePersona, rawName, isFirstTime);
+    setMessages((prev) =>
+      prev.length === 1 && prev[0].id === 'welcome'
+        ? [{ ...prev[0], text: greeting }]
+        : prev
+    );
+  }, [user, activePersona]);
+
+  const setSelectedPersonaId = useCallback((id: AssistantPersonaId) => {
+    setSelectedPersonaIdState(id);
+    selectedPersonaIdRef.current = id;
+    savePersonaId(id);
+  }, []);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isAudioLoading, setIsAudioLoading] = useState(false);
   const [autoSpeak, setAutoSpeak] = useState<boolean>(() => {
@@ -221,12 +265,15 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const toggleOpen = useCallback(() => {
     setIsOpen((prev) => {
       const next = !prev;
-      if (next && !hasGreetedRef.current && autoSpeak) {
-        hasGreetedRef.current = true;
-        const firstWelcome = messages.find((m) => m.id === 'welcome' && m.sender === 'assistant');
-        if (firstWelcome?.text) {
-          // Trigger inside user click gesture so iOS/Android allow immediate audio!
-          void speakText(firstWelcome.text);
+      if (next) {
+        markAssistantMet();
+        if (!hasGreetedRef.current && autoSpeak) {
+          hasGreetedRef.current = true;
+          const firstWelcome = messages.find((m) => m.id === 'welcome' && m.sender === 'assistant');
+          if (firstWelcome?.text) {
+            // Trigger inside user click gesture so iOS/Android allow immediate audio!
+            void speakText(firstWelcome.text);
+          }
         }
       }
       return next;
@@ -282,10 +329,12 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const cleanText = normalizeTextForHebrewTTS(rawText);
     if (!cleanText) return Promise.resolve(null);
 
-    const existingCached = audioCacheRef.current.get(cleanText);
+    const voiceId = selectedPersonaIdRef.current;
+    const cacheKey = `${voiceId}::${cleanText}`;
+    const existingCached = audioCacheRef.current.get(cacheKey);
     if (existingCached) return Promise.resolve(existingCached);
 
-    const existingInflight = inflightAudioMapRef.current.get(cleanText);
+    const existingInflight = inflightAudioMapRef.current.get(cacheKey);
     if (existingInflight) return existingInflight;
 
     const promise = (async () => {
@@ -293,21 +342,21 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const res = await fetch('/api/assistant/tts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: cleanText })
+          body: JSON.stringify({ text: cleanText, voiceId })
         });
         if (!res.ok) return null;
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
-        audioCacheRef.current.set(cleanText, url);
+        audioCacheRef.current.set(cacheKey, url);
         return url;
       } catch {
         return null;
       } finally {
-        inflightAudioMapRef.current.delete(cleanText);
+        inflightAudioMapRef.current.delete(cacheKey);
       }
     })();
 
-    inflightAudioMapRef.current.set(cleanText, promise);
+    inflightAudioMapRef.current.set(cacheKey, promise);
     return promise;
   }, []);
 
@@ -322,7 +371,7 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, [isOpen, messages, prefetchAudio]);
 
   // Natural Human Hebrew TTS via Gemini Neural Voice (/api/assistant/tts) with singleton concurrency & client cache
-  const speakText = useCallback(async (text: string) => {
+  const speakText = useCallback(async (text: string, overrideVoiceId?: AssistantPersonaId) => {
     if (typeof window === 'undefined') return;
 
     // Immediately stop any prior speech or pending request (prevents double speech completely!)
@@ -330,6 +379,9 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     const cleanText = normalizeTextForHebrewTTS(text);
     if (!cleanText) return;
+
+    const voiceId = overrideVoiceId || selectedPersonaIdRef.current;
+    const cacheKey = `${voiceId}::${cleanText}`;
 
     // Monotonic counter to invalidate any outdated responses
     const seq = ++activeSpeakSeqRef.current;
@@ -358,7 +410,7 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     };
 
     // 1. Check client audio cache for instant playback (0ms latency!)
-    const cachedUrl = audioCacheRef.current.get(cleanText);
+    const cachedUrl = audioCacheRef.current.get(cacheKey);
     if (cachedUrl) {
       await playResolvedUrl(cachedUrl);
       return;
@@ -367,7 +419,7 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setIsAudioLoading(true);
 
     // 2. If background pre-synthesis is already in flight for this exact message, join it!
-    const inflight = inflightAudioMapRef.current.get(cleanText);
+    const inflight = inflightAudioMapRef.current.get(cacheKey);
     if (inflight) {
       try {
         const url = await inflight;
@@ -386,7 +438,7 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const res = await fetch('/api/assistant/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: cleanText }),
+        body: JSON.stringify({ text: cleanText, voiceId }),
         signal: abortCtrl.signal
       });
 
@@ -398,7 +450,7 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
         const url = URL.createObjectURL(blob);
         audioUrlRef.current = url;
-        audioCacheRef.current.set(cleanText, url);
+        audioCacheRef.current.set(cacheKey, url);
 
         await playResolvedUrl(url);
         return;
@@ -988,6 +1040,11 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }));
   }, [screenContext]);
 
+  const previewPersonaVoice = useCallback((id: AssistantPersonaId) => {
+    const p = getPersonaById(id);
+    void speakText(p.sampleLine, id);
+  }, [speakText]);
+
   const suggestedQuestions = useMemo(() => {
     return getContextSuggestions(screenContext);
   }, [screenContext]);
@@ -1022,7 +1079,11 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         isIosInstallCoachActive,
         isAnalyzingInstallScreenshot,
         analyzeInstallScreenshot,
-        exitIosInstallCoach
+        exitIosInstallCoach,
+        selectedPersonaId,
+        activePersona,
+        setSelectedPersonaId,
+        previewPersonaVoice
       }}
     >
       {children}

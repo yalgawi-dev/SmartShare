@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAssistant } from './AssistantContext';
+import { AssistantPersonaPicker } from './AssistantPersonaPicker';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
 import { useAuth } from '@/app/context/AuthContext';
 import { APP_VERSION } from '@/constants/version';
@@ -43,8 +44,14 @@ export const GlobalAssistantDrawer: React.FC = () => {
     isIosInstallCoachActive,
     isAnalyzingInstallScreenshot,
     analyzeInstallScreenshot,
-    exitIosInstallCoach
+    exitIosInstallCoach,
+    selectedPersonaId,
+    activePersona,
+    setSelectedPersonaId,
+    previewPersonaVoice
   } = useAssistant();
+
+  const [showPersonaPicker, setShowPersonaPicker] = useState(false);
   const { user } = useAuth();
   const router = useRouter();
 
@@ -742,9 +749,24 @@ export const GlobalAssistantDrawer: React.FC = () => {
             transform: isOpen ? 'scale(0.92)' : 'scale(1)',
             animation: (isSpeaking || externalSpeaking) && !isOpen ? 'assistantSpeakBounce 0.9s ease-in-out infinite' : 'none'
           }}
-          title="עוזר אישי חכם (גרור כדי להזיז לכל מקום)"
+          title={`${activePersona.name} — ${activePersona.roleLabel} (גרור כדי להזיז לכל מקום)`}
         >
-          {isOpen ? '✕' : '🤖'}
+          {isOpen ? (
+            '✕'
+          ) : (
+            <img
+              src={activePersona.avatarUrl}
+              alt={activePersona.name}
+              draggable={false}
+              style={{
+                width: '100%',
+                height: '100%',
+                borderRadius: '50%',
+                objectFit: 'cover',
+                pointerEvents: 'none'
+              }}
+            />
+          )}
         </button>
       </div>
       )}
@@ -798,19 +820,51 @@ export const GlobalAssistantDrawer: React.FC = () => {
           >
             {/* Visual Drag Handle Bar */}
             <div style={{ alignSelf: 'center', width: '36px', height: '4px', background: 'rgba(255,255,255,0.4)', borderRadius: '999px', marginBottom: '2px' }} />
-            {/* Top Row: Title + Version on Right | Reset + Close ✕ on Left */}
+            {/* Top Row: Persona Avatar + Name + Version on Right | Persona Settings + Reset + Close ✕ on Left */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '7px', minWidth: 0 }}>
-                <span style={{ fontSize: '1.25rem', flexShrink: 0 }}>🤖</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                <img
+                  src={activePersona.avatarUrl}
+                  alt={activePersona.name}
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '50%',
+                    objectFit: 'cover',
+                    border: '2px solid rgba(255,255,255,0.85)',
+                    flexShrink: 0
+                  }}
+                />
                 <span style={{ fontWeight: 900, fontSize: '0.94rem', whiteSpace: 'nowrap' }}>
-                  עוזר אישי MySpace
+                  {activePersona.name}
                 </span>
                 <span style={{ fontSize: '0.66rem', background: 'rgba(255,255,255,0.25)', padding: '1px 6px', borderRadius: '6px', fontWeight: 700, flexShrink: 0 }}>
                   {APP_VERSION}
                 </span>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0 }}>
+                <button
+                  type="button"
+                  onClick={() => setShowPersonaPicker((prev) => !prev)}
+                  style={{
+                    background: showPersonaPicker ? '#ffffff' : 'rgba(255,255,255,0.22)',
+                    border: 'none',
+                    borderRadius: '8px',
+                    color: showPersonaPicker ? '#4338ca' : '#ffffff',
+                    padding: '0 7px',
+                    height: '28px',
+                    fontSize: '0.73rem',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '3px'
+                  }}
+                  title="החלף דובר/ת וקול"
+                >
+                  ⚙️ דובר
+                </button>
                 <button
                   type="button"
                   onClick={clearChat}
@@ -965,6 +1019,15 @@ export const GlobalAssistantDrawer: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {showPersonaPicker && (
+            <AssistantPersonaPicker
+              selectedPersonaId={selectedPersonaId}
+              onSelectPersona={setSelectedPersonaId}
+              onPreviewPersona={previewPersonaVoice}
+              onClose={() => setShowPersonaPicker(false)}
+            />
+          )}
 
           {/* Context Banner */}
           <div style={{ padding: '5px 12px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontSize: '0.71rem', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', flexShrink: 0 }}>

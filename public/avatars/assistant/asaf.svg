@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="35%" r="70%">
+      <stop offset="0%" stop-color="#e0f2fe"/>
+      <stop offset="100%" stop-color="#7dd3fc"/>
+    </radialGradient>
+    <linearGradient id="shirt" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#059669"/>
+      <stop offset="100%" stop-color="#047857"/>
+    </linearGradient>
+    <linearGradient id="skin" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#f7ccb0"/>
+      <stop offset="100%" stop-color="#e8b28d"/>
+    </linearGradient>
+    <linearGradient id="hair" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b271c"/>
+      <stop offset="100%" stop-color="#1e130d"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" fill="url(#bg)"/>
+  <!-- Shoulders / modern crew-neck t-shirt -->
+  <path d="M40 256 C44 202, 82 184, 128 184 C174 184, 212 202, 216 256 Z" fill="url(#shirt)"/>
+  <path d="M104 186 Q128 206 152 186" fill="none" stroke="#065f46" stroke-width="5" stroke-linecap="round"/>
+  <!-- Neck -->
+  <rect x="112" y="154" width="32" height="36" rx="14" fill="#dfaa85"/>
+  <!-- Ears -->
+  <ellipse cx="76" cy="118" rx="9" ry="14" fill="#e6b08a"/>
+  <ellipse cx="180" cy="118" rx="9" ry="14" fill="#e6b08a"/>
+  <!-- Face -->
+  <path d="M80 104 C80 66, 176 66, 176 104 C176 146, 156 172, 128 172 C100 172, 80 146, 80 104 Z" fill="url(#skin)"/>
+  <!-- Hair -->
+  <path d="M76 108 C72 64, 98 42, 130 42 C164 42, 184 64, 180 108 C176 86, 162 72, 134 72 C106 72, 84 82, 76 108 Z" fill="url(#hair)"/>
+  <path d="M90 66 C112 50, 152 50, 172 72 C152 64, 118 62, 90 66 Z" fill="#4f3526" opacity="0.6"/>
+  <!-- Eyebrows -->
+  <path d="M96 100 Q108 94 118 99" fill="none" stroke="#2c1d15" stroke-width="4.2" stroke-linecap="round"/>
+  <path d="M138 99 Q148 94 160 100" fill="none" stroke="#2c1d15" stroke-width="4.2" stroke-linecap="round"/>
+  <!-- Eyes -->
+  <circle cx="107" cy="113" r="5.5" fill="#1e293b"/>
+  <circle cx="109" cy="111" r="1.8" fill="#ffffff"/>
+  <circle cx="149" cy="113" r="5.5" fill="#1e293b"/>
+  <circle cx="151" cy="111" r="1.8" fill="#ffffff"/>
+  <!-- Nose -->
+  <path d="M128 113 L125 129 Q128 133 133 129" fill="none" stroke="#c98e67" stroke-width="3" stroke-linecap="round"/>
+  <!-- Warm friendly smile -->
+  <path d="M108 142 Q128 158 148 142" fill="#ffffff" stroke="#b96d54" stroke-width="3.2" stroke-linecap="round"/>
+  <!-- Subtle cheek warmth -->
+  <ellipse cx="96" cy="131" rx="8" ry="4.5" fill="#f48c7a" opacity="0.22"/>
+  <ellipse cx="160" cy="131" rx="8" ry="4.5" fill="#f48c7a" opacity="0.22"/>
+</svg>
