@@ -141,27 +141,10 @@ export const checkIsSuperAdmin = (email?: string | null, phone?: string | null):
 
 export const useAuth = () => useContext(AuthContext);
 
-const CACHED_USER_STORAGE_KEY = 'smartshare_cached_user_v1';
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  // Hydration-safe initial state (matches SSR 100% — zero React #418/#425 mismatch!)
   const [user, setUser] = useState<UserProfile | null>(null);
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [isLoaded, setIsLoaded] = useState<boolean>(false);
-
-  // Instant Cache-First Boot right after hydration (<10ms) while Firebase verifies live in background!
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(CACHED_USER_STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed && parsed.id && !parsed.isBlocked) {
-          setUser((prev) => prev || (parsed as UserProfile));
-          setIsLoaded(true);
-        }
-      }
-    } catch {}
-  }, []);
 
   // Load all users for the CRM (admin view) - now in REAL-TIME
   useEffect(() => {
@@ -203,7 +186,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!firebaseUser) {
         setUser(null);
         setIsLoaded(true);
-        try { localStorage.removeItem(CACHED_USER_STORAGE_KEY); } catch {}
         return;
       }
 
@@ -402,9 +384,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const resolvedUser = { ...activeUser, id: canonicalUserId } as UserProfile;
           setUser(resolvedUser);
           setIsLoaded(true);
-          try {
-            localStorage.setItem(CACHED_USER_STORAGE_KEY, JSON.stringify(resolvedUser));
-          } catch {}
 
           if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
             requestNotificationPermission(canonicalUserId).catch(console.error);
@@ -429,7 +408,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             updateDoc(doc(db, 'users', canonicalUserId), presenceUpdates).catch(() => {});
           } catch(e) {}
         } else {
-          try { localStorage.removeItem(CACHED_USER_STORAGE_KEY); } catch {}
           setIsLoaded(true);
         }
       } catch (error) {
