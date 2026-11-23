@@ -5,9 +5,17 @@ import { db } from '@/lib/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '@/app/context/AuthContext';
 import { useSpaces } from '@/app/context/SpacesContext';
-import { useChat } from '@/app/context/ChatContext';
 import { getSharedContactsForUser } from '@/utils/partnerUtils';
-import { FileShareItem, ShareLinkConfig, RecipientShareLink, RecipientRole, createOrUpdatePublicShare, revokePublicShare, generateShareToken, sanitizeFirestoreData } from '@/utils/fileShareUtils';
+import {
+  FileShareItem,
+  ShareLinkConfig,
+  RecipientShareLink,
+  RecipientRole,
+  createOrUpdatePublicShare,
+  revokePublicShare,
+  generateShareToken,
+  sanitizeFirestoreData,
+} from '@/utils/fileShareUtils';
 import { RegisteredMemberPickerModal, SelectableMember } from './RegisteredMemberPickerModal';
 import {
   loadSavedShareDirectory,
@@ -17,6 +25,9 @@ import {
   type SavedShareGroup,
 } from '@/utils/shareContactsStore';
 import { APP_VERSION } from '@/constants/version';
+import { SharePeopleTab } from './SharePeopleTab';
+import { ShareQuickLinkTab } from './ShareQuickLinkTab';
+import { ShareSecuritySettingsTab } from './ShareSecuritySettingsTab';
 
 interface CreateShareLinkModalProps {
   isOpen: boolean;
@@ -32,6 +43,15 @@ interface CreateShareLinkModalProps {
   onSaved: (updatedLinkConfig?: ShareLinkConfig) => void;
 }
 
+type ModalTab = 'people' | 'link' | 'settings';
+
+const EXPIRY_LABELS: Record<'never' | '1day' | '7days' | '30days', string> = {
+  never: 'ללא תוקף',
+  '1day': 'תוקף 24 שעות',
+  '7days': 'תוקף 7 ימים',
+  '30days': 'תוקף 30 יום',
+};
+
 export function CreateShareLinkModal({
   isOpen,
   item,
@@ -43,13 +63,13 @@ export function CreateShareLinkModal({
   spaceLogoUrl,
   businessCard,
   onClose,
-  onSaved
+  onSaved,
 }: CreateShareLinkModalProps) {
   const { user } = useAuth();
   const { spaces } = useSpaces();
-  const { openChat } = useChat();
 
-  const [isEnabled, setIsEnabled] = useState(false);
+  const [activeTab, setActiveTab] = useState<ModalTab>('people');
+  const [isEnabled, setIsEnabled] = useState(true);
   const [requirePin, setRequirePin] = useState(false);
   const [pin, setPin] = useState('');
   const [expiryOption, setExpiryOption] = useState<'never' | '1day' | '7days' | '30days'>('never');
@@ -60,7 +80,6 @@ export function CreateShareLinkModal({
   const [copied, setCopied] = useState(false);
   const [token, setToken] = useState<string>('');
 
-  // Individual Named Recipients for 1-to-1 Tracking & Blocking
   const [recipients, setRecipients] = useState<RecipientShareLink[]>([]);
   const [newRecipientName, setNewRecipientName] = useState('');
   const [newRecipientRole, setNewRecipientRole] = useState<RecipientRole>('client');
@@ -83,12 +102,10 @@ export function CreateShareLinkModal({
     loadSavedShareDirectory(user.id).then(setSavedDirectory).catch(() => {});
   }, [isOpen, user?.id]);
 
-  // Compute registered members list from space and shared contacts
   const registeredMembers: SelectableMember[] = useMemo(() => {
     const list: SelectableMember[] = [];
     const seenKeys = new Set<string>();
 
-    // 1. Members on current space
     if (space && Array.isArray(space.members)) {
       space.members.forEach((m: any) => {
         const key = m.phone || m.userId || m.name;
@@ -99,14 +116,13 @@ export function CreateShareLinkModal({
             name: m.name || 'חבר מרחב',
             phone: m.phone || '',
             avatarUrl: m.avatarUrl,
-            role: m.role === 'creator' ? 'מנהל' : (m.role === 'admin' ? 'מנהל' : 'שותף'),
-            info: space.title
+            role: m.role === 'creator' || m.role === 'admin' ? 'מנהל' : 'שותף',
+            info: space.title,
           });
         }
       });
     }
 
-    // 2. Pending or group members on current space
     if (space && Array.isArray(space.pendingGroupMembers)) {
       space.pendingGroupMembers.forEach((pm: any) => {
         const key = pm.phone || pm.id || pm.name;
@@ -118,16 +134,15 @@ export function CreateShareLinkModal({
             phone: pm.phone || '',
             avatarUrl: pm.avatarUrl,
             role: 'חבר מרחב',
-            info: space.title
+            info: space.title,
           });
         }
       });
     }
 
-    // 3. User's saved shared contacts from all spaces (DRY Single Source of Truth)
     try {
       const sharedContacts = getSharedContactsForUser(user, spaces);
-      sharedContacts.forEach(sc => {
+      sharedContacts.forEach((sc) => {
         const key = sc.phone || sc.id || sc.name;
         if (key && !seenKeys.has(key)) {
           seenKeys.add(key);
@@ -137,7 +152,7 @@ export function CreateShareLinkModal({
             phone: sc.phone || '',
             avatarUrl: sc.avatarUrl,
             role: 'איש קשר רשום',
-            info: sc.spaces?.[0]?.title || ''
+            info: sc.spaces?.[0]?.title || '',
           });
         }
       });
@@ -146,28 +161,18 @@ export function CreateShareLinkModal({
     return list;
   }, [space, spaces, user]);
 
-  const handleSelectRegisteredMember = (m: SelectableMember) => {
-    setNewRecipientName(m.name);
-    if (m.phone) {
-      setNewRecipientPhone(m.phone);
-    }
-  };
-
   useEffect(() => {
     if (typeof window !== 'undefined' && 'contacts' in navigator && 'ContactsManager' in window) {
       setSupportsContactPicker(true);
     }
   }, []);
 
-  // Helper to generate a secure random 4-digit PIN
-  const generateRandomPin = () => {
-    const randomNum = Math.floor(1000 + Math.random() * 9000);
-    return String(randomNum);
-  };
+  const generateRandomPin = () => String(Math.floor(1000 + Math.random() * 9000));
 
   useEffect(() => {
     if (isOpen && item) {
       let isMounted = true;
+      setActiveTab('people');
       const link = item.shareLink;
       if (link && (link.token || (Array.isArray(link.recipients) && link.recipients.length > 0))) {
         setIsEnabled(link.enabled !== false);
@@ -189,17 +194,14 @@ export function CreateShareLinkModal({
           else setExpiryOption('30days');
         }
 
-        // Deep re-hydration directly from canonical shared_links collection if available
         if (link.token) {
           getDoc(doc(db, 'shared_links', link.token))
-            .then(async snap => {
+            .then(async (snap) => {
               if (snap.exists() && isMounted) {
                 const data = snap.data();
                 let canonicalRecipients = Array.isArray(data.recipients) ? data.recipients : [];
-                
-                // Also fetch each individual recipient document to get the latest live viewCount and duration!
                 if (canonicalRecipients.length > 0) {
-                  const updatedRecs = await Promise.all(
+                  canonicalRecipients = await Promise.all(
                     canonicalRecipients.map(async (r: RecipientShareLink) => {
                       if (!r.token) return r;
                       try {
@@ -210,28 +212,23 @@ export function CreateShareLinkModal({
                             ...r,
                             viewCount: rData.viewCount !== undefined ? rData.viewCount : r.viewCount,
                             totalDurationSeconds: rData.totalDurationSeconds !== undefined ? rData.totalDurationSeconds : r.totalDurationSeconds,
-                            lastViewedAt: rData.lastViewedAt !== undefined ? rData.lastViewedAt : r.lastViewedAt
+                            lastViewedAt: rData.lastViewedAt !== undefined ? rData.lastViewedAt : r.lastViewedAt,
                           };
                         }
                       } catch (_) {}
                       return r;
                     })
                   );
-                  canonicalRecipients = updatedRecs;
                 }
-
                 if (canonicalRecipients.length > 0 && isMounted) {
                   setRecipients(canonicalRecipients);
-                  if (item.shareLink) {
-                    item.shareLink.recipients = canonicalRecipients;
-                  }
+                  if (item.shareLink) item.shareLink.recipients = canonicalRecipients;
                 }
               }
             })
             .catch(() => {});
         }
       } else {
-        // First time opening or no existing configuration
         setIsEnabled(true);
         setToken(generateShareToken());
         setRequirePin(false);
@@ -246,6 +243,9 @@ export function CreateShareLinkModal({
       setNewRecipientName('');
       setNewRecipientPhone('');
       setNewRecipientRole('client');
+      setShowNoteFields(false);
+      setQuickPickPanel('none');
+      setEditingRecipientId(null);
       setSaveSuccessMsg(null);
 
       return () => {
@@ -254,7 +254,6 @@ export function CreateShareLinkModal({
     }
   }, [isOpen, item?.id]);
 
-  // Compute effective folders and files when includeSubtree is toggled
   const { effectiveFolderFiles, effectiveSubfolders } = useMemo(() => {
     if (!item || item.type !== 'folder') {
       return { effectiveFolderFiles: folderFiles || [], effectiveSubfolders: [] };
@@ -262,22 +261,21 @@ export function CreateShareLinkModal({
     if (!includeSubtree || !allSpaceFolders || !allSpaceFiles) {
       return { effectiveFolderFiles: folderFiles || [], effectiveSubfolders: [] };
     }
-
     const targetFolderIds = new Set<string>([item.id]);
     const subs: Array<{ id: string; name: string; parentId: string | null }> = [];
     const collect = (parentId: string) => {
-      const children = allSpaceFolders.filter(f => f.parentId === parentId);
-      children.forEach(c => {
-        if (!targetFolderIds.has(c.id)) {
-          targetFolderIds.add(c.id);
-          subs.push({ id: c.id, name: c.name, parentId: c.parentId });
-          collect(c.id);
-        }
-      });
+      allSpaceFolders
+        .filter((f) => f.parentId === parentId)
+        .forEach((c) => {
+          if (!targetFolderIds.has(c.id)) {
+            targetFolderIds.add(c.id);
+            subs.push({ id: c.id, name: c.name, parentId: c.parentId });
+            collect(c.id);
+          }
+        });
     };
     collect(item.id);
-
-    const files = allSpaceFiles.filter(f => f.parentId && targetFolderIds.has(f.parentId));
+    const files = allSpaceFiles.filter((f) => f.parentId && targetFolderIds.has(f.parentId));
     return { effectiveFolderFiles: files, effectiveSubfolders: subs };
   }, [item, includeSubtree, folderFiles, allSpaceFolders, allSpaceFiles]);
 
@@ -294,14 +292,24 @@ export function CreateShareLinkModal({
     return null;
   };
 
-  const ensurePersisted = async (tokenToUse: string, updatedRecipients?: RecipientShareLink[], overrideSubtree?: boolean): Promise<boolean> => {
+  const getSenderDisplay = () => {
+    const senderPersonName = user?.realName || user?.nickname || (user as any)?.displayName || businessCard?.contactName;
+    return senderPersonName
+      ? `${senderPersonName}${businessCard?.businessName ? ` (${businessCard.businessName})` : spaceTitle ? ` ממרחב "${spaceTitle}"` : ''}`
+      : businessCard?.businessName || spaceTitle || 'חבר';
+  };
+
+  const ensurePersisted = async (
+    tokenToUse: string,
+    updatedRecipients?: RecipientShareLink[],
+    overrideSubtree?: boolean
+  ): Promise<boolean> => {
     if (!item) return false;
     try {
       const expiresAt = calculateExpiryTimestamp(expiryOption);
       const activeRecipients = updatedRecipients !== undefined ? updatedRecipients : recipients;
       const activeSubtree = overrideSubtree !== undefined ? overrideSubtree : includeSubtree;
 
-      // Recompute files if overrideSubtree was passed
       let filesToSave = effectiveFolderFiles;
       let subsToSave = effectiveSubfolders;
       if (item.type === 'folder' && overrideSubtree !== undefined && allSpaceFolders && allSpaceFiles) {
@@ -312,16 +320,18 @@ export function CreateShareLinkModal({
           const targetIds = new Set<string>([item.id]);
           const s: Array<{ id: string; name: string; parentId: string | null }> = [];
           const collect = (pId: string) => {
-            allSpaceFolders.filter(f => f.parentId === pId).forEach(c => {
-              if (!targetIds.has(c.id)) {
-                targetIds.add(c.id);
-                s.push({ id: c.id, name: c.name, parentId: c.parentId });
-                collect(c.id);
-              }
-            });
+            allSpaceFolders
+              .filter((f) => f.parentId === pId)
+              .forEach((c) => {
+                if (!targetIds.has(c.id)) {
+                  targetIds.add(c.id);
+                  s.push({ id: c.id, name: c.name, parentId: c.parentId });
+                  collect(c.id);
+                }
+              });
           };
           collect(item.id);
-          filesToSave = allSpaceFiles.filter(f => f.parentId && targetIds.has(f.parentId));
+          filesToSave = allSpaceFiles.filter((f) => f.parentId && targetIds.has(f.parentId));
           subsToSave = s;
         }
       }
@@ -339,19 +349,15 @@ export function CreateShareLinkModal({
         totalDurationSeconds: item.shareLink?.totalDurationSeconds || 0,
         lastViewedAt: item.shareLink?.lastViewedAt || null,
         createdAt: item.shareLink?.createdAt || Date.now(),
-        recipients: activeRecipients
+        recipients: activeRecipients,
       };
 
-      await createOrUpdatePublicShare(
-        item.spaceId,
-        spaceTitle,
-        item,
-        newConfig,
-        filesToSave,
-        { businessCard, spaceLogoUrl, folderSubfolders: subsToSave }
-      );
+      await createOrUpdatePublicShare(item.spaceId, spaceTitle, item, newConfig, filesToSave, {
+        businessCard,
+        spaceLogoUrl,
+        folderSubfolders: subsToSave,
+      });
 
-      // Direct Firestore sync to Space document to ensure zero data loss on immediate modal reopen
       if (item.spaceId) {
         try {
           const spaceDocRef = doc(db, 'spaces', item.spaceId);
@@ -360,16 +366,9 @@ export function CreateShareLinkModal({
             const currentItems = Array.isArray(spaceSnap.data().fileShareItems) ? [...spaceSnap.data().fileShareItems] : [];
             const idx = currentItems.findIndex((i: any) => i.id === item.id);
             if (idx >= 0) {
-              currentItems[idx] = {
-                ...currentItems[idx],
-                shareLink: newConfig
-              };
+              currentItems[idx] = { ...currentItems[idx], shareLink: newConfig };
             } else {
-              // Synthetic item (e.g. wall_${item.spaceId})
-              currentItems.push({
-                ...item,
-                shareLink: newConfig
-              });
+              currentItems.push({ ...item, shareLink: newConfig });
             }
             await updateDoc(spaceDocRef, sanitizeFirestoreData({ fileShareItems: currentItems }));
           }
@@ -378,11 +377,7 @@ export function CreateShareLinkModal({
         }
       }
 
-      // Update parent object reference in place
-      if (item) {
-        item.shareLink = newConfig;
-      }
-
+      item.shareLink = newConfig;
       onSaved(newConfig);
       return true;
     } catch (err) {
@@ -401,6 +396,7 @@ export function CreateShareLinkModal({
       setQuickPickPanel('none');
       return;
     }
+    if (!isEnabled) setIsEnabled(true);
     const recipientToken = generateShareToken();
     const newRecipient: RecipientShareLink = {
       id: `rcp_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
@@ -418,9 +414,7 @@ export function CreateShareLinkModal({
     const nextRecipients = [...recipients, newRecipient];
     setRecipients(nextRecipients);
     setQuickPickPanel('none');
-    if (token) {
-      await ensurePersisted(token, nextRecipients);
-    }
+    if (token) await ensurePersisted(token, nextRecipients);
   };
 
   const handleAddSavedGroup = async (group: SavedShareGroup) => {
@@ -454,15 +448,15 @@ export function CreateShareLinkModal({
     }
     setQuickPickPanel('none');
     if (toAdd.length === 0) return;
+    if (!isEnabled) setIsEnabled(true);
     const nextRecipients = [...recipients, ...toAdd];
     setRecipients(nextRecipients);
-    if (token) {
-      await ensurePersisted(token, nextRecipients);
-    }
+    if (token) await ensurePersisted(token, nextRecipients);
   };
 
   const handleAddRecipient = async () => {
     if (!newRecipientName.trim()) return;
+    if (!isEnabled) setIsEnabled(true);
     const recipientToken = generateShareToken();
     const phoneVal = newRecipientPhone.trim();
     const cleanName = newRecipientName.trim();
@@ -479,7 +473,7 @@ export function CreateShareLinkModal({
       lastViewedAt: null,
       internalNote: newRecipientInternalNote.trim() || undefined,
       publicMessage: newRecipientPublicMessage.trim() || undefined,
-      chatChannelId: `guest_${recipientToken}`
+      chatChannelId: `guest_${recipientToken}`,
     };
 
     const nextRecipients = [...recipients, newRecipient];
@@ -490,59 +484,37 @@ export function CreateShareLinkModal({
     setNewRecipientPublicMessage('');
     setShowNoteFields(false);
 
-    // Auto-save to permanent personal address book for 1-tap reuse across all spaces!
     if (user?.id) {
       upsertSavedContact(user.id, { name: cleanName, phone: phoneVal || undefined, role: newRecipientRole })
         .then(setSavedDirectory)
         .catch(() => {});
     }
-
-    if (token) {
-      await ensurePersisted(token, nextRecipients);
-    }
+    if (token) await ensurePersisted(token, nextRecipients);
   };
 
   const handleToggleRecipientBlock = async (recId: string) => {
-    const nextRecipients = recipients.map(r => {
-      if (r.id === recId) {
-        return { ...r, enabled: !r.enabled };
-      }
-      return r;
-    });
+    const nextRecipients = recipients.map((r) => (r.id === recId ? { ...r, enabled: !r.enabled } : r));
     setRecipients(nextRecipients);
-    if (token) {
-      await ensurePersisted(token, nextRecipients);
-    }
+    if (token) await ensurePersisted(token, nextRecipients);
   };
 
   const handleRemoveRecipient = async (recId: string) => {
-    const target = recipients.find(r => r.id === recId);
-    if (target?.token) {
-      await revokePublicShare(target.token);
-    }
-    const nextRecipients = recipients.filter(r => r.id !== recId);
+    const target = recipients.find((r) => r.id === recId);
+    if (target?.token) await revokePublicShare(target.token);
+    const nextRecipients = recipients.filter((r) => r.id !== recId);
     setRecipients(nextRecipients);
-    if (token) {
-      await ensurePersisted(token, nextRecipients);
-    }
+    if (token) await ensurePersisted(token, nextRecipients);
   };
 
   const handleSaveRecipientNotes = async (recId: string) => {
-    const nextRecipients = recipients.map(r => {
-      if (r.id === recId) {
-        return {
-          ...r,
-          internalNote: editInternalNote.trim() || undefined,
-          publicMessage: editPublicMessage.trim() || undefined
-        };
-      }
-      return r;
-    });
+    const nextRecipients = recipients.map((r) =>
+      r.id === recId
+        ? { ...r, internalNote: editInternalNote.trim() || undefined, publicMessage: editPublicMessage.trim() || undefined }
+        : r
+    );
     setRecipients(nextRecipients);
     setEditingRecipientId(null);
-    if (token) {
-      await ensurePersisted(token, nextRecipients);
-    }
+    if (token) await ensurePersisted(token, nextRecipients);
   };
 
   const handleStartEditRecipient = (r: RecipientShareLink) => {
@@ -554,147 +526,64 @@ export function CreateShareLinkModal({
   const handlePickFromContacts = async () => {
     try {
       if ('contacts' in navigator && 'ContactsManager' in window) {
-        const props = ['name', 'tel'];
-        const contacts = await (navigator as any).contacts.select(props, { multiple: false });
+        const contacts = await (navigator as any).contacts.select(['name', 'tel'], { multiple: false });
         if (contacts && contacts.length > 0) {
           const c = contacts[0];
-          if (c.name && c.name.length > 0 && c.name[0]) {
-            setNewRecipientName(c.name[0]);
-          }
-          if (c.tel && c.tel.length > 0 && c.tel[0]) {
-            // Clean phone string
-            const cleanedPhone = c.tel[0].replace(/[^\d+]/g, '');
-            setNewRecipientPhone(cleanedPhone);
-          }
+          if (c.name?.[0]) setNewRecipientName(c.name[0]);
+          if (c.tel?.[0]) setNewRecipientPhone(c.tel[0].replace(/[^\d+]/g, ''));
         }
       } else {
         alert('התכונה "בחירה מאנשי קשר" נתמכת ישירות במכשיר הנייד (Chrome / Android PWA).');
       }
-    } catch (err: any) {
-      console.warn('Contact picker dismissed or error:', err);
+    } catch (_) {}
+  };
+
+  const copyTextSafe = async (txt: string) => {
+    try {
+      await navigator.clipboard.writeText(txt);
+    } catch {
+      const textarea = document.createElement('textarea');
+      textarea.value = txt;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
     }
   };
 
   const handleCopyRecipientLink = async (r: RecipientShareLink) => {
     const url = `${currentOrigin}/share/${r.token}`;
-    const itemTypeHeb = item?.type === 'folder' ? 'תיקיית' : 'מסמך';
-    const senderPersonName = user?.realName || user?.nickname || (user as any)?.displayName || businessCard?.contactName;
-    const senderName = senderPersonName
-      ? `${senderPersonName}${businessCard?.businessName ? ` (${businessCard.businessName})` : (spaceTitle ? ` ממרחב "${spaceTitle}"` : '')}`
-      : (businessCard?.businessName || spaceTitle || 'חבר');
+    const itemTypeHeb = item.type === 'folder' ? 'תיקיית' : 'מסמך';
     const pinText = requirePin && pin ? `\n🔐 קוד גישה: ${pin}` : '';
-    const richMessage = `שלום ${r.recipientName},\n${senderName} שיתף איתך ${itemTypeHeb} "${item?.name}" באפליקציית MySpace.${pinText}\nלצפייה מאובטחת והעלאת קבצים לחץ כאן:\n${url}`;
-    try {
-      await navigator.clipboard.writeText(richMessage);
-      setCopiedRecipientId(r.id);
-      setTimeout(() => setCopiedRecipientId(null), 2500);
-    } catch (_) {
-      const textarea = document.createElement('textarea');
-      textarea.value = richMessage;
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textarea);
-      setCopiedRecipientId(r.id);
-      setTimeout(() => setCopiedRecipientId(null), 2500);
-    }
+    const richMessage = `שלום ${r.recipientName},\n${getSenderDisplay()} שיתף איתך ${itemTypeHeb} "${item.name}" באפליקציית MySpace.${pinText}\nלצפייה מאובטחת והעלאת קבצים לחץ כאן:\n${url}`;
+    await copyTextSafe(richMessage);
+    setCopiedRecipientId(r.id);
+    setTimeout(() => setCopiedRecipientId(null), 2500);
   };
 
   const handleWhatsAppRecipient = (r: RecipientShareLink) => {
     const url = `${currentOrigin}/share/${r.token}`;
-    const itemTypeHeb = item?.type === 'folder' ? 'תיקיית' : 'מסמך';
+    const itemTypeHeb = item.type === 'folder' ? 'תיקיית' : 'מסמך';
     const pinText = requirePin && pin ? `\n🔐 קוד גישה: ${pin}` : '';
-    
-    // Personal Sender Identity + Space / Business context
-    const senderPersonName = user?.realName || user?.nickname || (user as any)?.displayName || businessCard?.contactName;
-    const senderDisplay = senderPersonName
-      ? `${senderPersonName}${businessCard?.businessName ? ` (${businessCard.businessName})` : (spaceTitle ? ` ממרחב "${spaceTitle}"` : '')}`
-      : (businessCard?.businessName || spaceTitle || 'חבר');
     const slogan = businessCard?.slogan ? `\n✨ ${businessCard.slogan}` : '';
     const phone = businessCard?.phone || businessCard?.whatsapp;
     const phoneText = phone ? `\n📞 ליצירת קשר: ${phone}` : '';
     const portfolioText = businessCard?.portfolioUrl ? `\n🎨 לתיק עבודות: ${businessCard.portfolioUrl}` : '';
-
-    const text = encodeURIComponent(`שלום ${r.recipientName},
-${senderDisplay} שיתף איתך ${itemTypeHeb} "${item?.name}":${pinText}
-${url}
-${slogan}${phoneText}${portfolioText}`);
+    const text = encodeURIComponent(
+      `שלום ${r.recipientName},\n${getSenderDisplay()} שיתף איתך ${itemTypeHeb} "${item.name}":${pinText}\n${url}\n${slogan}${phoneText}${portfolioText}`
+    );
     window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
-  };
-
-  const handleSave = async () => {
-    setIsSaving(true);
-    try {
-      if (!isEnabled) {
-        if (token) {
-          await revokePublicShare(token);
-        }
-        // Also revoke all recipient tokens
-        for (const r of recipients) {
-          if (r.token) await revokePublicShare(r.token);
-        }
-        onSaved(undefined);
-        onClose();
-        return;
-      }
-
-      if (requirePin && (!pin || pin.trim().length < 4)) {
-        alert('אנא הזן קוד PIN בעל 4 ספרות לפחות להגנה על הקישור.');
-        setIsSaving(false);
-        return;
-      }
-
-      const activeToken = token || generateShareToken();
-      const ok = await ensurePersisted(activeToken, recipients);
-      if (ok) {
-        setSaveSuccessMsg('ההגדרות והנמענים נשמרו בהצלחה!');
-        // Dispatch global notification event
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('smartshare:fileshare_saved', {
-            detail: { message: 'הגדרות השיתוף נשמרו בהצלחה!' }
-          }));
-        }
-        setTimeout(() => {
-          setIsSaving(false);
-          onClose();
-        }, 800);
-        return;
-      } else {
-        alert('שגיאה בשמירת קישור השיתוף לשרת. אנא נסה שוב.');
-      }
-    } catch (err) {
-      console.error('Error saving share link:', err);
-      alert('שגיאה ביצירת קישור השיתוף. אנא נסה שוב.');
-    } finally {
-      setIsSaving(false);
-    }
   };
 
   const handleCopy = async () => {
     if (!shareUrl) return;
     if (token) await ensurePersisted(token);
-    const itemTypeHeb = item?.type === 'folder' ? 'תיקיית' : 'מסמך';
-    const senderPersonName = user?.realName || user?.nickname || (user as any)?.displayName || businessCard?.contactName;
-    const senderName = senderPersonName
-      ? `${senderPersonName}${businessCard?.businessName ? ` (${businessCard.businessName})` : (spaceTitle ? ` ממרחב "${spaceTitle}"` : '')}`
-      : (businessCard?.businessName || spaceTitle || 'חבר');
+    const itemTypeHeb = item.type === 'folder' ? 'תיקיית' : 'מסמך';
     const pinText = requirePin && pin ? `\n🔐 קוד גישה: ${pin}` : '';
-    const richMessage = `שלום,\n${senderName} שיתף איתך ${itemTypeHeb} "${item?.name}" באפליקציית MySpace.${pinText}\nלצפייה מאובטחת והעלאת קבצים לחץ כאן:\n${shareUrl}`;
-    try {
-      await navigator.clipboard.writeText(richMessage);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
-    } catch (err) {
-      console.warn('Clipboard write failed, trying fallback:', err);
-      const textarea = document.createElement('textarea');
-      textarea.value = richMessage;
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textarea);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
-    }
+    const richMessage = `שלום,\n${getSenderDisplay()} שיתף איתך ${itemTypeHeb} "${item.name}" באפליקציית MySpace.${pinText}\nלצפייה מאובטחת והעלאת קבצים לחץ כאן:\n${shareUrl}`;
+    await copyTextSafe(richMessage);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
   };
 
   const handleWhatsAppShare = async () => {
@@ -702,20 +591,13 @@ ${slogan}${phoneText}${portfolioText}`);
     if (token) await ensurePersisted(token);
     const itemTypeHeb = item.type === 'folder' ? 'תיקיית' : 'מסמך';
     const pinText = requirePin && pin ? `\n🔐 קוד גישה: ${pin}` : '';
-
-    const senderPersonName = user?.realName || user?.nickname || (user as any)?.displayName || businessCard?.contactName;
-    const senderDisplay = senderPersonName
-      ? `${senderPersonName}${businessCard?.businessName ? ` (${businessCard.businessName})` : (spaceTitle ? ` ממרחב "${spaceTitle}"` : '')}`
-      : (businessCard?.businessName || spaceTitle || 'חבר');
     const slogan = businessCard?.slogan ? `\n✨ ${businessCard.slogan}` : '';
     const phone = businessCard?.phone || businessCard?.whatsapp;
     const phoneText = phone ? `\n📞 ליצירת קשר: ${phone}` : '';
     const portfolioText = businessCard?.portfolioUrl ? `\n🎨 לתיק עבודות: ${businessCard.portfolioUrl}` : '';
-
-    const text = encodeURIComponent(`שלום,
-${senderDisplay} שיתף איתך ${itemTypeHeb} "${item.name}":${pinText}
-${shareUrl}
-${slogan}${phoneText}${portfolioText}`);
+    const text = encodeURIComponent(
+      `שלום,\n${getSenderDisplay()} שיתף איתך ${itemTypeHeb} "${item.name}":${pinText}\n${shareUrl}\n${slogan}${phoneText}${portfolioText}`
+    );
     window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
   };
 
@@ -725,7 +607,9 @@ ${slogan}${phoneText}${portfolioText}`);
     const itemTypeHeb = item.type === 'folder' ? 'תיקייה' : 'מסמך';
     const pinText = requirePin && pin ? `\nקוד גישה סודי: ${pin}` : '';
     const subject = encodeURIComponent(`שיתוף ${itemTypeHeb}: ${item.name} מתוך ${spaceTitle}`);
-    const body = encodeURIComponent(`שלום,\n\nמצורף קישור לצפייה ב${itemTypeHeb} "${item.name}" מתוך ${spaceTitle}:${pinText}\n\nלצפייה ישירה לחץ על הקישור הבא:\n${shareUrl}\n\nבברכה`);
+    const body = encodeURIComponent(
+      `שלום,\n\nמצורף קישור לצפייה ב${itemTypeHeb} "${item.name}" מתוך ${spaceTitle}:${pinText}\n\nלצפייה ישירה לחץ על הקישור הבא:\n${shareUrl}\n\nבברכה`
+    );
     window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
   };
 
@@ -738,1404 +622,420 @@ ${slogan}${phoneText}${portfolioText}`);
         await navigator.share({
           title: `${itemTypeHeb}: ${item.name}`,
           text: `קישור לצפייה ב${itemTypeHeb} "${item.name}" מתוך ${spaceTitle}${requirePin && pin ? ` (קוד גישה: ${pin})` : ''}`,
-          url: shareUrl
+          url: shareUrl,
         });
-      } catch (err) {
-        // User dismissed
-      }
+      } catch (_) {}
+    } else {
+      handleCopy();
     }
   };
 
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      if (!isEnabled) {
+        if (token) await revokePublicShare(token);
+        for (const r of recipients) {
+          if (r.token) await revokePublicShare(r.token);
+        }
+        onSaved(undefined);
+        onClose();
+        return;
+      }
+      if (requirePin && (!pin || pin.trim().length < 4)) {
+        alert('אנא הזן קוד PIN בעל 4 ספרות לפחות להגנה על הקישור.');
+        setActiveTab('settings');
+        setIsSaving(false);
+        return;
+      }
+      const activeToken = token || generateShareToken();
+      const ok = await ensurePersisted(activeToken, recipients);
+      if (ok) {
+        setSaveSuccessMsg('הגדרות השיתוף נשמרו בהצלחה!');
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('smartshare:fileshare_saved', { detail: { message: 'הגדרות השיתוף נשמרו בהצלחה!' } }));
+        }
+        setTimeout(() => {
+          setIsSaving(false);
+          onClose();
+        }, 700);
+        return;
+      }
+      alert('שגיאה בשמירת קישור השיתוף לשרת. אנא נסה שוב.');
+    } catch (err) {
+      console.error('Error saving share link:', err);
+      alert('שגיאה ביצירת קישור השיתוף. אנא נסה שוב.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const directFilesCount = folderFiles ? folderFiles.length : 0;
+  const scopeSummaryText =
+    item.type === 'folder'
+      ? includeSubtree
+        ? `כולל תתי-תיקיות (${effectiveSubfolders.length} תיקיות • ${effectiveFolderFiles.length} קבצים)`
+        : `תיקייה זו בלבד (${directFilesCount} קבצים)`
+      : `קובץ זה בלבד (${item.name})`;
+
   return (
-    <div 
+    <div
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(15, 23, 42, 0.75)',
+        background: 'rgba(15, 23, 42, 0.72)',
         backdropFilter: 'blur(8px)',
         zIndex: 100000,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '0.75rem',
+        padding: '0.65rem',
         direction: 'rtl',
-        overflowX: 'hidden',
-        boxSizing: 'border-box'
       }}
       onClick={onClose}
     >
-      <div 
+      <div
         style={{
-          background: 'var(--bg-card, #ffffff)',
+          background: 'var(--bg-primary, #ffffff)',
+          borderRadius: '20px',
           width: '100%',
-          maxWidth: '480px',
-          maxHeight: '92vh',
-          borderRadius: '24px',
-          padding: '1.15rem 1.25rem',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+          maxWidth: '470px',
+          maxHeight: '90vh',
           display: 'flex',
           flexDirection: 'column',
-          gap: '0.85rem',
-          overflowX: 'hidden',
-          overflowY: 'hidden',
-          boxSizing: 'border-box'
+          overflow: 'hidden',
+          boxShadow: '0 24px 60px rgba(15,23,42,0.35)',
+          border: '1px solid var(--border-color)',
         }}
-        onClick={e => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flex: 1, minWidth: 0 }}>
-            <span style={{ fontSize: '1.4rem', flexShrink: 0 }}>🔗</span>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
-                <h3 style={{ margin: 0, fontSize: '1.02rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                  קישור שיתוף חיצוני מאובטח
-                </h3>
-                <span style={{ fontSize: '0.65rem', background: '#dbeafe', color: '#1e40af', padding: '1px 6px', borderRadius: '6px', fontWeight: 800, flexShrink: 0 }}>
-                  {APP_VERSION}
-                </span>
-              </div>
-              <p style={{ margin: '2px 0 0 0', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                {item.type === 'folder' ? '📁 תיקייה:' : '📄 קובץ:'} {item.name}
-              </p>
-            </div>
-          </div>
-          <button 
-            type="button" 
-            onClick={onClose} 
-            style={{ 
-              background: 'var(--bg-hover, #f1f5f9)', 
-              border: 'none', 
-              width: '32px', 
-              height: '32px', 
-              borderRadius: '50%', 
-              cursor: 'pointer', 
-              fontSize: '1rem', 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center',
-              flexShrink: 0
-            }}
-          >
-            ✕
-          </button>
-        </div>
-
-        {/* Scrollable Modal Content (Single unified scroll container so inner items are never clipped) */}
-        <div style={{
-          flex: 1,
-          overflowY: 'auto',
-          paddingRight: '2px',
-          paddingLeft: '2px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '0.85rem',
-          maxHeight: 'calc(88vh - 120px)'
-        }}>
-
-        {/* Master Toggle */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '0.85rem',
-          padding: '0.85rem 1rem',
-          background: isEnabled ? 'rgba(99, 102, 241, 0.08)' : 'var(--bg-main, #f8fafc)',
-          borderRadius: '16px',
-          border: isEnabled ? '1.5px solid var(--primary, #6366f1)' : '1px solid var(--border-light, #e2e8f0)',
-          flexShrink: 0
-        }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <span style={{ fontWeight: 800, fontSize: '0.92rem', color: 'var(--text-primary)' }}>
-              אפשר גישה חיצונית דרך קישור
-            </span>
-            <span style={{ display: 'block', fontSize: '0.74rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-              כל מי שמחזיק בקישור יוכל לצפות ישירות ללא התקנה
-            </span>
-          </div>
-          <label style={{ position: 'relative', display: 'inline-block', width: '48px', height: '26px', flexShrink: 0 }}>
-            <input 
-              type="checkbox" 
-              checked={isEnabled} 
-              onChange={e => setIsEnabled(e.target.checked)} 
-              style={{ opacity: 0, width: 0, height: 0 }}
-            />
-            <span style={{
-              position: 'absolute',
-              cursor: 'pointer',
-              inset: 0,
-              background: isEnabled ? 'var(--primary, #6366f1)' : '#cbd5e1',
-              borderRadius: '26px',
-              transition: 'all 0.25s ease'
-            }}>
-              <span style={{
-                position: 'absolute',
-                content: '""',
-                height: '20px',
-                width: '20px',
-                left: isEnabled ? '25px' : '3px',
-                bottom: '3px',
-                backgroundColor: 'white',
-                borderRadius: '50%',
-                transition: 'all 0.25s ease',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-              }} />
-            </span>
-          </label>
-        </div>
-
-        {/* Security Controls (Shown if enabled - flows inside the single outer scroll container) */}
-        {isEnabled && (
-          <div style={{
+        {/* Compact 2-Line Header + Clickable Live Status Pills */}
+        <div
+          style={{
+            padding: '0.85rem 1rem 0.7rem',
+            borderBottom: '1px solid var(--border-color)',
+            background: 'linear-gradient(135deg, rgba(79,70,229,0.06), rgba(37,99,235,0.03))',
             display: 'flex',
             flexDirection: 'column',
-            gap: '0.85rem',
-            background: '#ffffff',
-            border: '1px solid var(--border-light, #e2e8f0)',
-            padding: '0.85rem',
-            borderRadius: '16px',
-            boxSizing: 'border-box',
-            flexShrink: 0
-          }}>
-
-            {/* Smart Audit & Visibility Card (Rule: Complete Transparency) */}
-            <div style={{
-              background: item.type === 'folder' ? '#f0fdf4' : '#eff6ff',
-              border: item.type === 'folder' ? '1px solid #bbf7d0' : '1px solid #bfdbfe',
-              borderRadius: '12px',
-              padding: '0.7rem 0.85rem',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '0.35rem'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '0.82rem', fontWeight: 800, color: item.type === 'folder' ? '#166534' : '#1e40af', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                  <span>{item.type === 'folder' ? '📁' : '📄'}</span>
-                  <span>למה מקבל הקישור ייחשף?</span>
-                </span>
-                {shareUrl && (
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (token) await ensurePersisted(token);
-                      window.open(shareUrl, '_blank');
-                    }}
-                    style={{
-                      background: '#ffffff',
-                      border: '1px solid #cbd5e1',
-                      borderRadius: '8px',
-                      padding: '2px 8px',
-                      fontSize: '0.72rem',
-                      fontWeight: 800,
-                      color: '#334155',
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-                    }}
-                    title="פתח וצפה כפי שהאורח רואה"
-                  >
-                    <span>👁️</span> תצוגה מקדימה כפי שיראה המוזמן
-                  </button>
-                )}
-              </div>
-              <p style={{ margin: 0, fontSize: '0.76rem', color: '#334155', lineHeight: 1.45 }}>
-                {item.type === 'folder' ? (
-                  includeSubtree ? (
-                    <>
-                      הקישור חושף את <strong>תיקייה זו וכל תתי-התיקיות שמתחתיה (בנים, נכדים וכו׳)</strong> (סה״כ {effectiveSubfolders.length} תתי-תיקיות ו-{effectiveFolderFiles.length} קבצים).
-                      <br />
-                      🔒 <strong>תיקיות שמעל תיקייה זו (הורים או תיקיות אחיות במרחב) חסומות לחלוטין</strong>.
-                    </>
-                  ) : (
-                    <>
-                      הקישור חושף אך ורק את <strong>הקבצים הישירים שבתוך תיקייה זו</strong> (סה״כ {folderFiles ? folderFiles.length : 0} קבצים).
-                      <br />
-                      🔒 <strong>תתי-תיקיות פנימיות אינן נגישות</strong> (אלא אם תבחר למטה לחשוף גם תתי-תיקיות).
-                    </>
-                  )
-                ) : (
-                  <>
-                    הקישור חושף אך ורק את <strong>הקובץ הספציפי שנבחר ({item.name})</strong>. שאר הקבצים והתיקיות במרחב נשארים חסויים לחלוטין.
-                  </>
-                )}
-              </p>
-
-              {/* Subtree / Descendants Toggle for Folder Shares */}
-              {item.type === 'folder' && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem', marginTop: '0.35rem' }}>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      setIncludeSubtree(false);
-                      if (token) await ensurePersisted(token, undefined, false);
-                    }}
-                    style={{
-                      padding: '0.45rem 0.5rem',
-                      borderRadius: '10px',
-                      border: !includeSubtree ? '2px solid #16a34a' : '1px solid #cbd5e1',
-                      background: !includeSubtree ? '#dcfce7' : '#ffffff',
-                      color: !includeSubtree ? '#166534' : '#475569',
-                      fontWeight: !includeSubtree ? 800 : 600,
-                      fontSize: '0.75rem',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '4px'
-                    }}
-                  >
-                    <span>📁</span>
-                    <span>תיקייה זו בלבד</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      setIncludeSubtree(true);
-                      if (token) await ensurePersisted(token, undefined, true);
-                    }}
-                    style={{
-                      padding: '0.45rem 0.5rem',
-                      borderRadius: '10px',
-                      border: includeSubtree ? '2px solid #2563eb' : '1px solid #cbd5e1',
-                      background: includeSubtree ? '#dbeafe' : '#ffffff',
-                      color: includeSubtree ? '#1e40af' : '#475569',
-                      fontWeight: includeSubtree ? 800 : 600,
-                      fontSize: '0.75rem',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '4px'
-                    }}
-                  >
-                    <span>🌳</span>
-                    <span>כולל תתי-תיקיות (כל העץ מתחתיי)</span>
-                  </button>
-                </div>
-              )}
-            </div>
-            
-            {/* PIN Protection */}
-            <div>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.86rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                <input 
-                  type="checkbox" 
-                  checked={requirePin} 
-                  onChange={e => {
-                    const willRequire = e.target.checked;
-                    setRequirePin(willRequire);
-                    if (willRequire && !pin) {
-                      setPin(generateRandomPin());
-                    }
+            gap: '0.45rem',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0, flex: 1 }}>
+              <span style={{ fontSize: '1.25rem', flexShrink: 0 }}>{item.type === 'folder' ? '📁' : '📄'}</span>
+              <div style={{ minWidth: 0 }}>
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: '0.98rem',
+                    fontWeight: 900,
+                    color: 'var(--text-primary)',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
                   }}
-                  style={{ width: '17px', height: '17px', accentColor: 'var(--primary)' }}
-                />
-                <span>🔐 הגנה באמצעות קוד גישה (PIN)</span>
-              </label>
-              {requirePin && (
-                <div style={{ marginTop: '0.5rem', width: '100%', boxSizing: 'border-box' }}>
-                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', width: '100%', boxSizing: 'border-box' }}>
-                    <input 
-                      type="text" 
-                      maxLength={6}
-                      placeholder="הזן 4-6 ספרות"
-                      value={pin}
-                      onChange={e => setPin(e.target.value.replace(/\D/g, ''))}
-                      style={{
-                        flex: 1,
-                        width: '0',
-                        minWidth: '0',
-                        padding: '0.5rem 0.5rem',
-                        borderRadius: '10px',
-                        border: '1.5px solid var(--primary)',
-                        fontSize: '0.95rem',
-                        fontWeight: 800,
-                        letterSpacing: '3px',
-                        textAlign: 'center',
-                        boxSizing: 'border-box'
-                      }}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setPin(generateRandomPin())}
-                      style={{
-                        padding: '0.5rem 0.65rem',
-                        borderRadius: '10px',
-                        border: '1px solid #cbd5e1',
-                        background: '#f8fafc',
-                        color: '#1e293b',
-                        fontWeight: 700,
-                        fontSize: '0.78rem',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.3rem',
-                        whiteSpace: 'nowrap',
-                        flexShrink: 0
-                      }}
-                      title="הגרל קוד PIN חדש אקראי"
-                    >
-                      <span>🎲</span>
-                      <span>הגרל קוד</span>
-                    </button>
-                  </div>
-                  <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'block', marginTop: '4px' }}>
-                    קוד PIN נוצר אוטומטית. האורח יידרש להקלידו כדי לצפות במסמך.
+                >
+                  שיתוף: {item.name}
+                </h3>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.1rem' }}>
+                  <span
+                    style={{
+                      fontSize: '0.7rem',
+                      fontWeight: 800,
+                      color: isEnabled ? '#047857' : '#dc2626',
+                    }}
+                  >
+                    {isEnabled ? `🟢 פעיל${recipients.length > 0 ? ` • ${recipients.length} נמענים` : ''}` : '🔴 כבוי'}
                   </span>
-                </div>
-              )}
-            </div>
-
-            {/* Expiration Option */}
-            <div>
-              <span style={{ display: 'block', fontSize: '0.86rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.4rem' }}>
-                ⏳ תוקף הקישור:
-              </span>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.4rem' }}>
-                {[
-                  { id: 'never', label: 'ללא הגבלה' },
-                  { id: '1day', label: 'יום 1' },
-                  { id: '7days', label: '7 ימים' },
-                  { id: '30days', label: '30 יום' }
-                ].map(opt => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => setExpiryOption(opt.id as any)}
-                    style={{
-                      padding: '0.4rem 0.2rem',
-                      borderRadius: '10px',
-                      border: expiryOption === opt.id ? '2px solid var(--primary)' : '1px solid var(--border-light)',
-                      background: expiryOption === opt.id ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg-main)',
-                      color: expiryOption === opt.id ? 'var(--primary)' : 'var(--text-secondary)',
-                      fontWeight: expiryOption === opt.id ? 800 : 600,
-                      fontSize: '0.75rem',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Allow Download Toggle */}
-            <div>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.86rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                <input 
-                  type="checkbox" 
-                  checked={allowDownload} 
-                  onChange={e => setAllowDownload(e.target.checked)}
-                  style={{ width: '17px', height: '17px', accentColor: 'var(--primary)' }}
-                />
-                <span>📥 אפשר הורדת קבצים למכשיר (או צפייה בלבד)</span>
-              </label>
-              {!allowDownload && (
-                <span style={{ fontSize: '0.72rem', color: '#b45309', display: 'block', marginTop: '3px', paddingRight: '1.6rem' }}>
-                  🛡️ מצב צפייה בלבד מופעל - כפתור ההורדה יוסתר מהאורח.
-                </span>
-              )}
-            </div>
-
-            {/* Two-Way Portal Uploads Toggle */}
-            <div>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.86rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                <input 
-                  type="checkbox" 
-                  checked={allowUploads} 
-                  onChange={e => setAllowUploads(e.target.checked)}
-                  style={{ width: '17px', height: '17px', accentColor: 'var(--primary)' }}
-                />
-                <span>📤 אפשר לנמענים להעלות הצעות מחיר, מסמכים ותמונות</span>
-              </label>
-              <span style={{ fontSize: '0.72rem', color: '#64748b', display: 'block', marginTop: '3px', paddingRight: '1.6rem' }}>
-                📁 כל נמען שיעלה מסמך יקבל תיקייה אישית אוטומטית במרחב שלך עם שמו.
-              </span>
-            </div>
-
-            {/* Quick Link Share & Copy */}
-            {shareUrl && (
-              <div style={{ marginTop: '0.5rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-light)' }}>
-                <span style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
-                  הקישור האישי שלך:
-                </span>
-                <div style={{ display: 'flex', gap: '0.4rem' }}>
-                  <input 
-                    type="text" 
-                    readOnly 
-                    value={shareUrl} 
-                    style={{
-                      flex: 1,
-                      padding: '0.5rem 0.65rem',
-                      borderRadius: '10px',
-                      border: '1px solid var(--border-light)',
-                      background: 'var(--bg-main)',
-                      fontSize: '0.78rem',
-                      color: 'var(--text-primary)',
-                      direction: 'ltr'
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={handleCopy}
-                    style={{
-                      padding: '0.5rem 0.85rem',
-                      borderRadius: '10px',
-                      border: 'none',
-                      background: copied ? '#059669' : 'var(--primary)',
-                      color: '#ffffff',
-                      fontWeight: 800,
-                      fontSize: '0.8rem',
-                      cursor: 'pointer',
-                      whiteSpace: 'nowrap'
-                    }}
-                  >
-                    {copied ? '✓ הועתק!' : 'העתק'}
-                  </button>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '0.45rem', marginTop: '0.65rem' }}>
-                  <button
-                    type="button"
-                    onClick={handleWhatsAppShare}
-                    style={{
-                      padding: '0.6rem 0.4rem',
-                      borderRadius: '12px',
-                      border: 'none',
-                      background: '#25D366',
-                      color: '#ffffff',
-                      fontWeight: 800,
-                      fontSize: '0.8rem',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '0.35rem',
-                      boxShadow: '0 2px 6px rgba(37, 211, 102, 0.25)'
-                    }}
-                  >
-                    <span>💬</span> וואטסאפ
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleEmailShare}
-                    style={{
-                      padding: '0.6rem 0.4rem',
-                      borderRadius: '12px',
-                      border: 'none',
-                      background: '#0284c7',
-                      color: '#ffffff',
-                      fontWeight: 800,
-                      fontSize: '0.8rem',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '0.35rem',
-                      boxShadow: '0 2px 6px rgba(2, 132, 199, 0.25)'
-                    }}
-                  >
-                    <span>✉️</span> אימייל
-                  </button>
-
-                  {typeof navigator !== 'undefined' && typeof navigator.share === 'function' && (
-                    <button
-                      type="button"
-                      onClick={handleNativeShare}
-                      style={{
-                        padding: '0.6rem 0.4rem',
-                        borderRadius: '12px',
-                        border: '1px solid var(--border-light)',
-                        background: 'var(--bg-main)',
-                        color: 'var(--text-primary)',
-                        fontWeight: 800,
-                        fontSize: '0.8rem',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '0.35rem'
-                      }}
-                    >
-                      <span>🧭</span> שיתוף נוסף
-                    </button>
-                  )}
-                </div>
-
-                {/* Audit stats */}
-                {item.shareLink?.viewCount !== undefined && (
-                  <div style={{ marginTop: '0.6rem', fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
-                    <span>👁️ נצפה {item.shareLink.viewCount} פעמים</span>
-                    {item.shareLink.totalDurationSeconds ? (
-                      <span>• ⏱️ שהייה מצטברת: {Math.round(item.shareLink.totalDurationSeconds / 60) > 0 ? `${Math.round(item.shareLink.totalDurationSeconds / 60)} דקות` : `${item.shareLink.totalDurationSeconds} שניות`}</span>
-                    ) : null}
-                    {item.shareLink.lastViewedAt && (
-                      <span>• לאחרונה ב-{new Date(item.shareLink.lastViewedAt).toLocaleDateString('he-IL')}</span>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* NAMED RECIPIENTS SECTION (1-to-1 Tracking & Selective Blocking) */}
-            <div style={{ marginTop: '0.5rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-light)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
-                <span style={{ fontSize: '0.86rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                  👥 נמענים ומעקב אישי (ללא חיכוך)
-                </span>
-                <span style={{ fontSize: '0.7rem', color: '#6366f1', fontWeight: 700 }}>
-                  מעקב צפיות + חסימה פרטנית
-                </span>
-              </div>
-              <p style={{ margin: '0 0 0.6rem 0', fontSize: '0.73rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                הוסף שמות של קבלנים או שותפים כדי לקבל עבור כל אחד מהם קישור ייחודי. תוכל לדעת בדיוק מי פתח וכמה זמן צפה, ולחסום אדם ספציפי בכל רגע מבלי לפגוע באחרים.
-              </p>
-
-              {/* Add recipient input & role selector */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', marginBottom: '0.75rem', width: '100%', boxSizing: 'border-box' }}>
-                {/* Compact Guest Role Switcher (Client vs Provider) */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.35rem', width: '100%', boxSizing: 'border-box' }}>
-                  {(
-                    [
-                      { id: 'client', label: '👤 לקוח / מזמין', title: 'מקבל שירות / מזמין חיצוני' },
-                      { id: 'provider', label: '🛠️ ספק / קבלן', title: 'נותן שירות / קבלן חיצוני' }
-                    ] as const
-                  ).map(pill => (
-                    <button
-                      key={pill.id}
-                      type="button"
-                      onClick={() => setNewRecipientRole(pill.id)}
-                      style={{
-                        padding: '6px 2px',
-                        borderRadius: '8px',
-                        fontSize: '0.75rem',
-                        fontWeight: newRecipientRole === pill.id ? 800 : 600,
-                        border: newRecipientRole === pill.id ? '1.5px solid #4f46e5' : '1px solid var(--border-light, #e2e8f0)',
-                        background: newRecipientRole === pill.id ? '#eff6ff' : 'var(--bg-main, #f8fafc)',
-                        color: newRecipientRole === pill.id ? '#4f46e5' : '#64748b',
-                        cursor: 'pointer',
-                        textAlign: 'center',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis'
-                      }}
-                      title={pill.title}
-                    >
-                      {pill.label}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Quick Pick Helper Buttons */}
-                <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                  <button
-                    type="button"
-                    onClick={() => setIsMemberPickerOpen(true)}
-                    style={{
-                      padding: '0.45rem 0.75rem',
-                      borderRadius: '10px',
-                      border: '1.5px solid #bfdbfe',
-                      background: '#eff6ff',
-                      color: '#1d4ed8',
-                      fontWeight: 800,
-                      fontSize: '0.78rem',
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.35rem',
-                      boxShadow: '0 1px 3px rgba(30, 64, 175, 0.08)'
-                    }}
-                    title="בחר מתוך רשימת החברים והשותפים הרשומים"
-                  >
-                    <span>👥</span>
-                    <span>בחר חבר רשום / שותף {registeredMembers.length > 0 ? `(${registeredMembers.length})` : ''}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handlePickFromContacts}
-                    style={{
-                      padding: '0.45rem 0.65rem',
-                      borderRadius: '10px',
-                      border: '1px solid #cbd5e1',
-                      background: '#f8fafc',
-                      color: '#334155',
-                      fontWeight: 700,
-                      fontSize: '0.78rem',
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.25rem'
-                    }}
-                    title="בחר איש קשר ישירות מהטלפון"
-                  >
-                    <span>📖</span>
-                    <span>אנשי קשר</span>
-                  </button>
-
-                  {savedDirectory.contacts.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setQuickPickPanel((p) => (p === 'contacts' ? 'none' : 'contacts'))}
-                      style={{
-                        padding: '0.45rem 0.65rem',
-                        borderRadius: '10px',
-                        border: quickPickPanel === 'contacts' ? '1.5px solid #4f46e5' : '1px solid #c7d2fe',
-                        background: quickPickPanel === 'contacts' ? '#e0e7ff' : '#eef2ff',
-                        color: '#3730a3',
-                        fontWeight: 800,
-                        fontSize: '0.76rem',
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '0.25rem'
-                      }}
-                    >
-                      <span>📇</span>
-                      <span>קבועים ({savedDirectory.contacts.length})</span>
-                    </button>
-                  )}
-
-                  {savedDirectory.groups.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setQuickPickPanel((p) => (p === 'groups' ? 'none' : 'groups'))}
-                      style={{
-                        padding: '0.45rem 0.65rem',
-                        borderRadius: '10px',
-                        border: quickPickPanel === 'groups' ? '1.5px solid #059669' : '1px solid #a7f3d0',
-                        background: quickPickPanel === 'groups' ? '#d1fae5' : '#ecfdf5',
-                        color: '#047857',
-                        fontWeight: 800,
-                        fontSize: '0.76rem',
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '0.25rem'
-                      }}
-                    >
-                      <span>🏗️</span>
-                      <span>הזמן קבוצה ({savedDirectory.groups.length})</span>
-                    </button>
-                  )}
-                </div>
-
-                {/* Quick-Pick Drawer: 1-Tap Saved Contacts or Saved Groups */}
-                {quickPickPanel === 'contacts' && savedDirectory.contacts.length > 0 && (
-                  <div style={{ background: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: '11px', padding: '8px', display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
-                    {savedDirectory.contacts.map((c) => (
-                      <button
-                        key={c.id}
-                        type="button"
-                        onClick={() => handleAddSavedContact(c)}
-                        style={{
-                          padding: '4px 9px',
-                          borderRadius: '999px',
-                          border: '1px solid #a5b4fc',
-                          background: '#ffffff',
-                          color: '#1e1b4b',
-                          fontSize: '0.74rem',
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        + {c.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {quickPickPanel === 'groups' && savedDirectory.groups.length > 0 && (
-                  <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '11px', padding: '8px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                    {savedDirectory.groups.map((g) => (
-                      <button
-                        key={g.id}
-                        type="button"
-                        onClick={() => handleAddSavedGroup(g)}
-                        style={{
-                          padding: '5px 10px',
-                          borderRadius: '10px',
-                          border: '1px solid #6ee7b7',
-                          background: '#ffffff',
-                          color: '#065f46',
-                          fontSize: '0.76rem',
-                          fontWeight: 800,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        {g.icon || '👥'} הזמן את "{g.name}" ({g.contactIds.length})
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {/* Input Row: Name + Add Button */}
-                <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'stretch', width: '100%', boxSizing: 'border-box' }}>
-                  <input
-                    type="text"
-                    placeholder="שם הנמען (או בחר חבר למעלה)"
-                    value={newRecipientName}
-                    onChange={e => setNewRecipientName(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleAddRecipient();
-                      }
-                    }}
-                    style={{
-                      flex: 1,
-                      minWidth: 0,
-                      padding: '0.55rem 0.75rem',
-                      borderRadius: '10px',
-                      border: '1px solid var(--border-light, #e2e8f0)',
-                      background: 'var(--bg-main, #f8fafc)',
-                      fontSize: '0.85rem',
-                      color: 'var(--text-primary)',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-
-                  <button
-                    type="button"
-                    onClick={handleAddRecipient}
-                    disabled={!newRecipientName.trim()}
-                    style={{
-                      flexShrink: 0,
-                      padding: '0.55rem 0.85rem',
-                      borderRadius: '10px',
-                      border: 'none',
-                      background: newRecipientName.trim() ? '#4f46e5' : '#cbd5e1',
-                      color: '#ffffff',
-                      fontWeight: 800,
-                      fontSize: '0.82rem',
-                      cursor: newRecipientName.trim() ? 'pointer' : 'default',
-                      whiteSpace: 'nowrap',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.25rem'
-                    }}
-                  >
-                    <span>➕</span>
-                    <span>הוסף</span>
-                  </button>
-                </div>
-
-                {/* Phone row: concise placeholder that never cuts off */}
-                <div style={{ width: '100%', boxSizing: 'border-box' }}>
-                  <input
-                    type="tel"
-                    placeholder="📱 טלפון נייד (אופציונלי)"
-                    value={newRecipientPhone}
-                    onChange={e => setNewRecipientPhone(e.target.value)}
-                    style={{
-                      width: '100%',
-                      boxSizing: 'border-box',
-                      padding: '0.5rem 0.75rem',
-                      borderRadius: '10px',
-                      border: '1px solid var(--border-light, #e2e8f0)',
-                      background: 'var(--bg-main, #f8fafc)',
-                      fontSize: '0.82rem',
-                      color: 'var(--text-primary)'
-                    }}
-                  />
-                </div>
-
-                {/* Collapsible Private Note & Public Message */}
-                <div style={{ width: '100%', boxSizing: 'border-box' }}>
-                  <button
-                    type="button"
-                    onClick={() => setShowNoteFields(prev => !prev)}
-                    style={{
-                      background: '#f8fafc',
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '8px',
-                      color: '#4f46e5',
-                      fontSize: '0.78rem',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      padding: '6px 10px',
-                      width: '100%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      boxSizing: 'border-box'
-                    }}
-                  >
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M12 20h9"></path>
-                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
-                      </svg>
-                      <span>הוסף הערה פנימית לעצמך / הודעה לנמען</span>
-                    </span>
-                    <span style={{ fontSize: '0.74rem', color: '#64748b' }}>{showNoteFields ? '▲ סגור' : '▼ פתח'}</span>
-                  </button>
-
-                  {showNoteFields && (
-                    <div style={{
-                      marginTop: '0.4rem',
-                      padding: '0.55rem',
-                      background: '#f8fafc',
-                      border: '1px dashed #cbd5e1',
-                      borderRadius: '10px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '0.45rem'
-                    }}>
-                      {/* Internal Note (Sender Only) */}
-                      <div>
-                        <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 800, color: '#92400e', marginBottom: '2px' }}>
-                          🔒 הערה פנימית פרטית (רק לעיניך - לא גלוי לנמען!):
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="למשל: סוכם בשיחה שישלח תוכניות מעודכנות עד יום שלישי..."
-                          value={newRecipientInternalNote}
-                          onChange={e => setNewRecipientInternalNote(e.target.value)}
-                          style={{
-                            width: '100%',
-                            boxSizing: 'border-box',
-                            padding: '0.45rem 0.65rem',
-                            borderRadius: '8px',
-                            border: '1px solid #fed7aa',
-                            background: '#fffbeb',
-                            fontSize: '0.78rem',
-                            color: '#1e293b'
-                          }}
-                        />
-                      </div>
-
-                      {/* Public Message (Shown on share page) */}
-                      <div>
-                        <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 800, color: '#1e40af', marginBottom: '2px' }}>
-                          ✉️ הודעה אישית לנמען (אופציונלי - תוצג לו בדף השיתוף):
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="למשל: שלום יוסי, מצורפים הקבצים שדיברנו עליהם..."
-                          value={newRecipientPublicMessage}
-                          onChange={e => setNewRecipientPublicMessage(e.target.value)}
-                          style={{
-                            width: '100%',
-                            boxSizing: 'border-box',
-                            padding: '0.45rem 0.65rem',
-                            borderRadius: '8px',
-                            border: '1px solid #bfdbfe',
-                            background: '#ffffff',
-                            fontSize: '0.78rem',
-                            color: '#1e293b'
-                          }}
-                        />
-                      </div>
-                    </div>
-                  )}
+                  <span style={{ fontSize: '0.66rem', color: 'var(--text-secondary)', opacity: 0.7 }}>{APP_VERSION}</span>
                 </div>
               </div>
-
-              {/* Recipients list */}
-              {recipients.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', maxHeight: '260px', overflowY: 'auto' }}>
-                  {recipients.map(r => {
-                    const isCopied = copiedRecipientId === r.id;
-                    const durationText = r.totalDurationSeconds
-                      ? (Math.round(r.totalDurationSeconds / 60) > 0 ? `${Math.round(r.totalDurationSeconds / 60)} דק'` : `${r.totalDurationSeconds} שנ'`)
-                      : '0 שנ\'';
-
-                    return (
-                      <div
-                        key={r.id}
-                        style={{
-                          background: r.enabled ? '#ffffff' : '#fef2f2',
-                          border: r.enabled ? '1px solid #e2e8f0' : '1.5px solid #fecaca',
-                          borderRadius: '14px',
-                          padding: '0.65rem 0.75rem',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '0.5rem',
-                          fontSize: '0.78rem',
-                          boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
-                        }}
-                      >
-                        {/* Recipient Details & Metrics Row */}
-                        <div style={{ width: '100%' }}>
-                          {/* Name, Role, Phone, Status & Delete */}
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.4rem' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
-                              <span style={{ fontWeight: 800, fontSize: '0.88rem', color: r.enabled ? '#0f172a' : '#991b1b', textDecoration: r.enabled ? 'none' : 'line-through' }}>
-                                {r.recipientName}
-                              </span>
-                              <span style={{
-                                fontSize: '0.65rem',
-                                padding: '1px 6px',
-                                borderRadius: '6px',
-                                fontWeight: 700,
-                                background: r.role === 'provider' ? '#fef3c7' : (r.role === 'client' ? '#e0f2fe' : '#f1f5f9'),
-                                color: r.role === 'provider' ? '#b45309' : (r.role === 'client' ? '#0369a1' : '#475569')
-                              }}>
-                                {r.role === 'provider' ? '🛠️ ספק' : (r.role === 'client' ? '👤 לקוח' : '🤝 כללי')}
-                              </span>
-                              {r.phone && (
-                                <span style={{ fontSize: '0.72rem', color: '#64748b', direction: 'ltr' }}>
-                                  📞 {r.phone}
-                                </span>
-                              )}
-                              {!r.enabled && (
-                                <span style={{ fontSize: '0.65rem', background: '#fee2e2', color: '#b91c1c', padding: '1px 6px', borderRadius: '4px', fontWeight: 800 }}>
-                                  חסום 🛑
-                                </span>
-                              )}
-                            </div>
-
-                            {/* Delete Recipient (Trash Button) */}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (confirm(`האם אתה בטוח שברצונך למחוק את הנמען "${r.recipientName}" מהרשימה?`)) {
-                                  handleRemoveRecipient(r.id);
-                                }
-                              }}
-                              style={{
-                                background: '#fef2f2',
-                                color: '#dc2626',
-                                border: '1px solid #fecaca',
-                                borderRadius: '8px',
-                                padding: '4px 7px',
-                                fontSize: '0.85rem',
-                                cursor: 'pointer',
-                                fontWeight: 700,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                flexShrink: 0
-                              }}
-                              title="מחק נמען זה מהרשימה"
-                            >
-                              🗑️
-                            </button>
-                          </div>
-
-                          {/* Stats Badge Row: Views & Time clearly highlighted */}
-                          <div style={{
-                            display: 'flex',
-                            gap: '0.6rem',
-                            marginTop: '0.45rem',
-                            flexWrap: 'wrap',
-                            background: '#f8fafc',
-                            padding: '6px 10px',
-                            borderRadius: '10px',
-                            border: '1px solid #e2e8f0',
-                            alignItems: 'center'
-                          }}>
-                            <span style={{ fontWeight: 800, color: '#1e293b', display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem' }}>
-                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                                <circle cx="12" cy="12" r="3"></circle>
-                              </svg>
-                              <span>צפיות:</span>
-                              <b style={{ color: '#4f46e5', fontSize: '0.86rem' }}>{r.viewCount || 0}</b>
-                            </span>
-                            <span style={{ color: '#cbd5e1' }}>|</span>
-                            <span style={{ fontWeight: 800, color: '#1e293b', display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem' }}>
-                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                <circle cx="12" cy="12" r="10"></circle>
-                                <polyline points="12 6 12 12 16 14"></polyline>
-                              </svg>
-                              <span>זמן שהייה:</span>
-                              <b style={{ color: '#059669', fontSize: '0.86rem' }}>{durationText}</b>
-                            </span>
-                            {r.lastViewedAt && (
-                              <>
-                                <span style={{ color: '#cbd5e1' }}>|</span>
-                                <span style={{ color: '#64748b', fontSize: '0.74rem' }}>
-                                  נצפה: {new Date(r.lastViewedAt).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
-                                </span>
-                              </>
-                            )}
-                          </div>
-
-                          {/* Internal Note (Private to Creator) */}
-                          {editingRecipientId === r.id ? (
-                            <div style={{
-                              marginTop: '0.45rem',
-                              padding: '0.55rem',
-                              background: '#fffbeb',
-                              border: '1.5px solid #fde68a',
-                              borderRadius: '10px',
-                              display: 'flex',
-                              flexDirection: 'column',
-                              gap: '0.4rem'
-                            }}>
-                              <div>
-                                <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 800, color: '#92400e', marginBottom: '2px' }}>
-                                  🔒 הערה פנימית פרטית (רק לעיניך):
-                                </label>
-                                <input
-                                  type="text"
-                                  value={editInternalNote}
-                                  onChange={e => setEditInternalNote(e.target.value)}
-                                  placeholder="הערה פרטית לעצמך..."
-                                  style={{
-                                    width: '100%',
-                                    boxSizing: 'border-box',
-                                    padding: '0.4rem 0.6rem',
-                                    borderRadius: '6px',
-                                    border: '1px solid #fcd34d',
-                                    background: '#ffffff',
-                                    fontSize: '0.78rem',
-                                    color: '#1e293b'
-                                  }}
-                                />
-                              </div>
-                              <div>
-                                <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 800, color: '#1e40af', marginBottom: '2px' }}>
-                                  ✉️ הודעה אישית לנמען (מוצגת לו בדף):
-                                </label>
-                                <input
-                                  type="text"
-                                  value={editPublicMessage}
-                                  onChange={e => setEditPublicMessage(e.target.value)}
-                                  placeholder="הודעה שתופיע לנמען בקישור..."
-                                  style={{
-                                    width: '100%',
-                                    boxSizing: 'border-box',
-                                    padding: '0.4rem 0.6rem',
-                                    borderRadius: '6px',
-                                    border: '1px solid #bfdbfe',
-                                    background: '#ffffff',
-                                    fontSize: '0.78rem',
-                                    color: '#1e293b'
-                                  }}
-                                />
-                              </div>
-                              <div style={{ display: 'flex', gap: '0.35rem', justifyContent: 'flex-end', marginTop: '2px' }}>
-                                <button
-                                  type="button"
-                                  onClick={() => setEditingRecipientId(null)}
-                                  style={{
-                                    background: '#f1f5f9',
-                                    border: '1px solid #cbd5e1',
-                                    color: '#475569',
-                                    padding: '3px 8px',
-                                    borderRadius: '6px',
-                                    fontSize: '0.72rem',
-                                    fontWeight: 700,
-                                    cursor: 'pointer'
-                                  }}
-                                >
-                                  ביטול
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleSaveRecipientNotes(r.id)}
-                                  style={{
-                                    background: '#059669',
-                                    border: 'none',
-                                    color: '#ffffff',
-                                    padding: '3px 10px',
-                                    borderRadius: '6px',
-                                    fontSize: '0.72rem',
-                                    fontWeight: 800,
-                                    cursor: 'pointer'
-                                  }}
-                                >
-                                  ✓ שמור עדכון
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <>
-                              {r.internalNote && (
-                                <div style={{ marginTop: '0.35rem', fontSize: '0.72rem', background: '#fffbeb', color: '#92400e', border: '1px solid #fed7aa', padding: '3px 8px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px' }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minWidth: 0 }}>
-                                    <span>🔒</span>
-                                    <span style={{ fontWeight: 800, flexShrink: 0 }}>הערה פנימית (לעצמך):</span>
-                                    <span style={{ wordBreak: 'break-word' }}>{r.internalNote}</span>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleStartEditRecipient(r)}
-                                    style={{
-                                      background: 'none',
-                                      border: 'none',
-                                      color: '#b45309',
-                                      cursor: 'pointer',
-                                      fontSize: '0.7rem',
-                                      padding: '0 2px',
-                                      textDecoration: 'underline',
-                                      flexShrink: 0
-                                    }}
-                                  >
-                                    ערוך
-                                  </button>
-                                </div>
-                              )}
-
-                              {r.publicMessage && (
-                                <div style={{ marginTop: '0.25rem', fontSize: '0.72rem', background: '#eff6ff', color: '#1e40af', border: '1px solid #bfdbfe', padding: '3px 8px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px' }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minWidth: 0 }}>
-                                    <span>✉️</span>
-                                    <span style={{ fontWeight: 800, flexShrink: 0 }}>הודעה לנמען:</span>
-                                    <span style={{ wordBreak: 'break-word' }}>{r.publicMessage}</span>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleStartEditRecipient(r)}
-                                    style={{
-                                      background: 'none',
-                                      border: 'none',
-                                      color: '#1d4ed8',
-                                      cursor: 'pointer',
-                                      fontSize: '0.7rem',
-                                      padding: '0 2px',
-                                      textDecoration: 'underline',
-                                      flexShrink: 0
-                                    }}
-                                  >
-                                    ערוך
-                                  </button>
-                                </div>
-                              )}
-
-                              {!r.internalNote && !r.publicMessage && (
-                                <div style={{ marginTop: '0.25rem' }}>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleStartEditRecipient(r)}
-                                    style={{
-                                      background: 'none',
-                                      border: 'none',
-                                      color: '#4f46e5',
-                                      cursor: 'pointer',
-                                      fontSize: '0.72rem',
-                                      padding: '0',
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '3px',
-                                      fontWeight: 700
-                                    }}
-                                  >
-                                    <span>✏️</span>
-                                    <span>הוסף הערה פנימית / הודעה לנמען</span>
-                                  </button>
-                                </div>
-                              )}
-                            </>
-                          )}
-                        </div>
-
-                        {/* Action Buttons Toolbar */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap', paddingTop: '0.35rem', borderTop: '1px dashed #e2e8f0' }}>
-                          {/* Direct WhatsApp Share Button */}
-                          <button
-                            type="button"
-                            onClick={() => handleWhatsAppRecipient(r)}
-                            disabled={!r.enabled}
-                            style={{
-                              background: '#25D366',
-                              color: 'white',
-                              border: 'none',
-                              borderRadius: '8px',
-                              padding: '5px 9px',
-                              fontSize: '0.76rem',
-                              cursor: r.enabled ? 'pointer' : 'not-allowed',
-                              fontWeight: 800,
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              boxShadow: '0 1px 3px rgba(37, 211, 102, 0.25)',
-                              opacity: r.enabled ? 1 : 0.5
-                            }}
-                            title="שתף בוואטסאפ"
-                          >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
-                            </svg>
-                            <span>וואטסאפ</span>
-                          </button>
-
-                          {/* Copy Personal Link Button */}
-                          <button
-                            type="button"
-                            onClick={() => handleCopyRecipientLink(r)}
-                            disabled={!r.enabled}
-                            style={{
-                              background: isCopied ? '#059669' : '#eff6ff',
-                              color: isCopied ? 'white' : '#2563eb',
-                              border: isCopied ? '1px solid #059669' : '1px solid #bfdbfe',
-                              borderRadius: '8px',
-                              padding: '5px 9px',
-                              fontSize: '0.76rem',
-                              cursor: r.enabled ? 'pointer' : 'not-allowed',
-                              fontWeight: 800,
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              boxShadow: '0 1px 3px rgba(37, 99, 235, 0.1)',
-                              opacity: r.enabled ? 1 : 0.5
-                            }}
-                            title="העתק קישור אישי"
-                          >
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                            </svg>
-                            <span>{isCopied ? 'הועתק!' : 'העתק קישור'}</span>
-                          </button>
-
-                          {/* Direct 2-Way Chat Button - only if Chat feature enabled */}
-                          {(space?.features?.includes('chat')) && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                onClose();
-                                openChat(r.chatChannelId || `guest_${r.token}`);
-                              }}
-                              style={{
-                                background: '#f8fafc',
-                                color: '#4f46e5',
-                                border: '1px solid #c7d2fe',
-                                borderRadius: '8px',
-                                padding: '5px 9px',
-                                fontSize: '0.76rem',
-                                cursor: 'pointer',
-                                fontWeight: 800,
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px'
-                              }}
-                              title={`פתח צ'אט ישיר עם ${r.recipientName}`}
-                            >
-                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                              </svg>
-                              <span>צ'אט</span>
-                            </button>
-                          )}
-
-                          {/* Block / Unblock Toggle */}
-                          <button
-                            type="button"
-                            onClick={() => handleToggleRecipientBlock(r.id)}
-                            style={{
-                              marginRight: 'auto',
-                              background: r.enabled ? '#fff1f2' : '#f0fdf4',
-                              color: r.enabled ? '#e11d48' : '#16a34a',
-                              border: r.enabled ? '1px solid #fecdd3' : '1px solid #bbf7d0',
-                              borderRadius: '8px',
-                              padding: '5px 9px',
-                              fontSize: '0.74rem',
-                              fontWeight: 800,
-                              cursor: 'pointer'
-                            }}
-                            title={r.enabled ? 'חסום גישה לנמען זה מיידית' : 'בטל חסימה והחזר גישה לנמען זה'}
-                          >
-                            {r.enabled ? '🛑 חסום' : '✅ בטל חסימה'}
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
             </div>
-
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="סגור"
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '999px',
+                border: '1px solid var(--border-color)',
+                background: '#fff',
+                color: 'var(--text-primary)',
+                fontWeight: 800,
+                cursor: 'pointer',
+                flexShrink: 0,
+              }}
+            >
+              ✕
+            </button>
           </div>
-        )}
 
-        {/* Success Feedback Confirmation */}
-        {saveSuccessMsg && (
-          <div style={{
-            background: 'linear-gradient(135deg, #10b981, #059669)',
-            color: '#ffffff',
-            padding: '0.65rem 1rem',
-            borderRadius: '12px',
-            fontSize: '0.85rem',
-            fontWeight: 800,
-            textAlign: 'center',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '0.5rem',
-            boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
-            animation: 'fadeIn 0.2s ease-out'
-          }}>
-            <span>✓</span>
-            <span>{saveSuccessMsg}</span>
+          {/* Clickable Live Summary Pills (Jump straight to Settings!) */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+            <button
+              type="button"
+              onClick={() => setActiveTab('settings')}
+              style={{
+                padding: '0.2rem 0.52rem',
+                borderRadius: '999px',
+                border: '1px solid rgba(99,102,241,0.22)',
+                background: '#fff',
+                color: '#334155',
+                fontSize: '0.7rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              📦 {item.type === 'folder' ? (includeSubtree ? `כולל תתי-תיקיות (${effectiveFolderFiles.length})` : `${directFilesCount} קבצים`) : 'קובץ בודד'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('settings')}
+              style={{
+                padding: '0.2rem 0.52rem',
+                borderRadius: '999px',
+                border: requirePin ? '1px solid rgba(245,158,11,0.45)' : '1px solid rgba(148,163,184,0.3)',
+                background: requirePin ? '#fffbeb' : '#fff',
+                color: requirePin ? '#b45309' : '#475569',
+                fontSize: '0.7rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              {requirePin ? `🔐 PIN: ${pin || '----'}` : '🔓 ללא PIN'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('settings')}
+              style={{
+                padding: '0.2rem 0.52rem',
+                borderRadius: '999px',
+                border: '1px solid rgba(148,163,184,0.3)',
+                background: '#fff',
+                color: '#475569',
+                fontSize: '0.7rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              ⏳ {EXPIRY_LABELS[expiryOption]}
+            </button>
           </div>
-        )}
 
+          {/* 3-Tab Segmented Control */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr 1fr',
+              gap: '0.25rem',
+              padding: '0.25rem',
+              borderRadius: '12px',
+              background: 'rgba(15,23,42,0.06)',
+              marginTop: '0.15rem',
+            }}
+          >
+            {(
+              [
+                { id: 'people', label: `👥 אנשים${recipients.length > 0 ? ` (${recipients.length})` : ''}` },
+                { id: 'link', label: '🔗 קישור כללי' },
+                { id: 'settings', label: '⚙️ הגדרות' },
+              ] as Array<{ id: ModalTab; label: string }>
+            ).map((t) => {
+              const active = activeTab === t.id;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setActiveTab(t.id)}
+                  style={{
+                    padding: '0.45rem 0.35rem',
+                    borderRadius: '9px',
+                    border: 'none',
+                    background: active ? '#fff' : 'transparent',
+                    color: active ? '#4338ca' : '#475569',
+                    fontWeight: active ? 800 : 700,
+                    fontSize: '0.78rem',
+                    boxShadow: active ? '0 2px 6px rgba(15,23,42,0.1)' : 'none',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
-        {/* End of Scrollable Modal Content */}
 
-        {/* Action Buttons (Fixed Footer) */}
-        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid var(--border-light, #e2e8f0)' }}>
+        {/* Clean Scrollable Tab Body */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '0.9rem 1rem' }}>
+          {saveSuccessMsg && (
+            <div
+              style={{
+                marginBottom: '0.75rem',
+                padding: '0.55rem 0.75rem',
+                borderRadius: '10px',
+                background: '#dcfce7',
+                border: '1px solid #86efac',
+                color: '#15803d',
+                fontWeight: 800,
+                fontSize: '0.82rem',
+                textAlign: 'center',
+              }}
+            >
+              ✓ {saveSuccessMsg}
+            </div>
+          )}
+
+          {activeTab === 'people' && (
+            <SharePeopleTab
+              currentOrigin={currentOrigin}
+              recipients={recipients}
+              savedDirectory={savedDirectory}
+              registeredMembers={registeredMembers}
+              supportsContactPicker={supportsContactPicker}
+              newRecipientName={newRecipientName}
+              setNewRecipientName={setNewRecipientName}
+              newRecipientPhone={newRecipientPhone}
+              setNewRecipientPhone={setNewRecipientPhone}
+              newRecipientRole={newRecipientRole}
+              setNewRecipientRole={setNewRecipientRole}
+              newRecipientInternalNote={newRecipientInternalNote}
+              setNewRecipientInternalNote={setNewRecipientInternalNote}
+              newRecipientPublicMessage={newRecipientPublicMessage}
+              setNewRecipientPublicMessage={setNewRecipientPublicMessage}
+              showNoteFields={showNoteFields}
+              setShowNoteFields={setShowNoteFields}
+              quickPickPanel={quickPickPanel}
+              setQuickPickPanel={setQuickPickPanel}
+              copiedRecipientId={copiedRecipientId}
+              editingRecipientId={editingRecipientId}
+              setEditingRecipientId={setEditingRecipientId}
+              editInternalNote={editInternalNote}
+              setEditInternalNote={setEditInternalNote}
+              editPublicMessage={editPublicMessage}
+              setEditPublicMessage={setEditPublicMessage}
+              onOpenMemberPicker={() => setIsMemberPickerOpen(true)}
+              onPickFromContacts={handlePickFromContacts}
+              onAddSavedContact={handleAddSavedContact}
+              onAddSavedGroup={handleAddSavedGroup}
+              onAddRecipient={handleAddRecipient}
+              onWhatsAppRecipient={handleWhatsAppRecipient}
+              onCopyRecipientLink={handleCopyRecipientLink}
+              onToggleRecipientBlock={handleToggleRecipientBlock}
+              onRemoveRecipient={handleRemoveRecipient}
+              onStartEditRecipient={handleStartEditRecipient}
+              onSaveRecipientNotes={handleSaveRecipientNotes}
+            />
+          )}
+
+          {activeTab === 'link' && (
+            <ShareQuickLinkTab
+              isEnabled={isEnabled}
+              shareUrl={shareUrl}
+              copied={copied}
+              scopeSummaryText={scopeSummaryText}
+              onEnableSharing={() => setIsEnabled(true)}
+              onCopy={handleCopy}
+              onWhatsAppShare={handleWhatsAppShare}
+              onEmailShare={handleEmailShare}
+              onNativeShare={handleNativeShare}
+              onOpenSettingsTab={() => setActiveTab('settings')}
+            />
+          )}
+
+          {activeTab === 'settings' && (
+            <ShareSecuritySettingsTab
+              isFolder={item.type === 'folder'}
+              isEnabled={isEnabled}
+              setIsEnabled={setIsEnabled}
+              includeSubtree={includeSubtree}
+              onToggleSubtree={async (next) => {
+                setIncludeSubtree(next);
+                if (token && isEnabled) await ensurePersisted(token, recipients, next);
+              }}
+              directFilesCount={directFilesCount}
+              subtreeSubfoldersCount={effectiveSubfolders.length}
+              subtreeFilesCount={effectiveFolderFiles.length}
+              requirePin={requirePin}
+              onTogglePin={(next) => {
+                setRequirePin(next);
+                if (next && !pin) setPin(generateRandomPin());
+              }}
+              pin={pin}
+              setPin={setPin}
+              onGenerateRandomPin={() => setPin(generateRandomPin())}
+              expiryOption={expiryOption}
+              setExpiryOption={setExpiryOption}
+              allowDownload={allowDownload}
+              setAllowDownload={setAllowDownload}
+              allowUploads={allowUploads}
+              setAllowUploads={setAllowUploads}
+            />
+          )}
+        </div>
+
+        {/* Sticky Footer */}
+        <div
+          style={{
+            padding: '0.7rem 1rem',
+            borderTop: '1px solid var(--border-color)',
+            background: 'var(--bg-secondary)',
+            display: 'flex',
+            gap: '0.55rem',
+            alignItems: 'center',
+          }}
+        >
           <button
             type="button"
             onClick={onClose}
-            disabled={isSaving}
             style={{
-              flex: 1,
-              padding: '0.75rem',
-              borderRadius: '14px',
-              border: '1px solid var(--border-light)',
-              background: 'transparent',
-              color: 'var(--text-secondary)',
+              padding: '0.62rem 0.95rem',
+              borderRadius: '11px',
+              border: '1px solid var(--border-color)',
+              background: '#fff',
+              color: 'var(--text-primary)',
               fontWeight: 700,
-              fontSize: '0.85rem',
-              cursor: isSaving ? 'not-allowed' : 'pointer'
+              fontSize: '0.84rem',
+              cursor: 'pointer',
             }}
           >
-            ביטול
+            סגור
           </button>
           <button
             type="button"
             onClick={handleSave}
             disabled={isSaving}
             style={{
-              flex: 1.5,
-              padding: '0.75rem',
-              borderRadius: '14px',
+              flex: 1,
+              padding: '0.65rem 1rem',
+              borderRadius: '11px',
               border: 'none',
-              background: saveSuccessMsg ? '#10b981' : 'var(--primary)',
-              color: '#ffffff',
+              background: isSaving ? '#94a3b8' : 'linear-gradient(135deg, #4f46e5, #2563eb)',
+              color: '#fff',
               fontWeight: 800,
-              fontSize: '0.9rem',
+              fontSize: '0.88rem',
               cursor: isSaving ? 'wait' : 'pointer',
-              boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.4rem',
-              transition: 'background 0.3s'
             }}
           >
-            {isSaving ? (
-              <>
-                <span style={{ display: 'inline-block', animation: 'spin 1s linear infinite' }}>⏳</span>
-                <span>שומר לשרת...</span>
-              </>
-            ) : saveSuccessMsg ? (
-              <>
-                <span>✓</span>
-                <span>נשמר בהצלחה!</span>
-              </>
-            ) : (
-              'שמור והחל הגדרות'
-            )}
+            {isSaving ? '⏳ שומר...' : '💾 שמור הגדרות שיתוף'}
           </button>
         </div>
       </div>
 
-      {/* Pick Registered Member Modal */}
-      <RegisteredMemberPickerModal
-        isOpen={isMemberPickerOpen}
-        onClose={() => setIsMemberPickerOpen(false)}
-        onSelectMember={handleSelectRegisteredMember}
-        members={registeredMembers}
-      />
+      {isMemberPickerOpen && (
+        <RegisteredMemberPickerModal
+          isOpen={isMemberPickerOpen}
+          members={registeredMembers}
+          onClose={() => setIsMemberPickerOpen(false)}
+          onSelectMember={(m) => {
+            setNewRecipientName(m.name);
+            if (m.phone) setNewRecipientPhone(m.phone);
+            setIsMemberPickerOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }
