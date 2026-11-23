@@ -19,6 +19,7 @@ export default function AuthWall() {
   const [step, setStep] = useState(1);
   const [otpValue, setOtpValue] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isVerifiedEntering, setIsVerifiedEntering] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
 
@@ -249,6 +250,11 @@ export default function AuthWall() {
       
       if (confirmationResult) {
         await confirmationResult.confirm(code);
+        // OTP code is single-use and now consumed! Keep button locked and show clear entering feedback
+        // until AuthContext finishes hydrating and unmounts AuthWall (prevents 2nd tap -> auth/code-expired!).
+        setConfirmationResult(null);
+        setIsVerifiedEntering(true);
+        return;
       }
       setIsSubmitting(false);
     } catch (err: any) {
@@ -558,10 +564,10 @@ export default function AuthWall() {
             <div className="auth-actions">
               <button
                 onClick={() => handleVerify()}
-                disabled={isSubmitting || otpValue.length < 6}
+                disabled={isSubmitting || isVerifiedEntering || otpValue.length < 6}
                 className="auth-btn auth-btn-primary"
               >
-                {isSubmitting ? <div className="spinner-small"></div> : 'אימות קוד'}
+                {isVerifiedEntering ? '✓ הקוד אומת! נכנסים...' : isSubmitting ? <div className="spinner-small"></div> : 'אימות קוד'}
               </button>
               <button
                 onClick={() => {

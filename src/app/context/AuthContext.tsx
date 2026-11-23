@@ -141,10 +141,34 @@ export const checkIsSuperAdmin = (email?: string | null, phone?: string | null):
 
 export const useAuth = () => useContext(AuthContext);
 
+const CACHED_USER_STORAGE_KEY = 'smartshare_cached_user_v1';
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<UserProfile | null>(null);
+  // Instant Cache-First Boot: hydrate last verified user profile immediately (<50ms)
+  // while Firebase Auth + Firestore silently verify & refresh in the background!
+  const [user, setUser] = useState<UserProfile | null>(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const raw = localStorage.getItem(CACHED_USER_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.id && !parsed.isBlocked) return parsed as UserProfile;
+      }
+    } catch {}
+    return null;
+  });
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [isLoaded, setIsLoaded] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      const raw = localStorage.getItem(CACHED_USER_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.id && !parsed.isBlocked) return true;
+      }
+    } catch {}
+    return false;
+  });
 
   // Load all users for the CRM (admin view) - now in REAL-TIME
   useEffect(() => {
@@ -186,6 +210,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!firebaseUser) {
         setUser(null);
         setIsLoaded(true);
+        try { localStorage.removeItem(CACHED_USER_STORAGE_KEY); } catch {}
         return;
       }
 
@@ -280,13 +305,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
 
           if (needsUpdate) {
-            await updateDoc(doc(db, 'users', canonicalUserId), { 
+            // Non-blocking background sync so login & cold boot are never delayed!
+            updateDoc(doc(db, 'users', canonicalUserId), { 
               isAdmin: activeUser.isAdmin ?? false,
               realName: activeUser.realName || '',
               nickname: activeUser.nickname || '',
               avatarUrl: activeUser.avatarUrl || null,
               email: activeUser.email || ''
-            });
+            }).catch(() => {});
           }
         } else {
           const bestName = firebaseUser.displayName || firebaseUser.providerData?.[0]?.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : null);
@@ -380,11 +406,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         if (!activeUser.isBlocked) {
-          setUser({ ...activeUser, id: canonicalUserId } as any);
+          const resolvedUser = { ...activeUser, id: canonicalUserId } as UserProfile;
+          setUser(resolvedUser);
+          setIsLoaded(true);
+          try {
+            localStorage.setItem(CACHED_USER_STORAGE_KEY, JSON.stringify(resolvedUser));
+          } catch {}
+
           if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
             requestNotificationPermission(canonicalUserId).catch(console.error);
           }
-          // Update presence immediately on login
+          // Non-blocking background presence sync (never blocks app startup!)
           try {
             const isPwa = typeof window !== 'undefined' && (
               window.matchMedia('(display-mode: standalone)').matches ||
@@ -394,7 +426,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               lastActiveAt: new Date().toISOString(),
               lastActiveMode: isPwa ? 'app' : 'browser'
             };
-            // Zero-Cost Piggyback Telemetry Sync: only sync if threshold met (e.g. 4+ hours since last sync)
             if (shouldSyncTelemetry()) {
               presenceUpdates.telemetry = prepareSyncPayload();
             }
@@ -402,10 +433,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               presenceUpdates.pwaInstalled = true;
               presenceUpdates.pwaLastSeenAt = new Date().toISOString();
             }
-            await updateDoc(doc(db, 'users', canonicalUserId), presenceUpdates);
+            updateDoc(doc(db, 'users', canonicalUserId), presenceUpdates).catch(() => {});
           } catch(e) {}
+        } else {
+          try { localStorage.removeItem(CACHED_USER_STORAGE_KEY); } catch {}
+          setIsLoaded(true);
         }
-        setIsLoaded(true);
       } catch (error) {
         console.error("Auth context error:", error);
         setIsLoaded(true);
