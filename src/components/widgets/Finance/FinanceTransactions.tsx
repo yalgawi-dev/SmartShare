@@ -16,6 +16,26 @@ import { FileShareItem, ShareLinkConfig } from '@/utils/fileShareUtils';
 import { calculateCurrentSharesSnapshot } from '../../../utils/partnerUtils';
 import { PayerSplitEditor, PayerSplitMode, SplitPartnerOption } from './PayerSplitEditor';
 
+/**
+ * Normalizes any invoice date string (DD.MM.YYYY, DD/MM/YYYY, YYYY-MM-DD, ISO)
+ * into canonical YYYY-MM-DD format for <input type="date"> and accurate comparisons.
+ */
+function normalizeToYMD(rawDate?: string | null): string {
+  if (!rawDate) return '';
+  const cleaned = String(rawDate).replace(/[\u200E\u200F\u202A-\u202E]/g, '').trim();
+  if (!cleaned) return '';
+  if (/^\d{4}-\d{2}-\d{2}/.test(cleaned)) return cleaned.slice(0, 10);
+  const dmy = cleaned.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
+  if (dmy) {
+    return `${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}`;
+  }
+  const parsed = new Date(cleaned);
+  if (!isNaN(parsed.getTime())) {
+    return parsed.toISOString().slice(0, 10);
+  }
+  return '';
+}
+
 interface FinanceTransactionsProps {
   invoices: any[];
   filteredInvoices: any[];
