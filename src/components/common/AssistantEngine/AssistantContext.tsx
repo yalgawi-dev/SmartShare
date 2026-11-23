@@ -261,6 +261,10 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, []);
 
   const hasGreetedRef = React.useRef(false);
+  const approveActionRef = React.useRef<((id: string) => Promise<void>) | null>(null);
+  const rejectActionRef = React.useRef<((id: string) => void) | null>(null);
+  const approvePlanRef = React.useRef<((id: string) => Promise<void>) | null>(null);
+  const rejectPlanRef = React.useRef<((id: string) => void) | null>(null);
 
   const toggleOpen = useCallback(() => {
     setIsOpen((prev) => {
@@ -633,6 +637,37 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       };
       setMessages(prev => [...prev, blockedMsg]);
       return;
+    }
+
+    // 0-Token Hands-Free Siri Voice/Text Confirmation for Pending Headless Plan or Action!
+    const cleanVoiceCmd = sanitizedText.trim().toLowerCase().replace(/[.!?,]/g, '');
+    const latestPendingMsg = [...messages]
+      .reverse()
+      .find(
+        (m) =>
+          m.sender === 'assistant' &&
+          ((m.proposedPlan && m.planStatus === 'pending') || (m.proposedAction && m.actionStatus === 'pending'))
+      );
+
+    if (latestPendingMsg) {
+      const approveWords = ['אשר', 'מאשר', 'כן', 'תבצע', 'בצע', 'קדימה', 'תפעיל', 'הפעל', 'יאללה', 'מעולה תבצע', 'כן תבצע', 'ok', 'yes'];
+      const rejectWords = ['בטל', 'לא', 'עצור', 'אל תבצע', 'ביטול', 'cancel', 'no'];
+      if (approveWords.includes(cleanVoiceCmd)) {
+        if (latestPendingMsg.proposedPlan && latestPendingMsg.planStatus === 'pending') {
+          void approvePlanRef.current?.(latestPendingMsg.id);
+        } else if (latestPendingMsg.proposedAction && latestPendingMsg.actionStatus === 'pending') {
+          void approveActionRef.current?.(latestPendingMsg.id);
+        }
+        return;
+      }
+      if (rejectWords.includes(cleanVoiceCmd)) {
+        if (latestPendingMsg.proposedPlan && latestPendingMsg.planStatus === 'pending') {
+          rejectPlanRef.current?.(latestPendingMsg.id);
+        } else if (latestPendingMsg.proposedAction && latestPendingMsg.actionStatus === 'pending') {
+          rejectActionRef.current?.(latestPendingMsg.id);
+        }
+        return;
+      }
     }
 
     // 0-Token Instant Interactive iOS Install Coach Steps
@@ -1022,6 +1057,11 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       )
     );
   }, []);
+
+  approveActionRef.current = approveProposedAction;
+  rejectActionRef.current = rejectProposedAction;
+  approvePlanRef.current = approveProposedPlan;
+  rejectPlanRef.current = rejectProposedPlan;
 
   const submitFeedback = useCallback((messageId: string, rating: 'helpful' | 'not_helpful') => {
     setMessages(prev => prev.map(m => {

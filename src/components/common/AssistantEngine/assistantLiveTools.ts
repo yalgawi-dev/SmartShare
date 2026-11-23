@@ -11,7 +11,7 @@ import { inspectLiveScreenDOM, LiveScreenDomInspection } from './assistantDomInt
 import { getCompactUiMapForRoute } from './assistantUiMapLearner';
 import { agentActionRegistry, type AgentToolSchema } from './assistantActionRegistry';
 import { ensureDefaultAgentActionsRegistered } from './assistantActionExecutor';
-import { getSmartShareHostManifest } from './smartShareHostAdapter';
+import { getActiveHostManifest } from './agentHostBridge';
 import { loadLearnedPlaybooks } from './agentPlanOrchestrator';
 import type { AgentPlaybook, HostEntitySummary } from './agentManifest';
 import { getSharedContactsForUser } from '@/utils/partnerUtils';
@@ -765,8 +765,8 @@ export function executeLiveAssistantTools(
   // Ensure generic + host action tools are registered and expose their live schemas dynamically
   ensureDefaultAgentActionsRegistered();
   const availableActionTools = agentActionRegistry.listSchemas();
-  const manifest = getSmartShareHostManifest();
-  const learnedPlaybooks = loadLearnedPlaybooks(manifest.appId).slice(0, 5);
+  const manifest = getActiveHostManifest();
+  const learnedPlaybooks = manifest ? loadLearnedPlaybooks(manifest.appId).slice(0, 5) : [];
 
   // Deduplicate DOM payload for LLM (interactiveElements already contains all visible buttons + agentIds)
   const slimLiveScreenDOM: LiveScreenDomInspection = {
@@ -800,11 +800,13 @@ export function executeLiveAssistantTools(
       currentActiveSpaceTitle: currentActiveSpace?.title || screenContext.spaceTitle
     },
     liveSpacesData,
-    hostManifest: {
-      appId: manifest.appId,
-      appName: manifest.appName,
-      entities: manifest.entities
-    },
+    hostManifest: manifest
+      ? {
+          appId: manifest.appId,
+          appName: manifest.appName,
+          entities: manifest.entities
+        }
+      : undefined,
     learnedPlaybooks,
     appMapSummary
   };

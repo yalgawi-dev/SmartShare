@@ -475,4 +475,107 @@ export function registerSmartShareUniversalPrimitives(): void {
       };
     },
   });
+
+  /**
+   * UNIVERSAL PRIMITIVE #4: update_or_delete_entity
+   * Rename, change privacy (open_all / restricted), or move to recycle bin any folder/file
+   * in FileShare OR Vault — 100% headlessly from ANY screen (including Home Screen)!
+   */
+  agentActionRegistry.register({
+    schema: {
+      name: 'update_or_delete_entity',
+      description: 'משנה שם, מעדכן הרשאת פרטיות (פתוח לכולם / מוגבל) או מעביר לסל מחזור תיקייה או קובץ בכספת ("vault") או בקיר השיתוף ("fileshare") מכל מסך באפליקציה.',
+      riskLevel: 'high',
+      requiresConfirmation: true,
+      parameters: {
+        spaceId: { type: 'string', description: 'מזהה המרחב', required: true },
+        area: { type: 'string', description: '"fileshare" או "vault"', required: true },
+        operation: { type: 'string', description: '"rename" (שינוי שם) | "delete" (העברה לסל מחזור) | "set_public" (פתוח לכולם 🌐)', required: true },
+        itemId: { type: 'string', description: 'מזהה הפריט או התיקייה', required: false },
+        itemName: { type: 'string', description: 'שם הפריט/התיקייה אם אין itemId', required: false },
+        newName: { type: 'string', description: 'השם החדש (נדרש רק ב-rename)', required: false },
+      },
+    },
+    execute: async (params, ctx) => {
+      const { user, spaces, spacesApi } = ctx as HostActionRuntimeContext;
+      const envelope = createSecurityEnvelope(user);
+      const space = (spaces || []).find((s: any) => s.id === params.spaceId);
+      if (!space || !canCallerAccessSpace(envelope, space)) {
+        return { success: false, message: 'אין הרשאה לבצע פעולה במרחב זה.' };
+      }
+
+      const area = params.area === 'vault' ? 'vault' : 'fileshare';
+      const op = String(params.operation || '');
+      const needle = String(params.itemName || '').trim().toLowerCase();
+
+      if (area === 'fileshare') {
+        const items: any[] = Array.isArray(space.fileShareItems) ? [...space.fileShareItems] : [];
+        const idx = items.findIndex(
+          (i: any) =>
+            !i.deletedAt &&
+            ((params.itemId && i.id === params.itemId) || (needle && String(i.name || '').trim().toLowerCase() === needle))
+        );
+        if (idx === -1) return { success: false, message: 'הפריט לא נמצא בקיר השיתוף.' };
+
+        const target = items[idx];
+        if (op === 'rename') {
+          const cleanNew = String(params.newName || '').trim();
+          if (!cleanNew) return { success: false, message: 'יש לציין שם חדש.' };
+          items[idx] = { ...target, name: cleanNew };
+          space.fileShareItems = items;
+          spacesApi.updateFileShareItems(space.id, items);
+          return {
+            success: true,
+            message: `השם שונה בהצלחה מ-"${target.name}" ל-"${cleanNew}" בקיר השיתוף.`,
+            proofUrl: `/space/${space.id}?tab=fileshare`,
+            proofLabel: '🔗 צפה בקיר השיתוף',
+          };
+        }
+        if (op === 'delete') {
+          items[idx] = { ...target, deletedAt: new Date().toISOString() };
+          space.fileShareItems = items;
+          spacesApi.updateFileShareItems(space.id, items);
+          return {
+            success: true,
+            message: `"${target.name}" הועבר לסל המחזור של קיר השיתוף.`,
+            proofUrl: `/space/${space.id}?tab=fileshare`,
+            proofLabel: '🔗 צפה בקיר השיתוף',
+          };
+        }
+        if (op === 'set_public') {
+          items[idx] = { ...target, isPublic: true, allowedPartners: [] };
+          space.fileShareItems = items;
+          spacesApi.updateFileShareItems(space.id, items);
+          return {
+            success: true,
+            message: `"${target.name}" עודכן ל-🌐 פתוח לכל חברי המרחב.`,
+            proofUrl: `/space/${space.id}?tab=fileshare`,
+            proofLabel: '🔗 צפה בקיר השיתוף',
+          };
+        }
+      } else {
+        const docs = (space.documents || []).filter((d: any) => !d.deletedAt);
+        const doc = docs.find(
+          (d: any) => (params.itemId && d.id === params.itemId) || (needle && String(d.title || d.name || '').trim().toLowerCase() === needle)
+        );
+        if (doc) {
+          if (op === 'rename') {
+            const cleanNew = String(params.newName || '').trim();
+            if (!cleanNew) return { success: false, message: 'יש לציין שם חדש.' };
+            spacesApi.updateDocument(space.id, doc.id, { title: cleanNew });
+            return { success: true, message: `המסמך שונה ל-"${cleanNew}".`, proofUrl: `/space/${space.id}?tab=documents`, proofLabel: '📂 צפה במסמכים' };
+          }
+          if (op === 'delete') {
+            spacesApi.removeDocument(space.id, doc.id);
+            return { success: true, message: `המסמך "${doc.title || doc.name}" הועבר לסל המחזור.`, proofUrl: `/space/${space.id}?tab=documents`, proofLabel: '📂 צפה במסמכים' };
+          }
+          if (op === 'set_public') {
+            spacesApi.updateDocument(space.id, doc.id, { allowedPartners: [] });
+            return { success: true, message: `המסמך "${doc.title || doc.name}" פתוח כעת לכולם (🌐).`, proofUrl: `/space/${space.id}?tab=documents`, proofLabel: '📂 צפה במסמכים' };
+          }
+        }
+      }
+      return { success: false, message: 'הפעולה או הפריט המבוקש לא נמצאו.' };
+    },
+  });
 }

@@ -79,6 +79,22 @@ export function loadLearnedPlaybooks(appId: string): AgentPlaybook[] {
   }
 }
 
+export function deleteLearnedPlaybook(appId: string, playbookId: string): AgentPlaybook[] {
+  if (typeof window === 'undefined') return [];
+  const next = loadLearnedPlaybooks(appId).filter((p) => p.id !== playbookId);
+  try {
+    localStorage.setItem(`${PLAYBOOK_STORAGE_PREFIX}${appId}`, JSON.stringify(next));
+  } catch {}
+  return next;
+}
+
+export function clearLearnedPlaybooks(appId: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(`${PLAYBOOK_STORAGE_PREFIX}${appId}`);
+  } catch {}
+}
+
 export function recordSuccessfulPlaybook(
   appId: string,
   intentText: string,
