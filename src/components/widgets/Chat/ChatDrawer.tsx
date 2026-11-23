@@ -42,6 +42,7 @@ export default function ChatDrawer({ spaceId }: ChatDrawerProps) {
 
   const conversationId = useMemo(() => {
     if (targetUserId === 'group') return 'group';
+    if (targetUserId.startsWith('guest_')) return targetUserId;
     return [resolvedMyId, targetUserId].filter(Boolean).sort().join('_');
   }, [targetUserId, resolvedMyId]);
 
@@ -75,7 +76,7 @@ export default function ChatDrawer({ spaceId }: ChatDrawerProps) {
   let isGroup = false;
   const isGuestChannel = activeTarget?.startsWith('guest_');
 
-  // Look up guest name from file share recipients if target is guest_
+  // Look up guest name from file share recipients OR shared item title if target is guest_
   let guestRecipientName = '';
   if (isGuestChannel) {
     const guestToken = activeTarget.replace('guest_', '');
@@ -85,6 +86,9 @@ export default function ChatDrawer({ spaceId }: ChatDrawerProps) {
       if (foundRec) {
         guestRecipientName = foundRec.recipientName;
         break;
+      }
+      if (it.shareLink?.token === guestToken && it.name) {
+        guestRecipientName = `אורח ב-${it.name}`;
       }
     }
   }

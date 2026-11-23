@@ -252,10 +252,12 @@ export function calculateSpaceNotifications(spaces: Space[], user: any): AppNoti
       });
     }
 
-    // 5. Chat Notifications (Group + P2P) - Single Source of Truth
-    if (space.features?.includes('chat') && Array.isArray(space.conversations)) {
+    // 5. Chat Notifications (Group + P2P + External Guest Share Links) - Single Source of Truth
+    if (Array.isArray(space.conversations)) {
+      const hasChatFeature = Boolean(space.features?.includes('chat'));
       space.conversations.forEach((convo: any) => {
         if (convo.id === 'group') {
+          if (!hasChatFeature) return;
           const unreadGroup = (convo.messages || []).filter((msg: any) => {
             if (msg.senderId === user?.id || (myActualId && msg.senderId === myActualId)) return false;
             const isRead = (user?.id && msg.readBy?.includes(user?.id)) || (myActualId && msg.readBy?.includes(myActualId));

@@ -196,6 +196,7 @@ export function registerSmartShareUniversalPrimitives(): void {
           transferredNames.push(item.name);
         }
 
+        dstSpace.fileShareItems = dstItems;
         spacesApi.updateFileShareItems(dstSpace.id, dstItems);
 
         const proofUrl = `/space/${dstSpace.id}?tab=fileshare`;
@@ -305,6 +306,7 @@ export function registerSmartShareUniversalPrimitives(): void {
           isPublic: true, // Rule 20
           allowedPartners: [],
         });
+        space.fileShareItems = items;
         spacesApi.updateFileShareItems(space.id, items);
         const proofUrl = `/space/${space.id}?tab=fileshare`;
         if (!suppressAutoNavigate) {
@@ -389,16 +391,32 @@ export function registerSmartShareUniversalPrimitives(): void {
       const recName = String(params.recipientName || '').trim();
 
       if (recName) {
-        const existingRec = recipients.find((r) => r.recipientName.trim().toLowerCase() === recName.toLowerCase());
+        // Also look across ALL items in the space for a known recipient matching partial name (e.g. "משה" -> "משה אינסטלטור אולגה")
+        let fullRecName = recName;
+        let knownPhone = '';
+        for (const it of items) {
+          const match = (it.shareLink?.recipients || []).find((r: any) =>
+            String(r.recipientName || '').trim().toLowerCase().includes(recName.toLowerCase())
+          );
+          if (match) {
+            fullRecName = match.recipientName;
+            knownPhone = match.phone || '';
+            break;
+          }
+        }
+        const existingRec = recipients.find((r) =>
+          r.recipientName.trim().toLowerCase() === fullRecName.toLowerCase() ||
+          r.recipientName.trim().toLowerCase().includes(recName.toLowerCase())
+        );
         if (existingRec) {
           activeTokenToShare = existingRec.token;
         } else {
           const recToken = generateShareToken();
           recipients.push({
             id: `rcp_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-            recipientName: recName,
+            recipientName: fullRecName,
             role: 'client',
-            phone: '',
+            phone: knownPhone,
             token: recToken,
             enabled: true,
             createdAt: Date.now(),

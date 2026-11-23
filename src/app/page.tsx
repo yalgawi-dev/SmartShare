@@ -792,9 +792,23 @@ export default function Dashboard() {
                     );
                   })()}
                   {(() => {
-                    const totalUnread = (space.members || []).reduce((acc: number, m: any) => acc + ((m.messages || []).filter((msg: any) => msg.from === 'partner' && !msg.readAt).length), 0);
+                    const legacyUnread = (space.members || []).reduce((acc: number, m: any) => acc + ((m.messages || []).filter((msg: any) => msg.from === 'partner' && !msg.readAt).length), 0);
+                    const isSpaceCreator = Boolean(user?.id && space.creatorId && user.id === space.creatorId);
+                    const convoUnread = Array.isArray(space.conversations)
+                      ? space.conversations.reduce((acc: number, convo: any) => {
+                          if (!convo?.id || !Array.isArray(convo.messages)) return acc;
+                          if (convo.id.startsWith('guest_') && !isSpaceCreator) return acc;
+                          const unreadInConvo = convo.messages.filter((msg: any) => {
+                            if (!msg) return false;
+                            if (msg.senderId === user?.id || (isSpaceCreator && msg.senderId === space.creatorId)) return false;
+                            const isRead = Array.isArray(msg.readBy) && (msg.readBy.includes(user?.id) || (isSpaceCreator && msg.readBy.includes(space.creatorId)));
+                            return !isRead;
+                          }).length;
+                          return acc + unreadInConvo;
+                        }, 0)
+                      : 0;
                     const hasExtension = (space.members || []).some((m: any) => m.status === 'extension_requested');
-                    const count = totalUnread + (hasExtension ? 1 : 0);
+                    const count = legacyUnread + convoUnread + (hasExtension ? 1 : 0);
                     
                     // Unread documents count (added by others within 14 days and not read yet)
                     let unreadDocsCount = 0;

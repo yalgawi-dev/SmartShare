@@ -1356,11 +1356,15 @@ export function FileShareWidget({
                     guestLabel = found.recipientName;
                     break;
                   }
+                  if (it.shareLink?.token === guestToken && it.name) {
+                    guestLabel = `אורח ב-${it.name}`;
+                  }
                 }
                 const unreadCount = (convo.messages || []).filter(
                   (m: any) => !myIds.has(m.senderId) && !(Array.isArray(m.readBy) && (m.readBy.includes(user?.id) || m.readBy.includes(space?.creatorId)))
                 ).length;
                 const lastMsg = convo.messages[convo.messages.length - 1];
+                const lastSnippet = lastMsg?.text ? String(lastMsg.text).slice(0, 24) : '';
                 return (
                   <button
                     key={convo.id}
@@ -1382,7 +1386,7 @@ export function FileShareWidget({
                     }}
                     title={lastMsg?.text || 'פתח שיחה'}
                   >
-                    <span>💬 {guestLabel}</span>
+                    <span>💬 {guestLabel}{lastSnippet ? ` — "${lastSnippet}${lastMsg.text.length > 24 ? '…' : ''}"` : ''}</span>
                     {unreadCount > 0 && (
                       <span
                         style={{
