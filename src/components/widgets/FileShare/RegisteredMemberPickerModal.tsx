@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { filterAndSortContacts } from '@/utils/contactSearch';
 
 export interface SelectableMember {
   id: string;
@@ -26,15 +27,14 @@ export function RegisteredMemberPickerModal({
 }: RegisteredMemberPickerModalProps) {
   const [searchQuery, setSearchQuery] = useState('');
 
-  const filteredMembers = useMemo(() => {
-    if (!searchQuery.trim()) return members;
-    const q = searchQuery.trim().toLowerCase();
-    return members.filter(m => 
-      m.name.toLowerCase().includes(q) || 
-      (m.phone && m.phone.includes(q)) ||
-      (m.info && m.info.toLowerCase().includes(q))
-    );
-  }, [members, searchQuery]);
+  const filteredMembers = useMemo(
+    () =>
+      filterAndSortContacts(
+        members.map((m) => ({ ...m, note: m.info })),
+        searchQuery
+      ),
+    [members, searchQuery]
+  );
 
   if (!isOpen) return null;
 

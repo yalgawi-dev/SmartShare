@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import type { RecipientShareLink, RecipientRole } from '@/utils/fileShareUtils';
 import type { SavedShareContact, SavedShareDirectory, SavedShareGroup } from '@/utils/shareContactsStore';
 import type { SelectableMember } from './RegisteredMemberPickerModal';
+import { filterAndSortContacts } from '@/utils/contactSearch';
 
 const ROLE_LABELS: Record<RecipientRole, string> = {
   client: 'לקוח',
@@ -91,6 +92,18 @@ export function SharePeopleTab({
   onSaveRecipientNotes,
 }: SharePeopleTabProps) {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [contactSearchQuery, setContactSearchQuery] = useState('');
+
+  const filteredSavedContacts = useMemo(
+    () => filterAndSortContacts(savedDirectory.contacts || [], contactSearchQuery),
+    [savedDirectory.contacts, contactSearchQuery]
+  );
+
+  // Live smart autocomplete when typing a name in the quick-add box
+  const inlineMatchingContacts = useMemo(() => {
+    if (quickPickPanel === 'contacts' || newRecipientName.trim().length < 2) return [];
+    return filterAndSortContacts(savedDirectory.contacts || [], newRecipientName).slice(0, 6);
+  }, [savedDirectory.contacts, newRecipientName, quickPickPanel]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
@@ -212,19 +225,73 @@ export function SharePeopleTab({
         )}
 
         {quickPickPanel === 'contacts' && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', padding: '0.45rem', background: '#fff', borderRadius: '10px', border: '1px solid rgba(2,132,199,0.2)', maxHeight: '130px', overflowY: 'auto' }}>
-            {savedDirectory.contacts.map((c) => (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', padding: '0.5rem', background: '#fff', borderRadius: '10px', border: '1px solid rgba(2,132,199,0.25)' }}>
+            <input
+              type="text"
+              value={contactSearchQuery}
+              onChange={(e) => setContactSearchQuery(e.target.value)}
+              placeholder="🔍 חפש איש קשר (בכל סדר מילים או חלק מטלפון)..."
+              style={{
+                width: '100%',
+                boxSizing: 'border-box',
+                padding: '0.42rem 0.65rem',
+                borderRadius: '8px',
+                border: '1px solid #cbd5e1',
+                fontSize: '0.8rem',
+                background: '#f8fafc',
+              }}
+            />
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', maxHeight: '140px', overflowY: 'auto' }}>
+              {filteredSavedContacts.length === 0 ? (
+                <span style={{ fontSize: '0.75rem', color: '#64748b', padding: '0.2rem' }}>
+                  לא נמצאו אנשי קשר שמורים תואמים
+                </span>
+              ) : (
+                filteredSavedContacts.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => {
+                      onAddSavedContact(c);
+                      setContactSearchQuery('');
+                    }}
+                    style={{
+                      padding: '0.35rem 0.65rem',
+                      borderRadius: '999px',
+                      border: '1px solid rgba(2,132,199,0.3)',
+                      background: 'rgba(2,132,199,0.07)',
+                      color: '#0369a1',
+                      fontSize: '0.76rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    + {c.name}
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Live Smart Suggestions when typing in the name field (any word order!) */}
+        {inlineMatchingContacts.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', padding: '0.35rem 0.45rem', background: '#f0f9ff', borderRadius: '9px', border: '1px solid #bae6fd' }}>
+            <span style={{ width: '100%', fontSize: '0.68rem', fontWeight: 800, color: '#0369a1' }}>
+              ✨ התאמות מאנשי הקשר השמורים:
+            </span>
+            {inlineMatchingContacts.map((c) => (
               <button
                 key={c.id}
                 type="button"
                 onClick={() => onAddSavedContact(c)}
                 style={{
-                  padding: '0.35rem 0.65rem',
+                  padding: '0.25rem 0.55rem',
                   borderRadius: '999px',
-                  border: '1px solid rgba(2,132,199,0.3)',
-                  background: 'rgba(2,132,199,0.07)',
+                  border: '1px solid #7dd3fc',
+                  background: '#ffffff',
                   color: '#0369a1',
-                  fontSize: '0.76rem',
+                  fontSize: '0.74rem',
                   fontWeight: 700,
                   cursor: 'pointer',
                 }}
