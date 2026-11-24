@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ParentRole,
   SmartCalendarConfig,
@@ -91,17 +92,18 @@ export const SwapRequestModal: React.FC<SwapRequestModalProps> = ({
     }
   };
 
-  return (
+  const modalContent = (
     <div
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 10050,
-        background: 'rgba(15, 23, 42, 0.55)',
+        zIndex: 999999,
+        background: 'rgba(15, 23, 42, 0.6)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '1rem',
+        padding: '0.75rem',
+        boxSizing: 'border-box',
       }}
       onClick={onClose}
     >
@@ -399,4 +401,7 @@ export const SwapRequestModal: React.FC<SwapRequestModalProps> = ({
       </form>
     </div>
   );
+
+  if (typeof document === 'undefined') return null;
+  return createPortal(modalContent, document.body);
 };

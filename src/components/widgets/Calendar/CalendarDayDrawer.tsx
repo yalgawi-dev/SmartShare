@@ -17,6 +17,7 @@ import {
   resolveDayCustody,
   SPECIAL_PERIOD_META,
 } from '@/utils/calendarCustodyEngine';
+import { HebrewTimeSelect } from './HebrewTimeSelect';
 
 interface CalendarDayDrawerProps {
   selectedDate: string;
@@ -377,11 +378,10 @@ export const CalendarDayDrawer: React.FC<CalendarDayDrawerProps> = ({
               <option value="activity">🏅 חוג / פעילות</option>
               <option value="general">📌 אירוע כללי</option>
             </select>
-            <input
-              type="time"
-              value={time}
-              onChange={(e) => setTime(e.target.value)}
-              style={{ padding: '0.5rem', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '0.82rem' }}
+            <HebrewTimeSelect
+              value={time || '16:00'}
+              onChange={setTime}
+              compact
             />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.45rem' }}>

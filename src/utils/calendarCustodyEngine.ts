@@ -49,6 +49,16 @@ export function toYMD(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+/** Returns the upcoming Saturday (or today if today is Saturday) in YYYY-MM-DD */
+export function getNextSaturdayYMD(fromDate?: Date): string {
+  const base = fromDate ? new Date(fromDate) : new Date();
+  base.setHours(12, 0, 0, 0);
+  const dow = base.getDay(); // 0=Sun..6=Sat
+  const daysUntilSat = (6 - dow + 7) % 7;
+  base.setDate(base.getDate() + daysUntilSat);
+  return toYMD(base);
+}
+
 export function parseYMD(ymd: string): Date {
   const [y, m, d] = ymd.split('-').map(Number);
   return new Date(y, (m || 1) - 1, d || 1, 12, 0, 0);
@@ -81,7 +91,7 @@ export function getDefaultIsraeliSchoolBreaks(): SchoolBreakItem[] {
 }
 
 export function buildCustodyPreset(preset: CustodyPresetId, anchorDate?: string): CustodyPattern {
-  const anchor = anchorDate || toYMD(new Date());
+  const anchor = anchorDate || getNextSaturdayYMD();
   switch (preset) {
     case 'primary_midweek_alt_wknd':
       return {

@@ -19,6 +19,7 @@ import {
   parseFormattedAmount,
   stripAmountCommas,
 } from '@/utils/numberFormat';
+import { HebrewTimeSelect } from './HebrewTimeSelect';
 
 interface ActivitiesAndAlimonyTabProps {
   config: SmartCalendarConfig;
@@ -436,11 +437,10 @@ export const ActivitiesAndAlimonyTab: React.FC<ActivitiesAndAlimonyTabProps> = (
             })}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.4rem' }}>
-            <input
-              type="time"
-              value={actTime}
-              onChange={(e) => setActTime(e.target.value)}
-              style={{ padding: '0.42rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.78rem' }}
+            <HebrewTimeSelect
+              value={actTime || '17:00'}
+              onChange={setActTime}
+              compact
             />
             <input
               type="text"
