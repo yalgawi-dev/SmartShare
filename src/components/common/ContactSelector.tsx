@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../app/context/AuthContext';
 import { useSpaces } from '../../app/context/SpacesContext';
+import { filterAndSortContacts } from '../../utils/contactSearch';
 
 export interface SelectedContact {
   name: string;
@@ -141,13 +142,13 @@ export default function ContactSelector({ onSelect, title = 'בחר איש קש�
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '350px', overflowY: 'auto', boxSizing: 'border-box' }}>
               <input
                 type="text"
-                placeholder="חיפוש לפי שם..."
+                placeholder="🔍 חיפוש חכם לפי שם (בכל סדר מילים) או טלפון..."
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
                 style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', marginBottom: '0.5rem', boxSizing: 'border-box' }}
               />
               {(() => {
-                const filtered = contacts.filter((c: any) => c.name.toLowerCase().includes(searchTerm.toLowerCase()));
+                const filtered = filterAndSortContacts(contacts, searchTerm);
                 const visibleContacts = (showAll || searchTerm.trim()) ? filtered : filtered.slice(0, 5);
                 const hasMore = filtered.length > 5 && !showAll && !searchTerm.trim();
 
