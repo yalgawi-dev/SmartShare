@@ -1103,56 +1103,115 @@ export function FileShareWidget({
                 whiteSpace: 'nowrap',
                 boxShadow: '0 2px 6px rgba(16, 185, 129, 0.28)'
               }}
-              title="צור או נהל קישור שיתוף חיצוני לכל הקיר / פרויקט"
+              title={currentFolderItem ? `שתף את התיקייה "${currentFolderItem.name}" עם אנשים` : 'צור או נהל קישור שיתוף חיצוני לכל הקיר / פרויקט'}
             >
               <span>👥</span>
-              <span>שתף קיר עם אנשים</span>
+              <span style={{ maxWidth: '170px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {currentFolderItem ? `שתף את "${currentFolderItem.name}"` : 'שתף קיר עם אנשים'}
+              </span>
             </button>
           )}
 
-          {/* Share & Recipients Hub Button (People, Permanent Contacts & Groups) */}
-          {!isMultiSelect && (
-            <button
-              type="button"
-              onClick={() => setShowShareHub(true)}
-              style={{
-                background: 'rgba(79, 70, 229, 0.1)',
-                color: '#3730a3',
-                border: '1px solid rgba(79, 70, 229, 0.28)',
-                padding: '4px 10px',
-                borderRadius: '10px',
-                fontSize: '0.76rem',
-                fontWeight: 800,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.3rem',
-                whiteSpace: 'nowrap'
-              }}
-              title="מרכז שיתופים, נמענים, ספר כתובות קבוע וקבוצות"
-            >
-              <span>🔗</span>
-              <span>שיתופים</span>
-              {(() => {
-                const totalRecipients = (activeItems || []).reduce(
-                  (acc: number, it: any) => acc + (it?.shareLink?.recipients?.length || 0),
-                  0
-                );
-                return totalRecipients > 0 ? (
-                  <span style={{
-                    background: '#4f46e5',
-                    color: '#ffffff',
-                    borderRadius: '999px',
-                    padding: '0 5px',
-                    fontSize: '0.68rem',
-                    fontWeight: 900
-                  }}>
-                    {totalRecipients}
-                  </span>
-                ) : null;
-              })()}
-            </button>
-          )}
+          {/* Context-Aware Share & Recipients Button:
+              - On Root wall: shows Global Share Hub ("כל השיתופים" + total count across wall)
+              - Inside a specific folder: shows ONLY recipients shared on this folder/its children (never a misleading global count!) */}
+          {!isMultiSelect && (() => {
+            if (!currentFolderItem) {
+              const totalRecipients = (activeItems || []).reduce(
+                (acc: number, it: any) => acc + (it?.shareLink?.recipients?.length || 0),
+                0
+              );
+              return (
+                <button
+                  type="button"
+                  onClick={() => setShowShareHub(true)}
+                  style={{
+                    background: 'rgba(79, 70, 229, 0.1)',
+                    color: '#3730a3',
+                    border: '1px solid rgba(79, 70, 229, 0.28)',
+                    padding: '4px 10px',
+                    borderRadius: '10px',
+                    fontSize: '0.76rem',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.3rem',
+                    whiteSpace: 'nowrap'
+                  }}
+                  title="מרכז שיתופים כללי של כל הקיר, נמענים, ספר כתובות קבוע וקבוצות"
+                >
+                  <span>🔗</span>
+                  <span>כל השיתופים</span>
+                  {totalRecipients > 0 && (
+                    <span style={{
+                      background: '#4f46e5',
+                      color: '#ffffff',
+                      borderRadius: '999px',
+                      padding: '0 5px',
+                      fontSize: '0.68rem',
+                      fontWeight: 900
+                    }}>
+                      {totalRecipients}
+                    </span>
+                  )}
+                </button>
+              );
+            }
+
+            // Inside a specific folder: count recipients on this folder + descendants only
+            const descendantIds = new Set<string>([currentFolderItem.id]);
+            let added = true;
+            while (added) {
+              added = false;
+              for (const it of activeItems || []) {
+                if (it.parentId && descendantIds.has(it.parentId) && !descendantIds.has(it.id)) {
+                  descendantIds.add(it.id);
+                  added = true;
+                }
+              }
+            }
+            const folderRecipientsCount = (activeItems || [])
+              .filter((it: any) => descendantIds.has(it.id))
+              .reduce((acc: number, it: any) => acc + (it?.shareLink?.recipients?.length || 0), 0);
+
+            if (folderRecipientsCount === 0) return null;
+
+            return (
+              <button
+                type="button"
+                onClick={() => setActiveShareItem(currentFolderItem)}
+                style={{
+                  background: 'rgba(79, 70, 229, 0.1)',
+                  color: '#3730a3',
+                  border: '1px solid rgba(79, 70, 229, 0.28)',
+                  padding: '4px 10px',
+                  borderRadius: '10px',
+                  fontSize: '0.76rem',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.3rem',
+                  whiteSpace: 'nowrap'
+                }}
+                title={`נמענים משותפים בתיקייה "${currentFolderItem.name}"`}
+              >
+                <span>🔗</span>
+                <span>משותפים כאן</span>
+                <span style={{
+                  background: '#4f46e5',
+                  color: '#ffffff',
+                  borderRadius: '999px',
+                  padding: '0 5px',
+                  fontSize: '0.68rem',
+                  fontWeight: 900
+                }}>
+                  {folderRecipientsCount}
+                </span>
+              </button>
+            );
+          })()}
 
           {visibleItems.length > 0 && !isMultiSelect && (
             <button
