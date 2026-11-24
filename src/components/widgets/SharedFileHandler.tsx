@@ -9,6 +9,7 @@ import { uploadImageToStorage, uploadBlobToStorage } from '../../lib/firebase';
 import { downscaleBase64, extractPdfPages, analyzePdfStructure, isTrueOriginalPdf, dataUrlBytes, generatePdfFirstPageThumbnail, setCachedPdfBytes } from '../../utils/imageOptimizer';
 import { saveLocalDeviceFile } from '../../utils/localDeviceStorage';
 import InvoiceAttachMatchModal, { ScannedReceiptInput } from './Finance/InvoiceAttachMatchModal';
+import { PayerSplitEditor, PayerSplitMode, buildSpacePartnerOptions } from './Finance/PayerSplitEditor';
 import DynamicPdfScrollPreview from './Vault/DynamicPdfScrollPreview';
 import { FileShareItem } from '../../utils/fileShareUtils';
 import { APP_VERSION } from '../../constants/version';
@@ -56,6 +57,16 @@ export default function SharedFileHandler() {
   const [isCreatingShelf, setIsCreatingShelf] = useState(false);
   const [newShelfName, setNewShelfName] = useState('');
   const [selectedPayerId, setSelectedPayerId] = useState<string>('');
+  const [selectedPayerSplitMode, setSelectedPayerSplitMode] = useState<PayerSplitMode>('single');
+  const [selectedPayerSplits, setSelectedPayerSplits] = useState<Record<string, number>>({});
+  const [selectedPayerSplitPercents, setSelectedPayerSplitPercents] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    setSelectedPayerId(user?.id || 'me');
+    setSelectedPayerSplitMode('single');
+    setSelectedPayerSplits({});
+    setSelectedPayerSplitPercents({});
+  }, [selectedSpaceId, user?.id]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
   const [uploadPercent, setUploadPercent] = useState<number | null>(null);
@@ -1226,7 +1237,10 @@ export default function SharedFileHandler() {
             files: convertedPages,
             rawPdfBlob: rawPdfBlobToKeep,
             spaceId: selectedSpaceId,
-            skipOcr: routeDestination === 'direct_manual'
+            skipOcr: routeDestination === 'direct_manual',
+            payerId: selectedPayerId || user?.id || 'me',
+            payerSplitMode: selectedPayerSplitMode,
+            payerSplitPercents: selectedPayerSplitMode === 'custom_split' ? selectedPayerSplitPercents : undefined
           };
 
           // 1. In-memory storage on window (0ms, no quota limits, passes raw Blob directly)
@@ -1282,7 +1296,20 @@ export default function SharedFileHandler() {
 
         setIsModalOpen(false);
         setIsProcessing(false);
-        router.push('/space/' + selectedSpaceId + '?addExpense=true&triggerOcr=true&payerId=' + (selectedPayerId || user?.id || 'me'));
+        const splitQuery =
+          selectedPayerSplitMode !== 'single'
+            ? `&payerSplitMode=${encodeURIComponent(selectedPayerSplitMode)}` +
+              (selectedPayerSplitMode === 'custom_split' && Object.keys(selectedPayerSplitPercents).length > 0
+                ? `&payerSplitPcts=${encodeURIComponent(JSON.stringify(selectedPayerSplitPercents))}`
+                : '')
+            : '';
+        router.push(
+          '/space/' +
+            selectedSpaceId +
+            '?addExpense=true&triggerOcr=true&payerId=' +
+            encodeURIComponent(selectedPayerId || user?.id || 'me') +
+            splitQuery
+        );
       }
     } catch (e: any) {
         console.error(e);
@@ -2318,24 +2345,29 @@ export default function SharedFileHandler() {
                 );
               })()}
 
-              {/* Sub-step B: Payer Selection ONLY if Direct Expense Selected */}
-              {routeDestination === 'direct' && selectedSpaceId && (
-                <div style={{ marginBottom: '1.25rem', background: '#f8fafc', padding: '0.85rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                  <label style={{ fontSize: '0.82rem', fontWeight: '800', color: '#334155', marginBottom: '0.35rem', display: 'block' }}>
-                    מי שילם בפועל?
-                  </label>
-                  <select 
-                    value={selectedPayerId} 
-                    onChange={e => setSelectedPayerId(e.target.value)}
-                    style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.75rem', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '0.9rem', backgroundColor: '#ffffff' }}
-                  >
-                    <option value="">אני ({user?.realName || 'ברירת מחדל'})</option>
-                    {(displayedSpaces.find((s: any) => s.id === selectedSpaceId)?.members || []).map((m: any) => (
-                      <option key={m.userId} value={m.userId}>{m.name || 'שותף'}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
+              {/* Sub-step B: Unified Multi-Payer & Joint Account Split Engine (DRY Single Source of Truth) for Direct AI & Manual Expenses */}
+              {(routeDestination === 'direct' || routeDestination === 'direct_manual') && selectedSpaceId && (() => {
+                const targetSpaceObj = displayedSpaces.find((s: any) => s.id === selectedSpaceId);
+                const partnerOptions = buildSpacePartnerOptions(targetSpaceObj, user);
+                if (partnerOptions.length <= 1) return null;
+                return (
+                  <div style={{ marginBottom: '1.25rem' }}>
+                    <PayerSplitEditor
+                      totalAmount={0}
+                      allPartners={partnerOptions}
+                      selectedPayerId={selectedPayerId || user?.id || 'me'}
+                      onSelectSinglePayer={setSelectedPayerId}
+                      splitMode={selectedPayerSplitMode}
+                      onChangeSplitMode={setSelectedPayerSplitMode}
+                      payerSplits={selectedPayerSplits}
+                      onChangePayerSplits={setSelectedPayerSplits}
+                      payerSplitPercents={selectedPayerSplitPercents}
+                      onChangePayerSplitPercents={setSelectedPayerSplitPercents}
+                      label="מי שילם בפועל?"
+                    />
+                  </div>
+                );
+              })()}
             </>
           )}
 

@@ -6,7 +6,7 @@ import { uploadBlobToStorage } from '@/lib/firebase';
 import { parseCleanAmount, matchInvoiceToExpenses } from '@/utils/invoiceMatcher';
 import { useSpaces } from '@/app/context/SpacesContext';
 import { calculateCurrentSharesSnapshot } from '@/utils/partnerUtils';
-import { PayerSplitEditor, PayerSplitMode, SplitPartnerOption } from './PayerSplitEditor';
+import { PayerSplitEditor, PayerSplitMode, SplitPartnerOption, buildSpacePartnerOptions, computeSplitsFromPercents } from './PayerSplitEditor';
 
 interface FinanceAddExpenseFormProps {
   space?: any;
@@ -28,6 +28,8 @@ interface FinanceAddExpenseFormProps {
   setPreviewImage: (url: string | null) => void;
   selectedPayerId: string;
   setSelectedPayerId: (val: string) => void;
+  initialPayerSplitMode?: PayerSplitMode;
+  initialPayerSplitPercents?: Record<string, number>;
   selectedCategory: string;
   setSelectedCategory: (val: string) => void;
   onAttachToExisting?: (targetExpenseId: string, applyAmount?: boolean) => void;
@@ -53,6 +55,8 @@ export function FinanceAddExpenseForm({
   setPreviewImage,
   selectedPayerId,
   setSelectedPayerId,
+  initialPayerSplitMode,
+  initialPayerSplitPercents,
   selectedCategory,
   setSelectedCategory,
   onAttachToExisting
@@ -91,8 +95,21 @@ export function FinanceAddExpenseForm({
   };
   const [isStoreCredit, setIsStoreCredit] = React.useState(false);
   const [isNoVat, setIsNoVat] = React.useState<boolean>(() => Boolean(retroInvoiceToEdit?.isNoVat));
-  const [payerSplitMode, setPayerSplitMode] = useState<PayerSplitMode>(() => retroInvoiceToEdit?.payerSplitMode || 'single');
+  const [payerSplitMode, setPayerSplitMode] = useState<PayerSplitMode>(() => retroInvoiceToEdit?.payerSplitMode || initialPayerSplitMode || 'single');
   const [payerSplits, setPayerSplits] = useState<Record<string, number>>(() => retroInvoiceToEdit?.payerSplits || {});
+  const [payerSplitPercents, setPayerSplitPercents] = useState<Record<string, number>>(() => initialPayerSplitPercents || {});
+
+  useEffect(() => {
+    if (!retroInvoiceToEdit && initialPayerSplitMode) {
+      setPayerSplitMode(initialPayerSplitMode);
+    }
+  }, [initialPayerSplitMode, retroInvoiceToEdit]);
+
+  useEffect(() => {
+    if (!retroInvoiceToEdit && initialPayerSplitPercents && Object.keys(initialPayerSplitPercents).length > 0) {
+      setPayerSplitPercents(initialPayerSplitPercents);
+    }
+  }, [initialPayerSplitPercents, retroInvoiceToEdit]);
 
     React.useEffect(() => {
       if (ocrData?.isCreditInvoice !== undefined) {
@@ -131,33 +148,25 @@ export function FinanceAddExpenseForm({
   const currentSpace = (spaces || []).find((s: any) => s.id === space?.id) || space;
   const effectiveInvoices = currentSpace?.invoices || space?.invoices || [];
 
-  // Build unified list of participating partners (self + validMembers) with their project share percentage
-  const allPartnerOptions: SplitPartnerOption[] = useMemo(() => {
-    const sharesSnap = calculateCurrentSharesSnapshot(currentSpace);
-    const myUid = user?.id || 'me';
-    const creatorUid = currentSpace?.creatorId || myUid;
-    const realPartnerMembers = validMembers.filter((m: any) => m.userId !== 'virtual_treasury_member');
-    const totalCount = realPartnerMembers.length + 1;
-    const defaultEqualPct = totalCount > 0 ? 100 / totalCount : 100;
+  // Build unified list of participating partners (self + validMembers) using DRY Single Source of Truth helper
+  const allPartnerOptions: SplitPartnerOption[] = useMemo(
+    () => buildSpacePartnerOptions(currentSpace, user, validMembers),
+    [currentSpace, user, validMembers]
+  );
 
-    const myShare = sharesSnap[myUid] ?? sharesSnap[creatorUid] ?? defaultEqualPct;
-    const list: SplitPartnerOption[] = [
-      {
-        userId: myUid,
-        name: user?.realName || 'אני',
-        defaultSharePct: Number(myShare) || defaultEqualPct
-      }
-    ];
-    realPartnerMembers.forEach((m: any) => {
-      const mShare = sharesSnap[m.userId] ?? (typeof m.sharePercentage === 'number' ? m.sharePercentage : defaultEqualPct);
-      list.push({
-        userId: m.userId,
-        name: m.name || 'שותף',
-        defaultSharePct: Number(mShare) || defaultEqualPct
+  // Auto-sync ₪ splits from pre-selected percentages (e.g. from SharedFileHandler) once amount is scanned or changed
+  useEffect(() => {
+    const amt = Number(formValues.amount);
+    if (payerSplitMode === 'custom_split' && amt > 0 && Object.keys(payerSplitPercents).length > 0) {
+      setPayerSplits((prev) => {
+        const currentSum = Object.values(prev || {}).reduce((acc, v) => acc + (Number(v) || 0), 0);
+        if (currentSum > 0 && Math.abs(currentSum - amt) <= 0.5) {
+          return prev; // Already balanced in ₪ — preserve exact agorot
+        }
+        return computeSplitsFromPercents(amt, payerSplitPercents);
       });
-    });
-    return list;
-  }, [currentSpace, user?.id, user?.realName, validMembers]);
+    }
+  }, [formValues.amount, payerSplitMode, payerSplitPercents]);
 
   const [dismissedMatchId, setDismissedMatchId] = useState<string | null>(null);
 
@@ -703,6 +712,8 @@ export function FinanceAddExpenseForm({
                   onChangeSplitMode={setPayerSplitMode}
                   payerSplits={payerSplits}
                   onChangePayerSplits={setPayerSplits}
+                  payerSplitPercents={payerSplitPercents}
+                  onChangePayerSplitPercents={setPayerSplitPercents}
                   label="מי שילם?"
                 />
                 <input type="hidden" name="payerSplitMode" value={payerSplitMode} />

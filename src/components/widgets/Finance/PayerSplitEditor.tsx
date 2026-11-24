@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { calculateCurrentSharesSnapshot } from '@/utils/partnerUtils';
 
 export interface SplitPartnerOption {
   userId: string;
@@ -9,6 +10,87 @@ export interface SplitPartnerOption {
 }
 
 export type PayerSplitMode = 'single' | 'all_by_shares' | 'custom_split';
+
+/**
+ * Single Source of Truth (DRY) builder for participating partner options in any space.
+ * Reused across FinanceAddExpenseForm, SharedFileHandler, and FinanceTransactions.
+ */
+export function buildSpacePartnerOptions(
+  space: any,
+  user: any,
+  explicitMembers?: any[]
+): SplitPartnerOption[] {
+  if (!space) return [];
+  const sharesSnap = calculateCurrentSharesSnapshot(space);
+  const myUid = user?.id || 'me';
+  const creatorUid = space?.creatorId || myUid;
+
+  const rawMembers: any[] = Array.isArray(explicitMembers)
+    ? explicitMembers
+    : (space.members || []).filter(
+        (m: any) =>
+          m &&
+          m.userId &&
+          m.isActive !== false &&
+          m.userId !== myUid &&
+          m.userId !== 'virtual_treasury_member' &&
+          (m.status === 'active' || m.status === 'pending' || m.status === 'disputed' || m.status === 'extension_requested' || !m.status)
+      );
+
+  const realPartnerMembers = rawMembers.filter(
+    (m: any) => m && m.userId && m.userId !== myUid && m.userId !== 'virtual_treasury_member'
+  );
+  const totalCount = realPartnerMembers.length + 1;
+  const defaultEqualPct = totalCount > 0 ? 100 / totalCount : 100;
+
+  const myShare = sharesSnap[myUid] ?? sharesSnap[creatorUid] ?? defaultEqualPct;
+  const list: SplitPartnerOption[] = [
+    {
+      userId: myUid,
+      name: user?.realName || 'אני',
+      defaultSharePct: Number(myShare) || defaultEqualPct,
+    },
+  ];
+
+  realPartnerMembers.forEach((m: any) => {
+    const mShare =
+      sharesSnap[m.userId] ??
+      (typeof m.sharePercentage === 'number' ? m.sharePercentage : defaultEqualPct);
+    list.push({
+      userId: m.userId,
+      name: m.name || 'שותף',
+      defaultSharePct: Number(mShare) || defaultEqualPct,
+    });
+  });
+
+  return list;
+}
+
+/**
+ * Converts a percentage map ({ [uid]: pct }) into exact ₪ amounts matching totalAmount.
+ */
+export function computeSplitsFromPercents(
+  totalAmount: number,
+  percents: Record<string, number>
+): Record<string, number> {
+  const cleanAmt = Number(totalAmount);
+  if (isNaN(cleanAmt) || cleanAmt <= 0) return {};
+  const entries = Object.entries(percents || {}).filter(([, pct]) => Number(pct) > 0);
+  if (entries.length === 0) return {};
+  const totalPct = entries.reduce((acc, [, pct]) => acc + Number(pct), 0) || 100;
+  const result: Record<string, number> = {};
+  let runningSum = 0;
+  entries.forEach(([uid, pct], idx) => {
+    if (idx === entries.length - 1) {
+      result[uid] = Number(Math.max(0, cleanAmt - runningSum).toFixed(2));
+    } else {
+      const shareAmt = Number(((cleanAmt * Number(pct)) / totalPct).toFixed(2));
+      result[uid] = shareAmt;
+      runningSum += shareAmt;
+    }
+  });
+  return result;
+}
 
 interface PayerSplitEditorProps {
   totalAmount: number;
@@ -19,6 +101,8 @@ interface PayerSplitEditorProps {
   onChangeSplitMode: (mode: PayerSplitMode) => void;
   payerSplits: Record<string, number>;
   onChangePayerSplits: (splits: Record<string, number>) => void;
+  payerSplitPercents?: Record<string, number>;
+  onChangePayerSplitPercents?: (pcts: Record<string, number>) => void;
   label?: string;
 }
 
@@ -41,6 +125,8 @@ export const PayerSplitEditor: React.FC<PayerSplitEditorProps> = ({
   onChangeSplitMode,
   payerSplits,
   onChangePayerSplits,
+  payerSplitPercents,
+  onChangePayerSplitPercents,
   label = 'מי שילם?'
 }) => {
   // Input unit in custom mode: 'amount' (₪) or 'percent' (%)
@@ -48,13 +134,31 @@ export const PayerSplitEditor: React.FC<PayerSplitEditorProps> = ({
   // Track which partners are checked in custom_split mode
   const [checkedPartnerIds, setCheckedPartnerIds] = useState<string[]>(() => {
     const existingKeys = Object.keys(payerSplits || {}).filter(k => (payerSplits[k] || 0) > 0);
-    return existingKeys.length > 0 ? existingKeys : allPartners.map(p => p.userId);
+    if (existingKeys.length > 0) return existingKeys;
+    const existingPctKeys = Object.keys(payerSplitPercents || {}).filter(k => (payerSplitPercents?.[k] || 0) > 0);
+    if (existingPctKeys.length > 0) return existingPctKeys;
+    return allPartners.map(p => p.userId);
   });
 
   const cleanTotal = useMemo(() => {
     const num = Number(totalAmount);
     return !isNaN(num) && num > 0 ? num : 0;
   }, [totalAmount]);
+
+  // When totalAmount is not known yet (e.g. external share modal or before typing amount) and percent callback is provided,
+  // operate directly in % mode so the user can configure custom percentages upfront.
+  const isPercentOnlyMode = cleanTotal <= 0 && typeof onChangePayerSplitPercents === 'function';
+  const effectiveUnit: 'amount' | 'percent' = isPercentOnlyMode ? 'percent' : inputUnit;
+
+  // Keep checkedPartnerIds aligned if partner list changes (e.g. switching spaces in SharedFileHandler)
+  const partnerIdsSignature = allPartners.map(p => p.userId).join(',');
+  useEffect(() => {
+    const validIds = new Set(allPartners.map(p => p.userId));
+    setCheckedPartnerIds(prev => {
+      const filtered = prev.filter(id => validIds.has(id));
+      return filtered.length > 0 ? filtered : allPartners.map(p => p.userId);
+    });
+  }, [partnerIdsSignature]);
 
   // Helper: compute shares distribution across all partners
   const computeAllByShares = (amt: number): Record<string, number> => {
@@ -74,7 +178,7 @@ export const PayerSplitEditor: React.FC<PayerSplitEditorProps> = ({
     return result;
   };
 
-  // Helper: compute equal distribution across checked partners
+  // Helper: compute equal distribution across checked partners (works for both ₪ and 100%)
   const computeEqualAmongChecked = (amt: number, ids: string[]): Record<string, number> => {
     const result: Record<string, number> = {};
     if (ids.length === 0) return result;
@@ -102,14 +206,23 @@ export const PayerSplitEditor: React.FC<PayerSplitEditorProps> = ({
     onChangeSplitMode(newMode);
     if (newMode === 'single') {
       onChangePayerSplits({});
+      if (onChangePayerSplitPercents) onChangePayerSplitPercents({});
     } else if (newMode === 'all_by_shares') {
       onChangePayerSplits(computeAllByShares(cleanTotal));
+      if (onChangePayerSplitPercents) onChangePayerSplitPercents(computeAllByShares(100));
     } else if (newMode === 'custom_split') {
       const activeIds = checkedPartnerIds.length > 0 ? checkedPartnerIds : allPartners.map(p => p.userId);
       setCheckedPartnerIds(activeIds);
-      const currentSum = Object.values(payerSplits || {}).reduce((a, b) => a + (Number(b) || 0), 0);
-      if (currentSum <= 0 || Math.abs(currentSum - cleanTotal) > 1) {
-        onChangePayerSplits(computeAllByShares(cleanTotal));
+      if (isPercentOnlyMode && onChangePayerSplitPercents) {
+        const currentPctSum = Object.values(payerSplitPercents || {}).reduce((a, b) => a + (Number(b) || 0), 0);
+        if (currentPctSum <= 0 || Math.abs(currentPctSum - 100) > 1) {
+          onChangePayerSplitPercents(computeAllByShares(100));
+        }
+      } else {
+        const currentSum = Object.values(payerSplits || {}).reduce((a, b) => a + (Number(b) || 0), 0);
+        if (currentSum <= 0 || Math.abs(currentSum - cleanTotal) > 1) {
+          onChangePayerSplits(computeAllByShares(cleanTotal));
+        }
       }
     }
   };
@@ -125,7 +238,14 @@ export const PayerSplitEditor: React.FC<PayerSplitEditorProps> = ({
     }
     setCheckedPartnerIds(nextIds);
     // Redistribute equally among the newly checked partners
-    onChangePayerSplits(computeEqualAmongChecked(cleanTotal, nextIds));
+    if (isPercentOnlyMode && onChangePayerSplitPercents) {
+      onChangePayerSplitPercents(computeEqualAmongChecked(100, nextIds));
+    } else {
+      onChangePayerSplits(computeEqualAmongChecked(cleanTotal, nextIds));
+      if (onChangePayerSplitPercents) {
+        onChangePayerSplitPercents(computeEqualAmongChecked(100, nextIds));
+      }
+    }
   };
 
   // Update a specific partner's amount (or percentage) and auto-balance the remaining partner if 2 are checked (or last checked partner)
@@ -133,7 +253,33 @@ export const PayerSplitEditor: React.FC<PayerSplitEditorProps> = ({
     const parsed = parseFloat(rawVal);
     const val = isNaN(parsed) ? 0 : Math.max(0, parsed);
 
-    const newExactAmount = inputUnit === 'percent'
+    if (isPercentOnlyMode && onChangePayerSplitPercents) {
+      const clampedPct = Number(Math.min(100, val).toFixed(2));
+      const nextPcts: Record<string, number> = {};
+      checkedPartnerIds.forEach(id => {
+        nextPcts[id] = Number(payerSplitPercents?.[id] || 0);
+      });
+      nextPcts[uid] = clampedPct;
+
+      const otherCheckedIds = checkedPartnerIds.filter(id => id !== uid);
+      if (otherCheckedIds.length === 1) {
+        const otherId = otherCheckedIds[0];
+        nextPcts[otherId] = Number(Math.max(0, 100 - clampedPct).toFixed(2));
+      } else if (otherCheckedIds.length > 1) {
+        const lastOtherId = otherCheckedIds[otherCheckedIds.length - 1];
+        const sumExceptLast = checkedPartnerIds
+          .filter(id => id !== lastOtherId)
+          .reduce((acc, id) => acc + (nextPcts[id] || 0), 0);
+        if (sumExceptLast <= 100) {
+          nextPcts[lastOtherId] = Number(Math.max(0, 100 - sumExceptLast).toFixed(2));
+        }
+      }
+
+      onChangePayerSplitPercents(nextPcts);
+      return;
+    }
+
+    const newExactAmount = effectiveUnit === 'percent'
       ? Number(((cleanTotal * Math.min(100, val)) / 100).toFixed(2))
       : Number(val.toFixed(2));
 
@@ -160,24 +306,43 @@ export const PayerSplitEditor: React.FC<PayerSplitEditorProps> = ({
     }
 
     onChangePayerSplits(nextSplits);
+    if (onChangePayerSplitPercents && cleanTotal > 0) {
+      const nextPcts: Record<string, number> = {};
+      Object.entries(nextSplits).forEach(([k, v]) => {
+        nextPcts[k] = Number(((v / cleanTotal) * 100).toFixed(2));
+      });
+      onChangePayerSplitPercents(nextPcts);
+    }
   };
 
   const allocatedSum = useMemo(() => {
+    if (isPercentOnlyMode) {
+      return Object.entries(payerSplitPercents || {}).reduce((acc, [uid, val]) => {
+        if (splitMode === 'custom_split' && !checkedPartnerIds.includes(uid)) return acc;
+        return acc + (Number(val) || 0);
+      }, 0);
+    }
     return Object.entries(payerSplits || {}).reduce((acc, [uid, val]) => {
       if (splitMode === 'custom_split' && !checkedPartnerIds.includes(uid)) return acc;
       return acc + (Number(val) || 0);
     }, 0);
-  }, [payerSplits, splitMode, checkedPartnerIds]);
+  }, [payerSplits, payerSplitPercents, isPercentOnlyMode, splitMode, checkedPartnerIds]);
 
-  const diffFromTotal = Number((cleanTotal - allocatedSum).toFixed(2));
+  const diffFromTotal = isPercentOnlyMode
+    ? Number((100 - allocatedSum).toFixed(2))
+    : Number((cleanTotal - allocatedSum).toFixed(2));
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', background: '#f8fafc', padding: '0.85rem', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
       <label style={{ fontSize: '0.85rem', color: '#1e293b', fontWeight: 800, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span>{label}</span>
-        {splitMode !== 'single' && cleanTotal > 0 && (
+        {splitMode !== 'single' && (cleanTotal > 0 || (isPercentOnlyMode && splitMode === 'custom_split')) && (
           <span style={{ fontSize: '0.74rem', color: Math.abs(diffFromTotal) < 0.5 ? '#059669' : '#d97706', fontWeight: 700 }}>
-            {Math.abs(diffFromTotal) < 0.5 ? '✓ מאוזן (100%)' : `הפרש להשלמה: ₪${diffFromTotal.toLocaleString()}`}
+            {Math.abs(diffFromTotal) < 0.5
+              ? '✓ מאוזן (100%)'
+              : isPercentOnlyMode
+                ? `הפרש להשלמה: ${diffFromTotal}%`
+                : `הפרש להשלמה: ₪${diffFromTotal.toLocaleString()}`}
           </span>
         )}
       </label>
@@ -285,7 +450,9 @@ export const PayerSplitEditor: React.FC<PayerSplitEditorProps> = ({
                 <div key={p.userId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ffffff', padding: '0.4rem 0.65rem', borderRadius: '8px', border: '1px solid #d1fae5', fontSize: '0.8rem' }}>
                   <span style={{ fontWeight: 700, color: '#0f172a' }}>{p.name}</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <span style={{ color: '#059669', fontWeight: 800 }}>₪{paidAmt.toLocaleString('he-IL', { maximumFractionDigits: 2 })}</span>
+                    {cleanTotal > 0 && (
+                      <span style={{ color: '#059669', fontWeight: 800 }}>₪{paidAmt.toLocaleString('he-IL', { maximumFractionDigits: 2 })}</span>
+                    )}
                     <span style={{ background: '#d1fae5', color: '#047857', padding: '1px 6px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 700 }}>
                       {Number(p.defaultSharePct.toFixed(1))}%
                     </span>
@@ -302,44 +469,55 @@ export const PayerSplitEditor: React.FC<PayerSplitEditorProps> = ({
         <div style={{ background: '#ffffff', border: '1px solid #ddd6fe', borderRadius: '12px', padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
           {/* Controls Header: Toggle ₪ vs % + Equal Split Button */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', background: '#f1f5f9', borderRadius: '8px', padding: '2px', border: '1px solid #cbd5e1' }}>
-              <button
-                type="button"
-                onClick={() => setInputUnit('amount')}
-                style={{
-                  padding: '0.3rem 0.6rem',
-                  borderRadius: '6px',
-                  border: 'none',
-                  background: inputUnit === 'amount' ? '#7c3aed' : 'transparent',
-                  color: inputUnit === 'amount' ? '#ffffff' : '#475569',
-                  fontWeight: 700,
-                  fontSize: '0.74rem',
-                  cursor: 'pointer'
-                }}
-              >
-                ₪ לפי סכום כסף
-              </button>
-              <button
-                type="button"
-                onClick={() => setInputUnit('percent')}
-                style={{
-                  padding: '0.3rem 0.6rem',
-                  borderRadius: '6px',
-                  border: 'none',
-                  background: inputUnit === 'percent' ? '#7c3aed' : 'transparent',
-                  color: inputUnit === 'percent' ? '#ffffff' : '#475569',
-                  fontWeight: 700,
-                  fontSize: '0.74rem',
-                  cursor: 'pointer'
-                }}
-              >
-                % לפי אחוזים
-              </button>
-            </div>
+            {!isPercentOnlyMode && (
+              <div style={{ display: 'flex', background: '#f1f5f9', borderRadius: '8px', padding: '2px', border: '1px solid #cbd5e1' }}>
+                <button
+                  type="button"
+                  onClick={() => setInputUnit('amount')}
+                  style={{
+                    padding: '0.3rem 0.6rem',
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: effectiveUnit === 'amount' ? '#7c3aed' : 'transparent',
+                    color: effectiveUnit === 'amount' ? '#ffffff' : '#475569',
+                    fontWeight: 700,
+                    fontSize: '0.74rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  ₪ לפי סכום כסף
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInputUnit('percent')}
+                  style={{
+                    padding: '0.3rem 0.6rem',
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: effectiveUnit === 'percent' ? '#7c3aed' : 'transparent',
+                    color: effectiveUnit === 'percent' ? '#ffffff' : '#475569',
+                    fontWeight: 700,
+                    fontSize: '0.74rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  % לפי אחוזים
+                </button>
+              </div>
+            )}
 
             <button
               type="button"
-              onClick={() => onChangePayerSplits(computeEqualAmongChecked(cleanTotal, checkedPartnerIds))}
+              onClick={() => {
+                if (isPercentOnlyMode && onChangePayerSplitPercents) {
+                  onChangePayerSplitPercents(computeEqualAmongChecked(100, checkedPartnerIds));
+                } else {
+                  onChangePayerSplits(computeEqualAmongChecked(cleanTotal, checkedPartnerIds));
+                  if (onChangePayerSplitPercents) {
+                    onChangePayerSplitPercents(computeEqualAmongChecked(100, checkedPartnerIds));
+                  }
+                }
+              }}
               style={{
                 padding: '0.3rem 0.6rem',
                 borderRadius: '8px',
@@ -356,8 +534,10 @@ export const PayerSplitEditor: React.FC<PayerSplitEditorProps> = ({
           </div>
 
           {cleanTotal <= 0 && (
-            <div style={{ fontSize: '0.75rem', color: '#d97706', background: '#fffbeb', padding: '0.4rem 0.6rem', borderRadius: '8px', border: '1px solid #fde68a' }}>
-              💡 הזן קודם את סכום החשבונית למעלה כדי שהמערכת תחשב אוטומטית את הסכומים והאחוזים בין השותפים.
+            <div style={{ fontSize: '0.75rem', color: isPercentOnlyMode ? '#5b21b6' : '#d97706', background: isPercentOnlyMode ? '#f5f3ff' : '#fffbeb', padding: '0.4rem 0.6rem', borderRadius: '8px', border: isPercentOnlyMode ? '1px solid #ddd6fe' : '1px solid #fde68a' }}>
+              {isPercentOnlyMode
+                ? '💡 קבע אחוזי תשלום עכשיו — הסכומים ב-₪ יחושבו אוטומטית ברגע שסכום החשבונית ייסרק או יוזן.'
+                : '💡 הזן קודם את סכום החשבונית למעלה כדי שהמערכת תחשב אוטומטית את הסכומים והאחוזים בין השותפים.'}
             </div>
           )}
 
@@ -366,7 +546,9 @@ export const PayerSplitEditor: React.FC<PayerSplitEditorProps> = ({
             {allPartners.map(p => {
               const isChecked = checkedPartnerIds.includes(p.userId);
               const partnerAmt = isChecked ? Number(payerSplits[p.userId] || 0) : 0;
-              const partnerPct = cleanTotal > 0 ? Number(((partnerAmt / cleanTotal) * 100).toFixed(1)) : 0;
+              const partnerPct = isPercentOnlyMode
+                ? (isChecked ? Number(payerSplitPercents?.[p.userId] || 0) : 0)
+                : (cleanTotal > 0 ? Number(((partnerAmt / cleanTotal) * 100).toFixed(1)) : 0);
 
               return (
                 <div
@@ -395,9 +577,11 @@ export const PayerSplitEditor: React.FC<PayerSplitEditorProps> = ({
                         {p.name}
                       </div>
                       <div style={{ fontSize: '0.68rem', color: '#64748b' }}>
-                        {inputUnit === 'amount'
-                          ? `מהווה ${partnerPct}% מהחשבונית`
-                          : `שילם בפועל: ₪${partnerAmt.toLocaleString('he-IL', { maximumFractionDigits: 2 })}`}
+                        {isPercentOnlyMode
+                          ? `חלקו בתשלום: ${partnerPct}%`
+                          : effectiveUnit === 'amount'
+                            ? `מהווה ${partnerPct}% מהחשבונית`
+                            : `שילם בפועל: ₪${partnerAmt.toLocaleString('he-IL', { maximumFractionDigits: 2 })}`}
                       </div>
                     </div>
                   </label>
@@ -408,9 +592,9 @@ export const PayerSplitEditor: React.FC<PayerSplitEditorProps> = ({
                         type="number"
                         step="0.01"
                         min="0"
-                        value={inputUnit === 'amount' ? (partnerAmt || '') : (partnerPct || '')}
+                        value={effectiveUnit === 'amount' ? (partnerAmt || '') : (partnerPct || '')}
                         onChange={(e) => handlePartnerValueChange(p.userId, e.target.value)}
-                        placeholder={inputUnit === 'amount' ? '0 ₪' : '0%'}
+                        placeholder={effectiveUnit === 'amount' ? '0 ₪' : '0%'}
                         style={{
                           width: '92px',
                           padding: '0.35rem 0.5rem',
@@ -425,7 +609,7 @@ export const PayerSplitEditor: React.FC<PayerSplitEditorProps> = ({
                         }}
                       />
                       <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#6d28d9', width: '18px' }}>
-                        {inputUnit === 'amount' ? '₪' : '%'}
+                        {effectiveUnit === 'amount' ? '₪' : '%'}
                       </span>
                     </div>
                   )}
