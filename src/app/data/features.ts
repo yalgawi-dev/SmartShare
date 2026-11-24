@@ -11,6 +11,13 @@ export interface Feature {
 }
 
 export const AVAILABLE_FEATURES: Feature[] = [
+  {
+    id: 'smart_calendar',
+    name: 'לוח שנה חכם ותיאומים',
+    desc: 'תוסף עצמאי לניהול זמני שהות והורות בגירושים (כולל שימוש אישי שקט), החלפות חד-פעמיות או רצף, פיצול לפי ילדים, חופשות בית ספר, מצבי חירום, חוגים, מזונות ועדכון לילדים בוואטסאפ',
+    icon: '📅',
+    recommends: ['partners', 'finance', 'vault']
+  },
   { 
     id: 'fileshare', 
     name: 'שיתוף קבצים', 

@@ -97,3 +97,16 @@
 - **החלטה:**
   - **מסלול חינם (`דנה`):** פועל על מנוע ההקראה החינמי והמהיר (`~0.4s`, עלות `\$0`).
   - **מסלול Pro עתידי (`שימרית`, `אבי`, `אסף` — נעולים כרגע עם תג `🔒 Pro`):** התשתית הטכנית ב-`/api/assistant/tts` כבר מוכנה לחלוטין לקולות `he-IL-Wavenet-A/B/C/D` של Google Cloud (מהירות ~0.3s) ותיפתח בקליק אחד בעת השקת המודל העסקי.
+
+
+---
+
+## ADR-011: Standalone SmartCalendar Add-on (`smart_calendar`) — Decoupled Subcollection & AI-Ready Primitives
+
+- **תאריך:** 2026-11-24
+- **החלטה:**
+  1. לוח השנה החכם נבנה כתוסף עצמאי (`smart_calendar` ב-`AVAILABLE_FEATURES`) המנותק לחלוטין ממנוע ההתחשבנויות (`finance`) וממנוע המסמכים (`vault`) (Rule 16).
+  2. נתוני התוסף נשמרים ב-Firestore Subcollections ייעודיים תחת `spaces/{spaceId}/smartCalendar/config`, `smartCalendarEvents`, ו-`smartCalendarSwaps` כדי לא לנפח את מסמך המרחב הראשי.
+  3. מנוע המשמורת (`src/utils/calendarCustodyEngine.ts`) ופעולות השירות (`src/services/calendarService.ts`) בנויים כ-Headless Action Primitives טהורים — כך שהעוזר האישי (דנה) יוכל להתחבר אליהם ישירות בהמשך ללא שכפול קוד.
+  4. שלב 1 תומך בכל הורה גרוש — גם ב-**Solo Mode** (הורה אחד בלבד ללא צורך בהצטרפות הצד השני) וגם ב-**Shared Mode** (אישורי החלפה דו-צדדיים), כולל החלפות חד-פעמיות שלא שוברות רצף קדימה, פיצול לפי ילדים, חופשות בית ספר הניתנות לעדכון, מצבי חירום (מלחמה/מילואים/בידוד), חוגים, מזונות, ועדכון יומי שקוף ובטוח לילדים בוואטסאפ.
+  5. שלב 2 (מתוכנן) יוסיף מצב `pro_booking` (`/book/[slug]`) עם Zero-Exposure Availability ואימות OTP ללקוחות חדשים.

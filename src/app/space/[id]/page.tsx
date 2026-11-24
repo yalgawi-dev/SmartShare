@@ -11,6 +11,7 @@ import ChatDrawer from '../../../components/widgets/Chat/ChatDrawer';
 import { getFeatureById, AVAILABLE_FEATURES, FeatureId } from '../../data/features';
 import { DocumentsWidget } from '../../../components/widgets/Vault/DocumentsWidget';
 import { FileShareWidget } from '../../../components/widgets/FileShare/FileShareWidget';
+import { SmartCalendarWidget } from '../../../components/widgets/Calendar/SmartCalendarWidget';
 import FinanceWidget from '../../../components/widgets/FinanceWidget';
 import AlbumWidget from '../../../components/widgets/AlbumWidget';
 import GalleryWidget from '../../../components/widgets/GalleryWidget';
@@ -105,8 +106,8 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [scannerMode, setScannerMode] = useState<'camera' | 'upload'>('camera');
   const [scannerCategory, setScannerCategory] = useState<'receipt' | 'document' | 'image'>('receipt');
-  const [financeTab, setFinanceTabState] = useState<'summary' | 'transactions' | 'inbox' | 'shelves' | 'documents' | 'fileshare'>(() => { if (typeof window !== 'undefined') { const t = new URLSearchParams(window.location.search).get('tab'); if (t === 'inbox' || t === 'transactions' || t === 'documents' || t === 'shelves' || t === 'fileshare') return t as any; } return 'summary'; });
-  const tabHistoryRef = useRef<Array<'summary' | 'transactions' | 'inbox' | 'shelves' | 'documents' | 'fileshare'>>([]);
+  const [financeTab, setFinanceTabState] = useState<'summary' | 'transactions' | 'inbox' | 'shelves' | 'documents' | 'fileshare' | 'smart_calendar'>(() => { if (typeof window !== 'undefined') { const t = new URLSearchParams(window.location.search).get('tab'); if (t === 'inbox' || t === 'transactions' || t === 'documents' || t === 'shelves' || t === 'fileshare' || t === 'smart_calendar') return t as any; } return 'summary'; });
+  const tabHistoryRef = useRef<Array<'summary' | 'transactions' | 'inbox' | 'shelves' | 'documents' | 'fileshare' | 'smart_calendar'>>([]);
   const [tabStepDepth, setTabStepDepth] = useState(0);
   const setFinanceTab = useCallback((next: any, opts?: { replace?: boolean }) => {
     setFinanceTabState((prev) => {
@@ -501,7 +502,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
       const tabParam = params.get('tab');
       if (tabParam === 'partners') {
         setShowPartnersModal(true);
-      } else if (tabParam === 'inbox' || tabParam === 'transactions' || tabParam === 'documents' || tabParam === 'shelves' || tabParam === 'fileshare') {
+      } else if (tabParam === 'inbox' || tabParam === 'transactions' || tabParam === 'documents' || tabParam === 'shelves' || tabParam === 'fileshare' || tabParam === 'smart_calendar') {
         setFinanceTab(tabParam as any, { replace: true });
       }
     };
@@ -514,7 +515,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
       if (!detail.spaceId || detail.spaceId === id) {
         if (detail.tab === 'partners') {
           setShowPartnersModal(true);
-        } else if (detail.tab === 'inbox' || detail.tab === 'transactions' || detail.tab === 'documents' || detail.tab === 'shelves' || detail.tab === 'fileshare') {
+        } else if (detail.tab === 'inbox' || detail.tab === 'transactions' || detail.tab === 'documents' || detail.tab === 'shelves' || detail.tab === 'fileshare' || detail.tab === 'smart_calendar') {
           setFinanceTab(detail.tab);
         }
       }
@@ -617,15 +618,18 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   const hasScanner = spaceFeatures.includes('scanner');
   const hasVault = spaceFeatures.includes('vault');
   const hasFileShare = spaceFeatures.includes('fileshare');
+  const hasSmartCalendar = spaceFeatures.includes('smart_calendar');
 
-  // If space does not have finance, automatically switch active tab to shelves or fileshare without polluting back stack
+  // If space does not have finance, automatically switch active tab to shelves, fileshare, or smart_calendar without polluting back stack
   useEffect(() => {
     if (!hasFinance && hasVault && financeTab === 'summary') {
       setFinanceTab('shelves', { replace: true });
     } else if (!hasFinance && !hasVault && hasFileShare && financeTab === 'summary') {
       setFinanceTab('fileshare', { replace: true });
+    } else if (!hasFinance && !hasVault && !hasFileShare && hasSmartCalendar && financeTab === 'summary') {
+      setFinanceTab('smart_calendar', { replace: true });
     }
-  }, [hasFinance, hasVault, hasFileShare, financeTab, setFinanceTab]);
+  }, [hasFinance, hasVault, hasFileShare, hasSmartCalendar, financeTab, setFinanceTab]);
 
   const hasPartners = spaceFeatures.includes('partners');
   const creatorId = space.creatorId || space.createdBy;
@@ -636,7 +640,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   const hasGuestbook = spaceFeatures.includes('guestbook');
   const hasGallery = spaceFeatures.includes('gallery');
   
-  const explicitFeatures = ['finance', 'scanner', 'partners', 'guestbook', 'gallery', 'cashbox', 'vault', 'chat', 'fileshare'];
+  const explicitFeatures = ['finance', 'scanner', 'partners', 'guestbook', 'gallery', 'cashbox', 'vault', 'chat', 'fileshare', 'smart_calendar'];
   const genericFeatures = spaceFeatures
     .filter(f => !explicitFeatures.includes(f))
     .map(f => getFeatureById(f))
@@ -1150,6 +1154,33 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
                 <VersionBadge style={{ fontSize: '0.54rem', padding: '1px 4px', borderRadius: '5px' }} />
               </div>
 
+              {hasSmartCalendar && (hasFinance || hasVault || hasFileShare) && (
+                <button
+                  type="button"
+                  onClick={() => setFinanceTab(financeTab === 'smart_calendar' ? (hasFinance ? 'summary' : hasVault ? 'shelves' : 'fileshare') : 'smart_calendar')}
+                  style={{
+                    background: financeTab === 'smart_calendar' ? '#eef2ff' : '#ffffff',
+                    color: financeTab === 'smart_calendar' ? '#4338ca' : '#334155',
+                    border: financeTab === 'smart_calendar' ? '1.5px solid #818cf8' : '1px solid #cbd5e1',
+                    padding: '0.28rem 0.7rem',
+                    borderRadius: '10px',
+                    fontWeight: 800,
+                    fontSize: '0.76rem',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.3rem',
+                    boxShadow: 'var(--shadow-sm)',
+                    transition: 'all 0.15s ease',
+                    flexShrink: 0
+                  }}
+                  title="פתח את לוח השנה החכם"
+                >
+                  <span>📅</span>
+                  <span>לוח שנה</span>
+                </button>
+              )}
+
               {hasFileShare && (hasFinance || hasVault) && (
                 <button
                   type="button"
@@ -1406,16 +1437,16 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
              );
           })}
 
-          {/* Finance is always at the top if active (hidden when on Vault or Sharing Wall screen) */}
-          <div style={{ display: hasFinance && financeTab !== 'documents' && financeTab !== 'shelves' && financeTab !== 'fileshare' ? 'block' : 'none' }}>
+          {/* Finance is always at the top if active (hidden when on Vault, Sharing Wall, or SmartCalendar screen) */}
+          <div style={{ display: hasFinance && financeTab !== 'documents' && financeTab !== 'shelves' && financeTab !== 'fileshare' && financeTab !== 'smart_calendar' ? 'block' : 'none' }}>
             {hasFinance && <FinanceWidget ref={financeRef} space={space} activePartnersCount={activePartnersCount} isAddingExpense={isAddingExpense} setIsAddingExpense={setIsAddingExpense} onRestrictedAction={handleRestrictedAction} onOpenPartnersModal={() => setShowPartnersModal(true)} activeTab={financeTab as any} setActiveTab={setFinanceTab as any} />}
           </div>
-          <div style={{ display: hasVault && financeTab !== 'fileshare' && (!hasFinance || financeTab === 'documents' || financeTab === 'shelves') ? 'block' : 'none' }}>
+          <div style={{ display: hasVault && financeTab !== 'fileshare' && financeTab !== 'smart_calendar' && (!hasFinance || financeTab === 'documents' || financeTab === 'shelves') ? 'block' : 'none' }}>
             {hasVault && <DocumentsWidget ref={documentsRef} space={space} activePartnersCount={activePartnersCount} />}
           </div>
 
           {/* Dedicated Sharing Wall Screen (shown either when space is FileShare-only, or when user clicked 'קיר שיתוף') */}
-          {hasFileShare && (financeTab === 'fileshare' || (!hasFinance && !hasVault)) && (
+          {hasFileShare && (financeTab === 'fileshare' || (!hasFinance && !hasVault && financeTab !== 'smart_calendar')) && (
             <FileShareWidget
               space={space}
               hasPartners={hasPartners}
@@ -1424,6 +1455,14 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
               onOpenScanner={() => handleRestrictedAction(() => { setScannerMode('camera'); setScannerCategory('document'); setIsScannerOpen(true); })}
               onBackToSpace={hasFinance || hasVault ? () => setFinanceTab(hasFinance ? 'summary' : 'shelves') : undefined}
               onOpenPartners={() => handleRestrictedAction(() => setShowPartnersModal(true))}
+            />
+          )}
+
+          {/* Standalone SmartCalendar Add-on */}
+          {hasSmartCalendar && (financeTab === 'smart_calendar' || (!hasFinance && !hasVault && !hasFileShare)) && (
+            <SmartCalendarWidget
+              space={space}
+              onOpenFinanceTab={hasFinance ? () => setFinanceTab('summary') : undefined}
             />
           )}
 
@@ -1460,7 +1499,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
             partnersCount={activePartnersCount}
             isAddingExpense={isAddingExpense}
             isScannerOpen={isScannerOpen}
-            activeTab={financeTab}
+            activeTab={financeTab as any}
             setActiveTab={setFinanceTab}
             onAddExpense={() => handleRestrictedAction(() => setIsAddingExpense(true))}
             onOpenScanner={(mode = 'camera', category = 'receipt') => handleRestrictedAction(() => { setScannerMode(mode); setScannerCategory(category); setIsScannerOpen(true); })}
