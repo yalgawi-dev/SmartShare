@@ -422,7 +422,7 @@ export function FloatingActionBar({
               </div>
             )}
 
-            {hasPartners && !(hasFileShare && (effectiveTab === 'fileshare' || (!hasFinance && (!hasVault || !isInShelf)))) && (
+            {hasPartners && !(hasFileShare && (effectiveTab === 'fileshare' || (!hasFinance && (!hasVault || !isInShelf)))) && !(hasVault && isInShelf) && (
               <button 
                 onClick={hasActivePartners ? onOpenPartners : onOpenInvite}
                 style={{
@@ -445,8 +445,8 @@ export function FloatingActionBar({
               </button>
             )}
 
-            {/* When viewing Vault Shelves (Documents only space without finance) - Add Shelf & Import Action Buttons */}
-            {!hasFinance && hasVault && !isInShelf && !hasFileShare && (
+            {/* When viewing Vault Shelves (works BOTH in Documents-only spaces AND spaces with Finance + Vault!) */}
+            {hasVault && !isInShelf && (effectiveTab === 'shelves' || effectiveTab === 'documents') && (
               <div style={{ display: 'flex', gap: '0.1rem', flex: 1, width: '100%', alignItems: 'center' }}>
                 <button 
                   onClick={() => {
@@ -472,8 +472,8 @@ export function FloatingActionBar({
               </div>
             )}
 
-            {/* When INSIDE Vault Shelf in Documents Space - Folder Creation & Upload Tools */}
-            {!hasFinance && hasVault && isInShelf && (
+            {/* When INSIDE Vault Shelf (works BOTH in Documents-only spaces AND spaces with Finance + Vault!) */}
+            {hasVault && isInShelf && effectiveTab !== 'fileshare' && (
               <div style={{ display: 'flex', gap: '0.1rem', flex: 1, width: '100%', alignItems: 'center' }}>
                 <button 
                   onClick={() => {
