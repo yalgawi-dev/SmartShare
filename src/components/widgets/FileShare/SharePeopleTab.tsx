@@ -107,93 +107,133 @@ export function SharePeopleTab({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-      {/* Quick-Pick Row: 1-tap selection from Groups / Saved / Members / Phone */}
+      {/* Intuitive 2-Step Add Recipient Card: Tactile Source Buttons + Full-Width Manual Entry */}
       <div
         style={{
-          background: 'linear-gradient(135deg, rgba(99,102,241,0.06), rgba(59,130,246,0.04))',
-          border: '1px solid rgba(99,102,241,0.18)',
-          borderRadius: '14px',
-          padding: '0.75rem',
+          background: '#f8fafc',
+          border: '1.5px solid #cbd5e1',
+          borderRadius: '16px',
+          padding: '0.85rem',
           display: 'flex',
           flexDirection: 'column',
-          gap: '0.6rem',
+          gap: '0.7rem',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.4rem' }}>
-          <span style={{ fontSize: '0.84rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-            עם מי תרצה לשתף?
-          </span>
-          <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
-            {savedDirectory.groups.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setQuickPickPanel(quickPickPanel === 'groups' ? 'none' : 'groups')}
-                style={{
-                  padding: '0.32rem 0.6rem',
-                  borderRadius: '999px',
-                  border: quickPickPanel === 'groups' ? '1.5px solid #4f46e5' : '1px solid rgba(99,102,241,0.35)',
-                  background: quickPickPanel === 'groups' ? '#4f46e5' : '#fff',
-                  color: quickPickPanel === 'groups' ? '#fff' : '#4338ca',
-                  fontSize: '0.74rem',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
-              >
-                👥 קבוצות ({savedDirectory.groups.length})
-              </button>
-            )}
-            {savedDirectory.contacts.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setQuickPickPanel(quickPickPanel === 'contacts' ? 'none' : 'contacts')}
-                style={{
-                  padding: '0.32rem 0.6rem',
-                  borderRadius: '999px',
-                  border: quickPickPanel === 'contacts' ? '1.5px solid #0284c7' : '1px solid rgba(2,132,199,0.35)',
-                  background: quickPickPanel === 'contacts' ? '#0284c7' : '#fff',
-                  color: quickPickPanel === 'contacts' ? '#fff' : '#0369a1',
-                  fontSize: '0.74rem',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
-              >
-                📇 שמורים ({savedDirectory.contacts.length})
-              </button>
-            )}
-            {registeredMembers.length > 0 && (
-              <button
-                type="button"
-                onClick={onOpenMemberPicker}
-                style={{
-                  padding: '0.32rem 0.6rem',
-                  borderRadius: '999px',
-                  border: '1px solid rgba(16,185,129,0.35)',
-                  background: '#fff',
-                  color: '#047857',
-                  fontSize: '0.74rem',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
-              >
-                👤 חברי מרחב
-              </button>
-            )}
+        {/* Step 1: Clear Header + Tactile Source Grid */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+          <div>
+            <div style={{ fontSize: '0.9rem', fontWeight: 900, color: '#0f172a' }}>
+              ➕ הוסף אדם לשיתוף
+            </div>
+            <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '1px' }}>
+              בחר מאיפה לצרף נמען, או הקלד שם חדש למטה:
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+              gap: '0.45rem',
+            }}
+          >
             {supportsContactPicker && (
               <button
                 type="button"
                 onClick={onPickFromContacts}
                 style={{
-                  padding: '0.32rem 0.6rem',
-                  borderRadius: '999px',
-                  border: '1px solid rgba(100,116,139,0.35)',
-                  background: '#fff',
-                  color: '#334155',
-                  fontSize: '0.74rem',
-                  fontWeight: 700,
+                  padding: '0.6rem 0.5rem',
+                  borderRadius: '12px',
+                  border: '1.5px solid #94a3b8',
+                  background: '#ffffff',
+                  color: '#0f172a',
+                  fontSize: '0.8rem',
+                  fontWeight: 800,
                   cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.35rem',
+                  boxShadow: '0 2px 6px rgba(15,23,42,0.06)',
                 }}
               >
-                📱 טלפון
+                <span style={{ fontSize: '1.05rem' }}>📱</span>
+                <span>אנשי קשר בטלפון</span>
+              </button>
+            )}
+
+            {savedDirectory.contacts.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setQuickPickPanel(quickPickPanel === 'contacts' ? 'none' : 'contacts')}
+                style={{
+                  padding: '0.6rem 0.5rem',
+                  borderRadius: '12px',
+                  border: quickPickPanel === 'contacts' ? '2px solid #0284c7' : '1.5px solid #7dd3fc',
+                  background: quickPickPanel === 'contacts' ? '#0284c7' : '#f0f9ff',
+                  color: quickPickPanel === 'contacts' ? '#ffffff' : '#0369a1',
+                  fontSize: '0.8rem',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.35rem',
+                  boxShadow: '0 2px 6px rgba(2,132,199,0.1)',
+                }}
+              >
+                <span style={{ fontSize: '1.05rem' }}>📇</span>
+                <span>שמורים ({savedDirectory.contacts.length})</span>
+              </button>
+            )}
+
+            {registeredMembers.length > 0 && (
+              <button
+                type="button"
+                onClick={onOpenMemberPicker}
+                style={{
+                  padding: '0.6rem 0.5rem',
+                  borderRadius: '12px',
+                  border: '1.5px solid #6ee7b7',
+                  background: '#ecfdf5',
+                  color: '#047857',
+                  fontSize: '0.8rem',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.35rem',
+                  boxShadow: '0 2px 6px rgba(16,185,129,0.1)',
+                }}
+              >
+                <span style={{ fontSize: '1.05rem' }}>👤</span>
+                <span>חברי המרחב</span>
+              </button>
+            )}
+
+            {savedDirectory.groups.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setQuickPickPanel(quickPickPanel === 'groups' ? 'none' : 'groups')}
+                style={{
+                  padding: '0.6rem 0.5rem',
+                  borderRadius: '12px',
+                  border: quickPickPanel === 'groups' ? '2px solid #4f46e5' : '1.5px solid #c7d2fe',
+                  background: quickPickPanel === 'groups' ? '#4f46e5' : '#eef2ff',
+                  color: quickPickPanel === 'groups' ? '#ffffff' : '#4338ca',
+                  fontSize: '0.8rem',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.35rem',
+                  boxShadow: '0 2px 6px rgba(79,70,229,0.1)',
+                }}
+              >
+                <span style={{ fontSize: '1.05rem' }}>👥</span>
+                <span>קבוצות ({savedDirectory.groups.length})</span>
               </button>
             )}
           </div>
@@ -302,8 +342,15 @@ export function SharePeopleTab({
           </div>
         )}
 
-        {/* Single Clean Row: Name + Role + Add */}
-        <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'stretch' }}>
+        {/* Visual Divider */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0.1rem 0' }}>
+          <div style={{ flex: 1, height: '1px', background: '#cbd5e1' }} />
+          <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b' }}>או הוסף שם ידנית</span>
+          <div style={{ flex: 1, height: '1px', background: '#cbd5e1' }} />
+        </div>
+
+        {/* Full-Width Name Input + Clear Role & Prominent Add Row */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
           <input
             type="text"
             value={newRecipientName}
@@ -314,55 +361,64 @@ export function SharePeopleTab({
                 onAddRecipient();
               }
             }}
-            placeholder="הקלד שם (למשל: אלי אינסטלטור)..."
+            placeholder="הקלד שם מלא (למשל: עלי קבלן שלד)..."
             style={{
-              flex: 1,
-              minWidth: 0,
-              padding: '0.55rem 0.7rem',
-              borderRadius: '10px',
-              border: '1px solid var(--border-color)',
-              background: '#fff',
-              color: 'var(--text-primary)',
-              fontSize: '0.86rem',
+              width: '100%',
+              boxSizing: 'border-box',
+              padding: '0.65rem 0.75rem',
+              borderRadius: '11px',
+              border: '1.5px solid #cbd5e1',
+              background: '#ffffff',
+              color: '#0f172a',
+              fontSize: '0.9rem',
+              fontWeight: 600,
               outline: 'none',
             }}
           />
-          <select
-            value={newRecipientRole}
-            onChange={(e) => setNewRecipientRole(e.target.value as RecipientRole)}
-            aria-label="תפקיד נמען"
-            style={{
-              padding: '0.5rem 0.45rem',
-              borderRadius: '10px',
-              border: '1px solid var(--border-color)',
-              background: '#fff',
-              color: 'var(--text-primary)',
-              fontSize: '0.8rem',
-              fontWeight: 600,
-            }}
-          >
-            <option value="client">לקוח</option>
-            <option value="provider">קבלן / ספק</option>
-            <option value="general">שותף / כללי</option>
-          </select>
-          <button
-            type="button"
-            onClick={onAddRecipient}
-            disabled={!newRecipientName.trim()}
-            style={{
-              padding: '0.55rem 0.85rem',
-              borderRadius: '10px',
-              border: 'none',
-              background: newRecipientName.trim() ? 'linear-gradient(135deg, #4f46e5, #2563eb)' : '#cbd5e1',
-              color: '#fff',
-              fontWeight: 800,
-              fontSize: '0.84rem',
-              cursor: newRecipientName.trim() ? 'pointer' : 'not-allowed',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            + הוסף
-          </button>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.3fr)', gap: '0.45rem' }}>
+            <select
+              value={newRecipientRole}
+              onChange={(e) => setNewRecipientRole(e.target.value as RecipientRole)}
+              aria-label="תפקיד נמען"
+              style={{
+                width: '100%',
+                boxSizing: 'border-box',
+                padding: '0.6rem 0.55rem',
+                borderRadius: '11px',
+                border: '1.5px solid #cbd5e1',
+                background: '#ffffff',
+                color: '#0f172a',
+                fontSize: '0.84rem',
+                fontWeight: 700,
+              }}
+            >
+              <option value="client">תפקיד: לקוח</option>
+              <option value="provider">תפקיד: קבלן / ספק</option>
+              <option value="general">תפקיד: שותף / כללי</option>
+            </select>
+
+            <button
+              type="button"
+              onClick={onAddRecipient}
+              disabled={!newRecipientName.trim()}
+              style={{
+                width: '100%',
+                padding: '0.6rem 0.85rem',
+                borderRadius: '11px',
+                border: newRecipientName.trim() ? 'none' : '1.5px solid #cbd5e1',
+                background: newRecipientName.trim() ? 'linear-gradient(135deg, #4f46e5, #2563eb)' : '#e2e8f0',
+                color: newRecipientName.trim() ? '#ffffff' : '#64748b',
+                fontWeight: 900,
+                fontSize: '0.86rem',
+                cursor: newRecipientName.trim() ? 'pointer' : 'not-allowed',
+                boxShadow: newRecipientName.trim() ? '0 4px 12px rgba(79,70,229,0.28)' : 'none',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              ➕ הוסף לשיתוף
+            </button>
+          </div>
         </div>
 
         {/* Optional Phone & Notes Toggle (Progressive Disclosure) */}

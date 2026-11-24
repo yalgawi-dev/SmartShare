@@ -1105,8 +1105,8 @@ export function FileShareWidget({
               }}
               title="צור או נהל קישור שיתוף חיצוני לכל הקיר / פרויקט"
             >
-              <span>🌐</span>
-              <span>שתף קיר</span>
+              <span>👥</span>
+              <span>שתף קיר עם אנשים</span>
             </button>
           )}
 
