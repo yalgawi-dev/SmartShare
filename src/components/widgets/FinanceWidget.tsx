@@ -14,6 +14,7 @@ import { useAuth } from '../../app/context/AuthContext';
 import { FinanceSummary } from './Finance/FinanceSummary';
 import { FinanceInbox } from './Finance/FinanceInbox';
 import { calculateCurrentSharesSnapshot } from '../../utils/partnerUtils';
+import { parseFormattedAmount } from '../../utils/numberFormat';
 import { FinanceTransactions } from './Finance/FinanceTransactions';
 import { FinanceAddExpenseForm } from './Finance/FinanceAddExpenseForm';
 import { FinanceTransferModal } from './Finance/FinanceTransferModal';
@@ -111,46 +112,11 @@ const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddi
 
   const searchParams = useSearchParams();
     const [selectedPayerId, setSelectedPayerId] = useState<string>('me');
-    const [initialPayerSplitMode, setInitialPayerSplitMode] = useState<'single' | 'all_by_shares' | 'custom_split'>('single');
-    const [initialPayerSplitPercents, setInitialPayerSplitPercents] = useState<Record<string, number> | undefined>(undefined);
     
     useEffect(() => {
       const p = searchParams?.get('payerId');
       if (p) setSelectedPayerId(p);
-      const modeParam = searchParams?.get('payerSplitMode');
-      if (modeParam === 'all_by_shares' || modeParam === 'custom_split' || modeParam === 'single') {
-        setInitialPayerSplitMode(modeParam);
-      }
-      const pctsParam = searchParams?.get('payerSplitPcts');
-      if (pctsParam) {
-        try {
-          const parsed = JSON.parse(pctsParam);
-          if (parsed && typeof parsed === 'object') {
-            setInitialPayerSplitPercents(parsed);
-          }
-        } catch {}
-      }
     }, [searchParams]);
-
-    // Also sync immediately from in-memory shared expense event if this space is already mounted
-    useEffect(() => {
-      if (typeof window === 'undefined') return;
-      const onSharedExpense = (ev: any) => {
-        const detail = ev?.detail;
-        if (!detail || (detail.spaceId && detail.spaceId !== space.id)) return;
-        if (detail.payerId) setSelectedPayerId(detail.payerId);
-        if (detail.payerSplitMode === 'all_by_shares' || detail.payerSplitMode === 'custom_split' || detail.payerSplitMode === 'single') {
-          setInitialPayerSplitMode(detail.payerSplitMode);
-        }
-        if (detail.payerSplitPercents && typeof detail.payerSplitPercents === 'object') {
-          setInitialPayerSplitPercents(detail.payerSplitPercents);
-        } else {
-          setInitialPayerSplitPercents(undefined);
-        }
-      };
-      window.addEventListener('smartshare:trigger_shared_expense', onSharedExpense);
-      return () => window.removeEventListener('smartshare:trigger_shared_expense', onSharedExpense);
-    }, [space.id]);
   const [selectedCategory, setSelectedCategory] = useState('כללי');
 
   const [preselectedAmount, setPreselectedAmount] = useState<number | undefined>(undefined);
@@ -481,8 +447,6 @@ const [isMounted, setIsMounted] = useState(false);
     rawPdfUploadPromiseRef.current = null;
     setRawPdfUrl(null);
     setSelectedCategory('כללי'); // Reset to default so next time 'הזנה' opens the correct modal
-    setInitialPayerSplitMode('single');
-    setInitialPayerSplitPercents(undefined);
     
     setOcrData({});
     setOcrDebugMessage(null);
@@ -568,7 +532,7 @@ const [isMounted, setIsMounted] = useState(false);
   const handleAddExpense = async (e: React.FormEvent<HTMLFormElement>, options?: { overrideCategory?: string, customPayerId?: string, attachmentUrl?: string | null, rawPdfUrl?: string | null }) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    let amount = Number(formData.get('amount'));
+    let amount = parseFormattedAmount(formData.get('amount') as string);
       const isCredit = formData.get('isCredit') === 'true';
       const isStoreCredit = formData.get('isStoreCredit') === 'true';
       if (isCredit) {
@@ -1019,8 +983,6 @@ const [isMounted, setIsMounted] = useState(false);
           onAttachToExisting={handleAttachToExistingExpense}
           selectedPayerId={selectedPayerId}
           setSelectedPayerId={setSelectedPayerId}
-          initialPayerSplitMode={initialPayerSplitMode}
-          initialPayerSplitPercents={initialPayerSplitPercents}
           selectedCategory={selectedCategory}
           setSelectedCategory={setSelectedCategory}
         />,

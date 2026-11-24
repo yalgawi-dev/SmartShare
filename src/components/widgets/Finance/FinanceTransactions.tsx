@@ -15,6 +15,7 @@ import { CreateShareLinkModal } from '../FileShare/CreateShareLinkModal';
 import { FileShareItem, ShareLinkConfig } from '@/utils/fileShareUtils';
 import { calculateCurrentSharesSnapshot } from '../../../utils/partnerUtils';
 import { PayerSplitEditor, PayerSplitMode, SplitPartnerOption } from './PayerSplitEditor';
+import { formatAmountInputDisplay, stripAmountCommas, parseFormattedAmount } from '@/utils/numberFormat';
 
 /**
  * Normalizes any invoice date string (DD.MM.YYYY, DD/MM/YYYY, YYYY-MM-DD, ISO)
@@ -306,7 +307,7 @@ export function FinanceTransactions({
       return;
     }
 
-    const newAmount = Number(editForm.amount);
+    const newAmount = parseFormattedAmount(editForm.amount);
     if (isNaN(newAmount) || newAmount <= 0) {
       alert('נא להזין סכום תקין הגדול מ-0.');
       return;
@@ -1127,7 +1128,15 @@ export function FinanceTransactions({
 
                           <label style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                             סכום (₪)
-                            <input type="number" step="0.01" placeholder="0.00" value={editForm.amount} onChange={e => setEditForm({...editForm, amount: e.target.value})} style={{ padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'var(--bg-card)', color: 'var(--text-primary)' }} />
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              dir="ltr"
+                              placeholder="0.00"
+                              value={formatAmountInputDisplay(editForm.amount)}
+                              onChange={e => setEditForm({...editForm, amount: stripAmountCommas(e.target.value)})}
+                              style={{ padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'var(--bg-card)', color: 'var(--text-primary)', textAlign: 'left', fontVariantNumeric: 'tabular-nums' }}
+                            />
                           </label>
 
                           {/* NO-VAT TOGGLE IN TRANSACTION EDIT FORM */}

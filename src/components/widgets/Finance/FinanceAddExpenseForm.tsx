@@ -7,6 +7,7 @@ import { parseCleanAmount, matchInvoiceToExpenses } from '@/utils/invoiceMatcher
 import { useSpaces } from '@/app/context/SpacesContext';
 import { calculateCurrentSharesSnapshot } from '@/utils/partnerUtils';
 import { PayerSplitEditor, PayerSplitMode, SplitPartnerOption, buildSpacePartnerOptions, computeSplitsFromPercents } from './PayerSplitEditor';
+import { formatAmountInputDisplay, stripAmountCommas } from '@/utils/numberFormat';
 
 interface FinanceAddExpenseFormProps {
   space?: any;
@@ -28,8 +29,6 @@ interface FinanceAddExpenseFormProps {
   setPreviewImage: (url: string | null) => void;
   selectedPayerId: string;
   setSelectedPayerId: (val: string) => void;
-  initialPayerSplitMode?: PayerSplitMode;
-  initialPayerSplitPercents?: Record<string, number>;
   selectedCategory: string;
   setSelectedCategory: (val: string) => void;
   onAttachToExisting?: (targetExpenseId: string, applyAmount?: boolean) => void;
@@ -55,8 +54,6 @@ export function FinanceAddExpenseForm({
   setPreviewImage,
   selectedPayerId,
   setSelectedPayerId,
-  initialPayerSplitMode,
-  initialPayerSplitPercents,
   selectedCategory,
   setSelectedCategory,
   onAttachToExisting
@@ -95,21 +92,9 @@ export function FinanceAddExpenseForm({
   };
   const [isStoreCredit, setIsStoreCredit] = React.useState(false);
   const [isNoVat, setIsNoVat] = React.useState<boolean>(() => Boolean(retroInvoiceToEdit?.isNoVat));
-  const [payerSplitMode, setPayerSplitMode] = useState<PayerSplitMode>(() => retroInvoiceToEdit?.payerSplitMode || initialPayerSplitMode || 'single');
+  const [payerSplitMode, setPayerSplitMode] = useState<PayerSplitMode>(() => retroInvoiceToEdit?.payerSplitMode || 'single');
   const [payerSplits, setPayerSplits] = useState<Record<string, number>>(() => retroInvoiceToEdit?.payerSplits || {});
-  const [payerSplitPercents, setPayerSplitPercents] = useState<Record<string, number>>(() => initialPayerSplitPercents || {});
-
-  useEffect(() => {
-    if (!retroInvoiceToEdit && initialPayerSplitMode) {
-      setPayerSplitMode(initialPayerSplitMode);
-    }
-  }, [initialPayerSplitMode, retroInvoiceToEdit]);
-
-  useEffect(() => {
-    if (!retroInvoiceToEdit && initialPayerSplitPercents && Object.keys(initialPayerSplitPercents).length > 0) {
-      setPayerSplitPercents(initialPayerSplitPercents);
-    }
-  }, [initialPayerSplitPercents, retroInvoiceToEdit]);
+  const [payerSplitPercents, setPayerSplitPercents] = useState<Record<string, number>>({});
 
     React.useEffect(() => {
       if (ocrData?.isCreditInvoice !== undefined) {
@@ -141,7 +126,12 @@ export function FinanceAddExpenseForm({
   }, [ocrData, retroInvoiceToEdit]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormValues(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    if (name === 'amount' || name === 'vatAmount') {
+      setFormValues(prev => ({ ...prev, [name]: stripAmountCommas(value) }));
+    } else {
+      setFormValues(prev => ({ ...prev, [name]: value }));
+    }
   };
 
   const { spaces } = useSpaces();
@@ -225,6 +215,8 @@ export function FinanceAddExpenseForm({
 
   const renderSmartInput = (name: string, type: string, label: string, placeholder: string, value: string | number, aiExtracted: boolean, required = false, step?: string) => {
     const isMissing = required && !value && scannedImage && !isAnalyzing;
+    const isCurrencyField = type === 'number' && (name === 'amount' || name === 'vatAmount');
+    const displayValue = isCurrencyField ? formatAmountInputDisplay(value) : value;
     
     return (
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.25rem', minWidth: '130px' }}>
@@ -236,9 +228,11 @@ export function FinanceAddExpenseForm({
           <input 
             required={required} 
             name={name} 
-            type={type} 
-            step={step}
-            value={value}
+            type={isCurrencyField ? 'text' : type}
+            inputMode={isCurrencyField ? 'decimal' : undefined}
+            dir={isCurrencyField ? 'ltr' : undefined}
+            step={isCurrencyField ? undefined : step}
+            value={displayValue}
             onChange={handleChange}
             placeholder={placeholder} 
             style={{ 
@@ -249,6 +243,8 @@ export function FinanceAddExpenseForm({
               fontSize: '1rem', 
               background: isMissing ? '#fef2f2' : (aiExtracted ? '#ecfdf5' : 'rgba(0,0,0,0.02)'), 
               color: 'var(--text-primary)',
+              textAlign: isCurrencyField ? 'left' : undefined,
+              fontVariantNumeric: isCurrencyField ? 'tabular-nums' : undefined,
               transition: 'all 0.2s ease'
             }} 
           />

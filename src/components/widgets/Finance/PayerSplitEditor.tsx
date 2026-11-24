@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { calculateCurrentSharesSnapshot } from '@/utils/partnerUtils';
+import { formatAmountInputDisplay, stripAmountCommas } from '@/utils/numberFormat';
 
 export interface SplitPartnerOption {
   userId: string;
@@ -250,7 +251,7 @@ export const PayerSplitEditor: React.FC<PayerSplitEditorProps> = ({
 
   // Update a specific partner's amount (or percentage) and auto-balance the remaining partner if 2 are checked (or last checked partner)
   const handlePartnerValueChange = (uid: string, rawVal: string) => {
-    const parsed = parseFloat(rawVal);
+    const parsed = parseFloat(stripAmountCommas(rawVal));
     const val = isNaN(parsed) ? 0 : Math.max(0, parsed);
 
     if (isPercentOnlyMode && onChangePayerSplitPercents) {
@@ -589,14 +590,16 @@ export const PayerSplitEditor: React.FC<PayerSplitEditorProps> = ({
                   {isChecked && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', flexShrink: 0 }}>
                       <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={effectiveUnit === 'amount' ? (partnerAmt || '') : (partnerPct || '')}
+                        type={effectiveUnit === 'amount' ? 'text' : 'number'}
+                        inputMode="decimal"
+                        dir="ltr"
+                        step={effectiveUnit === 'amount' ? undefined : '0.01'}
+                        min={effectiveUnit === 'amount' ? undefined : '0'}
+                        value={effectiveUnit === 'amount' ? (partnerAmt ? formatAmountInputDisplay(partnerAmt) : '') : (partnerPct || '')}
                         onChange={(e) => handlePartnerValueChange(p.userId, e.target.value)}
                         placeholder={effectiveUnit === 'amount' ? '0 ₪' : '0%'}
                         style={{
-                          width: '92px',
+                          width: '104px',
                           padding: '0.35rem 0.5rem',
                           borderRadius: '8px',
                           border: '1px solid #a78bfa',
@@ -605,6 +608,7 @@ export const PayerSplitEditor: React.FC<PayerSplitEditorProps> = ({
                           color: '#0f172a',
                           background: '#ffffff',
                           textAlign: 'left',
+                          fontVariantNumeric: 'tabular-nums',
                           outline: 'none'
                         }}
                       />
