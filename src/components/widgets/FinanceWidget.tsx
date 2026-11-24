@@ -529,8 +529,19 @@ const [isMounted, setIsMounted] = useState(false);
     validMembers.push(createVirtualTreasury());
   }
 
-  const handleAddExpense = async (e: React.FormEvent<HTMLFormElement>, options?: { overrideCategory?: string, customPayerId?: string, attachmentUrl?: string | null, rawPdfUrl?: string | null }) => {
+  const handleAddExpense = async (e: React.FormEvent<HTMLFormElement>, options?: { overrideCategory?: string, customPayerId?: string, attachmentUrl?: string | null, rawPdfUrl?: string | null, targetSpaceId?: string }) => {
     e.preventDefault();
+    const destinationSpace =
+      options?.targetSpaceId && options.targetSpaceId !== space.id
+        ? (spaces || []).find((s: any) => s.id === options.targetSpaceId) || space
+        : space;
+    const isMovingToOtherSpace = destinationSpace.id !== space.id;
+    const destMembers = isMovingToOtherSpace
+      ? (destinationSpace.members || []).filter((m: any) => m.userId !== myEffectiveId && m.userId !== user?.id && m.status !== 'removed')
+      : validMembers;
+    const destActivePartnersCount = isMovingToOtherSpace
+      ? (destinationSpace.members || []).filter((m: any) => m.userId !== (destinationSpace.creatorId || destinationSpace.createdBy) && m.isActive !== false && m.status !== 'removed').length
+      : activePartnersCount;
     const formData = new FormData(e.currentTarget);
     let amount = parseFormattedAmount(formData.get('amount') as string);
       const isCredit = formData.get('isCredit') === 'true';
@@ -575,7 +586,7 @@ const [isMounted, setIsMounted] = useState(false);
       const splitLabels = splitKeys.map(uid => {
         const pName = (uid === myEffectiveId || uid === user?.id || uid === 'me')
           ? (user?.realName || 'אני')
-          : (validMembers.find((m: any) => m.userId === uid)?.name || 'שותף');
+          : (destMembers.find((m: any) => m.userId === uid)?.name || 'שותף');
         const pAmt = parsedPayerSplits![uid];
         const pct = amount > 0 ? Math.round((pAmt / Math.abs(amount)) * 100) : 0;
         return `${pName} (${pct}%)`;
@@ -588,11 +599,11 @@ const [isMounted, setIsMounted] = useState(false);
         payerName = user?.realName || 'אני';
         payerId = myEffectiveId;
       } else {
-        const partner = validMembers.find((m: any) => m.userId === payerId);
+        const partner = destMembers.find((m: any) => m.userId === payerId);
         if (partner) payerName = partner.name;
       }
     } else if (selectedPayerId !== 'me' && selectedPayerId !== user?.id && selectedPayerId !== myEffectiveId) {
-      const partner = validMembers.find((m: any) => m.userId === selectedPayerId);
+      const partner = destMembers.find((m: any) => m.userId === selectedPayerId);
       if (partner) {
         payerName = partner.name;
         payerId = partner.userId;
@@ -638,7 +649,7 @@ const [isMounted, setIsMounted] = useState(false);
     }
 
     const myApproval = 1; // The person uploading inherently approves it
-    const expenseApprovalsNeeded = activePartnersCount > 0 ? activePartnersCount + 1 : 0;
+    const expenseApprovalsNeeded = destActivePartnersCount > 0 ? destActivePartnersCount + 1 : 0;
     
     const isTransfer = category === 'העברה/קיזוז';
     const isIncome = category === 'הכנסת עסק';
@@ -702,7 +713,7 @@ const [isMounted, setIsMounted] = useState(false);
       approvalsNeeded: finalApprovalsNeeded,
       approvalsReceived: finalApprovalsReceived,
       approvedBy: finalApprovedBy,
-      vatRate: space.settings?.defaultVatRate || 18,
+      vatRate: destinationSpace.settings?.defaultVatRate || 18,
       isNoVat: isNoVat,
       hasAttachment: !!finalAttachmentUrl,
       payerId: payerId,
@@ -727,7 +738,7 @@ const [isMounted, setIsMounted] = useState(false);
       setRetroInvoiceToEdit(null);
       if(setIsAddingExpense) setIsAddingExpense(false);
     } else {
-      addInvoice(space.id, newInvoice);
+      addInvoice(destinationSpace.id, newInvoice);
       recordTelemetryAction('invoiceCreate');
     }
       if (reviewingInboxItemId) {
@@ -737,9 +748,15 @@ const [isMounted, setIsMounted] = useState(false);
       }
 
     handleCloseForm();
-    setActiveTab('transactions'); // Move to transactions so they see the newly added item at the top!
+    if (!isMovingToOtherSpace) {
+      setActiveTab('transactions'); // Move to transactions so they see the newly added item at the top!
+    }
     
-    setToastMsg('ההוצאה נוספה בהצלחה!');
+    setToastMsg(
+      isMovingToOtherSpace
+        ? `ההוצאה נשמרה בהצלחה במרחב "${destinationSpace.title}"!`
+        : 'ההוצאה נוספה בהצלחה!'
+    );
     setTimeout(() => setToastMsg(null), 3000);
   };
 

@@ -21,7 +21,7 @@ interface FinanceAddExpenseFormProps {
   isAnalyzing: boolean;
   ocrElapsedTime: number;
   ocrDebugMessage: string | null;
-  handleAddExpense: (e: React.FormEvent<HTMLFormElement>, options?: { overrideCategory?: string; customPayerId?: string; attachmentUrl?: string | null; rawPdfUrl?: string | null }) => void;
+  handleAddExpense: (e: React.FormEvent<HTMLFormElement>, options?: { overrideCategory?: string; customPayerId?: string; attachmentUrl?: string | null; rawPdfUrl?: string | null; targetSpaceId?: string }) => void;
   handleCloseForm: () => void;
   isScanning: boolean;
   setIsScanning: (val: boolean) => void;
@@ -135,13 +135,39 @@ export function FinanceAddExpenseForm({
   };
 
   const { spaces } = useSpaces();
-  const currentSpace = (spaces || []).find((s: any) => s.id === space?.id) || space;
+  const [targetSpaceId, setTargetSpaceId] = useState<string>(space?.id || '');
+  const [isSpacePickerOpen, setIsSpacePickerOpen] = useState(false);
+
+  useEffect(() => {
+    if (space?.id && !targetSpaceId) {
+      setTargetSpaceId(space.id);
+    }
+  }, [space?.id, targetSpaceId]);
+
+  // All active spaces with Finance enabled that the user can move this scanned expense to
+  const financeEligibleSpaces = useMemo(() => {
+    return (spaces || []).filter((s: any) => {
+      if (!s || s.deletedAt || s.archivedAt || s.isArchived) return false;
+      const feats: string[] = Array.isArray(s.features) ? s.features : [];
+      return feats.includes('finance');
+    });
+  }, [spaces]);
+
+  const currentSpace = (spaces || []).find((s: any) => s.id === targetSpaceId) || space;
+  const isSwitchedSpace = Boolean(targetSpaceId && space?.id && targetSpaceId !== space.id);
   const effectiveInvoices = currentSpace?.invoices || space?.invoices || [];
 
-  // Build unified list of participating partners (self + validMembers) using DRY Single Source of Truth helper
+  const effectiveValidMembers = useMemo(() => {
+    if (!isSwitchedSpace) return validMembers;
+    return (currentSpace?.members || []).filter(
+      (m: any) => m && m.userId && m.userId !== user?.id && m.status !== 'removed'
+    );
+  }, [isSwitchedSpace, validMembers, currentSpace?.members, user?.id]);
+
+  // Build unified list of participating partners (self + effectiveValidMembers) using DRY Single Source of Truth helper
   const allPartnerOptions: SplitPartnerOption[] = useMemo(
-    () => buildSpacePartnerOptions(currentSpace, user, validMembers),
-    [currentSpace, user, validMembers]
+    () => buildSpacePartnerOptions(currentSpace, user, effectiveValidMembers),
+    [currentSpace, user, effectiveValidMembers]
   );
 
   // Auto-sync ₪ splits from pre-selected percentages (e.g. from SharedFileHandler) once amount is scanned or changed
@@ -268,11 +294,93 @@ export function FinanceAddExpenseForm({
               <span style={{ fontSize: '0.72rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: '6px', padding: '1px 6px', fontWeight: 'bold' }}>{APP_VERSION}</span>
             </div>
             {currentSpace?.title && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                <span>📁 מרחב פעיל:</span>
-                <span style={{ fontWeight: 700, color: 'var(--primary)', background: 'rgba(79, 70, 229, 0.08)', padding: '1px 8px', borderRadius: '8px' }}>
-                  {currentSpace.icon ? currentSpace.icon + ' ' : ''}{currentSpace.title}
-                </span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap', fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
+                  <span>{isSwitchedSpace ? '🔄 נשמר אל:' : '📁 מרחב פעיל:'}</span>
+                  <span style={{
+                    fontWeight: 700,
+                    color: isSwitchedSpace ? '#0369a1' : 'var(--primary)',
+                    background: isSwitchedSpace ? '#e0f2fe' : 'rgba(79, 70, 229, 0.08)',
+                    border: isSwitchedSpace ? '1px solid #7dd3fc' : 'none',
+                    padding: '1px 8px',
+                    borderRadius: '8px'
+                  }}>
+                    {currentSpace.icon ? currentSpace.icon + ' ' : ''}{currentSpace.title}
+                  </span>
+                  {!retroInvoiceToEdit && financeEligibleSpaces.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setIsSpacePickerOpen((prev) => !prev)}
+                      style={{
+                        background: isSpacePickerOpen ? '#eef2ff' : 'transparent',
+                        color: '#475569',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: '8px',
+                        padding: '1px 7px',
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {isSpacePickerOpen ? 'סגור' : '⇄ החלף מרחב'}
+                    </button>
+                  )}
+                </div>
+
+                {isSpacePickerOpen && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '4px',
+                      background: '#f8fafc',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: '11px',
+                      padding: '0.45rem',
+                      marginTop: '2px',
+                      maxHeight: '170px',
+                      overflowY: 'auto',
+                    }}
+                  >
+                    <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 700, padding: '0 4px' }}>
+                      בחר מרחב יעד (כל נתוני הסריקה יישמרו):
+                    </div>
+                    {financeEligibleSpaces.map((sp: any) => {
+                      const isCurrent = sp.id === currentSpace.id;
+                      return (
+                        <button
+                          key={sp.id}
+                          type="button"
+                          onClick={() => {
+                            setTargetSpaceId(sp.id);
+                            setSelectedPayerId(user?.id || 'me');
+                            setPayerSplitMode('single');
+                            setPayerSplits({});
+                            setPayerSplitPercents({});
+                            setIsSpacePickerOpen(false);
+                          }}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '0.42rem 0.6rem',
+                            borderRadius: '8px',
+                            border: isCurrent ? '1.5px solid #4f46e5' : '1px solid transparent',
+                            background: isCurrent ? '#eef2ff' : '#ffffff',
+                            color: isCurrent ? '#3730a3' : '#0f172a',
+                            fontWeight: isCurrent ? 800 : 600,
+                            fontSize: '0.8rem',
+                            cursor: 'pointer',
+                            textAlign: 'right',
+                          }}
+                        >
+                          <span>{sp.icon ? `${sp.icon} ` : '📁 '}{sp.title}</span>
+                          {isCurrent && <span>✓</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -284,9 +392,12 @@ export function FinanceAddExpenseForm({
           onSubmit={(e) =>
             handleAddExpense(
               e,
-              manualAttachmentUrl
-                ? { attachmentUrl: manualAttachmentUrl, rawPdfUrl: manualAttachmentRawPdfUrl }
-                : undefined
+              {
+                targetSpaceId: currentSpace?.id,
+                ...(manualAttachmentUrl
+                  ? { attachmentUrl: manualAttachmentUrl, rawPdfUrl: manualAttachmentRawPdfUrl }
+                  : {}),
+              }
             )
           }
           style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%', maxWidth: '100%' }}
@@ -679,7 +790,7 @@ export function FinanceAddExpenseForm({
             </div>
           </div>
           
-          {validMembers.length > 0 && (
+          {effectiveValidMembers.length > 0 && (
             selectedCategory === 'העברה/קיזוז' || selectedCategory === 'הכנסת עסק' ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                 <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>
@@ -692,7 +803,7 @@ export function FinanceAddExpenseForm({
                   style={{ padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'rgba(0,0,0,0.02)' }}
                 >
                   <option value={user?.id || 'me'}>{user?.realName || 'אני'}</option>
-                  {validMembers.map((m: any) => (
+                  {effectiveValidMembers.map((m: any) => (
                     <option key={m.userId} value={m.userId}>{m.name}</option>
                   ))}
                 </select>
