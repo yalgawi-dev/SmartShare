@@ -1645,172 +1645,209 @@ export default function SharedFileHandler() {
                 </select>
               </div>
 
-              {/* STEP 2: Intent Selection within Space */}
-              <div style={{ marginBottom: '1.25rem' }}>
-                <label style={{ fontSize: '0.82rem', fontWeight: '800', color: '#475569', marginBottom: '0.45rem', display: 'block' }}>
-                  מה סוג הפעולה בפרויקט?
-                </label>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  
-                  {/* Option 0: FileShare space */}
-                  {spaceHasFileShare && (
-                    <label style={{
-                      display: 'flex', alignItems: 'flex-start', gap: '0.75rem', padding: '0.75rem 0.85rem',
-                      borderRadius: '12px', cursor: 'pointer', transition: 'all 0.15s ease',
-                      border: routeDestination === 'fileshare' ? '2px solid #4f46e5' : '1px solid #e2e8f0',
-                      backgroundColor: routeDestination === 'fileshare' ? '#eef2ff' : '#ffffff'
-                    }}>
-                      <input 
-                        type="radio" 
-                        name="spaceAction" 
-                        checked={routeDestination === 'fileshare'} 
-                        onChange={() => setRouteDestination('fileshare')}
-                        style={{ marginTop: '0.2rem' }}
-                      />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: '800', fontSize: '0.88rem', color: '#1e293b' }}>
-                          📁 מרחב שיתוף קבצים
-                        </div>
-                        <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.15rem' }}>
-                          שומר ישירות לתיקייה במרחב השיתוף ומאפשר צפייה והורדה.
-                        </div>
-                      </div>
-                    </label>
-                  )}
+              {/* STEP 2: Clean 2-Level Categorized Destination Picker (Zero Clutter) */}
+              {(() => {
+                const isFinanceRoute =
+                  routeDestination === 'direct' ||
+                  routeDestination === 'direct_manual' ||
+                  routeDestination === 'inbox' ||
+                  routeDestination === 'attach_existing';
 
-                  {/* Option 1: Documents Vault (NO OCR) */}
-                  {spaceHasVault && (
-                    <label style={{
-                      display: 'flex', alignItems: 'flex-start', gap: '0.75rem', padding: '0.75rem 0.85rem',
-                      borderRadius: '12px', cursor: 'pointer', transition: 'all 0.15s ease',
-                      border: routeDestination === 'vault' ? '2px solid #4f46e5' : '1px solid #e2e8f0',
-                      backgroundColor: routeDestination === 'vault' ? '#eef2ff' : '#ffffff'
-                    }}>
-                      <input 
-                        type="radio" 
-                        name="spaceAction" 
-                        checked={routeDestination === 'vault'} 
-                        onChange={() => setRouteDestination('vault')}
-                        style={{ marginTop: '0.2rem' }}
-                      />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: '800', fontSize: '0.88rem', color: '#1e293b' }}>
-                          🗂️ מסמך כללי למדף (חוזה, תוכנית, קובץ)
-                        </div>
-                        <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.15rem' }}>
-                          שומר ישירות לתיקייה בפרויקט <strong>ללא OCR</strong>.
-                        </div>
-                      </div>
-                    </label>
-                  )}
+                const activeFinanceHint =
+                  routeDestination === 'direct'
+                    ? '🧾 פותח טופס הוצאה ומפעיל סריקת AI אוטומטית (ספק, סכום ומע״מ).'
+                    : routeDestination === 'direct_manual'
+                      ? '✍️ פותח טופס הוצאה ידני עם הקובץ מצורף — ללא סריקת OCR.'
+                      : routeDestination === 'inbox'
+                        ? '📥 שומר במחסן ההמתנה של הפרויקט לטיפול מאוחר יותר.'
+                        : '🔗 מצליב מול הוצאה שכבר הוזנה ידנית בלי להוסיף כפילות.';
 
-                  {/* Option 2: Project Inbox / Waiting room (NO Immediate OCR) */}
-                  {spaceHasFinance && (
-                    <label style={{
-                      display: 'flex', alignItems: 'flex-start', gap: '0.75rem', padding: '0.75rem 0.85rem',
-                      borderRadius: '12px', cursor: 'pointer', transition: 'all 0.15s ease',
-                      border: routeDestination === 'inbox' ? '2px solid #4f46e5' : '1px solid #e2e8f0',
-                      backgroundColor: routeDestination === 'inbox' ? '#eef2ff' : '#ffffff'
-                    }}>
-                      <input 
-                        type="radio" 
-                        name="spaceAction" 
-                        checked={routeDestination === 'inbox'} 
-                        onChange={() => setRouteDestination('inbox')}
-                        style={{ marginTop: '0.2rem' }}
-                      />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: '800', fontSize: '0.88rem', color: '#1e293b' }}>
-                          📥 מחסן ההמתנה של הפרויקט
-                        </div>
-                        <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.15rem' }}>
-                          שומר במחסן המשותף לטיפול מאוחר יותר של כל השותפים.
-                        </div>
-                      </div>
-                    </label>
-                  )}
+                const topCategories: Array<{
+                  id: 'fileshare' | 'vault' | 'finance';
+                  icon: string;
+                  label: string;
+                  active: boolean;
+                  onClick: () => void;
+                }> = [];
 
-                  {/* Option 3: Direct Expense with OCR */}
-                  {spaceHasFinance && (
-                    <label style={{
-                      display: 'flex', alignItems: 'flex-start', gap: '0.75rem', padding: '0.75rem 0.85rem',
-                      borderRadius: '12px', cursor: 'pointer', transition: 'all 0.15s ease',
-                      border: routeDestination === 'direct' ? '2px solid #4f46e5' : '1px solid #e2e8f0',
-                      backgroundColor: routeDestination === 'direct' ? '#eef2ff' : '#ffffff',
-                      opacity: sharedFiles.length > 1 ? 0.6 : 1
-                    }}>
-                      <input 
-                        type="radio" 
-                        name="spaceAction" 
-                        checked={routeDestination === 'direct'} 
-                        disabled={sharedFiles.length > 1}
-                        onChange={() => setRouteDestination('direct')}
-                        style={{ marginTop: '0.2rem' }}
-                      />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: '800', fontSize: '0.88rem', color: '#1e293b' }}>
-                          🧾 הוצאה כספית ישירה + סריקת AI
-                        </div>
-                        <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.15rem' }}>
-                          פותח טופס הוצאה ומפעיל חילוץ כספי (ספק, סכום ומע&quot;מ).
-                        </div>
-                      </div>
-                    </label>
-                  )}
+                if (spaceHasFileShare) {
+                  topCategories.push({
+                    id: 'fileshare',
+                    icon: '📤',
+                    label: 'קיר שיתוף',
+                    active: routeDestination === 'fileshare',
+                    onClick: () => setRouteDestination('fileshare'),
+                  });
+                }
+                if (spaceHasVault) {
+                  topCategories.push({
+                    id: 'vault',
+                    icon: '📁',
+                    label: 'מדף מסמכים',
+                    active: routeDestination === 'vault',
+                    onClick: () => setRouteDestination('vault'),
+                  });
+                }
+                if (spaceHasFinance) {
+                  topCategories.push({
+                    id: 'finance',
+                    icon: '💰',
+                    label: 'הוצאות',
+                    active: isFinanceRoute,
+                    onClick: () => {
+                      if (!isFinanceRoute) {
+                        setRouteDestination(sharedFiles.length > 1 ? 'inbox' : 'direct');
+                      }
+                    },
+                  });
+                }
 
-                  {/* Option 3.5: Direct Manual Expense WITHOUT OCR */}
-                  {spaceHasFinance && (
-                    <label style={{
-                      display: 'flex', alignItems: 'flex-start', gap: '0.75rem', padding: '0.75rem 0.85rem',
-                      borderRadius: '12px', cursor: 'pointer', transition: 'all 0.15s ease',
-                      border: routeDestination === 'direct_manual' ? '2px solid #0284c7' : '1px solid #e2e8f0',
-                      backgroundColor: routeDestination === 'direct_manual' ? '#f0f9ff' : '#ffffff'
-                    }}>
-                      <input
-                        type="radio"
-                        name="spaceAction"
-                        checked={routeDestination === 'direct_manual'}
-                        onChange={() => setRouteDestination('direct_manual')}
-                        style={{ marginTop: '0.2rem', accentColor: '#0284c7', width: '16px', height: '16px' }}
-                      />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: '800', fontSize: '0.88rem', color: '#1e293b' }}>
-                          ✍️ הוצאה כספית ידנית (ללא סריקת OCR)
-                        </div>
-                        <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.15rem' }}>
-                          פותח טופס הוצאה ידני עם הקובץ מצורף — ללא חישוב AI וללא ניצול מכסת OCR.
-                        </div>
-                      </div>
+                return (
+                  <div style={{ marginBottom: '1rem', display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+                    <label style={{ fontSize: '0.82rem', fontWeight: 800, color: '#475569', display: 'block' }}>
+                      לאן לשמור בפרויקט?
                     </label>
-                  )}
 
-                  {/* Option 4: Attach to Existing Expense (No duplicate total) */}
-                  {spaceHasFinance && (
-                    <label style={{
-                      display: 'flex', alignItems: 'flex-start', gap: '0.75rem', padding: '0.75rem 0.85rem',
-                      borderRadius: '12px', cursor: 'pointer', transition: 'all 0.15s ease',
-                      border: routeDestination === 'attach_existing' ? '2px solid #16a34a' : '1px solid #e2e8f0',
-                      backgroundColor: routeDestination === 'attach_existing' ? '#f0fdf4' : '#ffffff'
-                    }}>
-                      <input 
-                        type="radio" 
-                        name="spaceAction" 
-                        checked={routeDestination === 'attach_existing'} 
-                        onChange={() => setRouteDestination('attach_existing')}
-                        style={{ marginTop: '0.2rem' }}
-                      />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: '800', fontSize: '0.88rem', color: '#14532d' }}>
-                          🔗 צרף חשבונית להוצאה קיימת (ללא חשבונית)
+                    {/* Level 1: 3 Compact Top Category Tabs */}
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: `repeat(${Math.max(1, topCategories.length)}, minmax(0, 1fr))`,
+                        gap: '0.4rem',
+                      }}
+                    >
+                      {topCategories.map((cat) => (
+                        <button
+                          key={cat.id}
+                          type="button"
+                          onClick={cat.onClick}
+                          style={{
+                            padding: '0.6rem 0.35rem',
+                            borderRadius: '12px',
+                            border: cat.active ? '2px solid #4f46e5' : '1px solid #cbd5e1',
+                            background: cat.active ? '#eef2ff' : '#ffffff',
+                            color: cat.active ? '#3730a3' : '#334155',
+                            fontWeight: cat.active ? 900 : 700,
+                            fontSize: '0.8rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '3px',
+                            boxShadow: cat.active ? '0 3px 10px rgba(79,70,229,0.14)' : 'none',
+                          }}
+                        >
+                          <span style={{ fontSize: '1.1rem' }}>{cat.icon}</span>
+                          <span>{cat.label}</span>
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Concise 1-line explanation for FileShare or Vault */}
+                    {routeDestination === 'fileshare' && (
+                      <div style={{ fontSize: '0.74rem', color: '#475569', background: '#f8fafc', padding: '0.45rem 0.65rem', borderRadius: '9px', border: '1px solid #e2e8f0' }}>
+                        📤 שומר ישירות לתיקייה בתוך <strong>קיר השיתוף</strong> של המרחב (לצפייה ושיתוף עם לקוחות/שותפים).
+                      </div>
+                    )}
+                    {routeDestination === 'vault' && (
+                      <div style={{ fontSize: '0.74rem', color: '#475569', background: '#f8fafc', padding: '0.45rem 0.65rem', borderRadius: '9px', border: '1px solid #e2e8f0' }}>
+                        📁 שומר מסמך / תוכנית / חוזה בתוך <strong>מדפי המסמכים</strong> של המרחב (ללא OCR).
+                      </div>
+                    )}
+
+                    {/* Level 2: Compact 2x2 Sub-Options ONLY when Finance is selected */}
+                    {spaceHasFinance && isFinanceRoute && (
+                      <div
+                        style={{
+                          background: '#f8fafc',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '12px',
+                          padding: '0.55rem',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '0.45rem',
+                        }}
+                      >
+                        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '0.38rem' }}>
+                          <button
+                            type="button"
+                            disabled={sharedFiles.length > 1}
+                            onClick={() => setRouteDestination('direct')}
+                            style={{
+                              padding: '0.5rem 0.4rem',
+                              borderRadius: '10px',
+                              border: routeDestination === 'direct' ? '2px solid #4f46e5' : '1px solid #cbd5e1',
+                              background: routeDestination === 'direct' ? '#eef2ff' : '#ffffff',
+                              color: routeDestination === 'direct' ? '#3730a3' : '#334155',
+                              fontWeight: 800,
+                              fontSize: '0.76rem',
+                              cursor: sharedFiles.length > 1 ? 'not-allowed' : 'pointer',
+                              opacity: sharedFiles.length > 1 ? 0.55 : 1,
+                            }}
+                          >
+                            🧾 סריקת AI
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setRouteDestination('direct_manual')}
+                            style={{
+                              padding: '0.5rem 0.4rem',
+                              borderRadius: '10px',
+                              border: routeDestination === 'direct_manual' ? '2px solid #0284c7' : '1px solid #cbd5e1',
+                              background: routeDestination === 'direct_manual' ? '#f0f9ff' : '#ffffff',
+                              color: routeDestination === 'direct_manual' ? '#0369a1' : '#334155',
+                              fontWeight: 800,
+                              fontSize: '0.76rem',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            ✍️ ידני (ללא OCR)
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setRouteDestination('inbox')}
+                            style={{
+                              padding: '0.5rem 0.4rem',
+                              borderRadius: '10px',
+                              border: routeDestination === 'inbox' ? '2px solid #4f46e5' : '1px solid #cbd5e1',
+                              background: routeDestination === 'inbox' ? '#eef2ff' : '#ffffff',
+                              color: routeDestination === 'inbox' ? '#3730a3' : '#334155',
+                              fontWeight: 800,
+                              fontSize: '0.76rem',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            📥 מחסן המתנה
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setRouteDestination('attach_existing')}
+                            style={{
+                              padding: '0.5rem 0.4rem',
+                              borderRadius: '10px',
+                              border: routeDestination === 'attach_existing' ? '2px solid #16a34a' : '1px solid #cbd5e1',
+                              background: routeDestination === 'attach_existing' ? '#f0fdf4' : '#ffffff',
+                              color: routeDestination === 'attach_existing' ? '#15803d' : '#334155',
+                              fontWeight: 800,
+                              fontSize: '0.76rem',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            🔗 צרף לקיימת
+                          </button>
                         </div>
-                        <div style={{ fontSize: '0.75rem', color: '#475569', marginTop: '0.15rem' }}>
-                          מצליב אוטומטית מול הוצאות שהוזנו ידנית <strong>מבלי להוסיף לסה&quot;כ ההוצאות</strong>.
+
+                        <div style={{ fontSize: '0.72rem', color: '#475569', padding: '0 2px' }}>
+                          {activeFinanceHint}
                         </div>
                       </div>
-                    </label>
-                  )}
-                </div>
-              </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* Sub-step A: Shelf/Folder Picker if Vault Selected */}
               {routeDestination === 'vault' && selectedSpaceId && (() => {

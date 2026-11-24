@@ -2202,20 +2202,21 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           />
         ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', padding: '0 1rem' }}>
-          {(showTimeline || shelfDocs.length > 0) && (
+          {(showTimeline || shelfDocs.length > 0 || currentFolderId) && (
             <div style={{
               display: 'flex',
+              flexWrap: 'wrap',
               alignItems: 'center',
               justifyContent: 'space-between',
-              gap: '0.5rem',
+              gap: '0.45rem',
               background: '#f8fafc',
               border: '1px solid #e2e8f0',
               borderRadius: '12px',
-              padding: '4px 8px',
+              padding: '6px 8px',
               minHeight: '40px',
               boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
             }}>
-              {/* Right side (RTL): Breadcrumbs Trail */}
+              {/* Full-width Top Row: Up-One-Level Arrow + Complete Visible Breadcrumb Path */}
               {(() => {
                 const allFolders: DocumentFolder[] = (space.documentFolders || []).filter(f => !f.deletedAt && f.shelfId === activeShelf.id);
                 const breadcrumbTrail: DocumentFolder[] = [];
@@ -2229,21 +2230,53 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                     break;
                   }
                 }
+                const currentFolderObj = breadcrumbTrail.length > 0 ? breadcrumbTrail[breadcrumbTrail.length - 1] : null;
+                const handleGoUpOneLevel = () => {
+                  if (currentFolderObj) {
+                    setCurrentFolderId(currentFolderObj.parentId || null);
+                  } else {
+                    setActiveShelfId(null);
+                  }
+                };
 
                 return (
                   <div style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '0.25rem',
+                    gap: '0.3rem',
                     overflowX: 'auto',
                     whiteSpace: 'nowrap',
                     scrollbarWidth: 'none',
                     msOverflowStyle: 'none',
-                    flex: 1,
+                    flex: '1 1 100%',
                     minWidth: 0,
-                    padding: '2px 0'
+                    paddingBottom: '4px',
+                    borderBottom: '1px solid #e2e8f0'
                   }}>
-                    <span style={{ color: '#64748b', fontWeight: 600, fontSize: '0.78rem', flexShrink: 0 }}>מיקום:</span>
+                    <button
+                      type="button"
+                      onClick={handleGoUpOneLevel}
+                      style={{
+                        background: '#eef2ff',
+                        color: '#4338ca',
+                        border: '1px solid #c7d2fe',
+                        padding: '3px 8px',
+                        borderRadius: '8px',
+                        fontWeight: 800,
+                        fontSize: '0.75rem',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.25rem',
+                        flexShrink: 0
+                      }}
+                      title={currentFolderObj ? 'עלה רמה אחת לתיקיית האב' : 'חזור לרשימת כל המדפים'}
+                    >
+                      <span>⬆️</span>
+                      <span>{currentFolderObj ? 'עלה רמה' : 'כל המדפים'}</span>
+                    </button>
+
+                    <span style={{ color: '#64748b', fontWeight: 600, fontSize: '0.74rem', flexShrink: 0 }}>מיקום:</span>
                     <button
                       type="button"
                       onClick={() => setCurrentFolderId(null)}
