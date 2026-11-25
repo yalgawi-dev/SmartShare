@@ -30,6 +30,20 @@ export interface LiveDomBatchStep {
   value?: string;
 }
 
+export interface VisibleAgentEntity {
+  id: string;
+  type: string;
+  title: string;
+  parentId?: string;
+}
+
+export interface ActiveViewportScope {
+  containerId?: string;
+  containerType?: string;
+  label?: string;
+  breadcrumb?: string;
+}
+
 export interface LiveScreenDomInspection {
   urlPath: string;
   pageTitle: string;
@@ -37,15 +51,19 @@ export interface LiveScreenDomInspection {
   visibleButtonsAndActions: string[];
   interactiveElements: InteractiveDomElement[];
   openModalsOrBanners: string[];
+  /** Layer 2.5 Universal Viewport Grounding (Active container + entities currently visible on screen) */
+  activeScope?: ActiveViewportScope | null;
+  visibleEntities?: VisibleAgentEntity[];
 }
 
+export type LiveScreenSnapshot = LiveScreenDomInspection;
+
 /**
- * Live DOM & UI Introspector + Action Discovery Engine (Layer 2 — Zero-Config Generic).
+ * Live DOM & UI Introspector + Action Discovery Engine (Layer 2 + Layer 2.5 — Zero-Config Generic).
  * Scans the host application's currently rendered screen in real time (<3ms),
  * assigns live `data-agent-action-id` handles to visible interactive elements
- * (buttons, tabs, links, search inputs), and enables the AI assistant to both
- * understand ANY screen accurately AND click/fill newly added UI controls
- * automatically without hardcoding selectors—even when embedded in a brand-new app.
+ * (buttons, tabs, links, search inputs), and discovers `data-agent-scope-*` / `data-agent-entity-*`
+ * so the AI knows EXACTLY what container and items the user is currently looking at.
  *
  * Security: Strictly ignores password fields, hidden inputs, scripts, and the assistant drawer itself.
  */
@@ -57,7 +75,9 @@ export function inspectLiveScreenDOM(): LiveScreenDomInspection {
       visibleHeadings: [],
       visibleButtonsAndActions: [],
       interactiveElements: [],
-      openModalsOrBanners: []
+      openModalsOrBanners: [],
+      activeScope: null,
+      visibleEntities: []
     };
   }
 
@@ -279,13 +299,46 @@ export function inspectLiveScreenDOM(): LiveScreenDomInspection {
     if (txt) modalSet.add(txt);
   });
 
+  // 4. Layer 2.5 — Active Viewport Scope & Currently Visible Entities (App-Agnostic)
+  let activeScope: ActiveViewportScope | null = null;
+  const scopeEls = Array.from(document.querySelectorAll('[data-agent-scope-label], [data-agent-scope-id]'));
+  for (let i = scopeEls.length - 1; i >= 0; i--) {
+    const el = scopeEls[i];
+    if (!isElementVisible(el)) continue;
+    activeScope = {
+      containerId: el.getAttribute('data-agent-scope-id') || undefined,
+      containerType: el.getAttribute('data-agent-scope-type') || undefined,
+      label: cleanLabel(el.getAttribute('data-agent-scope-label')) || undefined,
+      breadcrumb: cleanLabel(el.getAttribute('data-agent-scope-breadcrumb')) || undefined,
+    };
+    break;
+  }
+
+  const visibleEntities: VisibleAgentEntity[] = [];
+  const seenEntityIds = new Set<string>();
+  document.querySelectorAll('[data-agent-entity-id]').forEach((el) => {
+    if (visibleEntities.length >= 40) return;
+    if (!isElementVisible(el)) return;
+    const id = el.getAttribute('data-agent-entity-id') || '';
+    if (!id || seenEntityIds.has(id)) return;
+    seenEntityIds.add(id);
+    visibleEntities.push({
+      id,
+      type: el.getAttribute('data-agent-entity-type') || 'item',
+      title: cleanLabel(el.getAttribute('data-agent-entity-title') || el.textContent).slice(0, 80),
+      parentId: el.getAttribute('data-agent-entity-parent') || undefined,
+    });
+  });
+
   return {
     urlPath: window.location.pathname + window.location.search,
     pageTitle: cleanLabel(document.title),
     visibleHeadings: Array.from(headingSet).slice(0, 15),
     visibleButtonsAndActions: Array.from(actionSet).slice(0, 35),
     interactiveElements,
-    openModalsOrBanners: Array.from(modalSet).slice(0, 10)
+    openModalsOrBanners: Array.from(modalSet).slice(0, 10),
+    activeScope,
+    visibleEntities
   };
 }
 

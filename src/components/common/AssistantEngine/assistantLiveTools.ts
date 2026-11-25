@@ -314,7 +314,16 @@ export function executeLiveAssistantTools(
 
     for (const inv of expensesOnly) {
       const invAmt = Math.abs(Number(inv.amount) || 0);
-      if (inv.payerId !== TREASURY_MEMBER_ID) {
+      // Multi-payer split support (Single Source of Truth matching FinanceSummary.tsx: 'all_by_shares' / 'custom_split')
+      if (inv.payerSplits && typeof inv.payerSplits === 'object' && Object.keys(inv.payerSplits).length > 0) {
+        for (const [splitUid, splitAmt] of Object.entries(inv.payerSplits)) {
+          const numericAmt = Number(splitAmt) || 0;
+          if (Math.abs(numericAmt) < 0.005) continue;
+          const pid = resolveSingleUserId(splitUid, splitUid);
+          const payer = balances.find((b) => b.userId === pid);
+          if (payer) payer.paid += numericAmt;
+        }
+      } else if (inv.payerId !== TREASURY_MEMBER_ID) {
         const pid = resolveSingleUserId(inv.payerId, inv.payerName);
         const payer = balances.find((b) => b.userId === pid);
         if (payer) payer.paid += invAmt;

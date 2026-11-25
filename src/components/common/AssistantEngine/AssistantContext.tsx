@@ -14,6 +14,7 @@ import type { AgentActionProposal, AgentActionExecutionResult } from './assistan
 import type { AgentActionPlan, AgentPlanExecutionReport } from './agentManifest';
 import { executeAgentActionPlan } from './agentPlanOrchestrator';
 import { executeApprovedAgentAction } from './assistantActionExecutor';
+import { runPreExecutionClarityGate } from './agentClarityGate';
 import {
   type AssistantPersona,
   type AssistantPersonaId,
@@ -77,6 +78,8 @@ interface AssistantContextType {
   rejectProposedAction: (messageId: string) => void;
   approveProposedPlan: (messageId: string) => Promise<void>;
   rejectProposedPlan: (messageId: string) => void;
+  actionToast: { message: string; proofUrl?: string } | null;
+  dismissActionToast: () => void;
   submitFeedback: (messageId: string, rating: 'helpful' | 'not_helpful') => void;
   clearChat: () => void;
   suggestedQuestions: string[];
@@ -774,6 +777,20 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     let proposal = enforceDestructiveGuard(aiResult.proposedAction || null, currentDom);
     let finalAnswer = filterAssistantResponse(aiResult.text);
+    let finalPlan = aiResult.proposedPlan || null;
+
+    // Layer 5.5 — Deterministic Pre-Execution Policy, Clarity & Ambiguity Gate
+    const clarityResult = runPreExecutionClarityGate({
+      userQuery: sanitizedText,
+      answer: finalAnswer,
+      proposedAction: proposal,
+      proposedPlan: finalPlan,
+      liveScreenDOM: currentDom,
+    });
+    finalAnswer = clarityResult.answer;
+    proposal = clarityResult.proposedAction;
+    finalPlan = clarityResult.proposedPlan;
+
     const msgId = `ast_${Date.now()}`;
 
     const assistantMsg: ChatMessage = {
@@ -790,8 +807,8 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       isBugIntent: detectBugReportIntent(sanitizedText),
       proposedAction: proposal,
       actionStatus: proposal ? (proposal.requiresConfirmation ? 'pending' : 'executing') : undefined,
-      proposedPlan: aiResult.proposedPlan || null,
-      planStatus: aiResult.proposedPlan ? 'pending' : undefined
+      proposedPlan: finalPlan,
+      planStatus: finalPlan ? 'pending' : undefined
     };
     setMessages(prev => [...prev, assistantMsg]);
 
@@ -955,6 +972,27 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   }, [screenContext, providerConfig, user, spaces, allUsers, messages, autoSpeak, speakText, prefetchAudio, router, updateDocument, addDocumentFolder, updateDocumentFolder, removeDocument, updateInvoice]);
 
+  const [actionToast, setActionToast] = useState<{ message: string; proofUrl?: string } | null>(null);
+  const actionToastTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dismissActionToast = useCallback(() => {
+    setActionToast(null);
+    if (actionToastTimerRef.current) {
+      clearTimeout(actionToastTimerRef.current);
+      actionToastTimerRef.current = null;
+    }
+  }, []);
+
+  const triggerSmartAutoCollapse = useCallback((message: string, proofUrl?: string) => {
+    if (actionToastTimerRef.current) clearTimeout(actionToastTimerRef.current);
+    setTimeout(() => {
+      setIsOpen(false);
+      setActionToast({ message, proofUrl });
+      actionToastTimerRef.current = setTimeout(() => {
+        setActionToast(null);
+      }, 6500);
+    }, 850);
+  }, []);
+
   const approveProposedAction = useCallback(async (messageId: string) => {
     const target = messages.find(m => m.id === messageId);
     if (!target?.proposedAction || target.actionStatus !== 'pending') return;
@@ -979,7 +1017,12 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (result.message && autoSpeak) {
       speakText(result.message);
     }
-  }, [messages, user, spaces, router, updateDocument, addDocumentFolder, updateDocumentFolder, removeDocument, updateInvoice, autoSpeak, speakText]);
+
+    // Smart Auto-Collapse Pill: reveal the updated screen immediately if no follow-up WhatsApp CTA is pending
+    if (result.success && !(result as any).whatsappUrl) {
+      triggerSmartAutoCollapse(result.message || target.proposedAction.title, result.proofUrl);
+    }
+  }, [messages, user, spaces, router, updateDocument, addDocumentFolder, updateDocumentFolder, removeDocument, updateInvoice, updateFileShareItems, autoSpeak, speakText, triggerSmartAutoCollapse]);
 
   const rejectProposedAction = useCallback((messageId: string) => {
     setMessages(prev =>
@@ -1035,7 +1078,11 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (report.finalMessage && autoSpeak) {
       speakText(report.finalMessage);
     }
-  }, [messages, user, spaces, router, updateDocument, addDocumentFolder, updateDocumentFolder, removeDocument, updateInvoice, updateFileShareItems, autoSpeak, speakText]);
+
+    if (report.success && !(report as any).whatsappUrl) {
+      triggerSmartAutoCollapse(report.finalMessage || target.proposedPlan.title, (report as any).proofUrl);
+    }
+  }, [messages, user, spaces, router, updateDocument, addDocumentFolder, updateDocumentFolder, removeDocument, updateInvoice, updateFileShareItems, autoSpeak, speakText, triggerSmartAutoCollapse]);
 
   const rejectProposedPlan = useCallback((messageId: string) => {
     setMessages(prev =>
@@ -1103,6 +1150,8 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         rejectProposedAction,
         approveProposedPlan,
         rejectProposedPlan,
+        actionToast,
+        dismissActionToast,
         submitFeedback,
         clearChat,
         suggestedQuestions,

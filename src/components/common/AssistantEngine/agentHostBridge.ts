@@ -12,6 +12,8 @@ export interface RegisteredHostAdapter {
   appId: string;
   getManifest: () => HostAppManifest;
   registerPrimitives: () => void;
+  /** Optional Layer 2.5 Host Computed Views (Single Source of Truth — agent never duplicates host math) */
+  getComputedViews?: () => Record<string, any>;
 }
 
 let activeHostAdapter: RegisteredHostAdapter | null = null;
@@ -27,4 +29,8 @@ export function getActiveHostAdapter(): RegisteredHostAdapter | null {
 
 export function getActiveHostManifest(): HostAppManifest | null {
   return activeHostAdapter ? activeHostAdapter.getManifest() : null;
+}
+
+export function getActiveHostComputedViews(): Record<string, any> {
+  return activeHostAdapter?.getComputedViews ? activeHostAdapter.getComputedViews() : {};
 }

@@ -30,6 +30,8 @@ export const GlobalAssistantDrawer: React.FC = () => {
     rejectProposedAction,
     approveProposedPlan,
     rejectProposedPlan,
+    actionToast,
+    dismissActionToast,
     submitFeedback,
     suggestedQuestions,
     isSpeaking,
@@ -777,6 +779,65 @@ export const GlobalAssistantDrawer: React.FC = () => {
           )}
         </button>
       </div>
+      )}
+
+      {/* Smart Auto-Collapse Success Pill: shows what Dana just did without blocking the live screen! */}
+      {!isOpen && actionToast && (
+        <div
+          dir="rtl"
+          data-assistant-ignore="true"
+          style={{
+            position: 'fixed',
+            top: '14px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 1000010,
+            maxWidth: '94vw',
+            background: 'linear-gradient(135deg, #064e3b 0%, #047857 100%)',
+            color: '#ffffff',
+            borderRadius: '999px',
+            padding: '0.48rem 0.85rem',
+            boxShadow: '0 10px 30px rgba(6, 78, 59, 0.38)',
+            border: '1px solid rgba(255,255,255,0.22)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.55rem',
+            fontSize: '0.78rem',
+            fontWeight: 800,
+          }}
+        >
+          <span>✅</span>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '52vw' }}>
+            {actionToast.message}
+          </span>
+          {isSpeaking && (
+            <button
+              type="button"
+              onClick={stopSpeaking}
+              style={{ border: 'none', background: 'rgba(255,255,255,0.2)', color: '#fff', borderRadius: '999px', padding: '2px 7px', fontSize: '0.72rem', fontWeight: 800, cursor: 'pointer' }}
+              title="השתק דיבור"
+            >
+              🔇
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              dismissActionToast();
+              setIsOpen(true);
+            }}
+            style={{ border: 'none', background: 'rgba(255,255,255,0.2)', color: '#fff', borderRadius: '999px', padding: '2px 8px', fontSize: '0.72rem', fontWeight: 800, cursor: 'pointer', whiteSpace: 'nowrap' }}
+          >
+            💬 צ׳אט
+          </button>
+          <button
+            type="button"
+            onClick={dismissActionToast}
+            style={{ border: 'none', background: 'none', color: '#d1fae5', fontSize: '0.85rem', fontWeight: 900, cursor: 'pointer', padding: '0 2px' }}
+          >
+            ✕
+          </button>
+        </div>
       )}
 
       {/* ASSISTANT SLIDE-OVER DRAWER (Top-most zIndex so it always appears above any open modal) */}
