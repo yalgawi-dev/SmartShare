@@ -15,14 +15,13 @@ interface FileShareItemCardProps {
   onManagePermissions?: (item: FileShareItem) => void;
   onRename?: (item: FileShareItem, newName: string) => void;
   onDelete: (item: FileShareItem) => void;
-  onMove?: (item: FileShareItem) => void;
   onToggleFavorite?: (item: FileShareItem) => void;
   onEditInScanner?: (item: FileShareItem) => void;
   hasScanner?: boolean;
   isMultiSelect?: boolean;
   isSelected?: boolean;
   onToggleSelect?: (item: FileShareItem) => void;
-  onLongPressSelect?: (item: FileShareItem) => void;
+  onContextMenuAction?: (item: FileShareItem, x: number, y: number) => void;
 }
 
 export function FileShareItemCard({
@@ -35,14 +34,13 @@ export function FileShareItemCard({
   onManagePermissions,
   onRename,
   onDelete,
-  onMove,
   onToggleFavorite,
   onEditInScanner,
   hasScanner = false,
   isMultiSelect = false,
   isSelected = false,
   onToggleSelect,
-  onLongPressSelect
+  onContextMenuAction
 }: FileShareItemCardProps) {
   const isFolder = item.type === 'folder';
   const isPublicLinkActive = Boolean(item.shareLink?.enabled && item.shareLink?.token);
@@ -74,22 +72,31 @@ export function FileShareItemCard({
     setIsEditingName(false);
   };
 
-  const startLongPress = () => {
+  const startLongPress = (e?: React.TouchEvent | React.MouseEvent) => {
     isLongPressTriggeredRef.current = false;
     if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+    let x = typeof window !== 'undefined' ? window.innerWidth / 2 : 180;
+    let y = typeof window !== 'undefined' ? window.innerHeight / 2 : 240;
+    if (e && 'touches' in e && e.touches?.[0]) {
+      x = e.touches[0].clientX;
+      y = e.touches[0].clientY;
+    } else if (e && 'clientX' in e) {
+      x = e.clientX;
+      y = e.clientY;
+    }
     longPressTimerRef.current = setTimeout(() => {
       isLongPressTriggeredRef.current = true;
-      if (onLongPressSelect) {
-        onLongPressSelect(item);
+      if (onContextMenuAction && !isMultiSelect) {
+        onContextMenuAction(item, x, y);
       } else if (onToggleSelect) {
         onToggleSelect(item);
       }
       try {
         if (typeof navigator !== 'undefined' && navigator.vibrate) {
-          navigator.vibrate(50);
+          navigator.vibrate(45);
         }
       } catch (_) {}
-    }, 500);
+    }, 450);
   };
 
   const cancelLongPress = () => {
@@ -179,6 +186,13 @@ export function FileShareItemCard({
           onTouchEnd={cancelLongPress}
           onMouseDown={startLongPress}
           onMouseUp={cancelLongPress}
+          onContextMenu={(e) => {
+            if (!onContextMenuAction || isMultiSelect) return;
+            e.preventDefault();
+            e.stopPropagation();
+            cancelLongPress();
+            onContextMenuAction(item, e.clientX, e.clientY);
+          }}
           onClick={() => {
             if (isLongPressTriggeredRef.current) {
               isLongPressTriggeredRef.current = false;
@@ -331,16 +345,6 @@ export function FileShareItemCard({
               >
                 ✏️
               </button>
-              {onMove && (
-                <button
-                  type="button"
-                  onClick={() => onMove(item)}
-                  style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '1px 5px', borderRadius: '5px', fontSize: '0.68rem', fontWeight: 600, color: '#16a34a', cursor: 'pointer' }}
-                  title="העבר תיקייה"
-                >
-                  📦
-                </button>
-              )}
               <button
                 type="button"
                 onClick={() => onManageLink(item)}
@@ -483,16 +487,6 @@ export function FileShareItemCard({
           >
             ✏️
           </button>
-          {onMove && (
-            <button
-              type="button"
-              onClick={() => onMove(item)}
-              style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '3px 7px', borderRadius: '7px', fontSize: '0.72rem', fontWeight: 600, color: '#16a34a', cursor: 'pointer' }}
-              title="העבר תיקייה"
-            >
-              📦
-            </button>
-          )}
           <button
             type="button"
             onClick={() => onManageLink(item)}
@@ -525,6 +519,13 @@ export function FileShareItemCard({
           onTouchEnd={cancelLongPress}
           onMouseDown={startLongPress}
           onMouseUp={cancelLongPress}
+          onContextMenu={(e) => {
+            if (!onContextMenuAction || isMultiSelect) return;
+            e.preventDefault();
+            e.stopPropagation();
+            cancelLongPress();
+            onContextMenuAction(item, e.clientX, e.clientY);
+          }}
           onClick={() => {
             if (isLongPressTriggeredRef.current) {
               isLongPressTriggeredRef.current = false;
@@ -695,16 +696,6 @@ export function FileShareItemCard({
           >
             ✏️
           </button>
-          {onMove && (
-            <button
-              type="button"
-              onClick={() => onMove(item)}
-              style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '2px 6px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}
-              title="העבר לתיקייה"
-            >
-              📁
-            </button>
-          )}
           <button
             type="button"
             onClick={() => onDelete(item)}
@@ -729,6 +720,13 @@ export function FileShareItemCard({
       onTouchEnd={cancelLongPress}
       onMouseDown={startLongPress}
       onMouseUp={cancelLongPress}
+      onContextMenu={(e) => {
+        if (!onContextMenuAction || isMultiSelect) return;
+        e.preventDefault();
+        e.stopPropagation();
+        cancelLongPress();
+        onContextMenuAction(item, e.clientX, e.clientY);
+      }}
       onClick={() => {
         if (isLongPressTriggeredRef.current) {
           isLongPressTriggeredRef.current = false;
@@ -1013,17 +1011,7 @@ export function FileShareItemCard({
                 🔗
               </button>
 
-              {/* Move to folder button */}
-              {onMove && (
-                <button
-                  type="button"
-                  onClick={() => onMove(item)}
-                  style={{ background: '#f0f9ff', color: '#0284c7', border: '1px solid #bae6fd', padding: '2px 5px', borderRadius: '5px', fontSize: '0.68rem', fontWeight: 'bold', cursor: 'pointer' }}
-                  title="העבר או העתק לתיקייה / מרחב"
-                >
-                  📁
-                </button>
-              )}
+              {/* Unified Cut/Copy/Paste happens via Long-Press / Right-Click Context Menu */}
             </div>
 
             {/* Dots Menu */}
@@ -1073,18 +1061,6 @@ export function FileShareItemCard({
                     >
                       ✏️ ערוך שם
                     </button>
-                    {onMove && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowDotsMenu(false);
-                          onMove(item);
-                        }}
-                        style={{ background: 'transparent', border: 'none', padding: '0.45rem', textAlign: 'right', borderRadius: '8px', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600, color: '#1e293b' }}
-                      >
-                        📁 העבר או העתק (לתיקייה / מרחב)
-                      </button>
-                    )}
                     <button
                       type="button"
                       onClick={() => {

@@ -17,7 +17,12 @@ import UniversalViewerModal from '@/components/common/ViewerEngine/UniversalView
 import { canAccessItem } from '@/utils/permissionUtils';
 import VersionBadge from '@/components/common/VersionBadge';
 import BatchActionToolbar, { BatchToolbarAction } from '@/components/common/BatchActionToolbar';
-import GlobalMoveModal from '@/components/common/GlobalMoveModal';
+import {
+  VaultTransferClipboardBar,
+  VaultContextMenuPopover,
+  VaultClipboardState,
+  VaultContextMenuState,
+} from '@/components/widgets/Vault/VaultTransferClipboard';
 import GlobalRecycleBinModal, { TrashItem } from '@/components/common/GlobalRecycleBinModal';
 import ConfirmModal from '@/components/common/ConfirmModal';
 import { PartnersInviteModal } from '@/components/widgets/Partners/PartnersInviteModal';
@@ -82,10 +87,12 @@ export function FileShareWidget({
   const [selectedAllowedPartners, setSelectedAllowedPartners] = useState<string[]>([]);
   const [folderPartnersConfig, setFolderPartnersConfig] = useState<FolderPartnerPermission[]>([]);
 
-  // Multi-select and batch operations (Rule DRY / Single Source of Truth)
+  // Unified Cut/Copy/Paste Clipboard & Context Menu (DRY Single Source of Truth — identical to Vault)
   const [isMultiSelect, setIsMultiSelect] = useState(false);
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
-  const [moveModalState, setMoveModalState] = useState<{ itemIds: string[]; currentFolderId: string | null } | null>(null);
+  const [clipboard, setClipboard] = useState<VaultClipboardState | null>(null);
+  const [contextMenu, setContextMenu] = useState<VaultContextMenuState | null>(null);
+  const canvasLongPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [batchDeleteConfirm, setBatchDeleteConfirm] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteModalScopeFolder, setInviteModalScopeFolder] = useState<FileShareItem | null>(null);
@@ -106,7 +113,7 @@ export function FileShareWidget({
   useHardwareBack(showNewFolderModal, () => setShowNewFolderModal(false), 'fileshare-new-folder');
   useHardwareBack(showImportModal, () => setShowImportModal(false), 'fileshare-import');
   useHardwareBack(Boolean(privacyItem), () => setPrivacyItem(null), 'fileshare-privacy');
-  useHardwareBack(Boolean(moveModalState), () => setMoveModalState(null), 'fileshare-move');
+  useHardwareBack(Boolean(contextMenu), () => setContextMenu(null), 'fileshare-context-menu');
   useHardwareBack(showRecycleBin, () => setShowRecycleBin(false), 'fileshare-recycle');
   useHardwareBack(showInviteModal, () => { setShowInviteModal(false); setInviteModalScopeFolder(null); }, 'fileshare-invite');
   useHardwareBack(Boolean(activeShareItem), () => setActiveShareItem(null), 'fileshare-share-modal');
@@ -194,10 +201,10 @@ export function FileShareWidget({
       currentFolderId,
       currentFolderName: currentFolderItem?.name,
       activeWidget: 'fileshare',
-      activeModal: activeShareItem ? 'share' : moveModalState ? 'move' : privacyItem ? 'privacy' : null,
+      activeModal: activeShareItem ? 'share' : privacyItem ? 'privacy' : null,
       userRole: spaceRole
     });
-  }, [space.id, space.title, currentFolderId, currentFolderItem?.name, activeShareItem, moveModalState, privacyItem, spaceRole, updateScreenContext]);
+  }, [space.id, space.title, currentFolderId, currentFolderItem?.name, activeShareItem, privacyItem, spaceRole, updateScreenContext]);
 
   // Listen to floating dock events (Rule DRY / Single Source of Action)
   useEffect(() => {
@@ -377,47 +384,73 @@ export function FileShareWidget({
     );
   };
 
-  // Confirm move or copy items to target folder
-  const handleConfirmMoveItems = async (targetFolderId: string | null, _targetShelfId?: string, actionType: 'copy' | 'move' = 'move') => {
-    if (!moveModalState) return;
-    const movingIds = new Set(moveModalState.itemIds);
+  // Unified Cut/Copy/Paste Paste Handler (Single Source of Truth — identical to Vault)
+  const handlePasteClipboard = async (targetFolderId: string | null) => {
+    if (!clipboard || clipboard.itemIds.length === 0) return;
+    const movingIds = new Set(clipboard.itemIds);
 
-    if (actionType === 'copy') {
-      const newClonedItems: FileShareItem[] = [];
-      const idMap: Record<string, string> = {};
+    // Prevent circular folder nesting when cutting folders
+    if (clipboard.mode === 'cut' && targetFolderId) {
+      const getDescendantIds = (pid: string): string[] => {
+        const direct = allItems.filter(i => i.type === 'folder' && i.parentId === pid).map(i => i.id);
+        return direct.reduce<string[]>((acc, subId) => [...acc, subId, ...getDescendantIds(subId)], []);
+      };
+      const forbidden = new Set<string>(clipboard.itemIds);
+      clipboard.itemIds.forEach(id => getDescendantIds(id).forEach(d => forbidden.add(d)));
+      if (forbidden.has(targetFolderId)) {
+        alert('לא ניתן להעביר תיקייה לתוך עצמה או לתוך תת-תיקייה שלה.');
+        return;
+      }
+    }
 
-      // Recursively map items
+    if (clipboard.mode === 'copy') {
       const selectedItems = allItems.filter(i => movingIds.has(i.id));
-      selectedItems.forEach((item, idx) => {
-        const newId = `item_${Date.now()}_${idx}_${Math.random().toString(36).substring(2, 6)}`;
-        idMap[item.id] = newId;
-      });
-
-      selectedItems.forEach(item => {
-        newClonedItems.push({
-          ...item,
-          id: idMap[item.id],
-          name: `${item.name} (עותק)`,
-          parentId: targetFolderId,
-          createdAt: Date.now()
-        });
-      });
-
-      const next = [...allItems, ...newClonedItems];
-      await saveItems(next);
+      const newClonedItems: FileShareItem[] = selectedItems.map((item, idx) => ({
+        ...item,
+        id: `item_${Date.now()}_${idx}_${Math.random().toString(36).substring(2, 6)}`,
+        name: `${item.name} (עותק)`,
+        parentId: targetFolderId,
+        createdAt: Date.now()
+      }));
+      await saveItems([...allItems, ...newClonedItems]);
     } else {
-      const next = allItems.map(i => {
-        if (movingIds.has(i.id)) {
-          return { ...i, parentId: targetFolderId };
-        }
-        return i;
-      });
+      const next = allItems.map(i => (movingIds.has(i.id) ? { ...i, parentId: targetFolderId } : i));
       await saveItems(next);
     }
 
+    setClipboard(null);
     setSelectedItemIds([]);
     setIsMultiSelect(false);
-    setMoveModalState(null);
+  };
+
+  const startCanvasPasteLongPress = (e: React.TouchEvent) => {
+    if (!clipboard) return;
+    const target = e.target as HTMLElement | null;
+    if (target?.closest('button, a, input, [data-fileshare-card="true"]')) return;
+    const touch = e.touches?.[0];
+    if (!touch) return;
+    const x = touch.clientX;
+    const y = touch.clientY;
+    if (canvasLongPressTimerRef.current) clearTimeout(canvasLongPressTimerRef.current);
+    canvasLongPressTimerRef.current = setTimeout(() => {
+      setContextMenu({
+        itemType: 'canvas',
+        id: currentFolderId || 'root',
+        title: currentFolderItem?.name || 'קיר השיתוף (ראשי)',
+        x,
+        y,
+      });
+      try {
+        if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(40);
+      } catch {}
+    }, 450);
+  };
+
+  const cancelCanvasPasteLongPress = () => {
+    if (canvasLongPressTimerRef.current) {
+      clearTimeout(canvasLongPressTimerRef.current);
+      canvasLongPressTimerRef.current = null;
+    }
   };
 
   // Confirm batch delete items (Move to Recycle Bin for 12 hours)
@@ -1282,34 +1315,16 @@ export function FileShareWidget({
             );
           })()}
 
-          {visibleItems.length > 0 && !isMultiSelect && (
-            <button
-              type="button"
-              onClick={() => {
-                setIsMultiSelect(true);
-                setSelectedItemIds([]);
-              }}
-              style={{
-                background: 'rgba(99, 102, 241, 0.1)',
-                color: 'var(--primary, #4f46e5)',
-                border: '1px solid rgba(99, 102, 241, 0.25)',
-                padding: '4px 10px',
-                borderRadius: '10px',
-                fontSize: '0.78rem',
-                fontWeight: 700,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.3rem'
-              }}
-              title="בחר מספר קבצים או תיקיות לביצוע פעולה מרוכזת"
-            >
-              <span>☑️</span>
-              <span>בחירה מרובה</span>
-            </button>
-          )}
         </div>
       </div>
+
+      {/* UNIFIED STICKY CUT/COPY/PASTE CLIPBOARD BAR (DRY Single Source of Truth) */}
+      <VaultTransferClipboardBar
+        clipboard={clipboard}
+        currentLocationLabel={currentFolderItem?.name || 'קיר השיתוף (רמה ראשית)'}
+        onPasteHere={() => handlePasteClipboard(currentFolderId)}
+        onCancel={() => setClipboard(null)}
+      />
 
       {/* 2. BREADCRUMBS BAR (Shown when navigating inside folders) */}
       {breadcrumbTrail.length > 1 && (
@@ -1413,12 +1428,43 @@ export function FileShareWidget({
         }
 
         actions.push({
-          id: 'move',
-          label: 'העבר לתיקייה',
-          icon: '📁',
+          id: 'cut',
+          label: 'גזור',
+          icon: '✂️',
           variant: 'info',
-          title: 'העבר פריטים נבחרים לתיקייה',
-          onClick: () => setMoveModalState({ itemIds: selectedItemIds, currentFolderId })
+          title: 'גזור פריטים נבחרים להעברה לתיקייה אחרת',
+          onClick: () => {
+            const firstSelected = allItems.find(i => selectedItemIds.includes(i.id));
+            setClipboard({
+              mode: 'cut',
+              itemType: firstSelected?.type === 'folder' ? 'folder' : 'document',
+              itemIds: [...selectedItemIds],
+              label: selectedItemIds.length === 1 ? (firstSelected?.name || 'פריט') : `${selectedItemIds.length} פריטים`,
+              sourceFolderId: currentFolderId,
+            });
+            setIsMultiSelect(false);
+            setSelectedItemIds([]);
+          }
+        });
+
+        actions.push({
+          id: 'copy',
+          label: 'העתק',
+          icon: '📋',
+          variant: 'info',
+          title: 'העתק פריטים נבחרים לשכפול בתיקייה אחרת',
+          onClick: () => {
+            const firstSelected = allItems.find(i => selectedItemIds.includes(i.id));
+            setClipboard({
+              mode: 'copy',
+              itemType: firstSelected?.type === 'folder' ? 'folder' : 'document',
+              itemIds: [...selectedItemIds],
+              label: selectedItemIds.length === 1 ? (firstSelected?.name || 'פריט') : `${selectedItemIds.length} פריטים`,
+              sourceFolderId: currentFolderId,
+            });
+            setIsMultiSelect(false);
+            setSelectedItemIds([]);
+          }
         });
 
         actions.push({
@@ -1581,7 +1627,25 @@ export function FileShareWidget({
       )}
 
       {/* 4. ITEMS LIST (FOLDERS & FILES ACCORDING TO VIEW MODE) */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <div
+        onTouchStart={startCanvasPasteLongPress}
+        onTouchMove={cancelCanvasPasteLongPress}
+        onTouchEnd={cancelCanvasPasteLongPress}
+        onContextMenu={(e) => {
+          if (!clipboard) return;
+          const target = e.target as HTMLElement | null;
+          if (target?.closest('button, a, input')) return;
+          e.preventDefault();
+          setContextMenu({
+            itemType: 'canvas',
+            id: currentFolderId || 'root',
+            title: currentFolderItem?.name || 'קיר השיתוף (ראשי)',
+            x: e.clientX,
+            y: e.clientY,
+          });
+        }}
+        style={{ display: 'flex', flexDirection: 'column', gap: '1rem', minHeight: clipboard ? '240px' : undefined }}
+      >
         {/* Table Header when in List View */}
         {viewMode === 'list' && (folders.length > 0 || files.length > 0) && (
           <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: '2px' }}>
@@ -1642,14 +1706,18 @@ export function FileShareWidget({
                     }}
                     onRename={handleRenameItem}
                     onDelete={handleDeleteItem}
-                    onMove={item => setMoveModalState({ itemIds: [item.id], currentFolderId: item.parentId })}
                     onToggleFavorite={handleToggleFavorite}
                     isMultiSelect={isMultiSelect}
                     isSelected={selectedItemIds.includes(folder.id)}
                     onToggleSelect={handleToggleSelectItem}
-                    onLongPressSelect={item => {
-                      setIsMultiSelect(true);
-                      setSelectedItemIds(prev => prev.includes(item.id) ? prev : [...prev, item.id]);
+                    onContextMenuAction={(item, x, y) => {
+                      setContextMenu({
+                        itemType: 'folder',
+                        id: item.id,
+                        title: item.name,
+                        x,
+                        y,
+                      });
                     }}
                   />
                 );
@@ -1691,16 +1759,20 @@ export function FileShareWidget({
                   }}
                   onRename={handleRenameItem}
                   onDelete={handleDeleteItem}
-                  onMove={item => setMoveModalState({ itemIds: [item.id], currentFolderId: item.parentId })}
                   onToggleFavorite={handleToggleFavorite}
                   onEditInScanner={handleEditInScanner}
                   hasScanner={hasScanner}
                   isMultiSelect={isMultiSelect}
                   isSelected={selectedItemIds.includes(file.id)}
                   onToggleSelect={handleToggleSelectItem}
-                  onLongPressSelect={item => {
-                    setIsMultiSelect(true);
-                    setSelectedItemIds(prev => prev.includes(item.id) ? prev : [...prev, item.id]);
+                  onContextMenuAction={(item, x, y) => {
+                    setContextMenu({
+                      itemType: 'document',
+                      id: item.id,
+                      title: item.name,
+                      x,
+                      y,
+                    });
                   }}
                 />
               ))}
@@ -2162,73 +2234,50 @@ export function FileShareWidget({
         </div>
       )}
 
-      {/* GLOBAL MOVE MODAL */}
-      {moveModalState && (() => {
-        const count = moveModalState.itemIds.length;
-        // Recursively exclude descendant folders if any moving item is a folder to prevent circular nesting
-        const getDescendantFolderIds = (parentId: string): string[] => {
-          const direct = allItems.filter(i => i.type === 'folder' && i.parentId === parentId).map(i => i.id);
-          let all = [...direct];
-          direct.forEach(subId => {
-            all = [...all, ...getDescendantFolderIds(subId)];
+      {/* UNIFIED WINDOWS / DRIVE LONG-PRESS CONTEXT MENU (DRY Single Source of Truth) */}
+      <VaultContextMenuPopover
+        menu={contextMenu}
+        clipboard={clipboard}
+        onClose={() => setContextMenu(null)}
+        onCut={() => {
+          if (!contextMenu || contextMenu.itemType === 'canvas') return;
+          setClipboard({
+            mode: 'cut',
+            itemType: contextMenu.itemType,
+            itemIds: [contextMenu.id],
+            label: contextMenu.title,
+            sourceFolderId: currentFolderId,
           });
-          return all;
-        };
-        const invalidFolderIds = new Set<string>(moveModalState.itemIds);
-        moveModalState.itemIds.forEach(id => {
-          getDescendantFolderIds(id).forEach(descId => invalidFolderIds.add(descId));
-        });
-
-        // Exclude deleted folders and invalid descendant folders
-        const availableFolders = allItems.filter(i => i.type === 'folder' && !i.deletedAt && !invalidFolderIds.has(i.id));
-
-        return (
-          <GlobalMoveModal
-            isOpen={Boolean(moveModalState)}
-            itemCount={count}
-            subtitle={count > 1 ? `נבחרו ${count} פריטים להעברה` : undefined}
-            currentSpaceId={space.id}
-            currentFolderId={moveModalState.currentFolderId}
-            canCopy={true}
-            disableShelves={true}
-            rootLabel="🌐 קיר השיתוף (רמה ראשית)"
-            rootDescription="העבר פריטים לתיקייה הראשית של קיר השיתוף"
-            folders={availableFolders.map(f => ({ id: f.id, name: f.name, parentId: f.parentId }))}
-            onClose={() => setMoveModalState(null)}
-            onConfirmMove={handleConfirmMoveItems}
-            onConfirmCrossSpace={async (targetSpaceId, _targetShelfId, targetFolderId, actionType) => {
-              const movingIds = new Set(moveModalState.itemIds);
-              const itemsToExport = allItems.filter(i => movingIds.has(i.id));
-
-              // Map items to target space
-              const newExportedItems = itemsToExport.map((item, idx) => ({
-                ...item,
-                id: `item_${Date.now()}_${idx}_${Math.random().toString(36).substring(2, 6)}`,
-                parentId: targetFolderId || null,
-                spaceId: targetSpaceId,
-                createdAt: Date.now()
-              }));
-
-              // Update target space with exported items
-              const targetSpace = spaces.find(s => s.id === targetSpaceId);
-              if (targetSpace) {
-                const existingTargetItems = targetSpace.fileShareItems || [];
-                await updateFileShareItems(targetSpaceId, [...existingTargetItems, ...newExportedItems]);
-              }
-
-              // If action is move, remove from source space
-              if (actionType === 'move') {
-                const remaining = allItems.filter(i => !movingIds.has(i.id));
-                await saveItems(remaining);
-              }
-
-              setSelectedItemIds([]);
-              setIsMultiSelect(false);
-              setMoveModalState(null);
-            }}
-          />
-        );
-      })()}
+        }}
+        onCopy={() => {
+          if (!contextMenu || contextMenu.itemType === 'canvas') return;
+          setClipboard({
+            mode: 'copy',
+            itemType: contextMenu.itemType,
+            itemIds: [contextMenu.id],
+            label: contextMenu.title,
+            sourceFolderId: currentFolderId,
+          });
+        }}
+        onPasteIntoTarget={
+          contextMenu?.itemType === 'canvas'
+            ? () => handlePasteClipboard(currentFolderId)
+            : contextMenu?.itemType === 'folder'
+              ? () => handlePasteClipboard(contextMenu.id)
+              : undefined
+        }
+        onCancelClipboard={() => setClipboard(null)}
+        onSelectMultiple={() => {
+          if (!contextMenu || contextMenu.itemType === 'canvas') return;
+          setIsMultiSelect(true);
+          setSelectedItemIds((prev) => (prev.includes(contextMenu.id) ? prev : [...prev, contextMenu.id]));
+        }}
+        onDelete={() => {
+          if (!contextMenu || contextMenu.itemType === 'canvas') return;
+          const targetItem = allItems.find((i) => i.id === contextMenu.id);
+          if (targetItem) handleDeleteItem(targetItem);
+        }}
+      />
 
       {/* BATCH DELETE CONFIRM MODAL */}
       <ConfirmModal

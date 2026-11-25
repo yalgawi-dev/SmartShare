@@ -120,6 +120,7 @@ interface VaultContextMenuPopoverProps {
   onCopy: () => void;
   onPasteIntoTarget?: () => void;
   onCancelClipboard?: () => void;
+  onSelectMultiple?: () => void;
   onDelete: () => void;
 }
 
@@ -134,6 +135,7 @@ export const VaultContextMenuPopover: React.FC<VaultContextMenuPopoverProps> = (
   onCopy,
   onPasteIntoTarget,
   onCancelClipboard,
+  onSelectMultiple,
   onDelete,
 }) => {
   // Guard against Android synthetic 'click' event fired right after touchend of a 450ms long-press!
@@ -318,6 +320,33 @@ export const VaultContextMenuPopover: React.FC<VaultContextMenuPopoverProps> = (
               >
                 <span>📋</span>
                 <span>העתק (שכפל לתיקייה אחרת)</span>
+              </button>
+            )}
+
+            {onSelectMultiple && (
+              <button
+                type="button"
+                onClick={() => {
+                  onSelectMultiple();
+                  onClose();
+                }}
+                style={{
+                  padding: '0.5rem 0.65rem',
+                  borderRadius: '9px',
+                  border: 'none',
+                  background: 'transparent',
+                  color: '#0f172a',
+                  fontWeight: 700,
+                  fontSize: '0.82rem',
+                  textAlign: 'right',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.45rem',
+                }}
+              >
+                <span>☑️</span>
+                <span>בחר כמה פריטים</span>
               </button>
             )}
 
