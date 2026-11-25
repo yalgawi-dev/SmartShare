@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '@/app/context/AuthContext';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
-import type { FileShareItem, RecipientRole, RecipientShareLink } from '@/utils/fileShareUtils';
+import { buildWhatsAppShareUrl, type FileShareItem, type RecipientRole, type RecipientShareLink } from '@/utils/fileShareUtils';
 import {
   loadSavedShareDirectory,
   saveSavedShareDirectory,
@@ -210,7 +210,7 @@ export const ShareHubModal: React.FC<ShareHubModalProps> = ({
       url,
       pin: item.shareLink?.requirePin && item.shareLink?.pin ? item.shareLink.pin : undefined,
     });
-    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
+    window.open(buildWhatsAppShareUrl(msg, r.phone), '_blank');
   };
 
   const handleAddContact = async () => {

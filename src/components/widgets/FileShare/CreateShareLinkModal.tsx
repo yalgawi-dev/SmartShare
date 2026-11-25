@@ -15,6 +15,7 @@ import {
   revokePublicShare,
   generateShareToken,
   sanitizeFirestoreData,
+  buildWhatsAppShareUrl,
 } from '@/utils/fileShareUtils';
 import { RegisteredMemberPickerModal, SelectableMember } from './RegisteredMemberPickerModal';
 import {
@@ -589,7 +590,7 @@ export function CreateShareLinkModal({
       pin: requirePin && pin ? pin : undefined,
       businessCard,
     });
-    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`, '_blank');
+    window.open(buildWhatsAppShareUrl(message, r.phone), '_blank');
   };
 
   const handleCopy = async () => {
@@ -623,7 +624,7 @@ export function CreateShareLinkModal({
       pin: requirePin && pin ? pin : undefined,
       businessCard,
     });
-    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`, '_blank');
+    window.open(buildWhatsAppShareUrl(message), '_blank');
   };
 
   const handleEmailShare = async () => {

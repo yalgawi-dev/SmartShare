@@ -333,6 +333,25 @@ export async function getPublicShare(token: string): Promise<PublicSharedData | 
 }
 
 /**
+ * DRY Single Source of Truth: builds a direct WhatsApp URL.
+ * When `phone` is provided, navigates straight into that recipient's WhatsApp chat
+ * so the sender only has to tap "Send"!
+ */
+export function buildWhatsAppShareUrl(message: string, phone?: string): string {
+  const digits = String(phone || '').replace(/\D/g, '');
+  if (digits.length >= 7) {
+    let intlPhone = digits;
+    if (intlPhone.startsWith('00')) {
+      intlPhone = intlPhone.slice(2);
+    } else if (intlPhone.startsWith('0')) {
+      intlPhone = `972${intlPhone.slice(1)}`;
+    }
+    return `https://api.whatsapp.com/send?phone=${intlPhone}&text=${encodeURIComponent(message)}`;
+  }
+  return `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
+}
+
+/**
  * DRY Single Source of Truth: builds a 1-tap WhatsApp alert link to notify an external guest
  * that the space owner replied to their message on a shared file/folder.
  */
@@ -344,7 +363,6 @@ export function buildGuestReplyWhatsAppUrl(params: {
 }): string | null {
   const digits = String(params.phone || '').replace(/\D/g, '');
   if (digits.length < 7) return null;
-  const intlPhone = digits.startsWith('0') ? `972${digits.slice(1)}` : digits;
   const origin =
     typeof window !== 'undefined' && window.location?.origin
       ? window.location.origin
@@ -353,7 +371,7 @@ export function buildGuestReplyWhatsAppUrl(params: {
   const namePart = params.guestName ? ` ${params.guestName}` : '';
   const itemPart = params.itemName ? ` לגבי "${params.itemName}"` : '';
   const text = `היי${namePart}, שלחתי לך תשובה${itemPart}.${link ? `\nלצפייה ומענה: ${link}` : ''}`;
-  return `https://wa.me/${intlPhone}?text=${encodeURIComponent(text)}`;
+  return buildWhatsAppShareUrl(text, params.phone);
 }
 
 /**
