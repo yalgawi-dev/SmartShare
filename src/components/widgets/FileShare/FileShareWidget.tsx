@@ -10,6 +10,7 @@ import { compressImage, analyzePdfStructure, isTrueOriginalPdf, convertPdfToOpti
 import { FileShareItem, formatFileSize, ShareLinkConfig, revokePublicShare, FolderPartnerPermission, sanitizeFirestoreData, syncPublicFolderShares } from '@/utils/fileShareUtils';
 import { FileShareItemCard } from './FileShareItemCard';
 import { CreateShareLinkModal } from './CreateShareLinkModal';
+import { GuestMessagesInboxModal, GuestInboxThread } from './GuestMessagesInboxModal';
 import { ShareHubModal } from './ShareHubModal';
 import { ImportExistingFileModal } from './ImportExistingFileModal';
 import UniversalViewerModal from '@/components/common/ViewerEngine/UniversalViewerModal';
@@ -43,12 +44,13 @@ export function FileShareWidget({
   onOpenPartners
 }: FileShareWidgetProps) {
   const { user } = useAuth();
-  const { spaces, updateFileShareItems, getRoleForSpace, getTokenForSpace } = useSpaces();
+  const { spaces, updateFileShareItems, getRoleForSpace, getTokenForSpace, markConversationRead } = useSpaces() as any;
   const { openChat } = useChat();
   const { updateScreenContext } = useAssistant();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+  const [isGuestInboxOpen, setIsGuestInboxOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeShareItem, setActiveShareItem] = useState<FileShareItem | null>(null);
   const [previewState, setPreviewState] = useState<{ docs: any[]; index: number } | null>(null);
@@ -1213,6 +1215,73 @@ export function FileShareWidget({
             );
           })()}
 
+          {/* Compact Guest Messages Inbox Button (Replaces giant wall banner; scales cleanly to 100+ guests) */}
+          {!isMultiSelect && (() => {
+            const guestConvos = (space?.conversations || []).filter(
+              (c: any) => typeof c?.id === 'string' && c.id.startsWith('guest_') && Array.isArray(c.messages) && c.messages.length > 0
+            );
+            if (guestConvos.length === 0) return null;
+            const myToken = typeof getTokenForSpace === 'function' && space?.id ? getTokenForSpace(space.id) : null;
+            const teamIds = new Set([user?.id, space?.creatorId, space?.createdBy, myToken, 'me', 'creator'].filter(Boolean));
+            const totalUnread = guestConvos.reduce((sum: number, convo: any) => {
+              const unread = (convo.messages || []).filter((m: any) => {
+                if (teamIds.has(m.senderId) || m.from === 'creator') return false;
+                if (m.readAt) return false;
+                if (Array.isArray(m.readBy) && m.readBy.some((rid: string) => rid && (teamIds.has(rid) || !String(rid).startsWith('guest_')))) {
+                  return false;
+                }
+                return true;
+              }).length;
+              return sum + unread;
+            }, 0);
+
+            return (
+              <button
+                type="button"
+                onClick={() => setIsGuestInboxOpen(true)}
+                style={{
+                  position: 'relative',
+                  background: totalUnread > 0 ? 'rgba(16, 185, 129, 0.14)' : 'rgba(15, 23, 42, 0.06)',
+                  color: totalUnread > 0 ? '#065f46' : '#334155',
+                  border: totalUnread > 0 ? '1.5px solid #10b981' : '1px solid rgba(15, 23, 42, 0.15)',
+                  padding: '4px 10px',
+                  borderRadius: '10px',
+                  fontSize: '0.76rem',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.32rem',
+                  whiteSpace: 'nowrap',
+                }}
+                title="תיבת הודעות מאורחי קישורי שיתוף"
+              >
+                <span>💬</span>
+                <span>הודעות</span>
+                {totalUnread > 0 && (
+                  <span
+                    style={{
+                      background: '#ef4444',
+                      color: '#ffffff',
+                      borderRadius: '999px',
+                      padding: '0 6px',
+                      minWidth: '18px',
+                      height: '18px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '0.68rem',
+                      fontWeight: 900,
+                      boxShadow: '0 2px 6px rgba(239,68,68,0.4)',
+                    }}
+                  >
+                    {totalUnread}
+                  </span>
+                )}
+              </button>
+            );
+          })()}
+
           {visibleItems.length > 0 && !isMultiSelect && (
             <button
               type="button"
@@ -1383,88 +1452,78 @@ export function FileShareWidget({
         );
       })()}
 
-      {/* 2.5. LIVE GUEST CHAT INBOX BAR (Shows incoming messages from external share-link recipients!) */}
-      {(() => {
+      {/* 2.5. GUEST MESSAGES INBOX MODAL (Opened from compact 💬 הודעות toolbar button) */}
+      {isGuestInboxOpen && (() => {
         const guestConvos = (space?.conversations || []).filter(
           (c: any) => typeof c?.id === 'string' && c.id.startsWith('guest_') && Array.isArray(c.messages) && c.messages.length > 0
         );
-        if (guestConvos.length === 0) return null;
-        const myIds = new Set([user?.id, space?.creatorId].filter(Boolean));
+        const myToken = typeof getTokenForSpace === 'function' && space?.id ? getTokenForSpace(space.id) : null;
+        const teamIds = new Set([user?.id, space?.creatorId, space?.createdBy, myToken, 'me', 'creator'].filter(Boolean));
+
+        const threads: GuestInboxThread[] = guestConvos.map((convo: any) => {
+          const guestToken = convo.id.replace('guest_', '');
+          let guestName = 'אורח מקישור';
+          let guestPhone: string | undefined;
+          let itemName: string | undefined;
+          let shareToken: string | undefined;
+
+          for (const it of allItems) {
+            const found = (it.shareLink?.recipients || []).find(
+              (r: any) => r.token === guestToken || r.id === guestToken || r.chatChannelId === convo.id
+            );
+            if (found) {
+              guestName = found.recipientName || guestName;
+              guestPhone = found.phone;
+              itemName = it.name;
+              shareToken = found.token || it.shareLink?.token;
+              break;
+            }
+            if (it.shareLink?.token === guestToken && it.name) {
+              guestName = `אורח ב-${it.name}`;
+              itemName = it.name;
+              shareToken = it.shareLink?.token;
+            }
+          }
+
+          const unreadCount = (convo.messages || []).filter((m: any) => {
+            if (teamIds.has(m.senderId) || m.from === 'creator') return false;
+            if (m.readAt) return false;
+            if (Array.isArray(m.readBy) && m.readBy.some((rid: string) => rid && (teamIds.has(rid) || !String(rid).startsWith('guest_')))) {
+              return false;
+            }
+            return true;
+          }).length;
+
+          const lastMsg = convo.messages[convo.messages.length - 1];
+          const lastAt = lastMsg?.createdAt ? new Date(lastMsg.createdAt).getTime() : 0;
+
+          return {
+            convoId: convo.id,
+            guestName,
+            guestPhone,
+            itemName,
+            shareToken,
+            unreadCount,
+            lastMessageText: lastMsg?.text ? String(lastMsg.text) : '',
+            lastMessageAt: Number.isFinite(lastAt) ? lastAt : 0,
+            totalMessages: convo.messages.length,
+          };
+        });
+
         return (
-          <div
-            style={{
-              background: 'linear-gradient(135deg, rgba(16,185,129,0.09), rgba(6,182,212,0.07))',
-              border: '1.5px solid rgba(16,185,129,0.35)',
-              borderRadius: '14px',
-              padding: '0.65rem 0.8rem',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '0.45rem',
+          <GuestMessagesInboxModal
+            isOpen={isGuestInboxOpen}
+            threads={threads}
+            onClose={() => setIsGuestInboxOpen(false)}
+            onSelectThread={(convoId) => {
+              const readerId = user?.id || space?.creatorId || myToken;
+              if (readerId && space?.id && typeof markConversationRead === 'function') {
+                markConversationRead(space.id, convoId, readerId);
+              }
+              setIsGuestInboxOpen(false);
+              openChat(convoId);
             }}
-          >
-            <div style={{ fontSize: '0.8rem', fontWeight: 900, color: '#065f46', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-              <span>💬 הודעות מאורחים מקישורי שיתוף ({guestConvos.length})</span>
-            </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
-              {guestConvos.map((convo: any) => {
-                const guestToken = convo.id.replace('guest_', '');
-                let guestLabel = 'אורח מקישור';
-                for (const it of allItems) {
-                  const found = (it.shareLink?.recipients || []).find((r: any) => r.token === guestToken || r.chatChannelId === convo.id);
-                  if (found?.recipientName) {
-                    guestLabel = found.recipientName;
-                    break;
-                  }
-                  if (it.shareLink?.token === guestToken && it.name) {
-                    guestLabel = `אורח ב-${it.name}`;
-                  }
-                }
-                const unreadCount = (convo.messages || []).filter(
-                  (m: any) => !myIds.has(m.senderId) && !(Array.isArray(m.readBy) && (m.readBy.includes(user?.id) || m.readBy.includes(space?.creatorId)))
-                ).length;
-                const lastMsg = convo.messages[convo.messages.length - 1];
-                const lastSnippet = lastMsg?.text ? String(lastMsg.text).slice(0, 24) : '';
-                return (
-                  <button
-                    key={convo.id}
-                    type="button"
-                    onClick={() => openChat(convo.id)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.4rem',
-                      padding: '0.42rem 0.7rem',
-                      borderRadius: '999px',
-                      border: unreadCount > 0 ? '1.5px solid #059669' : '1px solid #a7f3d0',
-                      background: '#ffffff',
-                      color: '#065f46',
-                      fontSize: '0.77rem',
-                      fontWeight: 800,
-                      cursor: 'pointer',
-                      boxShadow: '0 2px 6px rgba(16,185,129,0.12)',
-                    }}
-                    title={lastMsg?.text || 'פתח שיחה'}
-                  >
-                    <span>💬 {guestLabel}{lastSnippet ? ` — "${lastSnippet}${lastMsg.text.length > 24 ? '…' : ''}"` : ''}</span>
-                    {unreadCount > 0 && (
-                      <span
-                        style={{
-                          background: '#ef4444',
-                          color: '#fff',
-                          borderRadius: '999px',
-                          padding: '1px 6px',
-                          fontSize: '0.68rem',
-                          fontWeight: 900,
-                        }}
-                      >
-                        {unreadCount} חדש
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          />
         );
       })()}
 

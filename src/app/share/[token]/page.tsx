@@ -36,6 +36,7 @@ export default function PublicSharePage({ params }: SharePageProps) {
   // Guest Direct Chat state & Live Space Subscription
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [liveSpace, setLiveSpace] = useState<any>(null);
+  const [guestLastReadAt, setGuestLastReadAt] = useState<number>(0);
 
   // Android Hardware Back closes guest chat cleanly (1 step back)
   const [brokenThumbIds, setBrokenThumbIds] = useState<Record<string, boolean>>({});
@@ -228,6 +229,41 @@ export default function PublicSharePage({ params }: SharePageProps) {
 
     loadData();
   }, [token]);
+
+  const activeGuestChannelId = useMemo(() => {
+    if (shareData?.chatChannelId) return shareData.chatChannelId;
+    if (guestRecipientId) return `guest_${guestRecipientId}`;
+    return `guest_${token}`;
+  }, [shareData?.chatChannelId, guestRecipientId, token]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !activeGuestChannelId) return;
+    try {
+      const savedTs = Number(localStorage.getItem(`smartshare_guest_chat_read_${activeGuestChannelId}`) || '0');
+      if (Number.isFinite(savedTs)) setGuestLastReadAt(savedTs);
+    } catch {}
+  }, [activeGuestChannelId]);
+
+  const guestUnreadRepliesCount = useMemo(() => {
+    if (isChatOpen || !liveSpace?.conversations || !activeGuestChannelId) return 0;
+    const convo = liveSpace.conversations.find((c: any) => c.id === activeGuestChannelId);
+    if (!convo || !Array.isArray(convo.messages)) return 0;
+    const ownerIds = new Set([liveSpace.creatorId, liveSpace.createdBy, 'creator'].filter(Boolean));
+    return convo.messages.filter((m: any) => {
+      const isFromOwner = ownerIds.has(m.senderId) || m.from === 'creator' || (m.senderId && !String(m.senderId).startsWith('guest_') && m.senderId !== user?.id);
+      if (!isFromOwner) return false;
+      const msgTs = m.createdAt ? new Date(m.createdAt).getTime() : 0;
+      return msgTs > guestLastReadAt;
+    }).length;
+  }, [isChatOpen, liveSpace, activeGuestChannelId, guestLastReadAt, user?.id]);
+
+  const markGuestChatReadNow = () => {
+    const now = Date.now();
+    setGuestLastReadAt(now);
+    try {
+      localStorage.setItem(`smartshare_guest_chat_read_${activeGuestChannelId}`, String(now));
+    } catch {}
+  };
 
   // Subscribe to live space updates for two-way chat
   useEffect(() => {
@@ -1507,9 +1543,18 @@ export default function PublicSharePage({ params }: SharePageProps) {
           }}>
             <button
               type="button"
-              onClick={() => setIsChatOpen(prev => !prev)}
+              onClick={() => {
+                setIsChatOpen((prev) => {
+                  const next = !prev;
+                  if (next) markGuestChatReadNow();
+                  return next;
+                });
+              }}
               style={{
-                background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                position: 'relative',
+                background: guestUnreadRepliesCount > 0
+                  ? 'linear-gradient(135deg, #059669 0%, #047857 100%)'
+                  : 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
                 color: '#ffffff',
                 border: 'none',
                 borderRadius: '30px',
@@ -1517,7 +1562,9 @@ export default function PublicSharePage({ params }: SharePageProps) {
                 fontSize: '0.9rem',
                 fontWeight: 800,
                 cursor: 'pointer',
-                boxShadow: '0 4px 16px rgba(37, 99, 235, 0.4)',
+                boxShadow: guestUnreadRepliesCount > 0
+                  ? '0 6px 20px rgba(5, 150, 105, 0.45)'
+                  : '0 4px 16px rgba(37, 99, 235, 0.4)',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.5rem',
@@ -1525,7 +1572,27 @@ export default function PublicSharePage({ params }: SharePageProps) {
               }}
             >
               <span style={{ fontSize: '1.2rem' }}>💬</span>
-              <span>שאל את בעל המרחב</span>
+              <span>{guestUnreadRepliesCount > 0 ? `יש לך ${guestUnreadRepliesCount} תשובה חדשה` : 'שאל את בעל המרחב'}</span>
+              {guestUnreadRepliesCount > 0 && (
+                <span
+                  style={{
+                    background: '#ef4444',
+                    color: '#ffffff',
+                    borderRadius: '999px',
+                    minWidth: '20px',
+                    height: '20px',
+                    padding: '0 6px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '0.72rem',
+                    fontWeight: 900,
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.25)',
+                  }}
+                >
+                  {guestUnreadRepliesCount}
+                </span>
+              )}
             </button>
           </div>
         )}
@@ -1596,7 +1663,7 @@ export default function PublicSharePage({ params }: SharePageProps) {
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                 <ChatEngineUI
                   space={liveSpace}
-                  conversationId={shareData.chatChannelId || `guest_${token}`}
+                  conversationId={activeGuestChannelId}
                   viewMode="peer"
                   isGroup={false}
                   isFrozen={false}

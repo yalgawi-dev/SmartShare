@@ -7,6 +7,7 @@ import { useSpaces } from '../../../app/context/SpacesContext';
 import { useAuth } from '../../../app/context/AuthContext';
 import { usePresence } from '../../../hooks/usePresence';
 import { resolveUserSpaceIdentity } from '../../../utils/partnerUtils';
+import { buildGuestReplyWhatsAppUrl } from '../../../utils/fileShareUtils';
 import ChatEngineUI from './ChatEngineUI';
 
 interface ChatDrawerProps {
@@ -76,22 +77,40 @@ export default function ChatDrawer({ spaceId }: ChatDrawerProps) {
   let isGroup = false;
   const isGuestChannel = activeTarget?.startsWith('guest_');
 
-  // Look up guest name from file share recipients OR shared item title if target is guest_
+  // Look up guest name, phone & share token from file share recipients OR shared item title if target is guest_
   let guestRecipientName = '';
+  let guestPhone = '';
+  let guestShareToken = '';
+  let guestItemName = '';
   if (isGuestChannel) {
     const guestToken = activeTarget.replace('guest_', '');
     const items = space.fileShareItems || [];
     for (const it of items) {
-      const foundRec = (it.shareLink?.recipients || []).find((r: any) => r.token === guestToken || r.chatChannelId === activeTarget);
+      const foundRec = (it.shareLink?.recipients || []).find(
+        (r: any) => r.token === guestToken || r.id === guestToken || r.chatChannelId === activeTarget
+      );
       if (foundRec) {
         guestRecipientName = foundRec.recipientName;
+        guestPhone = foundRec.phone || '';
+        guestShareToken = foundRec.token || it.shareLink?.token || '';
+        guestItemName = it.name || '';
         break;
       }
       if (it.shareLink?.token === guestToken && it.name) {
         guestRecipientName = `אורח ב-${it.name}`;
+        guestShareToken = it.shareLink?.token || '';
+        guestItemName = it.name || '';
       }
     }
   }
+  const guestWhatsAppNotifyUrl = isGuestChannel
+    ? buildGuestReplyWhatsAppUrl({
+        phone: guestPhone,
+        guestName: guestRecipientName,
+        itemName: guestItemName,
+        shareToken: guestShareToken,
+      })
+    : null;
 
   if (activeTarget === 'group') {
     title = 'צ\'אט קבוצתי';
@@ -163,10 +182,9 @@ export default function ChatDrawer({ spaceId }: ChatDrawerProps) {
             →
           </button>
           <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {title}
             </h2>
-            <span style={{ fontSize: '0.65rem', background: 'rgba(255,255,255,0.25)', color: 'white', padding: '1px 6px', borderRadius: '8px', fontWeight: 'bold' }}>v2.5.9</span>
             {isGroup && (
               /* Clickable participants count */
               <button
@@ -180,6 +198,28 @@ export default function ChatDrawer({ spaceId }: ChatDrawerProps) {
               </button>
             )}
           </div>
+          {guestWhatsAppNotifyUrl && (
+            <a
+              href={guestWhatsAppNotifyUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                background: '#22c55e',
+                color: '#ffffff',
+                padding: '0.36rem 0.7rem',
+                borderRadius: '999px',
+                fontSize: '0.73rem',
+                fontWeight: 900,
+                textDecoration: 'none',
+                whiteSpace: 'nowrap',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                flexShrink: 0,
+              }}
+              title="שלח התראת וואטסאפ לאורח שיש לו תשובה חדשה"
+            >
+              📲 עדכן בוואטסאפ
+            </a>
+          )}
         </div>
 
         {/* Participants panel (expandable) */}

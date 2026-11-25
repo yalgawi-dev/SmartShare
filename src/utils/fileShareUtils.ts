@@ -333,6 +333,30 @@ export async function getPublicShare(token: string): Promise<PublicSharedData | 
 }
 
 /**
+ * DRY Single Source of Truth: builds a 1-tap WhatsApp alert link to notify an external guest
+ * that the space owner replied to their message on a shared file/folder.
+ */
+export function buildGuestReplyWhatsAppUrl(params: {
+  phone?: string;
+  guestName?: string;
+  itemName?: string;
+  shareToken?: string;
+}): string | null {
+  const digits = String(params.phone || '').replace(/\D/g, '');
+  if (digits.length < 7) return null;
+  const intlPhone = digits.startsWith('0') ? `972${digits.slice(1)}` : digits;
+  const origin =
+    typeof window !== 'undefined' && window.location?.origin
+      ? window.location.origin
+      : 'https://smart-share-tvwn-delta.vercel.app';
+  const link = params.shareToken ? `${origin}/share/${params.shareToken}` : '';
+  const namePart = params.guestName ? ` ${params.guestName}` : '';
+  const itemPart = params.itemName ? ` לגבי "${params.itemName}"` : '';
+  const text = `היי${namePart}, שלחתי לך תשובה${itemPart}.${link ? `\nלצפייה ומענה: ${link}` : ''}`;
+  return `https://wa.me/${intlPhone}?text=${encodeURIComponent(text)}`;
+}
+
+/**
  * Detects automated link-preview crawlers (WhatsApp, Facebook, Instagram, Telegram, etc.)
  * so social link previews never create fake "views".
  */
