@@ -28,6 +28,8 @@ import ConfirmModal from '@/components/common/ConfirmModal';
 import { PartnersInviteModal } from '@/components/widgets/Partners/PartnersInviteModal';
 import { useAssistant } from '@/components/common/AssistantEngine/AssistantContext';
 import { useHardwareBack, useHardwareBackStep } from '@/hooks/useHardwareBack';
+import { useActionHistory } from '@/hooks/useActionHistory';
+import { UndoRedoBar } from '@/components/common/UndoRedoBar';
 
 interface FileShareWidgetProps {
   space: any;
@@ -93,6 +95,7 @@ export function FileShareWidget({
   const [clipboard, setClipboard] = useState<VaultClipboardState | null>(null);
   const [contextMenu, setContextMenu] = useState<VaultContextMenuState | null>(null);
   const canvasLongPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const actionHistory = useActionHistory({ maxDepth: 20 });
   const [batchDeleteConfirm, setBatchDeleteConfirm] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteModalScopeFolder, setInviteModalScopeFolder] = useState<FileShareItem | null>(null);
@@ -403,6 +406,9 @@ export function FileShareWidget({
       }
     }
 
+    const beforeSnapshot = [...allItems];
+    let afterSnapshot: FileShareItem[] = beforeSnapshot;
+
     if (clipboard.mode === 'copy') {
       // Recursively collect entire subtree (selected folders + all descendant subfolders & files)
       const collected: FileShareItem[] = [];
@@ -435,11 +441,18 @@ export function FileShareWidget({
           createdAt: now,
         };
       });
-      await saveItems([...allItems, ...newClonedItems]);
+      afterSnapshot = [...allItems, ...newClonedItems];
+      await saveItems(afterSnapshot);
     } else {
-      const next = allItems.map(i => (movingIds.has(i.id) ? { ...i, parentId: targetFolderId } : i));
-      await saveItems(next);
+      afterSnapshot = allItems.map(i => (movingIds.has(i.id) ? { ...i, parentId: targetFolderId } : i));
+      await saveItems(afterSnapshot);
     }
+
+    actionHistory.pushStep({
+      label: clipboard.mode === 'copy' ? `העתקת "${clipboard.label}"` : `העברת "${clipboard.label}"`,
+      undo: () => saveItems(beforeSnapshot),
+      redo: () => saveItems(afterSnapshot),
+    });
 
     setClipboard(null);
     setSelectedItemIds([]);
@@ -491,6 +504,7 @@ export function FileShareWidget({
       });
     }
 
+    const beforeSnapshot = [...allItems];
     const nowIso = new Date().toISOString();
     const next = allItems.map(i => {
       if (deletingIds.has(i.id)) {
@@ -500,6 +514,11 @@ export function FileShareWidget({
     });
 
     await saveItems(next);
+    actionHistory.pushStep({
+      label: `מחיקת ${selectedItemIds.length} פריטים`,
+      undo: () => saveItems(beforeSnapshot),
+      redo: () => saveItems(next),
+    });
     setSelectedItemIds([]);
     setIsMultiSelect(false);
     setBatchDeleteConfirm(false);
@@ -700,8 +719,14 @@ export function FileShareWidget({
   // Rename item (file or folder)
   const handleRenameItem = async (item: FileShareItem, newName: string) => {
     if (!newName.trim() || newName.trim() === item.name) return;
+    const beforeSnapshot = [...allItems];
     const next = allItems.map(i => (i.id === item.id ? { ...i, name: newName.trim() } : i));
     await saveItems(next);
+    actionHistory.pushStep({
+      label: `שינוי שם ל-"${newName.trim()}"`,
+      undo: () => saveItems(beforeSnapshot),
+      redo: () => saveItems(next),
+    });
   };
 
   // Delete item (Move to Recycle Bin for 12 hours)
@@ -1338,6 +1363,16 @@ export function FileShareWidget({
             );
           })()}
 
+          {/* Word-style Undo / Redo Bar (appears automatically after any move/copy/rename/delete) */}
+          <UndoRedoBar
+            canUndo={actionHistory.canUndo}
+            canRedo={actionHistory.canRedo}
+            lastUndoLabel={actionHistory.lastUndoLabel}
+            lastRedoLabel={actionHistory.lastRedoLabel}
+            isApplying={actionHistory.isApplying}
+            onUndo={actionHistory.undo}
+            onRedo={actionHistory.redo}
+          />
         </div>
       </div>
 

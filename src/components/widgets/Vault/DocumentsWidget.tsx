@@ -33,6 +33,8 @@ import {
   VaultClipboardState,
   VaultContextMenuState,
 } from './VaultTransferClipboard';
+import { useActionHistory } from '@/hooks/useActionHistory';
+import { UndoRedoBar } from '@/components/common/UndoRedoBar';
 
 export interface DocumentsWidgetRef {
   addDocument: (url: string, type: 'document' | 'image' | 'pdf', allPages?: string[], targetEventId?: string, explicitShelfId?: string, bypassDuplicateCheck?: boolean, explicitFolderId?: string | null, initialFileName?: string) => Promise<string | undefined>;
@@ -508,6 +510,12 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   // Windows / Google Drive Style Cut-Copy-Paste Clipboard & Long-Press Context Menu (Replaces legacy moveDocToFolder modal!)
   const [clipboard, setClipboard] = useState<VaultClipboardState | null>(null);
   const [contextMenu, setContextMenu] = useState<VaultContextMenuState | null>(null);
+  const vaultHistory = useActionHistory({
+    maxDepth: 20,
+    onActionApplied: (dir, label) => {
+      showFeedbackToast(dir === 'undo' ? `↩️ בוטל: ${label}` : `↪️ בוצע שוב: ${label}`);
+    },
+  });
   const contextLongPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const startContextLongPress = (
@@ -619,9 +627,31 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
           return;
         }
       }
+      const prevFolderLocations = clipboard.itemIds
+        .map((fid) => {
+          const orig = (space.documentFolders || []).find((f: any) => f.id === fid);
+          return orig ? { id: fid, shelfId: orig.shelfId, parentId: orig.parentId || null } : null;
+        })
+        .filter(Boolean) as Array<{ id: string; shelfId: string; parentId: string | null }>;
+
       clipboard.itemIds.forEach((fid) => {
         moveDocumentFolder(space.id, fid, destShelfId, destFolderId || null);
       });
+      if (prevFolderLocations.length > 0) {
+        vaultHistory.pushStep({
+          label: `העברת "${clipboard.label}"`,
+          undo: () => {
+            prevFolderLocations.forEach((loc) => {
+              moveDocumentFolder(space.id, loc.id, loc.shelfId, loc.parentId);
+            });
+          },
+          redo: () => {
+            prevFolderLocations.forEach((loc) => {
+              moveDocumentFolder(space.id, loc.id, destShelfId, destFolderId || null);
+            });
+          },
+        });
+      }
       showFeedbackToast(count > 1 ? `${count} תיקיות וכל תכולתן הועברו בהצלחה!` : 'התיקייה וכל תכולתה הועברו בהצלחה!');
     } else if (clipboard.mode === 'copy') {
       clipboard.itemIds.forEach((id) => {
@@ -641,12 +671,34 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
       });
       showFeedbackToast(count > 1 ? `${count} קבצים הועתקו בהצלחה!` : 'הקובץ הועתק בהצלחה!');
     } else {
+      const prevDocLocations = clipboard.itemIds
+        .map((id) => {
+          const orig = documents.find((d) => String(d.id) === String(id));
+          return orig ? { id, shelfId: orig.shelfId, folderId: orig.folderId || null } : null;
+        })
+        .filter(Boolean) as Array<{ id: string; shelfId: string; folderId: string | null }>;
+
       clipboard.itemIds.forEach((id) => {
         updateDocument(space.id, id, {
           shelfId: destShelfId,
           folderId: destFolderId || null,
         });
       });
+      if (prevDocLocations.length > 0) {
+        vaultHistory.pushStep({
+          label: `העברת "${clipboard.label}"`,
+          undo: () => {
+            prevDocLocations.forEach((loc) => {
+              updateDocument(space.id, loc.id, { shelfId: loc.shelfId, folderId: loc.folderId });
+            });
+          },
+          redo: () => {
+            prevDocLocations.forEach((loc) => {
+              updateDocument(space.id, loc.id, { shelfId: destShelfId, folderId: destFolderId || null });
+            });
+          },
+        });
+      }
       showFeedbackToast(count > 1 ? `${count} קבצים הועברו בהצלחה!` : 'הקובץ הועבר בהצלחה!');
     }
     setClipboard(null);
@@ -2384,6 +2436,21 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           }}
           style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', padding: '0 1rem', minHeight: '55vh' }}
         >
+          {/* Word-style Undo / Redo Bar (appears cleanly after any move/delete) */}
+          {(vaultHistory.canUndo || vaultHistory.canRedo) && (
+            <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+              <UndoRedoBar
+                canUndo={vaultHistory.canUndo}
+                canRedo={vaultHistory.canRedo}
+                lastUndoLabel={vaultHistory.lastUndoLabel}
+                lastRedoLabel={vaultHistory.lastRedoLabel}
+                isApplying={vaultHistory.isApplying}
+                onUndo={vaultHistory.undo}
+                onRedo={vaultHistory.redo}
+              />
+            </div>
+          )}
+
           {/* Sticky Windows/Drive Cut-Copy-Paste Bar */}
           <VaultTransferClipboardBar
             clipboard={clipboard}
@@ -5032,13 +5099,25 @@ const handleDeleteDocument = (docId: string, title?: string) => {
         onCancelClipboard={() => setClipboard(null)}
         onDelete={() => {
           if (!contextMenu) return;
+          const targetId = contextMenu.id;
+          const targetTitle = contextMenu.title;
           if (contextMenu.itemType === 'folder') {
-            if (window.confirm(`למחוק את התיקייה "${contextMenu.title}"?`)) {
-              removeDocumentFolder(space.id, contextMenu.id);
+            if (window.confirm(`למחוק את התיקייה "${targetTitle}"?`)) {
+              removeDocumentFolder(space.id, targetId);
+              vaultHistory.pushStep({
+                label: `מחיקת תיקייה "${targetTitle}"`,
+                undo: () => restoreDocumentFolder(space.id, targetId),
+                redo: () => removeDocumentFolder(space.id, targetId),
+              });
             }
           } else {
-            if (window.confirm(`למחוק את הקובץ "${contextMenu.title}"?`)) {
-              removeDocument(space.id, contextMenu.id);
+            if (window.confirm(`למחוק את הקובץ "${targetTitle}"?`)) {
+              removeDocument(space.id, targetId);
+              vaultHistory.pushStep({
+                label: `מחיקת "${targetTitle}"`,
+                undo: () => restoreDocument(space.id, targetId),
+                redo: () => removeDocument(space.id, targetId),
+              });
             }
           }
         }}
