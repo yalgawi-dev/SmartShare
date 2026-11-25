@@ -11,7 +11,6 @@ import ShelfTimeline from './ShelfTimeline';
 import { uploadImageToStorage } from '@/lib/firebase';
 import ConfirmModal from '../../common/ConfirmModal';
 import BatchActionToolbar, { BatchToolbarAction } from '../../common/BatchActionToolbar';
-import GlobalMoveModal from '../../common/GlobalMoveModal';
 import GlobalRecycleBinModal, { TrashItem } from '../../common/GlobalRecycleBinModal';
 import { downloadDocument, shareDocument, getDocumentPreviewUrl, formatFileSize, cleanDisplayTitle, getDocumentFormatInfo } from '../../../utils/documentUtils';
 import { mergeImagesCleanly } from '../../../utils/imageOptimizer';
@@ -33,6 +32,7 @@ import {
   VaultClipboardState,
   VaultContextMenuState,
 } from './VaultTransferClipboard';
+import { useGlobalTransferClipboard } from '@/utils/globalTransferClipboard';
 import { useActionHistory } from '@/hooks/useActionHistory';
 import { UndoRedoBar } from '@/components/common/UndoRedoBar';
 
@@ -67,6 +67,7 @@ const getPrivacyInfo = (allowedPartners?: string[], creatorId?: string) => {
 export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetProps>(({ space, activePartnersCount }, ref) => {
   const { user } = useAuth();
   const { 
+    spaces,
     addShelf, updateShelf, removeShelf, restoreShelf, permanentlyDeleteShelf, 
     addDocument, addDocumentAndLinkToEvent, updateDocument, removeDocument, restoreDocument, permanentlyDeleteDocument, 
     addDocumentFolder, updateDocumentFolder, removeDocumentFolder, restoreDocumentFolder, permanentlyDeleteDocumentFolder, moveDocumentFolder,
@@ -127,7 +128,6 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   const showTimeline = !!space.settings?.showVaultTimeline;
   const [externalShareItem, setExternalShareItem] = useState<FileShareItem | null>(null);
   const [shelfToDelete, setShelfToDelete] = useState<{ id: string, name: string, count: number } | null>(null);
-  const [shelfToMove, setShelfToMove] = useState<DocumentShelf | null>(null);
   const [showRecycleBin, setShowRecycleBin] = useState(false);
   const [shelfToPermanentDelete, setShelfToPermanentDelete] = useState<{ id: string, name: string } | null>(null);
   const [docToPermanentDelete, setDocToPermanentDelete] = useState<{ id: string, title: string } | null>(null);
@@ -507,8 +507,8 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
     return () => clearTimeout(timer);
   }, [feedbackToast]);
 
-  // Windows / Google Drive Style Cut-Copy-Paste Clipboard & Long-Press Context Menu (Replaces legacy moveDocToFolder modal!)
-  const [clipboard, setClipboard] = useState<VaultClipboardState | null>(null);
+  // Windows / Google Drive Style Global Cut-Copy-Paste Clipboard & Long-Press Context Menu (Single Source of Truth — works across ALL spaces, shelves, folders & views!)
+  const { clipboard, setClipboard, clearClipboard } = useGlobalTransferClipboard();
   const [contextMenu, setContextMenu] = useState<VaultContextMenuState | null>(null);
   const vaultHistory = useActionHistory({
     maxDepth: 20,
@@ -517,10 +517,14 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
     },
   });
   const contextLongPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const contextTouchStartPosRef = useRef<{ x: number; y: number } | null>(null);
+  const contextLongPressFiredAtRef = useRef<number>(0);
+
+  const shouldIgnorePostLongPressClick = () => Date.now() - contextLongPressFiredAtRef.current < 500;
 
   const startContextLongPress = (
     e: React.TouchEvent | React.MouseEvent,
-    itemType: 'document' | 'folder' | 'canvas',
+    itemType: 'document' | 'folder' | 'shelf' | 'canvas',
     id: string,
     title: string
   ) => {
@@ -528,35 +532,67 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
     const pt = 'touches' in e && e.touches[0] ? e.touches[0] : (e as React.MouseEvent);
     const x = pt?.clientX ?? 180;
     const y = pt?.clientY ?? 260;
+    contextTouchStartPosRef.current = { x, y };
     contextLongPressTimerRef.current = setTimeout(() => {
+      contextLongPressFiredAtRef.current = Date.now();
       setContextMenu({ itemType, id, title, x, y });
+      try {
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+          navigator.vibrate(45);
+        }
+      } catch (_) {}
     }, 450);
   };
 
   const cancelContextLongPress = () => {
+    contextTouchStartPosRef.current = null;
     if (contextLongPressTimerRef.current) {
       clearTimeout(contextLongPressTimerRef.current);
       contextLongPressTimerRef.current = null;
     }
   };
 
-  // DRY helpers for Windows Explorer cut fade-out across ALL views (Grid, List, Mixed multi-select)
+  const handleContextTouchMove = (e: React.TouchEvent) => {
+    if (!contextLongPressTimerRef.current || !contextTouchStartPosRef.current) return;
+    const pt = e.touches?.[0];
+    if (!pt) return;
+    const dx = pt.clientX - contextTouchStartPosRef.current.x;
+    const dy = pt.clientY - contextTouchStartPosRef.current.y;
+    // Allow natural finger tremor (12px) without cancelling long-press!
+    if (Math.hypot(dx, dy) > 12) {
+      cancelContextLongPress();
+    }
+  };
+
+  // DRY helpers for Windows Explorer cut fade-out across ALL views (Grid, List, Shelves Feed/Grid/Circles, Mixed multi-select)
   const isDocCut = (docId: string) =>
     Boolean(
       clipboard?.mode === 'cut' &&
+        clipboard.sourceEngine === 'vault' &&
+        clipboard.sourceSpaceId === space.id &&
         (clipboard.itemType === 'document' || clipboard.itemType === 'mixed') &&
         clipboard.itemIds.includes(docId)
     );
   const isFolderCut = (folderId: string) =>
     Boolean(
       clipboard?.mode === 'cut' &&
+        clipboard.sourceEngine === 'vault' &&
+        clipboard.sourceSpaceId === space.id &&
         ((clipboard.itemType === 'folder' && clipboard.itemIds.includes(folderId)) ||
           Boolean(clipboard.folderIds?.includes(folderId)))
+    );
+  const isShelfCut = (shelfId: string) =>
+    Boolean(
+      clipboard?.mode === 'cut' &&
+        clipboard.sourceEngine === 'vault' &&
+        clipboard.sourceSpaceId === space.id &&
+        clipboard.itemType === 'shelf' &&
+        clipboard.itemIds.includes(shelfId)
     );
 
   const handleStageClipboard = (
     mode: 'cut' | 'copy',
-    itemType: 'document' | 'folder' | 'mixed',
+    itemType: 'document' | 'folder' | 'shelf' | 'mixed',
     itemIds: string[],
     label: string,
     folderIds?: string[]
@@ -564,6 +600,9 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
     if (itemIds.length === 0 && (!folderIds || folderIds.length === 0)) return;
     setClipboard({
       mode,
+      sourceEngine: 'vault',
+      sourceSpaceId: space.id,
+      sourceSpaceTitle: space.title,
       itemType,
       itemIds,
       folderIds,
@@ -576,8 +615,8 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
     setSelectedFolderIds([]);
     showFeedbackToast(
       mode === 'cut'
-        ? `✂️ "${label}" נגזר — נווט לתיקיית היעד ולחץ "הדבק כאן"`
-        : `📋 "${label}" הועתק — נווט לתיקיית היעד ולחץ "הדבק כאן"`
+        ? `✂️ "${label}" נגזר — נווט לתיקייה או למרחב היעד ולחץ "הדבק כאן"`
+        : `📋 "${label}" הועתק — נווט לתיקייה או למרחב היעד ולחץ "הדבק כאן"`
     );
   };
 
@@ -619,8 +658,60 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
     });
   }, [space?.id, space?.documentFolders, space?.documents, updateDocumentFolder, updateDocument]);
 
-  const handlePasteClipboardInto = (destShelfId: string, destFolderId: string | null) => {
+  const handlePasteClipboardInto = async (destShelfId: string | null, destFolderId: string | null) => {
     if (!clipboard) return;
+
+    // 1. Handle Shelf-level paste (Cross-space move/copy of an entire Subject/Shelf!)
+    if (clipboard.itemType === 'shelf') {
+      const shelfIds = clipboard.itemIds || [];
+      if (shelfIds.length === 0) return;
+      if (clipboard.sourceSpaceId === space.id) {
+        if (clipboard.mode === 'cut') {
+          showFeedbackToast('כדי להעביר נושא שלם למרחב אחר, עבור למרחב היעד ולחץ "📥 הדבק כאן".');
+          return;
+        }
+        // Same-space copy of a shelf
+        for (const sid of shelfIds) {
+          if (exportShelfToSpace) {
+            await exportShelfToSpace(space.id, sid, space.id, 'copy');
+          }
+        }
+        clearClipboard();
+        showFeedbackToast(`הנושא "${clipboard.label}" שוכפל בהצלחה!`);
+        return;
+      }
+      // Cross-space Shelf transfer!
+      for (const sid of shelfIds) {
+        if (exportShelfToSpace) {
+          await exportShelfToSpace(
+            clipboard.sourceSpaceId,
+            sid,
+            space.id,
+            clipboard.mode === 'copy' ? 'copy' : 'move'
+          );
+        }
+      }
+      clearClipboard();
+      showFeedbackToast(
+        clipboard.mode === 'copy'
+          ? `הנושא "${clipboard.label}" שוכפל למרחב זה בהצלחה!`
+          : `הנושא "${clipboard.label}" הועבר למרחב זה בהצלחה!`
+      );
+      return;
+    }
+
+    // For documents & folders, we must have a destination shelf
+    const resolvedDestShelfId = destShelfId || activeShelfId;
+    if (!resolvedDestShelfId) {
+      showFeedbackToast('היכנס קודם לנושא היעד (או לחץ על "📥 הדבק לכאן" בכרטיס הנושא) כדי להדביק.');
+      return;
+    }
+
+    if (clipboard.sourceEngine === 'fileshare') {
+      showFeedbackToast('הפריט נגזר/הועתק מקיר השיתוף — הדבק אותו בקיר השיתוף (במרחב זה או במרחב אחר).');
+      return;
+    }
+
     const targetFolderIds =
       clipboard.itemType === 'folder'
         ? clipboard.itemIds
@@ -634,6 +725,58 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
     const totalCount = targetFolderIds.length + targetDocIds.length;
     if (totalCount === 0) return;
 
+    // 2. Cross-Space Vault transfer (Folder / Document / Mixed from Space A -> Space B!)
+    if (clipboard.sourceSpaceId && clipboard.sourceSpaceId !== space.id) {
+      const sourceSpace = Array.isArray(spaces)
+        ? spaces.find((s: any) => s.id === clipboard.sourceSpaceId)
+        : null;
+      const actionType: 'copy' | 'move' = clipboard.mode === 'copy' ? 'copy' : 'move';
+
+      for (const fid of targetFolderIds) {
+        if (exportDocumentFolderToSpace) {
+          await exportDocumentFolderToSpace(
+            clipboard.sourceSpaceId,
+            fid,
+            space.id,
+            resolvedDestShelfId,
+            destFolderId || null,
+            actionType
+          );
+        }
+      }
+
+      const sourceDocs: any[] = sourceSpace?.documents || [];
+      for (const docId of targetDocIds) {
+        const orig = sourceDocs.find((d: any) => String(d.id) === String(docId));
+        if (orig) {
+          addDocument(space.id, {
+            title: orig.title,
+            type: orig.type,
+            url: orig.url,
+            rawPdfUrl: orig.rawPdfUrl,
+            thumbnailUrl: orig.thumbnailUrl,
+            shelfId: resolvedDestShelfId,
+            folderId: destFolderId || null,
+            notes: orig.note,
+            fileSize: orig.fileSize,
+            allowedPartners: orig.allowedPartners || [],
+          });
+          if (actionType === 'move') {
+            removeDocument(clipboard.sourceSpaceId, orig.id);
+          }
+        }
+      }
+
+      clearClipboard();
+      showFeedbackToast(
+        actionType === 'copy'
+          ? (totalCount > 1 ? `${totalCount} פריטים שוכפלו למרחב זה בהצלחה!` : 'הפריט שוכפל למרחב זה בהצלחה!')
+          : (totalCount > 1 ? `${totalCount} פריטים הועברו למרחב זה בהצלחה!` : 'הפריט הועבר למרחב זה בהצלחה!')
+      );
+      return;
+    }
+
+    // 3. Same-Space Vault transfer
     const getDescendantSet = (rootId: string): Set<string> => {
       const res = new Set<string>([rootId]);
       const queue = [rootId];
@@ -678,7 +821,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
         const origFolder = (space.documentFolders || []).find((f: any) => f.id === origFolderId && !f.deletedAt);
         if (!origFolder) return;
         const newFolderName = isRoot ? `${origFolder.name} (עותק)` : origFolder.name;
-        const createdId = addDocumentFolder(space.id, destShelfId, newFolderName, targetParentId || undefined);
+        const createdId = addDocumentFolder(space.id, resolvedDestShelfId, newFolderName, targetParentId || undefined);
         const newTargetId = typeof createdId === 'string' ? createdId : null;
 
         documents
@@ -688,7 +831,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
               title: origDoc.title,
               type: origDoc.type,
               url: origDoc.url,
-              shelfId: destShelfId,
+              shelfId: resolvedDestShelfId,
               folderId: newTargetId,
               notes: origDoc.note,
               fileSize: origDoc.fileSize,
@@ -709,7 +852,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
             title: orig.title,
             type: orig.type,
             url: orig.url,
-            shelfId: destShelfId || orig.shelfId,
+            shelfId: resolvedDestShelfId || orig.shelfId,
             folderId: destFolderId || null,
             notes: orig.note,
             fileSize: orig.fileSize,
@@ -720,11 +863,11 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
       showFeedbackToast(totalCount > 1 ? `${totalCount} פריטים שוכפלו בהצלחה!` : 'הפריט שוכפל בהצלחה!');
     } else {
       targetFolderIds.forEach((fid) => {
-        moveDocumentFolder(space.id, fid, destShelfId, destFolderId || null);
+        moveDocumentFolder(space.id, fid, resolvedDestShelfId, destFolderId || null);
       });
       targetDocIds.forEach((id) => {
         updateDocument(space.id, id, {
-          shelfId: destShelfId,
+          shelfId: resolvedDestShelfId,
           folderId: destFolderId || null,
         });
       });
@@ -737,14 +880,14 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
             prevDocLocations.forEach((loc) => updateDocument(space.id, loc.id, { shelfId: loc.shelfId, folderId: loc.folderId }));
           },
           redo: () => {
-            prevFolderLocations.forEach((loc) => moveDocumentFolder(space.id, loc.id, destShelfId, destFolderId || null));
-            prevDocLocations.forEach((loc) => updateDocument(space.id, loc.id, { shelfId: destShelfId, folderId: destFolderId || null }));
+            prevFolderLocations.forEach((loc) => moveDocumentFolder(space.id, loc.id, resolvedDestShelfId, destFolderId || null));
+            prevDocLocations.forEach((loc) => updateDocument(space.id, loc.id, { shelfId: resolvedDestShelfId, folderId: destFolderId || null }));
           },
         });
       }
       showFeedbackToast(totalCount > 1 ? `${totalCount} פריטים הועברו בהצלחה!` : 'הפריט הועבר בהצלחה!');
     }
-    setClipboard(null);
+    clearClipboard();
   };
 
   const [showSortFilterModal, setShowSortFilterModal] = useState(false);
@@ -1984,50 +2127,6 @@ const handleDeleteDocument = (docId: string, title?: string) => {
         );
   };
 
-  // Single Source of Truth helper for Shelf Move/Copy Modal (accessible in both outer shelves view and inner active shelf view)
-  const renderShelfMoveModal = () => {
-    if (!shelfToMove) return null;
-    return (
-      <GlobalMoveModal
-        isOpen={Boolean(shelfToMove)}
-        title="העברה / שכפול נושא שלם"
-        subtitle={`הנושא "${shelfToMove.name}" על כל תיקיותיו ומסמכיו`}
-        itemCount={1}
-        currentSpaceId={space.id}
-        isShelfTransfer={true}
-        currentShelfId={shelfToMove.id}
-        shelves={space.shelves || []}
-        folders={[]}
-        onClose={() => setShelfToMove(null)}
-        onConfirmMove={() => {
-          setShelfToMove(null);
-        }}
-        onConfirmCrossSpace={async (targetSpaceId, _targetShelfId, _targetFolderId, actionType) => {
-          if (!exportShelfToSpace) return;
-          await exportShelfToSpace(
-            space.id,
-            shelfToMove.id,
-            targetSpaceId,
-            actionType
-          );
-          if (actionType === 'move' && activeShelfId === shelfToMove.id) {
-            setActiveShelfId(null);
-            setCurrentFolderId(null);
-          }
-          const shelfName = shelfToMove.name;
-          setShelfToMove(null);
-          showFeedbackToast(
-            actionType === 'copy'
-              ? `הנושא "${shelfName}" שוכפל בהצלחה למרחב הנבחר!`
-              : `הנושא "${shelfName}" הועבר בהצלחה למרחב הנבחר!`
-          );
-        }}
-        rootLabel="רמה ראשית"
-        rootDescription="הנושא ייווצר כנושא ראשי חדש במרחב היעד"
-      />
-    );
-  };
-
   // Single Source of Truth helper for Delete & Custom Prompt Modals (shared between inner and outer views)
   const renderSharedConfirmAndPromptModals = () => (
     <>
@@ -2440,7 +2539,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
               : activeShelf.name;
             startContextLongPress(e, 'canvas', currentFolderId || activeShelf.id, locName);
           }}
-          onTouchMove={cancelContextLongPress}
+          onTouchMove={handleContextTouchMove}
           onTouchEnd={cancelContextLongPress}
           onContextMenu={(e) => {
             if (!clipboard) return;
@@ -3253,13 +3352,14 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                 data-agent-entity-type="folder"
                                 data-agent-entity-title={folder.name}
                                 onTouchStart={(e) => startContextLongPress(e, 'folder', folder.id, folder.name)}
-                                onTouchMove={cancelContextLongPress}
+                                onTouchMove={handleContextTouchMove}
                                 onTouchEnd={cancelContextLongPress}
                                 onContextMenu={(e) => {
                                   e.preventDefault();
                                   setContextMenu({ itemType: 'folder', id: folder.id, title: folder.name, x: e.clientX, y: e.clientY });
                                 }}
                                 onClick={() => {
+                                  if (shouldIgnorePostLongPressClick()) return;
                                   if (isMultiSelect) {
                                     setSelectedFolderIds((prev) =>
                                       prev.includes(folder.id) ? prev.filter((id) => id !== folder.id) : [...prev, folder.id]
@@ -3275,21 +3375,14 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                   padding: '0.55rem 0.85rem',
                                   background: selectedFolderIds.includes(folder.id) ? '#eff6ff' : isFolderDragOver ? '#eff6ff' : '#ffffff',
                                   border:
-                                    clipboard?.mode === 'cut' &&
-                                    ((clipboard.itemType === 'folder' && clipboard.itemIds.includes(folder.id)) ||
-                                      Boolean(clipboard.folderIds?.includes(folder.id)))
+                                    isFolderCut(folder.id)
                                       ? '2px dashed #6366f1'
                                       : selectedFolderIds.includes(folder.id)
                                         ? '2px solid #2563eb'
                                         : isFolderDragOver
                                           ? '2px dashed #2563eb'
                                           : '1px solid #e2e8f0',
-                                  opacity:
-                                    clipboard?.mode === 'cut' &&
-                                    ((clipboard.itemType === 'folder' && clipboard.itemIds.includes(folder.id)) ||
-                                      Boolean(clipboard.folderIds?.includes(folder.id)))
-                                      ? 0.48
-                                      : 1,
+                                  opacity: isFolderCut(folder.id) ? 0.48 : 1,
                                   borderRadius: '12px',
                                   cursor: 'pointer',
                                   transition: 'all 0.15s ease',
@@ -3523,7 +3616,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                 onTouchStart={(e) => {
                                   startContextLongPress(e, 'document', doc.id, doc.title || 'מסמך');
                                 }}
-                                onTouchMove={cancelContextLongPress}
+                                onTouchMove={handleContextTouchMove}
                                 onTouchEnd={cancelContextLongPress}
                                 onContextMenu={(e) => {
                                   e.preventDefault();
@@ -3866,13 +3959,14 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                 data-agent-entity-type="folder"
                                 data-agent-entity-title={folder.name}
                                 onTouchStart={(e) => startContextLongPress(e, 'folder', folder.id, folder.name)}
-                                onTouchMove={cancelContextLongPress}
+                                onTouchMove={handleContextTouchMove}
                                 onTouchEnd={cancelContextLongPress}
                                 onContextMenu={(e) => {
                                   e.preventDefault();
                                   setContextMenu({ itemType: 'folder', id: folder.id, title: folder.name, x: e.clientX, y: e.clientY });
                                 }}
                                 onClick={() => {
+                                  if (shouldIgnorePostLongPressClick()) return;
                                   if (isMultiSelect) {
                                     setSelectedFolderIds((prev) =>
                                       prev.includes(folder.id) ? prev.filter((id) => id !== folder.id) : [...prev, folder.id]
@@ -3889,21 +3983,14 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                   padding: '0.75rem 0.5rem 0.5rem 0.5rem',
                                   background: selectedFolderIds.includes(folder.id) ? '#eff6ff' : isFolderDragOver ? '#eff6ff' : '#ffffff',
                                   border:
-                                    clipboard?.mode === 'cut' &&
-                                    ((clipboard.itemType === 'folder' && clipboard.itemIds.includes(folder.id)) ||
-                                      Boolean(clipboard.folderIds?.includes(folder.id)))
+                                    isFolderCut(folder.id)
                                       ? '2px dashed #6366f1'
                                       : selectedFolderIds.includes(folder.id)
                                         ? '2px solid #2563eb'
                                         : isFolderDragOver
                                           ? '2px dashed #2563eb'
                                           : '1px solid #e2e8f0',
-                                  opacity:
-                                    clipboard?.mode === 'cut' &&
-                                    ((clipboard.itemType === 'folder' && clipboard.itemIds.includes(folder.id)) ||
-                                      Boolean(clipboard.folderIds?.includes(folder.id)))
-                                      ? 0.48
-                                      : 1,
+                                  opacity: isFolderCut(folder.id) ? 0.48 : 1,
                                   borderRadius: '16px',
                                   cursor: 'pointer',
                                   transition: 'all 0.15s ease',
@@ -4265,7 +4352,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                 onTouchStart={(e) => {
                                   startContextLongPress(e, 'document', doc.id, doc.title || 'מסמך');
                                 }}
-                                onTouchMove={cancelContextLongPress}
+                                onTouchMove={handleContextTouchMove}
                                 onTouchEnd={cancelContextLongPress}
                                 onContextMenu={(e) => {
                                   e.preventDefault();
@@ -5168,8 +5255,8 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           handleStageClipboard('cut', contextMenu.itemType, [contextMenu.id], contextMenu.title);
         }}
         onCopy={() => {
-          if (!contextMenu || contextMenu.itemType !== 'document') return;
-          handleStageClipboard('copy', 'document', [contextMenu.id], contextMenu.title);
+          if (!contextMenu || contextMenu.itemType === 'canvas') return;
+          handleStageClipboard('copy', contextMenu.itemType, [contextMenu.id], contextMenu.title);
         }}
         onPasteIntoTarget={() => {
           if (!contextMenu || !activeShelf) return;
@@ -5179,7 +5266,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             handlePasteClipboardInto(activeShelf.id, contextMenu.id);
           }
         }}
-        onCancelClipboard={() => setClipboard(null)}
+        onCancelClipboard={() => clearClipboard()}
         onSelectMultiple={
           contextMenu && contextMenu.itemType !== 'canvas'
             ? () => {
@@ -5309,7 +5396,6 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       )}
 
       {/* MOVE / COPY SHELF ACROSS SPACES MODAL (Single Source of Truth) */}
-      {renderShelfMoveModal()}
 
       {/* CONFIRM DELETE FOLDER MODAL */}
       <ConfirmModal
@@ -5865,14 +5951,24 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       {/* Recycle Bin Modal with Backdrop (Click outside to close) */}
       {renderRecycleBinModal()}
 
-      {/* Persistent Cut/Copy/Paste Bar when navigating across Shelves (activeShelf === null) */}
+      {/* Persistent Cut/Copy/Paste Bar when navigating across Shelves & Spaces (activeShelf === null) */}
       {clipboard && (
         <div style={{ marginBottom: '0.85rem' }}>
           <VaultTransferClipboardBar
             clipboard={clipboard}
-            currentLocationLabel="רשימת הנושאים — היכנס לנושא היעד כדי להדביק"
-            onPasteHere={() => showFeedbackToast('היכנס קודם לנושא היעד שבו תרצה להדביק!')}
-            onCancel={() => setClipboard(null)}
+            currentLocationLabel={
+              clipboard.itemType === 'shelf'
+                ? `מרחב "${space.title}" — לחץ "הדבק כאן" להוספת הנושא למרחב זה`
+                : `רשימת הנושאים (${space.title}) — בחר "הדבק לכאן" על נושא היעד או היכנס אליו`
+            }
+            onPasteHere={() => {
+              if (clipboard.itemType === 'shelf') {
+                handlePasteClipboardInto(null, null);
+              } else {
+                showFeedbackToast('לחץ "📥 הדבק לכאן" על נושא היעד או היכנס לתוכו כדי להדביק!');
+              }
+            }}
+            onCancel={() => clearClipboard()}
           />
         </div>
       )}
@@ -5911,7 +6007,27 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             const highlightStyle = hasRecentDoc ? { border: '2px solid #3b82f6', boxShadow: '0 0 20px rgba(59,130,246,0.6)' } : (shelf.highlightColor ? { border: '2px solid ' + shelf.highlightColor, boxShadow: '0 0 15px ' + shelf.highlightColor + '40' } : {});
 
             return (
-              <div key={shelf.id} style={{ background: '#ffffff', borderRadius: '16px', padding: '1rem', boxShadow: '0 2px 10px rgba(0,0,0,0.02)', border: '1px solid #f1f5f9', position: 'relative', ...highlightStyle }}>
+              <div
+                key={shelf.id}
+                onTouchStart={(e) => startContextLongPress(e, 'shelf', shelf.id, shelf.name)}
+                onTouchMove={handleContextTouchMove}
+                onTouchEnd={cancelContextLongPress}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setContextMenu({ itemType: 'shelf', id: shelf.id, title: shelf.name, x: e.clientX, y: e.clientY });
+                }}
+                style={{
+                  background: '#ffffff',
+                  borderRadius: '16px',
+                  padding: '1rem',
+                  boxShadow: '0 2px 10px rgba(0,0,0,0.02)',
+                  border: isShelfCut(shelf.id) ? '2px dashed #6366f1' : '1px solid #f1f5f9',
+                  opacity: isShelfCut(shelf.id) ? 0.48 : 1,
+                  transition: 'opacity 0.2s ease, border-color 0.2s ease',
+                  position: 'relative',
+                  ...(isShelfCut(shelf.id) ? {} : highlightStyle),
+                }}
+              >
                 {hasNewRemoteDoc && (
                   <div
                     style={{ position: 'absolute', top: '-6px', right: '-6px', width: '16px', height: '16px', background: '#ef4444', borderRadius: '50%', border: '2px solid white' }}
@@ -5920,11 +6036,11 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                 )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '2px solid #f1f5f9', paddingBottom: '0.5rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <div onClick={() => setActiveShelfId(shelf.id)} style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#f8fafc', backgroundImage: shelf.coverImage ? 'url(' + shelf.coverImage + ')' : 'none', backgroundSize: 'cover', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', cursor: 'pointer' }}>
+                    <div onClick={() => { if (!shouldIgnorePostLongPressClick()) setActiveShelfId(shelf.id); }} style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#f8fafc', backgroundImage: shelf.coverImage ? 'url(' + shelf.coverImage + ')' : 'none', backgroundSize: 'cover', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', cursor: 'pointer' }}>
                       {!shelf.coverImage && (shelf.icon || '🗂️')}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                      <h3 onClick={() => setActiveShelfId(shelf.id)} style={{ margin: 0, fontSize: '1.1rem', color: '#334155', cursor: 'pointer' }}>
+                      <h3 onClick={() => { if (!shouldIgnorePostLongPressClick()) setActiveShelfId(shelf.id); }} style={{ margin: 0, fontSize: '1.1rem', color: '#334155', cursor: 'pointer' }}>
                         {shelf.name} <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 'normal' }}>({shelfDocs.length})</span>
                       </h3>
                       <button 
@@ -5937,7 +6053,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
-                    {clipboard && (
+                    {clipboard && clipboard.itemType !== 'shelf' && (
                       <button
                         type="button"
                         onClick={(e) => {
@@ -6020,7 +6136,6 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                         </button>
                       </>
                     )}
-                    <button onClick={(e) => { e.stopPropagation(); setShelfToMove(shelf); }} style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '7px', fontSize: '0.8rem', cursor: 'pointer', padding: '3px 7px' }} title="העבר או שכפל נושא למרחב אחר">📦</button>
                     <button onClick={() => setEditingShelfCoverId(shelf.id)} style={{ background: 'transparent', border: 'none', fontSize: '1.1rem', cursor: 'pointer', padding: 0 }} title="עיצוב מדף">🎨</button>
                     <button onClick={(e) => {
                       e.stopPropagation();
@@ -6046,7 +6161,29 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             const highlightStyle = hasRecentDoc ? { border: '2px solid #3b82f6', boxShadow: '0 0 20px rgba(59,130,246,0.6)' } : (shelf.highlightColor ? { border: '2px solid ' + shelf.highlightColor, boxShadow: '0 0 15px ' + shelf.highlightColor + '40' } : { border: '1px solid #f1f5f9' });
 
             return (
-              <div key={shelf.id} style={{ background: '#fff', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', cursor: 'pointer', display: 'flex', flexDirection: 'column', position: 'relative', ...highlightStyle }}>
+              <div
+                key={shelf.id}
+                onTouchStart={(e) => startContextLongPress(e, 'shelf', shelf.id, shelf.name)}
+                onTouchMove={handleContextTouchMove}
+                onTouchEnd={cancelContextLongPress}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setContextMenu({ itemType: 'shelf', id: shelf.id, title: shelf.name, x: e.clientX, y: e.clientY });
+                }}
+                style={{
+                  background: '#fff',
+                  borderRadius: '16px',
+                  overflow: 'hidden',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  position: 'relative',
+                  opacity: isShelfCut(shelf.id) ? 0.48 : 1,
+                  transition: 'opacity 0.2s ease, border-color 0.2s ease',
+                  ...(isShelfCut(shelf.id) ? { border: '2px dashed #6366f1' } : highlightStyle),
+                }}
+              >
                 {hasNewRemoteDoc && (
                   <div
                     style={{ position: 'absolute', top: '8px', right: '8px', width: '14px', height: '14px', background: '#ef4444', borderRadius: '50%', border: '2px solid white', zIndex: 10 }}
@@ -6055,13 +6192,13 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                 )}
 
                 
-                <div onClick={() => setActiveShelfId(shelf.id)} style={{ height: '100px', background: '#e2e8f0', backgroundImage: shelf.coverImage ? 'url(' + shelf.coverImage + ')' : 'none', backgroundSize: 'cover', backgroundPosition: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem' }}>
+                <div onClick={() => { if (!shouldIgnorePostLongPressClick()) setActiveShelfId(shelf.id); }} style={{ height: '100px', background: '#e2e8f0', backgroundImage: shelf.coverImage ? 'url(' + shelf.coverImage + ')' : 'none', backgroundSize: 'cover', backgroundPosition: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem' }}>
                   {!shelf.coverImage && (shelf.icon || '🗂️')}
                 </div>
                 <div style={{ padding: '0.75rem', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', position: 'relative' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.25rem', marginBottom: '0.35rem' }}>
-                    <div onClick={() => setActiveShelfId(shelf.id)} style={{ fontWeight: 'bold', color: '#1e293b', fontSize: '0.95rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{shelf.name}</div>
-                    {clipboard && (
+                    <div onClick={() => { if (!shouldIgnorePostLongPressClick()) setActiveShelfId(shelf.id); }} style={{ fontWeight: 'bold', color: '#1e293b', fontSize: '0.95rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{shelf.name}</div>
+                    {clipboard && clipboard.itemType !== 'shelf' && (
                       <button
                         type="button"
                         onClick={(e) => {
@@ -6093,7 +6230,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                       ✏️
                     </button>
                   </div>
-                  <div onClick={() => setActiveShelfId(shelf.id)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#64748b', fontSize: '0.75rem', marginBottom: '0.5rem' }}>
+                  <div onClick={() => { if (!shouldIgnorePostLongPressClick()) setActiveShelfId(shelf.id); }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#64748b', fontSize: '0.75rem', marginBottom: '0.5rem' }}>
                     <span style={{ fontWeight: 600 }}>{shelfDocs.length} מסמכים</span>
                     <span style={{ color: '#94a3b8', fontSize: '0.65rem' }}>{new Date(shelf.createdAt).toLocaleDateString('he-IL')}</span>
                   </div>
@@ -6157,7 +6294,6 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                         </button>
                       </>
                     )}
-                    <button onClick={(e) => { e.stopPropagation(); setShelfToMove(shelf); }} style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', width: '28px', height: '28px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem' }} title="העבר או שכפל נושא למרחב אחר">📦</button>
                     <button onClick={(e) => { e.stopPropagation(); setEditingShelfCoverId(shelf.id); }} style={{ background: '#f1f5f9', border: 'none', width: '28px', height: '28px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="עיצוב">🎨</button>
                     <button onClick={(e) => {
                       e.stopPropagation();
@@ -6182,8 +6318,27 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             const highlightStyle = hasRecentDoc ? { border: '3px solid #3b82f6', boxShadow: '0 0 20px rgba(59,130,246,0.6)' } : (shelf.highlightColor ? { border: '3px solid ' + shelf.highlightColor, boxShadow: '0 0 15px ' + shelf.highlightColor + '60' } : { border: '3px solid #fff', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' });
 
             return (
-              <div key={shelf.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', width: '90px', position: 'relative' }}>
-                <button onClick={(e) => { e.stopPropagation(); setShelfToMove(shelf); }} style={{ position: 'absolute', top: 0, left: '26px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '50%', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', zIndex: 10, cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }} title="העבר או שכפל נושא למרחב אחר">📦</button>
+              <div
+                key={shelf.id}
+                onTouchStart={(e) => startContextLongPress(e, 'shelf', shelf.id, shelf.name)}
+                onTouchMove={handleContextTouchMove}
+                onTouchEnd={cancelContextLongPress}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setContextMenu({ itemType: 'shelf', id: shelf.id, title: shelf.name, x: e.clientX, y: e.clientY });
+                }}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  cursor: 'pointer',
+                  width: '90px',
+                  position: 'relative',
+                  opacity: isShelfCut(shelf.id) ? 0.48 : 1,
+                  transition: 'opacity 0.2s ease',
+                }}
+              >
                 <button onClick={(e) => { e.stopPropagation(); setEditingShelfCoverId(shelf.id); }} style={{ position: 'absolute', top: 0, left: 0, background: 'white', border: '1px solid #e2e8f0', borderRadius: '50%', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', zIndex: 10, cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }} title="עיצוב">🎨</button>
                 <button onClick={(e) => {
                   e.stopPropagation();
@@ -6197,7 +6352,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                   />
                 )}
                 
-                <div onClick={() => setActiveShelfId(shelf.id)} style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#f8fafc', backgroundImage: shelf.coverImage ? 'url(' + shelf.coverImage + ')' : 'none', backgroundSize: 'cover', backgroundPosition: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', ...highlightStyle, position: 'relative' }}>
+                <div onClick={() => { if (!shouldIgnorePostLongPressClick()) setActiveShelfId(shelf.id); }} style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#f8fafc', backgroundImage: shelf.coverImage ? 'url(' + shelf.coverImage + ')' : 'none', backgroundSize: 'cover', backgroundPosition: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', ...(isShelfCut(shelf.id) ? { border: '3px dashed #6366f1' } : highlightStyle), position: 'relative' }}>
                   {!shelf.coverImage && (shelf.icon || '🗂️')}
                   {(() => {
                     const pInfo = getPrivacyInfo(shelf.allowedPartners);
@@ -6239,7 +6394,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                   <div style={{ position: 'absolute', bottom: '-4px', left: '50%', transform: 'translateX(-50%)', background: 'rgba(255,255,255,0.9)', color: '#334155', fontSize: '0.7rem', padding: '2px 8px', borderRadius: '12px', fontWeight: 'bold', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>{shelfDocs.length}</div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.2rem', width: '100%' }}>
-                  <div onClick={() => setActiveShelfId(shelf.id)} style={{ fontWeight: 'bold', color: '#334155', fontSize: '0.85rem', textAlign: 'center', lineHeight: '1.2', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{shelf.name}</div>
+                  <div onClick={() => { if (!shouldIgnorePostLongPressClick()) setActiveShelfId(shelf.id); }} style={{ fontWeight: 'bold', color: '#334155', fontSize: '0.85rem', textAlign: 'center', lineHeight: '1.2', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{shelf.name}</div>
                   <button 
                     onClick={(e) => { e.stopPropagation(); handleRenameShelf(shelf.id, shelf.name); }} 
                     style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '1px', fontSize: '0.75rem', color: '#64748b', opacity: 0.7, flexShrink: 0 }}
@@ -6248,6 +6403,30 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                     ✏️
                   </button>
                 </div>
+                {clipboard && clipboard.itemType !== 'shelf' && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePasteClipboardInto(shelf.id, null);
+                      setActiveShelfId(shelf.id);
+                    }}
+                    style={{
+                      background: 'linear-gradient(135deg, #4f46e5, #2563eb)',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '8px',
+                      padding: '3px 7px',
+                      fontSize: '0.68rem',
+                      fontWeight: 900,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                    }}
+                    title={`הדבק ישירות לתוך "${shelf.name}"`}
+                  >
+                    📥 הדבק
+                  </button>
+                )}
               </div>
             );
           })}
@@ -6436,8 +6615,39 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           }}
         />
       )}
-      {/* SHELF MOVE MODAL IN OUTER GALLERY VIEW */}
-      {renderShelfMoveModal()}
+      {/* UNIFIED WINDOWS / DRIVE LONG-PRESS CONTEXT MENU ON SHELVES SCREEN (DRY Single Source of Truth) */}
+      <VaultContextMenuPopover
+        menu={contextMenu}
+        clipboard={clipboard}
+        onClose={() => setContextMenu(null)}
+        onCut={() => {
+          if (!contextMenu || contextMenu.itemType === 'canvas') return;
+          handleStageClipboard('cut', contextMenu.itemType, [contextMenu.id], contextMenu.title);
+        }}
+        onCopy={() => {
+          if (!contextMenu || contextMenu.itemType === 'canvas') return;
+          handleStageClipboard('copy', contextMenu.itemType, [contextMenu.id], contextMenu.title);
+        }}
+        onPasteIntoTarget={() => {
+          if (!contextMenu) return;
+          if (contextMenu.itemType === 'shelf') {
+            if (clipboard?.itemType === 'shelf') {
+              handlePasteClipboardInto(null, null);
+            } else {
+              handlePasteClipboardInto(contextMenu.id, null);
+              setActiveShelfId(contextMenu.id);
+            }
+          } else if (contextMenu.itemType === 'canvas') {
+            handlePasteClipboardInto(null, null);
+          }
+        }}
+        onCancelClipboard={() => clearClipboard()}
+        onDelete={() => {
+          if (!contextMenu || contextMenu.itemType !== 'shelf') return;
+          const docCount = activeDocuments.filter(d => d.shelfId === contextMenu.id).length;
+          setShelfToDelete({ id: contextMenu.id, name: contextMenu.title, count: docCount });
+        }}
+      />
 
       {/* SMART DUPLICATE PREVENTION INTERCEPTION MODAL */}
       {duplicateMatchState && (

@@ -2,19 +2,12 @@
 
 import React from 'react';
 import { createPortal } from 'react-dom';
+import type { GlobalTransferClipboardState } from '@/utils/globalTransferClipboard';
 
-export interface VaultClipboardState {
-  mode: 'cut' | 'copy';
-  itemType: 'document' | 'folder' | 'mixed';
-  itemIds: string[];
-  folderIds?: string[]; // Used in 'mixed' mode when both folders and documents are cut/copied together
-  label: string;
-  sourceShelfId?: string | null;
-  sourceFolderId?: string | null;
-}
+export type VaultClipboardState = GlobalTransferClipboardState;
 
 export interface VaultContextMenuState {
-  itemType: 'document' | 'folder' | 'canvas';
+  itemType: 'document' | 'folder' | 'shelf' | 'canvas';
   id: string;
   title: string;
   x: number;
@@ -155,11 +148,13 @@ export const VaultContextMenuPopover: React.FC<VaultContextMenuPopoverProps> = (
   };
 
   const isCanvasPasteMenu = menu.itemType === 'canvas';
+  const isContainer = menu.itemType === 'folder' || menu.itemType === 'shelf';
   const canPasteHere =
     Boolean(clipboard) &&
     Boolean(onPasteIntoTarget) &&
     (isCanvasPasteMenu ||
-      (menu.itemType === 'folder' && !(clipboard?.itemType === 'folder' && clipboard.itemIds.includes(menu.id))));
+      (isContainer &&
+        !(clipboard?.itemType === menu.itemType && clipboard.itemIds.includes(menu.id))));
 
   // Clamp coordinates so menu stays fully inside viewport
   const left = Math.min(Math.max(12, menu.x - 110), (typeof window !== 'undefined' ? window.innerWidth : 380) - 232);
@@ -213,7 +208,7 @@ export const VaultContextMenuPopover: React.FC<VaultContextMenuPopoverProps> = (
             whiteSpace: 'nowrap',
           }}
         >
-          {isCanvasPasteMenu ? '📂' : menu.itemType === 'folder' ? '📁' : '📄'} {menu.title}
+          {isCanvasPasteMenu ? '📂' : menu.itemType === 'shelf' ? '🗂️' : menu.itemType === 'folder' ? '📁' : '📄'} {menu.title}
         </div>
 
         {canPasteHere && (
@@ -239,7 +234,7 @@ export const VaultContextMenuPopover: React.FC<VaultContextMenuPopoverProps> = (
             }}
           >
             <span>📥</span>
-            <span>{isCanvasPasteMenu ? `הדבק כאן (${clipboard?.label})` : 'הדבק לתוך תיקייה זו'}</span>
+            <span>{isCanvasPasteMenu ? `הדבק כאן (${clipboard?.label})` : menu.itemType === 'shelf' ? 'הדבק לתוך נושא זה' : 'הדבק לתוך תיקייה זו'}</span>
           </button>
         )}
 

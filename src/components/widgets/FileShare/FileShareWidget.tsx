@@ -23,6 +23,7 @@ import {
   VaultClipboardState,
   VaultContextMenuState,
 } from '@/components/widgets/Vault/VaultTransferClipboard';
+import { useGlobalTransferClipboard } from '@/utils/globalTransferClipboard';
 import GlobalRecycleBinModal, { TrashItem } from '@/components/common/GlobalRecycleBinModal';
 import ConfirmModal from '@/components/common/ConfirmModal';
 import { PartnersInviteModal } from '@/components/widgets/Partners/PartnersInviteModal';
@@ -89,10 +90,10 @@ export function FileShareWidget({
   const [selectedAllowedPartners, setSelectedAllowedPartners] = useState<string[]>([]);
   const [folderPartnersConfig, setFolderPartnersConfig] = useState<FolderPartnerPermission[]>([]);
 
-  // Unified Cut/Copy/Paste Clipboard & Context Menu (DRY Single Source of Truth — identical to Vault)
+  // Unified Global Cut/Copy/Paste Clipboard & Context Menu (DRY Single Source of Truth — identical to Vault, works across ALL spaces!)
   const [isMultiSelect, setIsMultiSelect] = useState(false);
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
-  const [clipboard, setClipboard] = useState<VaultClipboardState | null>(null);
+  const { clipboard, setClipboard, clearClipboard } = useGlobalTransferClipboard();
   const [contextMenu, setContextMenu] = useState<VaultContextMenuState | null>(null);
   const canvasLongPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const actionHistory = useActionHistory({ maxDepth: 20 });
@@ -387,12 +388,79 @@ export function FileShareWidget({
     );
   };
 
-  // Unified Cut/Copy/Paste Paste Handler (Single Source of Truth — identical to Vault)
+  // Unified Cut/Copy/Paste Paste Handler (Single Source of Truth — supports BOTH same-space AND cross-space!)
   const handlePasteClipboard = async (targetFolderId: string | null) => {
     if (!clipboard || clipboard.itemIds.length === 0) return;
+
+    if (clipboard.sourceEngine === 'vault') {
+      setSaveFeedbackToast('הפריט נגזר/הועתק ממדף המסמכים — הדבק אותו במדף המסמכים (במרחב זה או במרחב אחר).');
+      setTimeout(() => setSaveFeedbackToast(null), 3500);
+      return;
+    }
+
     const movingIds = new Set(clipboard.itemIds);
 
-    // Prevent circular folder nesting when cutting folders
+    // Cross-Space FileShare transfer (Space A -> Space B!)
+    if (clipboard.sourceSpaceId && clipboard.sourceSpaceId !== space.id) {
+      const sourceSpace = Array.isArray(spaces)
+        ? spaces.find((s: any) => s.id === clipboard.sourceSpaceId)
+        : null;
+      const sourceAllItems: FileShareItem[] = Array.isArray(sourceSpace?.fileShareItems)
+        ? sourceSpace.fileShareItems
+        : [];
+      const collected: FileShareItem[] = [];
+      const visited = new Set<string>();
+      const collectSubtree = (item: FileShareItem) => {
+        if (visited.has(item.id)) return;
+        visited.add(item.id);
+        collected.push(item);
+        if (item.type === 'folder') {
+          sourceAllItems
+            .filter(child => !child.deletedAt && child.parentId === item.id)
+            .forEach(collectSubtree);
+        }
+      };
+      sourceAllItems.filter(i => movingIds.has(i.id)).forEach(collectSubtree);
+      if (collected.length === 0) {
+        clearClipboard();
+        return;
+      }
+
+      const idMap: Record<string, string> = {};
+      const now = Date.now();
+      collected.forEach((item, idx) => {
+        idMap[item.id] = `item_${now}_${idx}_${Math.random().toString(36).substring(2, 6)}`;
+      });
+
+      const transferredItems: FileShareItem[] = collected.map((item) => {
+        const isRootSelected = movingIds.has(item.id);
+        return {
+          ...item,
+          id: idMap[item.id],
+          spaceId: space.id,
+          parentId: isRootSelected ? targetFolderId : (item.parentId && idMap[item.parentId] ? idMap[item.parentId] : targetFolderId),
+          createdAt: now,
+        };
+      });
+
+      await saveItems([...allItems, ...transferredItems]);
+      if (clipboard.mode === 'cut' && updateFileShareItems) {
+        const remainingSource = sourceAllItems.filter(i => !visited.has(i.id));
+        await updateFileShareItems(clipboard.sourceSpaceId, remainingSource);
+      }
+      setSaveFeedbackToast(
+        clipboard.mode === 'copy'
+          ? `📋 "${clipboard.label}" שוכפל למרחב זה בהצלחה!`
+          : `✂️ "${clipboard.label}" הועבר למרחב זה בהצלחה!`
+      );
+      setTimeout(() => setSaveFeedbackToast(null), 3500);
+      clearClipboard();
+      setSelectedItemIds([]);
+      setIsMultiSelect(false);
+      return;
+    }
+
+    // Prevent circular folder nesting when cutting folders in same space
     if (clipboard.mode === 'cut' && targetFolderId) {
       const getDescendantIds = (pid: string): string[] => {
         const direct = allItems.filter(i => i.type === 'folder' && i.parentId === pid).map(i => i.id);
@@ -454,7 +522,7 @@ export function FileShareWidget({
       redo: () => saveItems(afterSnapshot),
     });
 
-    setClipboard(null);
+    clearClipboard();
     setSelectedItemIds([]);
     setIsMultiSelect(false);
   };
@@ -1381,7 +1449,7 @@ export function FileShareWidget({
         clipboard={clipboard}
         currentLocationLabel={currentFolderItem?.name || 'קיר השיתוף (רמה ראשית)'}
         onPasteHere={() => handlePasteClipboard(currentFolderId)}
-        onCancel={() => setClipboard(null)}
+        onCancel={() => clearClipboard()}
       />
 
       {/* 2. BREADCRUMBS BAR (Shown when navigating inside folders) */}
@@ -1495,6 +1563,9 @@ export function FileShareWidget({
             const firstSelected = allItems.find(i => selectedItemIds.includes(i.id));
             setClipboard({
               mode: 'cut',
+              sourceEngine: 'fileshare',
+              sourceSpaceId: space.id,
+              sourceSpaceTitle: space.title,
               itemType: firstSelected?.type === 'folder' ? 'folder' : 'document',
               itemIds: [...selectedItemIds],
               label: selectedItemIds.length === 1 ? (firstSelected?.name || 'פריט') : `${selectedItemIds.length} פריטים`,
@@ -1515,6 +1586,9 @@ export function FileShareWidget({
             const firstSelected = allItems.find(i => selectedItemIds.includes(i.id));
             setClipboard({
               mode: 'copy',
+              sourceEngine: 'fileshare',
+              sourceSpaceId: space.id,
+              sourceSpaceTitle: space.title,
               itemType: firstSelected?.type === 'folder' ? 'folder' : 'document',
               itemIds: [...selectedItemIds],
               label: selectedItemIds.length === 1 ? (firstSelected?.name || 'פריט') : `${selectedItemIds.length} פריטים`,
@@ -1767,7 +1841,7 @@ export function FileShareWidget({
                     onToggleFavorite={handleToggleFavorite}
                     isMultiSelect={isMultiSelect}
                     isSelected={selectedItemIds.includes(folder.id)}
-                    isCut={clipboard?.mode === 'cut' && clipboard.itemIds.includes(folder.id)}
+                    isCut={clipboard?.mode === 'cut' && clipboard.sourceEngine === 'fileshare' && clipboard.sourceSpaceId === space.id && clipboard.itemIds.includes(folder.id)}
                     onToggleSelect={handleToggleSelectItem}
                     onContextMenuAction={(item, x, y) => {
                       setContextMenu({
@@ -1823,7 +1897,7 @@ export function FileShareWidget({
                   hasScanner={hasScanner}
                   isMultiSelect={isMultiSelect}
                   isSelected={selectedItemIds.includes(file.id)}
-                  isCut={clipboard?.mode === 'cut' && clipboard.itemIds.includes(file.id)}
+                  isCut={clipboard?.mode === 'cut' && clipboard.sourceEngine === 'fileshare' && clipboard.sourceSpaceId === space.id && clipboard.itemIds.includes(file.id)}
                   onToggleSelect={handleToggleSelectItem}
                   onContextMenuAction={(item, x, y) => {
                     setContextMenu({
@@ -2303,6 +2377,9 @@ export function FileShareWidget({
           if (!contextMenu || contextMenu.itemType === 'canvas') return;
           setClipboard({
             mode: 'cut',
+            sourceEngine: 'fileshare',
+            sourceSpaceId: space.id,
+            sourceSpaceTitle: space.title,
             itemType: contextMenu.itemType,
             itemIds: [contextMenu.id],
             label: contextMenu.title,
@@ -2313,6 +2390,9 @@ export function FileShareWidget({
           if (!contextMenu || contextMenu.itemType === 'canvas') return;
           setClipboard({
             mode: 'copy',
+            sourceEngine: 'fileshare',
+            sourceSpaceId: space.id,
+            sourceSpaceTitle: space.title,
             itemType: contextMenu.itemType,
             itemIds: [contextMenu.id],
             label: contextMenu.title,
@@ -2326,7 +2406,7 @@ export function FileShareWidget({
               ? () => handlePasteClipboard(contextMenu.id)
               : undefined
         }
-        onCancelClipboard={() => setClipboard(null)}
+        onCancelClipboard={() => clearClipboard()}
         onSelectMultiple={() => {
           if (!contextMenu || contextMenu.itemType === 'canvas') return;
           setIsMultiSelect(true);

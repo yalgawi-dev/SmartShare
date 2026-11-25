@@ -55,8 +55,9 @@ export function FileShareItemCard({
   const [editNameValue, setEditNameValue] = useState(item.name);
   const [showDotsMenu, setShowDotsMenu] = useState(false);
 
-  // Long press timer ref & flag
+  // Long press timer ref, touch start position (12px tremor tolerance) & flag
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
   const isLongPressTriggeredRef = useRef(false);
 
   useEffect(() => {
@@ -82,9 +83,11 @@ export function FileShareItemCard({
     if (e && 'touches' in e && e.touches?.[0]) {
       x = e.touches[0].clientX;
       y = e.touches[0].clientY;
+      touchStartPosRef.current = { x, y };
     } else if (e && 'clientX' in e) {
       x = e.clientX;
       y = e.clientY;
+      touchStartPosRef.current = null;
     }
     longPressTimerRef.current = setTimeout(() => {
       isLongPressTriggeredRef.current = true;
@@ -102,9 +105,21 @@ export function FileShareItemCard({
   };
 
   const cancelLongPress = () => {
+    touchStartPosRef.current = null;
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
+    }
+  };
+
+  const handleTouchMoveLongPress = (e: React.TouchEvent) => {
+    if (!longPressTimerRef.current || !touchStartPosRef.current) return;
+    const pt = e.touches?.[0];
+    if (!pt) return;
+    const dx = pt.clientX - touchStartPosRef.current.x;
+    const dy = pt.clientY - touchStartPosRef.current.y;
+    if (Math.hypot(dx, dy) > 12) {
+      cancelLongPress();
     }
   };
 
@@ -184,7 +199,7 @@ export function FileShareItemCard({
       return (
         <div
           onTouchStart={startLongPress}
-          onTouchMove={cancelLongPress}
+          onTouchMove={handleTouchMoveLongPress}
           onTouchEnd={cancelLongPress}
           onMouseDown={startLongPress}
           onMouseUp={cancelLongPress}
@@ -376,7 +391,7 @@ export function FileShareItemCard({
     return (
       <div
         onTouchStart={startLongPress}
-        onTouchMove={cancelLongPress}
+        onTouchMove={handleTouchMoveLongPress}
         onTouchEnd={cancelLongPress}
         onMouseDown={startLongPress}
         onMouseUp={cancelLongPress}
@@ -520,7 +535,7 @@ export function FileShareItemCard({
       <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: '2px' }}>
         <div
           onTouchStart={startLongPress}
-          onTouchMove={cancelLongPress}
+          onTouchMove={handleTouchMoveLongPress}
           onTouchEnd={cancelLongPress}
           onMouseDown={startLongPress}
           onMouseUp={cancelLongPress}
@@ -722,7 +737,7 @@ export function FileShareItemCard({
   return (
     <div
       onTouchStart={startLongPress}
-      onTouchMove={cancelLongPress}
+      onTouchMove={handleTouchMoveLongPress}
       onTouchEnd={cancelLongPress}
       onMouseDown={startLongPress}
       onMouseUp={cancelLongPress}
