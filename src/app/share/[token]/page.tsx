@@ -7,7 +7,8 @@ import { useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { useAuth } from '@/app/context/AuthContext';
-import { getPublicShare, recordPublicShareView, recordShareHeartbeat, isShareExpired, PublicSharedData, formatFileSize, uploadRecipientSubmission } from '@/utils/fileShareUtils';
+import { getPublicShare, recordPublicShareView, recordShareHeartbeat, registerAnonymousGuestVisit, isShareExpired, PublicSharedData, formatFileSize, uploadRecipientSubmission } from '@/utils/fileShareUtils';
+import { GuestIdentityGateCard } from '@/components/share/GuestIdentityGateCard';
 import { saveSharedLink } from '@/utils/savedSharedLinksUtils';
 import { uploadBlobToStorage } from '@/lib/firebase';
 import UniversalViewerModal from '@/components/common/ViewerEngine/UniversalViewerModal';
@@ -70,10 +71,32 @@ export default function PublicSharePage({ params }: SharePageProps) {
     return null;
   }, [user, liveSpace]);
 
-  // PIN challenge state
+  // PIN challenge & Anonymous Guest Identity Gate state
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState(false);
+  const [guestIdentified, setGuestIdentified] = useState(false);
+  const [guestRecipientId, setGuestRecipientId] = useState<string | null>(null);
+
+  // Check if a logged-in user is already in the share's authorized recipients list by phone
+  const isLoggedInKnownRecipient = useMemo(() => {
+    if (!user?.phone || !Array.isArray(shareData?.recipients)) return false;
+    const uDigits = user.phone.replace(/\D/g, '');
+    if (uDigits.length < 7) return false;
+    return shareData.recipients.some(
+      (r) => r.phone && r.phone.replace(/\D/g, '') === uDigits
+    );
+  }, [user?.phone, shareData?.recipients]);
+
+  const needsGuestIdentity = useMemo(() => {
+    if (!isUnlocked || !shareData) return false;
+    if (shareData.requireGuestIdentity === false) return false;
+    if (shareData.recipientId || shareData.recipientName) return false; // Personal authorized link
+    if (memberStatusInSpace?.isMember) return false; // Space member/creator
+    if (isLoggedInKnownRecipient) return false; // Logged-in authorized recipient
+    if (guestIdentified) return false; // Already identified on this device
+    return true;
+  }, [isUnlocked, shareData, memberStatusInSpace, isLoggedInKnownRecipient, guestIdentified]);
 
   // Viewer state
   const [previewState, setPreviewState] = useState<{ docs: any[]; index: number } | null>(null);
@@ -92,17 +115,17 @@ export default function PublicSharePage({ params }: SharePageProps) {
   const [uploadedFilesList, setUploadedFilesList] = useState<string[]>([]);
 
   useEffect(() => {
-    if (isUnlocked && token) {
+    if (isUnlocked && !needsGuestIdentity && token) {
       startTimeRef.current = Date.now();
       // Send heartbeat every 15 seconds
       intervalRef.current = setInterval(() => {
-        recordShareHeartbeat(token, 15);
+        recordShareHeartbeat(token, 15, guestRecipientId);
       }, 15000);
 
       const handleUnload = () => {
         const elapsed = Math.round((Date.now() - startTimeRef.current) / 1000);
         if (elapsed > 0) {
-          recordShareHeartbeat(token, elapsed % 15);
+          recordShareHeartbeat(token, elapsed % 15, guestRecipientId);
         }
       };
       window.addEventListener('beforeunload', handleUnload);
@@ -112,7 +135,7 @@ export default function PublicSharePage({ params }: SharePageProps) {
         window.removeEventListener('beforeunload', handleUnload);
       };
     }
-  }, [isUnlocked, token]);
+  }, [isUnlocked, needsGuestIdentity, token, guestRecipientId]);
 
   useEffect(() => {
     async function loadData() {
@@ -155,9 +178,39 @@ export default function PublicSharePage({ params }: SharePageProps) {
       }
 
       setShareData(enrichedData);
+
+      // Check if this anonymous guest already identified themselves on this device for this link
+      let restoredGuest: { name: string; phone: string; recipientId?: string } | null = null;
+      if (typeof window !== 'undefined') {
+        try {
+          const rawGuest = localStorage.getItem(`smartshare_guest_id_${token}`);
+          if (rawGuest) {
+            const parsed = JSON.parse(rawGuest);
+            if (parsed?.name && parsed?.phone) {
+              restoredGuest = parsed;
+              setGuestIdentified(true);
+              if (parsed.recipientId) setGuestRecipientId(parsed.recipientId);
+              setSubmissionPhone(parsed.phone);
+            }
+          }
+        } catch {}
+      }
+
+      const isGeneralLinkRequiringId =
+        enrichedData.requireGuestIdentity !== false &&
+        !enrichedData.recipientId &&
+        !enrichedData.recipientName &&
+        !restoredGuest;
+
       if (!enrichedData.requirePin || !enrichedData.pin) {
         setIsUnlocked(true);
-        recordPublicShareView(token);
+        if (restoredGuest && !enrichedData.recipientId && !enrichedData.recipientName) {
+          registerAnonymousGuestVisit(token, restoredGuest).then((res) => {
+            if (res?.recipientId) setGuestRecipientId(res.recipientId);
+          }).catch(() => {});
+        } else if (!isGeneralLinkRequiringId) {
+          recordPublicShareView(token);
+        }
         saveSharedLink({
           token,
           name: enrichedData.name,
@@ -166,7 +219,7 @@ export default function PublicSharePage({ params }: SharePageProps) {
           spaceTitle: enrichedData.spaceTitle,
           spaceLogoUrl: enrichedData.spaceLogoUrl
         });
-        if (enrichedData.itemType !== 'folder') {
+        if (!isGeneralLinkRequiringId && enrichedData.itemType !== 'folder') {
           openViewerForFile(enrichedData as any);
         }
       }
@@ -331,6 +384,34 @@ export default function PublicSharePage({ params }: SharePageProps) {
           תוקף הקישור למסמך זה פג מטעמי אבטחה. פנה לבעל המרחב כדי להפיק קישור חדש.
         </p>
       </div>
+    );
+  }
+
+  // Anonymous Guest Identification Gate (General link, not yet authorized on Share Wall)
+  if (needsGuestIdentity && shareData) {
+    return (
+      <GuestIdentityGateCard
+        spaceTitle={shareData.spaceTitle}
+        spaceLogoUrl={shareData.spaceLogoUrl}
+        itemName={shareData.name}
+        itemType={shareData.itemType}
+        onSubmit={async ({ name, phone }) => {
+          const reg = await registerAnonymousGuestVisit(token, { name, phone });
+          const recId = reg?.recipientId || null;
+          if (recId) setGuestRecipientId(recId);
+          setSubmissionPhone(phone);
+          setGuestIdentified(true);
+          try {
+            localStorage.setItem(
+              `smartshare_guest_id_${token}`,
+              JSON.stringify({ name, phone, recipientId: recId, identifiedAt: Date.now() })
+            );
+          } catch {}
+          if (shareData.itemType !== 'folder') {
+            openViewerForFile(shareData as any);
+          }
+        }}
+      />
     );
   }
 

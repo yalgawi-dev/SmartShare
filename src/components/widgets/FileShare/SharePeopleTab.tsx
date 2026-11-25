@@ -562,9 +562,26 @@ export function SharePeopleTab({
                         </span>
                       )}
                     </div>
-                    <div style={{ fontSize: '0.73rem', color: 'var(--text-secondary)', marginTop: '0.15rem' }}>
-                      {r.viewCount && r.viewCount > 0 ? `👁️ נצפה ${r.viewCount} פעמים` : '⏳ טרם נפתח'}
-                      {r.publicMessage ? ` • ✉️ "${r.publicMessage.slice(0, 26)}${r.publicMessage.length > 26 ? '…' : ''}"` : ''}
+                    <div style={{ fontSize: '0.73rem', color: 'var(--text-secondary)', marginTop: '0.15rem', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '4px' }}>
+                      {r.origin === 'public_link' && (
+                        <span
+                          style={{
+                            fontSize: '0.66rem',
+                            fontWeight: 800,
+                            padding: '1px 6px',
+                            borderRadius: '999px',
+                            background: '#e0f2fe',
+                            color: '#0369a1',
+                            border: '1px solid #bae6fd',
+                          }}
+                        >
+                          🌐 מלינק כללי{r.sourceChannel && r.sourceChannel !== 'קישור ישיר' ? ` • ${r.sourceChannel}` : ''}
+                        </span>
+                      )}
+                      <span>
+                        {r.viewCount && r.viewCount > 0 ? `👁️ נצפה ${r.viewCount} פעמים` : '⏳ טרם נפתח'}
+                        {r.publicMessage ? ` • ✉️ "${r.publicMessage.slice(0, 26)}${r.publicMessage.length > 26 ? '…' : ''}"` : ''}
+                      </span>
                     </div>
                   </div>
 

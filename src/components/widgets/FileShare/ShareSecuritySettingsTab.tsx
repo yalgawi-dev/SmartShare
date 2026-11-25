@@ -13,6 +13,8 @@ interface ShareSecuritySettingsTabProps {
   subtreeFilesCount: number;
   requirePin: boolean;
   onTogglePin: (next: boolean) => void;
+  requireGuestIdentity: boolean;
+  setRequireGuestIdentity: (v: boolean) => void;
   pin: string;
   setPin: (v: string) => void;
   onGenerateRandomPin: () => void;
@@ -42,6 +44,8 @@ export function ShareSecuritySettingsTab({
   subtreeFilesCount,
   requirePin,
   onTogglePin,
+  requireGuestIdentity,
+  setRequireGuestIdentity,
   pin,
   setPin,
   onGenerateRandomPin,
@@ -148,6 +152,38 @@ export function ShareSecuritySettingsTab({
               </div>
             </div>
           )}
+
+          {/* 2.5 Anonymous Guest Identity Gate (General Link) */}
+          <label
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '0.75rem',
+              padding: '0.8rem 0.9rem',
+              borderRadius: '14px',
+              border: requireGuestIdentity ? '1.5px solid #93c5fd' : '1px solid #e2e8f0',
+              background: requireGuestIdentity ? '#eff6ff' : '#f8fafc',
+              cursor: 'pointer',
+            }}
+          >
+            <div>
+              <div style={{ fontWeight: 800, fontSize: '0.84rem', color: '#0f172a' }}>
+                🪪 זיהוי אורחים מקישור כללי (שם וטלפון)
+              </div>
+              <div style={{ fontSize: '0.73rem', color: '#475569', marginTop: '0.15rem', lineHeight: 1.4 }}>
+                {requireGuestIdentity
+                  ? 'אורח שאינו ברשימת המורשים יתבקש להזין שם וטלפון פעם אחת ויופיע אוטומטית ברשימת הצופים.'
+                  : 'כבוי — כניסה חופשית לקישור הכללי ללא בקשת שם וטלפון.'}
+              </div>
+            </div>
+            <input
+              type="checkbox"
+              checked={requireGuestIdentity}
+              onChange={(e) => setRequireGuestIdentity(e.target.checked)}
+              style={{ width: '20px', height: '20px', accentColor: '#2563eb', cursor: 'pointer', flexShrink: 0 }}
+            />
+          </label>
 
           {/* 3. PIN Protection */}
           <div

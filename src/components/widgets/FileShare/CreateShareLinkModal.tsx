@@ -72,6 +72,7 @@ export function CreateShareLinkModal({
   const [activeTab, setActiveTab] = useState<ModalTab>('people');
   const [isEnabled, setIsEnabled] = useState(true);
   const [requirePin, setRequirePin] = useState(false);
+  const [requireGuestIdentity, setRequireGuestIdentity] = useState(true);
   const [pin, setPin] = useState('');
   const [expiryOption, setExpiryOption] = useState<'never' | '1day' | '7days' | '30days'>('never');
   const [allowDownload, setAllowDownload] = useState(true);
@@ -180,6 +181,7 @@ export function CreateShareLinkModal({
         const activeToken = link.token || generateShareToken();
         setToken(activeToken);
         setRequirePin(Boolean(link.requirePin));
+        setRequireGuestIdentity(link.requireGuestIdentity !== false);
         setPin(link.pin || '');
         setAllowDownload(link.allowDownload !== false);
         setAllowUploads(link.allowUploads !== false);
@@ -233,6 +235,7 @@ export function CreateShareLinkModal({
         setIsEnabled(true);
         setToken(generateShareToken());
         setRequirePin(false);
+        setRequireGuestIdentity(true);
         setPin('');
         setExpiryOption('never');
         setAllowDownload(true);
@@ -341,6 +344,7 @@ export function CreateShareLinkModal({
         enabled: true,
         token: tokenToUse,
         requirePin,
+        requireGuestIdentity,
         pin: requirePin && pin ? pin.trim() : '',
         expiresAt,
         allowDownload,
@@ -990,6 +994,8 @@ export function CreateShareLinkModal({
               subtreeSubfoldersCount={effectiveSubfolders.length}
               subtreeFilesCount={effectiveFolderFiles.length}
               requirePin={requirePin}
+              requireGuestIdentity={requireGuestIdentity}
+              setRequireGuestIdentity={setRequireGuestIdentity}
               onTogglePin={(next) => {
                 setRequirePin(next);
                 if (next && !pin) setPin(generateRandomPin());

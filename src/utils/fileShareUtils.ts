@@ -18,6 +18,8 @@ export interface RecipientShareLink {
   internalNote?: string; // 🔒 הערה פנימית פרטית (רק לעיני המנהלים - לא גלוי לנמען!)
   publicMessage?: string; // ✉️ הודעה גלויה לנמען (מוצגת בדף השיתוף)
   chatChannelId?: string; // מזהה שיחה ייעודי עם האורח
+  origin?: 'manual' | 'public_link'; // 'public_link' = אורח שנרשם אוטומטית מקישור כללי
+  sourceChannel?: string; // זיהוי ערוץ שקט אוטומטי (אינסטגרם / פייסבוק / וואטסאפ / מייל / קישור ישיר)
 }
 
 export interface ShareLinkConfig {
@@ -25,6 +27,7 @@ export interface ShareLinkConfig {
   token?: string;
   requirePin: boolean;
   pin?: string;
+  requireGuestIdentity?: boolean; // default true: אורח לא מוכר מלינק כללי מזדהה עם שם וטלפון פעם אחת
   expiresAt: number | null; // timestamp in ms, or null for no expiry
   allowDownload: boolean;   // if false: view-only mode
   allowUploads?: boolean;  // if true: recipient can upload submissions / quotes
@@ -122,6 +125,7 @@ export interface PublicSharedData {
   size?: number;
   requirePin: boolean;
   pin?: string;
+  requireGuestIdentity?: boolean;
   expiresAt: number | null;
   allowDownload: boolean;
   allowUploads?: boolean;
@@ -230,6 +234,7 @@ export async function createOrUpdatePublicShare(
     size: item.size || 0,
     requirePin: Boolean(config.requirePin),
     pin: config.requirePin && config.pin ? config.pin.trim() : '',
+    requireGuestIdentity: config.requireGuestIdentity !== false,
     expiresAt: config.expiresAt || null,
     allowDownload: config.allowDownload !== false,
     allowUploads: config.allowUploads !== false,
@@ -328,11 +333,157 @@ export async function getPublicShare(token: string): Promise<PublicSharedData | 
 }
 
 /**
+ * Detects automated link-preview crawlers (WhatsApp, Facebook, Instagram, Telegram, etc.)
+ * so social link previews never create fake "views".
+ */
+export function isLinkPreviewBot(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  return /facebookexternalhit|Facebot|WhatsApp|Twitterbot|LinkedInBot|TelegramBot|Slackbot|Discordbot|Googlebot|bingbot|Applebot/i.test(ua);
+}
+
+/**
+ * Silently detects traffic channel from User-Agent / document.referrer with ZERO work for the sender.
+ */
+export function detectAnonymousShareChannel(): string {
+  if (typeof window === 'undefined') return 'קישור ישיר';
+  const ua = (navigator.userAgent || '').toLowerCase();
+  const ref = (document.referrer || '').toLowerCase();
+  if (ua.includes('instagram') || ref.includes('instagram.com')) return 'אינסטגרם';
+  if (ua.includes('fban') || ua.includes('fbav') || ref.includes('facebook.com') || ref.includes('fb.me')) return 'פייסבוק';
+  if (ref.includes('whatsapp') || ref.includes('wa.me')) return 'וואטסאפ';
+  if (ref.includes('mail.google') || ref.includes('outlook') || ref.includes('mail.yahoo')) return 'מייל';
+  if (ref.includes('t.me') || ref.includes('telegram')) return 'טלגרם';
+  return 'קישור ישיר';
+}
+
+/**
+ * Registers or updates an anonymous guest who identified themselves (name + phone) on a general public link.
+ * Deduplicates by normalized phone digits and syncs directly into the Share Wall's recipients list!
+ */
+export async function registerAnonymousGuestVisit(
+  token: string,
+  guest: { name: string; phone: string }
+): Promise<{ recipientId: string; sourceChannel: string } | null> {
+  if (!token || isLinkPreviewBot()) return null;
+  const cleanName = String(guest.name || '').trim().slice(0, 60);
+  const cleanPhone = String(guest.phone || '').trim().slice(0, 24);
+  const phoneDigits = cleanPhone.replace(/\D/g, '');
+  if (cleanName.length < 2 || phoneDigits.length < 7) return null;
+
+  const sourceChannel = detectAnonymousShareChannel();
+  const now = Date.now();
+
+  try {
+    const shareDocRef = doc(db, 'shared_links', token);
+    const snap = await getDoc(shareDocRef);
+    if (!snap.exists()) return null;
+    const data = snap.data() as PublicSharedData;
+
+    const existingList: RecipientShareLink[] = Array.isArray(data.recipients) ? [...data.recipients] : [];
+    const matchIdx = existingList.findIndex(
+      (r) => r.phone && r.phone.replace(/\D/g, '') === phoneDigits
+    );
+
+    let recipientId = '';
+    if (matchIdx >= 0) {
+      recipientId = existingList[matchIdx].id;
+      existingList[matchIdx] = {
+        ...existingList[matchIdx],
+        recipientName: existingList[matchIdx].recipientName || cleanName,
+        viewCount: (existingList[matchIdx].viewCount || 0) + 1,
+        lastViewedAt: now,
+        sourceChannel: existingList[matchIdx].sourceChannel || sourceChannel,
+      };
+    } else {
+      recipientId = `pub_${phoneDigits}_${now.toString(36).slice(-4)}`;
+      existingList.unshift({
+        id: recipientId,
+        recipientName: cleanName,
+        role: 'general',
+        phone: cleanPhone,
+        token,
+        enabled: true,
+        createdAt: now,
+        viewCount: 1,
+        totalDurationSeconds: 0,
+        lastViewedAt: now,
+        origin: 'public_link',
+        sourceChannel,
+        chatChannelId: `guest_${recipientId}`,
+      });
+    }
+
+    await updateDoc(shareDocRef, sanitizeFirestoreData({
+      viewCount: increment(1),
+      lastViewedAt: now,
+      recipients: existingList,
+    }));
+
+    // Sync into Space's fileShareItems so the owner sees the contractor/visitor immediately in SharePeopleTab
+    if (data.spaceId && data.itemId) {
+      const spaceDocRef = doc(db, 'spaces', data.spaceId);
+      const spaceSnap = await getDoc(spaceDocRef);
+      if (spaceSnap.exists()) {
+        const spaceData = spaceSnap.data();
+        const items = Array.isArray(spaceData.fileShareItems) ? [...spaceData.fileShareItems] : [];
+        const itemIdx = items.findIndex((i) => i.id === data.itemId);
+        if (itemIdx >= 0) {
+          const it = items[itemIdx];
+          const shareLink = { ...(it.shareLink || {}) };
+          const spaceRecipients: RecipientShareLink[] = Array.isArray(shareLink.recipients)
+            ? [...shareLink.recipients]
+            : [];
+          const sMatchIdx = spaceRecipients.findIndex(
+            (r) => r.id === recipientId || (r.phone && r.phone.replace(/\D/g, '') === phoneDigits)
+          );
+          if (sMatchIdx >= 0) {
+            spaceRecipients[sMatchIdx] = {
+              ...spaceRecipients[sMatchIdx],
+              recipientName: spaceRecipients[sMatchIdx].recipientName || cleanName,
+              viewCount: (spaceRecipients[sMatchIdx].viewCount || 0) + 1,
+              lastViewedAt: now,
+              sourceChannel: spaceRecipients[sMatchIdx].sourceChannel || sourceChannel,
+            };
+          } else {
+            spaceRecipients.unshift({
+              id: recipientId,
+              recipientName: cleanName,
+              role: 'general',
+              phone: cleanPhone,
+              token,
+              enabled: true,
+              createdAt: now,
+              viewCount: 1,
+              totalDurationSeconds: 0,
+              lastViewedAt: now,
+              origin: 'public_link',
+              sourceChannel,
+              chatChannelId: `guest_${recipientId}`,
+            });
+          }
+          shareLink.recipients = spaceRecipients;
+          shareLink.viewCount = (shareLink.viewCount || 0) + 1;
+          shareLink.lastViewedAt = now;
+          items[itemIdx] = { ...it, shareLink };
+          await updateDoc(spaceDocRef, sanitizeFirestoreData({ fileShareItems: items }));
+        }
+      }
+    }
+
+    return { recipientId, sourceChannel };
+  } catch (err) {
+    console.warn('Failed to register anonymous guest visit:', err);
+    return null;
+  }
+}
+
+/**
  * Records an external guest view by incrementing viewCount and updating lastViewedAt.
  * Also synchronizes the view event into the space's fileShareItems array for owner visibility.
  */
 export async function recordPublicShareView(token: string): Promise<void> {
-  if (!token) return;
+  if (!token || isLinkPreviewBot()) return;
   try {
     const shareDocRef = doc(db, 'shared_links', token);
     const snap = await getDoc(shareDocRef);
@@ -383,13 +534,14 @@ export async function recordPublicShareView(token: string): Promise<void> {
 /**
  * Records time spent on a shared link (heartbeat or on unload).
  */
-export async function recordShareHeartbeat(token: string, durationSeconds: number): Promise<void> {
-  if (!token || durationSeconds <= 0) return;
+export async function recordShareHeartbeat(token: string, durationSeconds: number, guestRecipientId?: string | null): Promise<void> {
+  if (!token || durationSeconds <= 0 || isLinkPreviewBot()) return;
   try {
     const shareDocRef = doc(db, 'shared_links', token);
     const snap = await getDoc(shareDocRef);
     if (!snap.exists()) return;
     const data = snap.data() as PublicSharedData;
+    const effectiveRecipientId = data.recipientId || guestRecipientId || null;
 
     await updateDoc(shareDocRef, {
       totalDurationSeconds: increment(durationSeconds)
@@ -405,9 +557,9 @@ export async function recordShareHeartbeat(token: string, durationSeconds: numbe
         if (itemIdx >= 0) {
           const it = items[itemIdx];
           const shareLink = { ...(it.shareLink || {}) };
-          if (data.recipientId && Array.isArray(shareLink.recipients)) {
+          if (effectiveRecipientId && Array.isArray(shareLink.recipients)) {
             shareLink.recipients = shareLink.recipients.map((r: RecipientShareLink) => {
-              if (r.id === data.recipientId || r.token === token) {
+              if (r.id === effectiveRecipientId || (!guestRecipientId && r.token === token)) {
                 return {
                   ...r,
                   totalDurationSeconds: (r.totalDurationSeconds || 0) + durationSeconds
