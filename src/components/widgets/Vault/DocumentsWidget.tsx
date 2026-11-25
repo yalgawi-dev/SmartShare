@@ -254,7 +254,6 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
     setPrivacyTarget(prev => prev ? { ...prev, allowedPartners: newAllowed } : null);
   };
   const [folderToDelete, setFolderToDelete] = useState<{ id: string, name: string } | null>(null);
-  const [folderToMove, setFolderToMove] = useState<DocumentFolder | null>(null);
   const [linkingDoc, setLinkingDoc] = useState<{ doc: SpaceDocument; contextDocs?: SpaceDocument[] } | null>(null);
   const [viewLinkedDocsFor, setViewLinkedDocsFor] = useState<{ doc: SpaceDocument; contextDocs?: SpaceDocument[] } | null>(null);
   const [feedbackToast, setFeedbackToast] = useState<{ message: string; type?: 'success' | 'info' } | null>(null);
@@ -3271,14 +3270,37 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                   e.preventDefault();
                                   setContextMenu({ itemType: 'folder', id: folder.id, title: folder.name, x: e.clientX, y: e.clientY });
                                 }}
-                                onClick={() => setCurrentFolderId(folder.id)}
+                                onClick={() => {
+                                  if (isMultiSelect) {
+                                    setSelectedFolderIds((prev) =>
+                                      prev.includes(folder.id) ? prev.filter((id) => id !== folder.id) : [...prev, folder.id]
+                                    );
+                                    return;
+                                  }
+                                  setCurrentFolderId(folder.id);
+                                }}
                                 style={{
                                   display: 'flex',
                                   alignItems: 'center',
                                   justifyContent: 'space-between',
                                   padding: '0.55rem 0.85rem',
-                                  background: isFolderDragOver ? '#eff6ff' : '#ffffff',
-                                  border: isFolderDragOver ? '2px dashed #2563eb' : '1px solid #e2e8f0',
+                                  background: selectedFolderIds.includes(folder.id) ? '#eff6ff' : isFolderDragOver ? '#eff6ff' : '#ffffff',
+                                  border:
+                                    clipboard?.mode === 'cut' &&
+                                    ((clipboard.itemType === 'folder' && clipboard.itemIds.includes(folder.id)) ||
+                                      Boolean(clipboard.folderIds?.includes(folder.id)))
+                                      ? '2px dashed #6366f1'
+                                      : selectedFolderIds.includes(folder.id)
+                                        ? '2px solid #2563eb'
+                                        : isFolderDragOver
+                                          ? '2px dashed #2563eb'
+                                          : '1px solid #e2e8f0',
+                                  opacity:
+                                    clipboard?.mode === 'cut' &&
+                                    ((clipboard.itemType === 'folder' && clipboard.itemIds.includes(folder.id)) ||
+                                      Boolean(clipboard.folderIds?.includes(folder.id)))
+                                      ? 0.48
+                                      : 1,
                                   borderRadius: '12px',
                                   cursor: 'pointer',
                                   transition: 'all 0.15s ease',
@@ -3290,6 +3312,26 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                 onMouseLeave={(e) => (e.currentTarget.style.borderColor = '#e2e8f0')}
                               >
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', minWidth: 0, flex: 1 }}>
+                                  {isMultiSelect && (
+                                    <div
+                                      style={{
+                                        width: '20px',
+                                        height: '20px',
+                                        borderRadius: '6px',
+                                        background: selectedFolderIds.includes(folder.id) ? '#2563eb' : '#ffffff',
+                                        border: selectedFolderIds.includes(folder.id) ? '2px solid #2563eb' : '2px solid #94a3b8',
+                                        color: '#ffffff',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        fontSize: '0.72rem',
+                                        fontWeight: 900,
+                                        flexShrink: 0,
+                                      }}
+                                    >
+                                      {selectedFolderIds.includes(folder.id) ? '✓' : ''}
+                                    </div>
+                                  )}
                                   <span style={{ fontSize: '1.6rem', filter: 'drop-shadow(0 2px 4px rgba(245,158,11,0.25))', flexShrink: 0 }}>📁</span>
                                   <div style={{ minWidth: 0, flex: 1 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
@@ -3431,18 +3473,6 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                   )}
                                   <button
                                     type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setFolderToMove(folder);
-                                      
-                                    }}
-                                    style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '3px 7px', borderRadius: '7px', fontSize: '0.72rem', fontWeight: 600, color: '#16a34a', cursor: 'pointer' }}
-                                    title="העבר תיקייה למדף/מיקום אחר"
-                                  >
-                                    📦
-                                  </button>
-                                  <button
-                                    type="button"
                                     onClick={() => setFolderToDelete({ id: folder.id, name: folder.name })}
                                     style={{ background: '#fef2f2', border: '1px solid #fecaca', padding: '3px 7px', borderRadius: '7px', fontSize: '0.72rem', fontWeight: 600, color: '#dc2626', cursor: 'pointer' }}
                                     title="מחק תיקייה"
@@ -3510,8 +3540,6 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                   e.preventDefault();
                                   setContextMenu({ itemType: 'document', id: doc.id, title: doc.title || 'מסמך', x: e.clientX, y: e.clientY });
                                 }}
-                                onMouseDown={() => startLongPress(doc.id)}
-                                onMouseUp={cancelLongPress}
                                 onClick={() => {
                                   if (isLongPressTriggeredRef.current) {
                                     isLongPressTriggeredRef.current = false;
@@ -4103,17 +4131,6 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                         ✏️
                                       </button>
                                     )}
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setFolderToMove(folder);
-                                      }}
-                                      style={{ background: '#f0f9ff', color: '#0284c7', border: '1px solid #bae6fd', padding: '2px 5px', borderRadius: '5px', fontSize: '0.68rem', fontWeight: 'bold', cursor: 'pointer' }}
-                                      title="העבר תיקייה למדף/מיקום אחר"
-                                    >
-                                      📁
-                                    </button>
                                   </div>
 
                                   {/* Folder 3-dots menu */}
@@ -4166,16 +4183,6 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                               📍 {folderStation ? 'שנה תחנה בציר הזמן' : 'קשר לתחנה בציר הזמן'}
                                             </button>
                                           )}
-                                          <button
-                                            type="button"
-                                            onClick={() => {
-                                              setActiveDocMenuId(null);
-                                              setFolderToMove(folder);
-                                            }}
-                                            style={{ background: 'transparent', border: 'none', padding: '0.35rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#0369a1', display: 'flex', alignItems: 'center', gap: '0.45rem', fontWeight: 700 }}
-                                          >
-                                            📦 העבר או העתק תיקייה
-                                          </button>
                                           <button
                                             type="button"
                                             onClick={() => {
@@ -4274,8 +4281,6 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                   e.preventDefault();
                                   setContextMenu({ itemType: 'document', id: doc.id, title: doc.title || 'מסמך', x: e.clientX, y: e.clientY });
                                 }}
-                                onMouseDown={() => startLongPress(doc.id)}
-                                onMouseUp={cancelLongPress}
                                 onClick={() => {
                                   if (isLongPressTriggeredRef.current) {
                                     isLongPressTriggeredRef.current = false;
@@ -5321,79 +5326,6 @@ const handleDeleteDocument = (docId: string, title?: string) => {
         />
       )}
 
-      {/* MOVE ENTIRE FOLDER MODAL (Rule DRY / Single Source of Truth via GlobalMoveModal) */}
-      {folderToMove && (() => {
-        // Collect all descendant folder IDs to prevent circular nesting
-        const getDescendantFolderIds = (parentId: string): string[] => {
-          const direct = (space.documentFolders || []).filter(f => f.parentId === parentId && !f.deletedAt).map(f => f.id);
-          let all = [...direct];
-          direct.forEach(subId => {
-            all = [...all, ...getDescendantFolderIds(subId)];
-          });
-          return all;
-        };
-        const invalidFolderIds = [folderToMove.id, ...getDescendantFolderIds(folderToMove.id)];
-
-        // Candidate folders (excluding invalidFolderIds)
-        const validFolders = (space.documentFolders || []).filter(f => 
-          !f.deletedAt && 
-          !invalidFolderIds.includes(f.id)
-        );
-
-        return (
-          <GlobalMoveModal
-            isOpen={Boolean(folderToMove)}
-            title="העברת תיקייה שלמה"
-            subtitle={`התיקייה "${folderToMove.name}" על כל מסמכיה`}
-            itemCount={1}
-            currentSpaceId={space.id}
-            currentFolderId={folderToMove.id}
-            currentShelfId={folderToMove.shelfId}
-            shelves={space.shelves || []}
-            folders={(space.documentFolders || []).filter(f => !f.deletedAt && !getDescendantFolderIds(folderToMove.id).includes(f.id)).map(f => ({ id: f.id, name: f.name, parentId: f.parentId, shelfId: f.shelfId }))}
-            onClose={() => setFolderToMove(null)}
-            onConfirmMove={(targetFolderId, targetShelfId) => {
-              const destShelfId = targetShelfId || folderToMove.shelfId;
-              const isSame = destShelfId === folderToMove.shelfId && (targetFolderId || null) === (folderToMove.parentId || null);
-              if (isSame) {
-                setFolderToMove(null);
-                return;
-              }
-              const targetShelf = (space.shelves || []).find(s => s.id === destShelfId);
-              moveDocumentFolder(space.id, folderToMove.id, destShelfId, targetFolderId);
-              if (destShelfId && destShelfId !== activeShelfId) {
-                setActiveShelfId(destShelfId);
-              }
-              setCurrentFolderId(targetFolderId || null);
-              setFolderToMove(null);
-              showFeedbackToast(`התיקייה "${folderToMove.name}" וכל מסמכיה הועברו בהצלחה ${targetShelf ? 'למדף "' + targetShelf.name + '"' : ''}!`);
-            }}
-            onConfirmCrossSpace={async (targetSpaceId, targetShelfId, targetFolderId, actionType) => {
-              if (!exportDocumentFolderToSpace) return;
-              await exportDocumentFolderToSpace(
-                space.id,
-                folderToMove.id,
-                targetSpaceId,
-                targetShelfId,
-                targetFolderId,
-                actionType
-              );
-              if (actionType === 'move' && currentFolderId === folderToMove.id) {
-                setCurrentFolderId(null);
-              }
-              setFolderToMove(null);
-              showFeedbackToast(
-                actionType === 'copy'
-                  ? `התיקייה "${folderToMove.name}" שוכפלה בהצלחה למרחב הנבחר!`
-                  : `התיקייה "${folderToMove.name}" הועברה בהצלחה למרחב הנבחר ומולאה במקומה החדש!`
-              );
-            }}
-            rootLabel="רמה ראשית של המדף (ללא תיקיית אב)"
-            rootDescription="שכבת הבסיס הראשית של המדף הנבחר"
-          />
-        );
-      })()}
-
       {/* MOVE / COPY SHELF ACROSS SPACES MODAL (Single Source of Truth) */}
       {renderShelfMoveModal()}
 
@@ -5950,6 +5882,32 @@ const handleDeleteDocument = (docId: string, title?: string) => {
 
       {/* Recycle Bin Modal with Backdrop (Click outside to close) */}
       {renderRecycleBinModal()}
+
+      {/* Persistent Cut/Copy/Paste Bar when navigating across Shelves (activeShelf === null) */}
+      {clipboard && (
+        <div style={{ marginBottom: '0.85rem' }}>
+          <VaultTransferClipboardBar
+            clipboard={clipboard}
+            currentLocationLabel="רשימת הנושאים — היכנס לנושא היעד כדי להדביק"
+            onPasteHere={() => showFeedbackToast('היכנס קודם לנושא היעד שבו תרצה להדביק!')}
+            onCancel={() => setClipboard(null)}
+          />
+        </div>
+      )}
+
+      {(vaultHistory.canUndo || vaultHistory.canRedo) && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.65rem' }}>
+          <UndoRedoBar
+            canUndo={vaultHistory.canUndo}
+            canRedo={vaultHistory.canRedo}
+            lastUndoLabel={vaultHistory.lastUndoLabel}
+            lastRedoLabel={vaultHistory.lastRedoLabel}
+            isApplying={vaultHistory.isApplying}
+            onUndo={vaultHistory.undo}
+            onRedo={vaultHistory.redo}
+          />
+        </div>
+      )}
 
       {editingShelfCoverId && (
         <ShelfCoverPicker 
