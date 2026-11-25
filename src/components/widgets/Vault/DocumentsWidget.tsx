@@ -540,6 +540,20 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
     }
   };
 
+  // DRY helpers for Windows Explorer cut fade-out across ALL views (Grid, List, Mixed multi-select)
+  const isDocCut = (docId: string) =>
+    Boolean(
+      clipboard?.mode === 'cut' &&
+        (clipboard.itemType === 'document' || clipboard.itemType === 'mixed') &&
+        clipboard.itemIds.includes(docId)
+    );
+  const isFolderCut = (folderId: string) =>
+    Boolean(
+      clipboard?.mode === 'cut' &&
+        ((clipboard.itemType === 'folder' && clipboard.itemIds.includes(folderId)) ||
+          Boolean(clipboard.folderIds?.includes(folderId)))
+    );
+
   const handleStageClipboard = (
     mode: 'cut' | 'copy',
     itemType: 'document' | 'folder' | 'mixed',
@@ -3530,7 +3544,12 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                   gap: '0.45rem',
                                   padding: '0.4rem 0.6rem',
                                   background: isChecked ? '#eff6ff' : (isLastViewed ? '#ecfeff' : (doc.isFavorite ? '#fffbeb' : '#ffffff')),
-                                  border: isChecked ? '1.5px solid #3b82f6' : (isLastViewed ? '2px solid #06b6d4' : (doc.isFavorite ? '1.5px solid #f59e0b' : '1px solid #e2e8f0')),
+                                  border: isDocCut(doc.id)
+                                    ? '2px dashed #6366f1'
+                                    : isChecked
+                                      ? '1.5px solid #3b82f6'
+                                      : (isLastViewed ? '2px solid #06b6d4' : (doc.isFavorite ? '1.5px solid #f59e0b' : '1px solid #e2e8f0')),
+                                  opacity: isDocCut(doc.id) ? 0.48 : 1,
                                   borderRadius: '10px',
                                   cursor: 'pointer',
                                   transition: 'background 0.15s ease, box-shadow 0.2s ease',
@@ -3779,13 +3798,13 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                     ✏️
                                   </button>
                                   <button
-                                           type="button"
-                                           onClick={(e) => { e.stopPropagation(); handleStageClipboard('cut', 'document', [doc.id], doc.title || 'מסמך'); }}
-                                           style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '2px 6px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}
-                                           title="העבר לתיקייה אחרת"
-                                         >
-                                           📁
-                                         </button>
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); handleStageClipboard('cut', 'document', [doc.id], doc.title || 'מסמך'); }}
+                                    style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '2px 6px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}
+                                    title="גזור להעברה לתיקייה אחרת"
+                                  >
+                                    ✂️
+                                  </button>
                                   <button
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); setLinkingDoc({ doc, contextDocs: filteredDocs }); }}
@@ -4262,7 +4281,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                   borderRadius: '14px',
                                   overflow: 'visible',
                                   border:
-                                    clipboard?.mode === 'cut' && clipboard.itemType === 'document' && clipboard.itemIds.includes(doc.id)
+                                    isDocCut(doc.id)
                                       ? '2px dashed #6366f1'
                                       : isChecked 
                                         ? '2px solid #2563eb' 
@@ -4274,7 +4293,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                   position: 'relative',
                                   zIndex: activeDocMenuId === doc.id ? 80 : (isLastViewed ? 5 : 1),
                                   opacity:
-                                    clipboard?.mode === 'cut' && clipboard.itemType === 'document' && clipboard.itemIds.includes(doc.id)
+                                    isDocCut(doc.id)
                                       ? 0.48
                                       : (draggedDocId === doc.id ? 0.4 : (doc.id.startsWith('temp-') ? 0.6 : 1)),
                                   transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
@@ -4694,9 +4713,9 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                           type="button"
                                           onClick={(e) => { e.stopPropagation(); handleStageClipboard('cut', 'document', [doc.id], doc.title || 'מסמך'); }}
                                           style={{ background: '#f0f9ff', color: '#0284c7', border: '1px solid #bae6fd', padding: '2px 5px', borderRadius: '5px', fontSize: '0.68rem', fontWeight: 'bold', cursor: 'pointer' }}
-                                          title="העבר או העתק (לתיקייה / מרחב)"
+                                          title="גזור להעברה לתיקייה אחרת"
                                         >
-                                          📁
+                                          ✂️
                                         </button>
                                       </div>
 
@@ -4776,14 +4795,14 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                                 onClick={() => { setActiveDocMenuId(null); handleStageClipboard('cut', 'document', [doc.id], doc.title || 'מסמך'); }}
                                                 style={{ background: 'transparent', border: 'none', padding: '0.35rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#0369a1', display: 'flex', alignItems: 'center', gap: '0.45rem', fontWeight: 700 }}
                                               >
-                                                📁 העבר או העתק (לתיקייה / מרחב)
+                                                ✂️ גזור (העבר לתיקייה אחרת)
                                               </button>
                                               <button
                                                 type="button"
-                                                onClick={() => { setActiveDocMenuId(null); handleMoveDocument(doc.id, activeShelf.id); }}
-                                                style={{ background: 'transparent', border: 'none', padding: '0.35rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#475569', display: 'flex', alignItems: 'center', gap: '0.45rem' }}
+                                                onClick={() => { setActiveDocMenuId(null); handleStageClipboard('copy', 'document', [doc.id], doc.title || 'מסמך'); }}
+                                                style={{ background: 'transparent', border: 'none', padding: '0.35rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#047857', display: 'flex', alignItems: 'center', gap: '0.45rem', fontWeight: 700 }}
                                               >
-                                                🔄 העבר למדף
+                                                📋 העתק (שכפל לתיקייה אחרת)
                                               </button>
                                               <button
                                                 type="button"
@@ -5918,6 +5937,30 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                    {clipboard && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePasteClipboardInto(shelf.id, null);
+                          setActiveShelfId(shelf.id);
+                        }}
+                        style={{
+                          background: 'linear-gradient(135deg, #4f46e5, #2563eb)',
+                          color: '#ffffff',
+                          border: 'none',
+                          borderRadius: '8px',
+                          padding: '4px 10px',
+                          fontSize: '0.74rem',
+                          fontWeight: 900,
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap',
+                        }}
+                        title={`הדבק ישירות לתוך "${shelf.name}"`}
+                      >
+                        📥 הדבק לכאן
+                      </button>
+                    )}
                     {(() => {
                       const pInfo = getPrivacyInfo(shelf.allowedPartners);
                       return (
@@ -6018,6 +6061,30 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                 <div style={{ padding: '0.75rem', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', position: 'relative' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.25rem', marginBottom: '0.35rem' }}>
                     <div onClick={() => setActiveShelfId(shelf.id)} style={{ fontWeight: 'bold', color: '#1e293b', fontSize: '0.95rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{shelf.name}</div>
+                    {clipboard && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePasteClipboardInto(shelf.id, null);
+                          setActiveShelfId(shelf.id);
+                        }}
+                        style={{
+                          background: 'linear-gradient(135deg, #4f46e5, #2563eb)',
+                          color: '#ffffff',
+                          border: 'none',
+                          borderRadius: '8px',
+                          padding: '3px 8px',
+                          fontSize: '0.7rem',
+                          fontWeight: 900,
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap',
+                        }}
+                        title={`הדבק ישירות לתוך "${shelf.name}"`}
+                      >
+                        📥 הדבק לכאן
+                      </button>
+                    )}
                     <button 
                       onClick={(e) => { e.stopPropagation(); handleRenameShelf(shelf.id, shelf.name); }} 
                       style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px', fontSize: '0.8rem', color: '#64748b', opacity: 0.7 }}
