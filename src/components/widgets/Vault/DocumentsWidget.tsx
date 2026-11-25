@@ -606,6 +606,43 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
     if (!clipboard) return;
     const count = clipboard.itemIds.length;
     if (clipboard.itemType === 'folder') {
+      if (clipboard.mode === 'copy') {
+        // Recursive full-tree clone of folder + all descendant subfolders + all documents inside them
+        const cloneFolderSubtree = (origFolderId: string, targetParentId: string | null, isRoot: boolean) => {
+          const origFolder = (space.documentFolders || []).find((f: any) => f.id === origFolderId && !f.deletedAt);
+          if (!origFolder) return;
+          const newFolderName = isRoot ? `${origFolder.name} (עותק)` : origFolder.name;
+          const createdId = addDocumentFolder(space.id, destShelfId, newFolderName, targetParentId || undefined);
+          const newTargetId = typeof createdId === 'string' ? createdId : null;
+
+          // Clone documents directly inside this folder
+          documents
+            .filter((d) => !d.deletedAt && d.folderId === origFolderId)
+            .forEach((origDoc) => {
+              addDocument(space.id, {
+                title: origDoc.title,
+                type: origDoc.type,
+                url: origDoc.url,
+                shelfId: destShelfId,
+                folderId: newTargetId,
+                notes: origDoc.note,
+                fileSize: origDoc.fileSize,
+                allowedPartners: origDoc.allowedPartners || [],
+              });
+            });
+
+          // Recursively clone child subfolders
+          (space.documentFolders || [])
+            .filter((sub: any) => !sub.deletedAt && sub.parentId === origFolderId)
+            .forEach((sub: any) => cloneFolderSubtree(sub.id, newTargetId, false));
+        };
+
+        clipboard.itemIds.forEach((fid) => cloneFolderSubtree(fid, destFolderId || null, true));
+        showFeedbackToast(count > 1 ? `${count} תיקיות וכל תכולתן שוכפלו בהצלחה!` : 'התיקייה וכל תכולתה שוכפלו בהצלחה!');
+        setClipboard(null);
+        return;
+      }
+
       const getDescendantSet = (rootId: string): Set<string> => {
         const res = new Set<string>([rootId]);
         const queue = [rootId];
@@ -3818,7 +3855,16 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                   justifyContent: 'center',
                                   padding: '0.75rem 0.5rem 0.5rem 0.5rem',
                                   background: isFolderDragOver ? '#eff6ff' : '#ffffff',
-                                  border: isFolderDragOver ? '2px dashed #2563eb' : '1px solid #e2e8f0',
+                                  border:
+                                    clipboard?.mode === 'cut' && clipboard.itemType === 'folder' && clipboard.itemIds.includes(folder.id)
+                                      ? '2px dashed #6366f1'
+                                      : isFolderDragOver
+                                        ? '2px dashed #2563eb'
+                                        : '1px solid #e2e8f0',
+                                  opacity:
+                                    clipboard?.mode === 'cut' && clipboard.itemType === 'folder' && clipboard.itemIds.includes(folder.id)
+                                      ? 0.48
+                                      : 1,
                                   borderRadius: '16px',
                                   cursor: 'pointer',
                                   transition: 'all 0.15s ease',
@@ -4199,16 +4245,22 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                   background: isLastViewed ? '#f0fdfa' : (doc.isFavorite ? '#fffdf7' : '#ffffff'),
                                   borderRadius: '14px',
                                   overflow: 'visible',
-                                  border: isChecked 
-                                    ? '2px solid #2563eb' 
-                                    : (dragOverDocId === doc.id 
-                                        ? '2px dashed #3b82f6' 
-                                        : (isLastViewed 
-                                            ? '2.5px solid #06b6d4' 
-                                            : (doc.isFavorite ? '2px solid #f59e0b' : '1px solid #e2e8f0'))),
+                                  border:
+                                    clipboard?.mode === 'cut' && clipboard.itemType === 'document' && clipboard.itemIds.includes(doc.id)
+                                      ? '2px dashed #6366f1'
+                                      : isChecked 
+                                        ? '2px solid #2563eb' 
+                                        : (dragOverDocId === doc.id 
+                                            ? '2px dashed #3b82f6' 
+                                            : (isLastViewed 
+                                                ? '2.5px solid #06b6d4' 
+                                                : (doc.isFavorite ? '2px solid #f59e0b' : '1px solid #e2e8f0'))),
                                   position: 'relative',
                                   zIndex: activeDocMenuId === doc.id ? 80 : (isLastViewed ? 5 : 1),
-                                  opacity: draggedDocId === doc.id ? 0.4 : (doc.id.startsWith('temp-') ? 0.6 : 1),
+                                  opacity:
+                                    clipboard?.mode === 'cut' && clipboard.itemType === 'document' && clipboard.itemIds.includes(doc.id)
+                                      ? 0.48
+                                      : (draggedDocId === doc.id ? 0.4 : (doc.id.startsWith('temp-') ? 0.6 : 1)),
                                   transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
                                   transform: isChecked ? 'scale(1.02)' : (dragOverDocId === doc.id ? 'scale(1.02)' : (isLastViewed ? 'scale(1.015)' : 'none')),
                                   boxShadow: isChecked 
@@ -5097,6 +5149,16 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           }
         }}
         onCancelClipboard={() => setClipboard(null)}
+        onSelectMultiple={
+          contextMenu?.itemType === 'document'
+            ? () => {
+                setIsMultiSelect(true);
+                setSelectedDocIds((prev) =>
+                  prev.includes(contextMenu.id) ? prev : [...prev, contextMenu.id]
+                );
+              }
+            : undefined
+        }
         onDelete={() => {
           if (!contextMenu) return;
           const targetId = contextMenu.id;

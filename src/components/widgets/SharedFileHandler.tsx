@@ -2481,7 +2481,11 @@ export default function SharedFileHandler() {
                   spaceTitle={curSp.title || 'פרויקט'}
                   mode={isVault ? 'vault' : 'fileshare'}
                   nodes={treeNodes}
-                  selectedShelfId={selectedShelfId}
+                  selectedShelfId={
+                    isVault
+                      ? (selectedShelfId || (curSp.shelves || []).filter((s: any) => !s.deletedAt)[0]?.id || '')
+                      : ''
+                  }
                   selectedFolderId={selectedFolderId}
                   onSelect={(nextShelfId, nextFolderId) => {
                     if (isVault && nextShelfId) {

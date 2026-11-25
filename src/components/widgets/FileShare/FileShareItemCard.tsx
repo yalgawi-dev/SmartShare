@@ -20,6 +20,7 @@ interface FileShareItemCardProps {
   hasScanner?: boolean;
   isMultiSelect?: boolean;
   isSelected?: boolean;
+  isCut?: boolean;
   onToggleSelect?: (item: FileShareItem) => void;
   onContextMenuAction?: (item: FileShareItem, x: number, y: number) => void;
 }
@@ -39,6 +40,7 @@ export function FileShareItemCard({
   hasScanner = false,
   isMultiSelect = false,
   isSelected = false,
+  isCut = false,
   onToggleSelect,
   onContextMenuAction
 }: FileShareItemCardProps) {
@@ -208,9 +210,12 @@ export function FileShareItemCard({
             justifyContent: 'center',
             padding: '0.75rem 0.5rem 0.5rem 0.5rem',
             background: isSelected ? '#eff6ff' : (item.isFavorite ? '#fffdf7' : '#ffffff'),
-            border: isSelected
-              ? '2px solid #2563eb'
-              : (item.isFavorite ? '2px solid #f59e0b' : '1px solid #e2e8f0'),
+            border: isCut
+              ? '2px dashed #6366f1'
+              : isSelected
+                ? '2px solid #2563eb'
+                : (item.isFavorite ? '2px solid #f59e0b' : '1px solid #e2e8f0'),
+            opacity: isCut ? 0.48 : 1,
             borderRadius: '16px',
             cursor: 'pointer',
             transition: 'all 0.15s ease',
@@ -542,7 +547,8 @@ export function FileShareItemCard({
             gap: '0.45rem',
             padding: '0.4rem 0.6rem',
             background: isSelected ? '#eff6ff' : (item.isFavorite ? '#fffbeb' : '#ffffff'),
-            border: isSelected ? '1.5px solid #3b82f6' : (item.isFavorite ? '1.5px solid #f59e0b' : '1px solid #e2e8f0'),
+            border: isCut ? '1.5px dashed #6366f1' : isSelected ? '1.5px solid #3b82f6' : (item.isFavorite ? '1.5px solid #f59e0b' : '1px solid #e2e8f0'),
+            opacity: isCut ? 0.48 : 1,
             borderRadius: '10px',
             cursor: 'pointer',
             transition: 'background 0.15s ease, box-shadow 0.2s ease',
@@ -739,9 +745,12 @@ export function FileShareItemCard({
         background: isSelected ? '#eff6ff' : (item.isFavorite ? '#fffdf7' : '#ffffff'),
         borderRadius: '14px',
         overflow: 'visible',
-        border: isSelected
-          ? '2px solid #2563eb'
-          : (item.isFavorite ? '2px solid #f59e0b' : '1px solid #e2e8f0'),
+        border: isCut
+          ? '2px dashed #6366f1'
+          : isSelected
+            ? '2px solid #2563eb'
+            : (item.isFavorite ? '2px solid #f59e0b' : '1px solid #e2e8f0'),
+        opacity: isCut ? 0.48 : 1,
         position: 'relative',
         boxShadow: isSelected
           ? '0 6px 16px rgba(37,99,235,0.2)'

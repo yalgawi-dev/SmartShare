@@ -296,32 +296,30 @@ export const VaultContextMenuPopover: React.FC<VaultContextMenuPopoverProps> = (
               <span>גזור (העבר לתיקייה אחרת)</span>
             </button>
 
-            {menu.itemType === 'document' && (
-              <button
-                type="button"
-                onClick={() => {
-                  onCopy();
-                  onClose();
-                }}
-                style={{
-                  padding: '0.5rem 0.65rem',
-                  borderRadius: '9px',
-                  border: 'none',
-                  background: 'transparent',
-                  color: '#0f172a',
-                  fontWeight: 700,
-                  fontSize: '0.82rem',
-                  textAlign: 'right',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.45rem',
-                }}
-              >
-                <span>📋</span>
-                <span>העתק (שכפל לתיקייה אחרת)</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => {
+                onCopy();
+                onClose();
+              }}
+              style={{
+                padding: '0.5rem 0.65rem',
+                borderRadius: '9px',
+                border: 'none',
+                background: 'transparent',
+                color: '#0f172a',
+                fontWeight: 700,
+                fontSize: '0.82rem',
+                textAlign: 'right',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+              }}
+            >
+              <span>📋</span>
+              <span>העתק (שכפל לתיקייה אחרת)</span>
+            </button>
 
             {onSelectMultiple && (
               <button

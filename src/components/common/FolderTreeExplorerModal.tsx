@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 export interface FolderTreeNode {
@@ -43,6 +43,30 @@ export function FolderTreeExplorerModal({
   const [search, setSearch] = useState('');
   const [focusNodeId, setFocusNodeId] = useState<string | null>(null);
   const [collapsedIds, setCollapsedIds] = useState<Record<string, boolean>>({});
+
+  // When modal opens, auto-expand the entire ancestor chain of the currently selected node and scroll to it!
+  useEffect(() => {
+    if (!isOpen) return;
+    setFocusNodeId(null);
+    const activeId = selectedFolderId || (mode === 'vault' ? selectedShelfId : null) || null;
+    if (!activeId) return;
+    setCollapsedIds((prev) => {
+      const next = { ...prev };
+      let curr = nodes.find((n) => n.id === activeId);
+      const guard = new Set<string>();
+      while (curr && !guard.has(curr.id)) {
+        guard.add(curr.id);
+        delete next[curr.id];
+        curr = curr.parentId ? nodes.find((p) => p.id === curr?.parentId) : undefined;
+      }
+      return next;
+    });
+    const t = setTimeout(() => {
+      const el = document.querySelector('[data-tree-selected="true"]');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 80);
+    return () => clearTimeout(t);
+  }, [isOpen, selectedShelfId, selectedFolderId, mode, nodes]);
 
   const nodeMap = useMemo(() => {
     const m = new Map<string, FolderTreeNode>();
@@ -185,6 +209,7 @@ export function FolderTreeExplorerModal({
       return (
         <div key={node.id} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
           <div
+            data-tree-selected={selected ? 'true' : undefined}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -193,12 +218,12 @@ export function FolderTreeExplorerModal({
               marginRight: `${Math.min(depth, 5) * 16}px`,
               borderRadius: '11px',
               background: selected
-                ? 'linear-gradient(135deg, #eef2ff, #e0e7ff)'
+                ? 'linear-gradient(135deg, #eef2ff, #dbeafe)'
                 : node.isShelf
                   ? '#f8fafc'
                   : '#ffffff',
-              border: selected ? '1.5px solid #4f46e5' : '1px solid #e2e8f0',
-              boxShadow: selected ? '0 2px 8px rgba(79,70,229,0.16)' : 'none',
+              border: selected ? '2px solid #4f46e5' : '1px solid #e2e8f0',
+              boxShadow: selected ? '0 3px 10px rgba(79,70,229,0.2)' : 'none',
             }}
           >
             {/* Expand/Collapse Toggle */}
@@ -277,8 +302,18 @@ export function FolderTreeExplorerModal({
                 </span>
               )}
               {selected && (
-                <span style={{ fontSize: '0.7rem', fontWeight: 900, color: '#4f46e5', flexShrink: 0 }}>
-                  ✓ נבחר
+                <span
+                  style={{
+                    fontSize: '0.68rem',
+                    fontWeight: 900,
+                    color: '#ffffff',
+                    background: '#4f46e5',
+                    padding: '1px 7px',
+                    borderRadius: '999px',
+                    flexShrink: 0,
+                  }}
+                >
+                  📍 אתה כאן
                 </span>
               )}
             </button>

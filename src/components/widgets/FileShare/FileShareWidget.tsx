@@ -1767,6 +1767,7 @@ export function FileShareWidget({
                     onToggleFavorite={handleToggleFavorite}
                     isMultiSelect={isMultiSelect}
                     isSelected={selectedItemIds.includes(folder.id)}
+                    isCut={clipboard?.mode === 'cut' && clipboard.itemIds.includes(folder.id)}
                     onToggleSelect={handleToggleSelectItem}
                     onContextMenuAction={(item, x, y) => {
                       setContextMenu({
@@ -1822,6 +1823,7 @@ export function FileShareWidget({
                   hasScanner={hasScanner}
                   isMultiSelect={isMultiSelect}
                   isSelected={selectedItemIds.includes(file.id)}
+                  isCut={clipboard?.mode === 'cut' && clipboard.itemIds.includes(file.id)}
                   onToggleSelect={handleToggleSelectItem}
                   onContextMenuAction={(item, x, y) => {
                     setContextMenu({
