@@ -5,8 +5,9 @@ import { createPortal } from 'react-dom';
 
 export interface VaultClipboardState {
   mode: 'cut' | 'copy';
-  itemType: 'document' | 'folder';
+  itemType: 'document' | 'folder' | 'mixed';
   itemIds: string[];
+  folderIds?: string[]; // Used in 'mixed' mode when both folders and documents are cut/copied together
   label: string;
   sourceShelfId?: string | null;
   sourceFolderId?: string | null;

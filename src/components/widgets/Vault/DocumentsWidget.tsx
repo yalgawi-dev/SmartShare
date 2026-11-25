@@ -225,6 +225,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
     folderId?: string | null;
   } | null>(null);
   const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
+  const [selectedFolderIds, setSelectedFolderIds] = useState<string[]>([]);
   const [isSharingBatch, setIsSharingBatch] = useState(false);
 
   // Folders management states
@@ -542,21 +543,24 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
 
   const handleStageClipboard = (
     mode: 'cut' | 'copy',
-    itemType: 'document' | 'folder',
+    itemType: 'document' | 'folder' | 'mixed',
     itemIds: string[],
-    label: string
+    label: string,
+    folderIds?: string[]
   ) => {
-    if (itemIds.length === 0) return;
+    if (itemIds.length === 0 && (!folderIds || folderIds.length === 0)) return;
     setClipboard({
       mode,
       itemType,
       itemIds,
+      folderIds,
       label,
       sourceShelfId: activeShelfId || null,
       sourceFolderId: currentFolderId || null,
     });
     setIsMultiSelect(false);
     setSelectedDocIds([]);
+    setSelectedFolderIds([]);
     showFeedbackToast(
       mode === 'cut'
         ? `✂️ "${label}" נגזר — נווט לתיקיית היעד ולחץ "הדבק כאן"`
@@ -604,94 +608,88 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
 
   const handlePasteClipboardInto = (destShelfId: string, destFolderId: string | null) => {
     if (!clipboard) return;
-    const count = clipboard.itemIds.length;
-    if (clipboard.itemType === 'folder') {
-      if (clipboard.mode === 'copy') {
-        // Recursive full-tree clone of folder + all descendant subfolders + all documents inside them
-        const cloneFolderSubtree = (origFolderId: string, targetParentId: string | null, isRoot: boolean) => {
-          const origFolder = (space.documentFolders || []).find((f: any) => f.id === origFolderId && !f.deletedAt);
-          if (!origFolder) return;
-          const newFolderName = isRoot ? `${origFolder.name} (עותק)` : origFolder.name;
-          const createdId = addDocumentFolder(space.id, destShelfId, newFolderName, targetParentId || undefined);
-          const newTargetId = typeof createdId === 'string' ? createdId : null;
+    const targetFolderIds =
+      clipboard.itemType === 'folder'
+        ? clipboard.itemIds
+        : clipboard.itemType === 'mixed'
+          ? (clipboard.folderIds || [])
+          : [];
+    const targetDocIds =
+      clipboard.itemType === 'document' || clipboard.itemType === 'mixed'
+        ? clipboard.itemIds
+        : [];
+    const totalCount = targetFolderIds.length + targetDocIds.length;
+    if (totalCount === 0) return;
 
-          // Clone documents directly inside this folder
-          documents
-            .filter((d) => !d.deletedAt && d.folderId === origFolderId)
-            .forEach((origDoc) => {
-              addDocument(space.id, {
-                title: origDoc.title,
-                type: origDoc.type,
-                url: origDoc.url,
-                shelfId: destShelfId,
-                folderId: newTargetId,
-                notes: origDoc.note,
-                fileSize: origDoc.fileSize,
-                allowedPartners: origDoc.allowedPartners || [],
-              });
-            });
-
-          // Recursively clone child subfolders
-          (space.documentFolders || [])
-            .filter((sub: any) => !sub.deletedAt && sub.parentId === origFolderId)
-            .forEach((sub: any) => cloneFolderSubtree(sub.id, newTargetId, false));
-        };
-
-        clipboard.itemIds.forEach((fid) => cloneFolderSubtree(fid, destFolderId || null, true));
-        showFeedbackToast(count > 1 ? `${count} תיקיות וכל תכולתן שוכפלו בהצלחה!` : 'התיקייה וכל תכולתה שוכפלו בהצלחה!');
-        setClipboard(null);
-        return;
+    const getDescendantSet = (rootId: string): Set<string> => {
+      const res = new Set<string>([rootId]);
+      const queue = [rootId];
+      while (queue.length > 0) {
+        const curr = queue.shift()!;
+        (space.documentFolders || []).forEach((f: any) => {
+          if (!f.deletedAt && f.parentId === curr && !res.has(f.id)) {
+            res.add(f.id);
+            queue.push(f.id);
+          }
+        });
       }
+      return res;
+    };
 
-      const getDescendantSet = (rootId: string): Set<string> => {
-        const res = new Set<string>([rootId]);
-        const queue = [rootId];
-        while (queue.length > 0) {
-          const curr = queue.shift()!;
-          (space.documentFolders || []).forEach((f: any) => {
-            if (!f.deletedAt && f.parentId === curr && !res.has(f.id)) {
-              res.add(f.id);
-              queue.push(f.id);
-            }
-          });
-        }
-        return res;
-      };
-      for (const fid of clipboard.itemIds) {
-        const subtree = getDescendantSet(fid);
-        if (destFolderId && subtree.has(destFolderId)) {
+    // Guard circular nesting before mutating anything
+    if (clipboard.mode === 'cut' && destFolderId) {
+      for (const fid of targetFolderIds) {
+        if (getDescendantSet(fid).has(destFolderId)) {
           showFeedbackToast('לא ניתן להעביר תיקייה לתוך עצמה או לתת-תיקייה שלה.');
           return;
         }
       }
-      const prevFolderLocations = clipboard.itemIds
-        .map((fid) => {
-          const orig = (space.documentFolders || []).find((f: any) => f.id === fid);
-          return orig ? { id: fid, shelfId: orig.shelfId, parentId: orig.parentId || null } : null;
-        })
-        .filter(Boolean) as Array<{ id: string; shelfId: string; parentId: string | null }>;
+    }
 
-      clipboard.itemIds.forEach((fid) => {
-        moveDocumentFolder(space.id, fid, destShelfId, destFolderId || null);
-      });
-      if (prevFolderLocations.length > 0) {
-        vaultHistory.pushStep({
-          label: `העברת "${clipboard.label}"`,
-          undo: () => {
-            prevFolderLocations.forEach((loc) => {
-              moveDocumentFolder(space.id, loc.id, loc.shelfId, loc.parentId);
+    const prevFolderLocations = targetFolderIds
+      .map((fid) => {
+        const orig = (space.documentFolders || []).find((f: any) => f.id === fid);
+        return orig ? { id: fid, shelfId: orig.shelfId, parentId: orig.parentId || null } : null;
+      })
+      .filter(Boolean) as Array<{ id: string; shelfId: string; parentId: string | null }>;
+
+    const prevDocLocations = targetDocIds
+      .map((id) => {
+        const orig = documents.find((d) => String(d.id) === String(id));
+        return orig ? { id, shelfId: orig.shelfId, folderId: orig.folderId || null } : null;
+      })
+      .filter(Boolean) as Array<{ id: string; shelfId: string; folderId: string | null }>;
+
+    if (clipboard.mode === 'copy') {
+      const cloneFolderSubtree = (origFolderId: string, targetParentId: string | null, isRoot: boolean) => {
+        const origFolder = (space.documentFolders || []).find((f: any) => f.id === origFolderId && !f.deletedAt);
+        if (!origFolder) return;
+        const newFolderName = isRoot ? `${origFolder.name} (עותק)` : origFolder.name;
+        const createdId = addDocumentFolder(space.id, destShelfId, newFolderName, targetParentId || undefined);
+        const newTargetId = typeof createdId === 'string' ? createdId : null;
+
+        documents
+          .filter((d) => !d.deletedAt && d.folderId === origFolderId)
+          .forEach((origDoc) => {
+            addDocument(space.id, {
+              title: origDoc.title,
+              type: origDoc.type,
+              url: origDoc.url,
+              shelfId: destShelfId,
+              folderId: newTargetId,
+              notes: origDoc.note,
+              fileSize: origDoc.fileSize,
+              allowedPartners: origDoc.allowedPartners || [],
             });
-          },
-          redo: () => {
-            prevFolderLocations.forEach((loc) => {
-              moveDocumentFolder(space.id, loc.id, destShelfId, destFolderId || null);
-            });
-          },
-        });
-      }
-      showFeedbackToast(count > 1 ? `${count} תיקיות וכל תכולתן הועברו בהצלחה!` : 'התיקייה וכל תכולתה הועברו בהצלחה!');
-    } else if (clipboard.mode === 'copy') {
-      clipboard.itemIds.forEach((id) => {
+          });
+
+        (space.documentFolders || [])
+          .filter((sub: any) => !sub.deletedAt && sub.parentId === origFolderId)
+          .forEach((sub: any) => cloneFolderSubtree(sub.id, newTargetId, false));
+      };
+
+      targetFolderIds.forEach((fid) => cloneFolderSubtree(fid, destFolderId || null, true));
+      targetDocIds.forEach((id) => {
         const orig = documents.find((d) => String(d.id) === String(id));
         if (orig) {
           addDocument(space.id, {
@@ -706,37 +704,32 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
           });
         }
       });
-      showFeedbackToast(count > 1 ? `${count} קבצים הועתקו בהצלחה!` : 'הקובץ הועתק בהצלחה!');
+      showFeedbackToast(totalCount > 1 ? `${totalCount} פריטים שוכפלו בהצלחה!` : 'הפריט שוכפל בהצלחה!');
     } else {
-      const prevDocLocations = clipboard.itemIds
-        .map((id) => {
-          const orig = documents.find((d) => String(d.id) === String(id));
-          return orig ? { id, shelfId: orig.shelfId, folderId: orig.folderId || null } : null;
-        })
-        .filter(Boolean) as Array<{ id: string; shelfId: string; folderId: string | null }>;
-
-      clipboard.itemIds.forEach((id) => {
+      targetFolderIds.forEach((fid) => {
+        moveDocumentFolder(space.id, fid, destShelfId, destFolderId || null);
+      });
+      targetDocIds.forEach((id) => {
         updateDocument(space.id, id, {
           shelfId: destShelfId,
           folderId: destFolderId || null,
         });
       });
-      if (prevDocLocations.length > 0) {
+
+      if (prevFolderLocations.length > 0 || prevDocLocations.length > 0) {
         vaultHistory.pushStep({
           label: `העברת "${clipboard.label}"`,
           undo: () => {
-            prevDocLocations.forEach((loc) => {
-              updateDocument(space.id, loc.id, { shelfId: loc.shelfId, folderId: loc.folderId });
-            });
+            prevFolderLocations.forEach((loc) => moveDocumentFolder(space.id, loc.id, loc.shelfId, loc.parentId));
+            prevDocLocations.forEach((loc) => updateDocument(space.id, loc.id, { shelfId: loc.shelfId, folderId: loc.folderId }));
           },
           redo: () => {
-            prevDocLocations.forEach((loc) => {
-              updateDocument(space.id, loc.id, { shelfId: destShelfId, folderId: destFolderId || null });
-            });
+            prevFolderLocations.forEach((loc) => moveDocumentFolder(space.id, loc.id, destShelfId, destFolderId || null));
+            prevDocLocations.forEach((loc) => updateDocument(space.id, loc.id, { shelfId: destShelfId, folderId: destFolderId || null }));
           },
         });
       }
-      showFeedbackToast(count > 1 ? `${count} קבצים הועברו בהצלחה!` : 'הקובץ הועבר בהצלחה!');
+      showFeedbackToast(totalCount > 1 ? `${totalCount} פריטים הועברו בהצלחה!` : 'הפריט הועבר בהצלחה!');
     }
     setClipboard(null);
   };
@@ -2928,16 +2921,24 @@ const handleDeleteDocument = (docId: string, title?: string) => {
         </div>
       )}
 
-          {/* MULTI-SELECT FLOATING ACTION BAR - REFACTORED VIA GLOBAL COMPONENT */}
+          {/* MULTI-SELECT FLOATING ACTION BAR - SUPPORTS BOTH FOLDERS & DOCUMENTS */}
           {isMultiSelect && (() => {
             const currentLevelDocIds = shelfDocs
               .filter(d => (currentFolderId ? d.folderId === currentFolderId : !d.folderId))
               .map(d => d.id);
-            const isAllSelected = currentLevelDocIds.length > 0 && currentLevelDocIds.every(id => selectedDocIds.includes(id));
+            const currentLevelFolderIds = (space.documentFolders || [])
+              .filter((f: any) => !f.deletedAt && f.shelfId === activeShelf?.id && (currentFolderId ? f.parentId === currentFolderId : !f.parentId))
+              .map((f: any) => f.id);
+            const totalSelectableCount = currentLevelDocIds.length + currentLevelFolderIds.length;
+            const totalSelectedCount = selectedDocIds.length + selectedFolderIds.length;
+            const isAllSelected =
+              totalSelectableCount > 0 &&
+              currentLevelDocIds.every(id => selectedDocIds.includes(id)) &&
+              currentLevelFolderIds.every(id => selectedFolderIds.includes(id));
 
             const actions: BatchToolbarAction[] = [];
 
-            if (selectedDocIds.length === 1) {
+            if (selectedDocIds.length === 1 && selectedFolderIds.length === 0) {
               actions.push({
                 id: 'edit',
                 label: 'עריכה',
@@ -2977,21 +2978,30 @@ const handleDeleteDocument = (docId: string, title?: string) => {
               });
             }
 
+            const stageMixedOrSingle = (mode: 'cut' | 'copy') => {
+              const label =
+                totalSelectedCount === 1
+                  ? selectedFolderIds.length === 1
+                    ? ((space.documentFolders || []).find((f: any) => f.id === selectedFolderIds[0])?.name || 'תיקייה')
+                    : (documents.find((d) => d.id === selectedDocIds[0])?.title || 'קובץ')
+                  : `${totalSelectedCount} פריטים`;
+
+              if (selectedFolderIds.length > 0 && selectedDocIds.length > 0) {
+                handleStageClipboard(mode, 'mixed', selectedDocIds, label, selectedFolderIds);
+              } else if (selectedFolderIds.length > 0) {
+                handleStageClipboard(mode, 'folder', selectedFolderIds, label);
+              } else {
+                handleStageClipboard(mode, 'document', selectedDocIds, label);
+              }
+            };
+
             actions.push({
               id: 'cut',
               label: 'גזור',
               icon: '✂️',
               variant: 'info',
-              title: 'גזור והעבר מסמכים נבחרים לתיקייה אחרת',
-              onClick: () =>
-                handleStageClipboard(
-                  'cut',
-                  'document',
-                  selectedDocIds,
-                  selectedDocIds.length === 1
-                    ? (documents.find((d) => d.id === selectedDocIds[0])?.title || 'קובץ 1')
-                    : `${selectedDocIds.length} קבצים`
-                )
+              title: 'גזור והעבר פריטים נבחרים לתיקייה אחרת',
+              onClick: () => stageMixedOrSingle('cut'),
             });
 
             actions.push({
@@ -2999,51 +3009,48 @@ const handleDeleteDocument = (docId: string, title?: string) => {
               label: 'העתק',
               icon: '📋',
               variant: 'secondary',
-              title: 'העתק מסמכים נבחרים לתיקייה אחרת',
-              onClick: () =>
-                handleStageClipboard(
-                  'copy',
-                  'document',
-                  selectedDocIds,
-                  selectedDocIds.length === 1
-                    ? (documents.find((d) => d.id === selectedDocIds[0])?.title || 'קובץ 1')
-                    : `${selectedDocIds.length} קבצים`
-                )
+              title: 'העתק פריטים נבחרים לתיקייה אחרת',
+              onClick: () => stageMixedOrSingle('copy'),
             });
 
-            actions.push({
-              id: 'share',
-              label: isSharingBatch ? 'מכין...' : 'שתף',
-              icon: '📤',
-              variant: 'secondary',
-              disabled: isSharingBatch,
-              onClick: () => shareMultipleDocuments(selectedDocIds)
-            });
+            if (selectedDocIds.length > 0 && selectedFolderIds.length === 0) {
+              actions.push({
+                id: 'share',
+                label: isSharingBatch ? 'מכין...' : 'שתף',
+                icon: '📤',
+                variant: 'secondary',
+                disabled: isSharingBatch,
+                onClick: () => shareMultipleDocuments(selectedDocIds)
+              });
+            }
 
             actions.push({
               id: 'delete',
               label: 'מחק',
               icon: '🗑️',
               variant: 'danger',
-              title: 'העבר מסמכים נבחרים לסל אשפה',
+              title: 'העבר פריטים נבחרים לסל אשפה',
               onClick: () => setBatchDeleteConfirm(true)
             });
 
             return (
               <BatchActionToolbar
-                selectedCount={selectedDocIds.length}
-                totalCount={currentLevelDocIds.length}
+                selectedCount={totalSelectedCount}
+                totalCount={totalSelectableCount}
                 isAllSelected={isAllSelected}
                 onToggleSelectAll={() => {
                   if (isAllSelected) {
                     setSelectedDocIds(prev => prev.filter(id => !currentLevelDocIds.includes(id)));
+                    setSelectedFolderIds(prev => prev.filter(id => !currentLevelFolderIds.includes(id)));
                   } else {
                     setSelectedDocIds(prev => Array.from(new Set([...prev, ...currentLevelDocIds])));
+                    setSelectedFolderIds(prev => Array.from(new Set([...prev, ...currentLevelFolderIds])));
                   }
                 }}
                 onCancel={() => {
                   setIsMultiSelect(false);
                   setSelectedDocIds([]);
+                  setSelectedFolderIds([]);
                 }}
                 actions={actions}
               />
@@ -3847,22 +3854,36 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                   e.preventDefault();
                                   setContextMenu({ itemType: 'folder', id: folder.id, title: folder.name, x: e.clientX, y: e.clientY });
                                 }}
-                                onClick={() => setCurrentFolderId(folder.id)}
+                                onClick={() => {
+                                  if (isMultiSelect) {
+                                    setSelectedFolderIds((prev) =>
+                                      prev.includes(folder.id) ? prev.filter((id) => id !== folder.id) : [...prev, folder.id]
+                                    );
+                                    return;
+                                  }
+                                  setCurrentFolderId(folder.id);
+                                }}
                                 style={{
                                   display: 'flex',
                                   flexDirection: 'column',
                                   alignItems: 'center',
                                   justifyContent: 'center',
                                   padding: '0.75rem 0.5rem 0.5rem 0.5rem',
-                                  background: isFolderDragOver ? '#eff6ff' : '#ffffff',
+                                  background: selectedFolderIds.includes(folder.id) ? '#eff6ff' : isFolderDragOver ? '#eff6ff' : '#ffffff',
                                   border:
-                                    clipboard?.mode === 'cut' && clipboard.itemType === 'folder' && clipboard.itemIds.includes(folder.id)
+                                    clipboard?.mode === 'cut' &&
+                                    ((clipboard.itemType === 'folder' && clipboard.itemIds.includes(folder.id)) ||
+                                      Boolean(clipboard.folderIds?.includes(folder.id)))
                                       ? '2px dashed #6366f1'
-                                      : isFolderDragOver
-                                        ? '2px dashed #2563eb'
-                                        : '1px solid #e2e8f0',
+                                      : selectedFolderIds.includes(folder.id)
+                                        ? '2px solid #2563eb'
+                                        : isFolderDragOver
+                                          ? '2px dashed #2563eb'
+                                          : '1px solid #e2e8f0',
                                   opacity:
-                                    clipboard?.mode === 'cut' && clipboard.itemType === 'folder' && clipboard.itemIds.includes(folder.id)
+                                    clipboard?.mode === 'cut' &&
+                                    ((clipboard.itemType === 'folder' && clipboard.itemIds.includes(folder.id)) ||
+                                      Boolean(clipboard.folderIds?.includes(folder.id)))
                                       ? 0.48
                                       : 1,
                                   borderRadius: '16px',
@@ -3886,6 +3907,29 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                   e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.03)';
                                 }}
                               >
+                                {isMultiSelect && (
+                                  <div
+                                    style={{
+                                      position: 'absolute',
+                                      top: '8px',
+                                      right: '8px',
+                                      width: '22px',
+                                      height: '22px',
+                                      borderRadius: '6px',
+                                      background: selectedFolderIds.includes(folder.id) ? '#2563eb' : 'rgba(255,255,255,0.92)',
+                                      border: selectedFolderIds.includes(folder.id) ? '2px solid #2563eb' : '2px solid #94a3b8',
+                                      color: '#ffffff',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      fontSize: '0.78rem',
+                                      fontWeight: 900,
+                                      zIndex: 10,
+                                    }}
+                                  >
+                                    {selectedFolderIds.includes(folder.id) ? '✓' : ''}
+                                  </div>
+                                )}
                                 {/* Folder Icon with item count badge (Windows / Mac Style) */}
                                 <div style={{ position: 'relative' }}>
                                   <span style={{ fontSize: folderIconSize, filter: 'drop-shadow(0 4px 6px rgba(245,158,11,0.25))' }}>📁</span>
@@ -5150,12 +5194,18 @@ const handleDeleteDocument = (docId: string, title?: string) => {
         }}
         onCancelClipboard={() => setClipboard(null)}
         onSelectMultiple={
-          contextMenu?.itemType === 'document'
+          contextMenu && contextMenu.itemType !== 'canvas'
             ? () => {
                 setIsMultiSelect(true);
-                setSelectedDocIds((prev) =>
-                  prev.includes(contextMenu.id) ? prev : [...prev, contextMenu.id]
-                );
+                if (contextMenu.itemType === 'folder') {
+                  setSelectedFolderIds((prev) =>
+                    prev.includes(contextMenu.id) ? prev : [...prev, contextMenu.id]
+                  );
+                } else {
+                  setSelectedDocIds((prev) =>
+                    prev.includes(contextMenu.id) ? prev : [...prev, contextMenu.id]
+                  );
+                }
               }
             : undefined
         }
@@ -5482,12 +5532,29 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       {/* CONFIRM BATCH DELETE MODAL */}
       <ConfirmModal
         isOpen={batchDeleteConfirm}
-        title="העברת מסמכים נבחרים לסל אשפה"
-        message={`האם להעביר ${selectedDocIds.length} מסמכים שנבחרו לסל האשפה? הם יישמרו בסל האשפה למשך 12 שעות וניתן יהיה לשחזר אותם.`}
-        confirmText={`העבר ${selectedDocIds.length} מסמכים לסל אשפה`}
+        title="העברת פריטים נבחרים לסל אשפה"
+        message={`האם להעביר ${selectedDocIds.length + selectedFolderIds.length} פריטים שנבחרו לסל האשפה? הם יישמרו בסל האשפה למשך 12 שעות וניתן יהיה לשחזר אותם.`}
+        confirmText={`העבר ${selectedDocIds.length + selectedFolderIds.length} פריטים לסל אשפה`}
         onConfirm={() => {
-          selectedDocIds.forEach(id => removeDocument(space.id, id));
+          const docsToDel = [...selectedDocIds];
+          const foldersToDel = [...selectedFolderIds];
+          docsToDel.forEach(id => removeDocument(space.id, id));
+          foldersToDel.forEach(id => removeDocumentFolder(space.id, id));
+          if (docsToDel.length > 0 || foldersToDel.length > 0) {
+            vaultHistory.pushStep({
+              label: `מחיקת ${docsToDel.length + foldersToDel.length} פריטים`,
+              undo: () => {
+                docsToDel.forEach(id => restoreDocument(space.id, id));
+                foldersToDel.forEach(id => restoreDocumentFolder(space.id, id));
+              },
+              redo: () => {
+                docsToDel.forEach(id => removeDocument(space.id, id));
+                foldersToDel.forEach(id => removeDocumentFolder(space.id, id));
+              },
+            });
+          }
           setSelectedDocIds([]);
+          setSelectedFolderIds([]);
           setBatchDeleteConfirm(false);
           setIsMultiSelect(false);
         }}
