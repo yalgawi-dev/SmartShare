@@ -2074,7 +2074,7 @@ export const GlobalAssistantDrawer: React.FC = () => {
                           color: m.source === 'cloud_llm' ? '#047857' : '#b45309',
                           border: `1px solid ${m.source === 'cloud_llm' ? '#a7f3d0' : '#fde68a'}`
                         }}>
-                          {m.source === 'cloud_llm' ? '✨ AI חכם' : `🧠 מקומי (${m.fallbackReason || 'fallback'})`}
+                          {m.source === 'cloud_llm' ? '✨ בוצע בעזרת AI' : '🎓 בוצע עצמאית (0 AI)'}
                         </span>
                       )}
                     </div>

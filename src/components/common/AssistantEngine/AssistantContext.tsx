@@ -15,6 +15,7 @@ import type { AgentActionPlan, AgentPlanExecutionReport } from './agentManifest'
 import { executeAgentActionPlan } from './agentPlanOrchestrator';
 import { executeApprovedAgentAction } from './assistantActionExecutor';
 import { runPreExecutionClarityGate } from './agentClarityGate';
+import { recordSkillSuccessFromAI } from './agentSkillCompiler';
 import {
   type AssistantPersona,
   type AssistantPersonaId,
@@ -1022,6 +1023,11 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     if (result.message && autoSpeak) {
       speakText(result.message);
+    }
+
+    if (result.success) {
+      // ADR-013: Crystallize successful AI-guided action into Graduated Autonomy Skill Compiler
+      recordSkillSuccessFromAI(target.queryText || target.proposedAction.title, target.proposedAction);
     }
 
     // Smart Auto-Collapse Pill: reveal the updated screen immediately if no follow-up WhatsApp CTA is pending
