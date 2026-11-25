@@ -1210,34 +1210,9 @@ const handleDeleteDocument = (docId: string, title?: string) => {
 
     
     
-    const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
-    const isLongPressTriggeredRef = useRef(false);
-
-    const startLongPress = (docId: string) => {
-      isLongPressTriggeredRef.current = false;
-      if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = setTimeout(() => {
-        isLongPressTriggeredRef.current = true;
-        setIsMultiSelect(true);
-        setSelectedDocIds(prev => prev.includes(docId) ? prev : [...prev, docId]);
-        try {
-          if (typeof navigator !== 'undefined' && navigator.vibrate) {
-            navigator.vibrate(50);
-          }
-        } catch (_) {}
-      }, 500);
-    };
-
-    const cancelLongPress = () => {
-      if (longPressTimerRef.current) {
-        clearTimeout(longPressTimerRef.current);
-        longPressTimerRef.current = null;
-      }
-    };
-
     const handleTouchDragStart = (e: React.TouchEvent | React.MouseEvent, docId: string) => {
       e.stopPropagation();
-      cancelLongPress();
+      cancelContextLongPress();
       setDraggedDocId(docId);
       document.body.style.overflow = 'hidden';
     };
@@ -3541,10 +3516,6 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                   setContextMenu({ itemType: 'document', id: doc.id, title: doc.title || 'מסמך', x: e.clientX, y: e.clientY });
                                 }}
                                 onClick={() => {
-                                  if (isLongPressTriggeredRef.current) {
-                                    isLongPressTriggeredRef.current = false;
-                                    return;
-                                  }
                                   if (isMultiSelect) {
                                     setSelectedDocIds(prev => isChecked ? prev.filter(id => id !== doc.id) : [...prev, doc.id]);
                                   } else {
@@ -4282,10 +4253,6 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                   setContextMenu({ itemType: 'document', id: doc.id, title: doc.title || 'מסמך', x: e.clientX, y: e.clientY });
                                 }}
                                 onClick={() => {
-                                  if (isLongPressTriggeredRef.current) {
-                                    isLongPressTriggeredRef.current = false;
-                                    return;
-                                  }
                                   if (isMultiSelect) {
                                     setSelectedDocIds(prev => isChecked ? prev.filter(id => id !== doc.id) : [...prev, doc.id]);
                                   }
@@ -4355,10 +4322,6 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                 {/* Card Preview */}
                                 <div
                                   onClick={(e) => {
-                                    if (isLongPressTriggeredRef.current) {
-                                      isLongPressTriggeredRef.current = false;
-                                      return;
-                                    }
                                     if (isMultiSelect) return;
                                     e.stopPropagation();
                                     setLastViewedDocId(doc.id);
