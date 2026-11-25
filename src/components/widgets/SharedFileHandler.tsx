@@ -12,6 +12,7 @@ import InvoiceAttachMatchModal, { ScannedReceiptInput } from './Finance/InvoiceA
 import DynamicPdfScrollPreview from './Vault/DynamicPdfScrollPreview';
 import { FileShareItem } from '../../utils/fileShareUtils';
 import { APP_VERSION } from '../../constants/version';
+import { FolderTreeExplorerModal, FolderTreeNode } from '../common/FolderTreeExplorerModal';
 
 export default function SharedFileHandler() {
   const { spaces, addInboxItems, addToPersonalInbox, setPersonalInbox, addDocument, addShelf, addDocumentFolder, updateFileShareItems } = useSpaces();
@@ -23,6 +24,7 @@ export default function SharedFileHandler() {
   const [sharedBlobs, setSharedBlobs] = useState<any[]>([]);
   const [sharedAllPages, setSharedAllPages] = useState<string[] | null>(null);
   const [isReceivingShare, setIsReceivingShare] = useState(false);
+  const [isTreeExplorerOpen, setIsTreeExplorerOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedSpaceId, setSelectedSpaceId] = useState<string>(() => {
     if (typeof window !== 'undefined') {
@@ -2355,6 +2357,143 @@ export default function SharedFileHandler() {
               })()}
             </>
           )}
+
+          {/* Live Selected Path Preview + Interactive Folder Tree Explorer Trigger (Vault & FileShare) */}
+          {(routeDestination === 'vault' || routeDestination === 'fileshare') && selectedSpaceId && (() => {
+            const curSp = spaces.find((s: any) => s.id === selectedSpaceId);
+            if (!curSp) return null;
+
+            const isVault = routeDestination === 'vault';
+            const treeNodes: FolderTreeNode[] = [];
+            let pathParts: string[] = [curSp.title || 'פרויקט'];
+
+            if (isVault) {
+              const activeShelves = (curSp.shelves || []).filter((s: any) => !s.deletedAt);
+              const activeFolders = (curSp.documentFolders || []).filter((f: any) => !f.deletedAt);
+              const activeDocs = (curSp.documents || []).filter((d: any) => !d.deletedAt);
+
+              activeShelves.forEach((sh: any) => {
+                treeNodes.push({
+                  id: sh.id,
+                  name: sh.name,
+                  parentId: null,
+                  shelfId: sh.id,
+                  isShelf: true,
+                  itemCount: activeDocs.filter((d: any) => d.shelfId === sh.id && !d.folderId).length,
+                });
+              });
+              activeFolders.forEach((f: any) => {
+                treeNodes.push({
+                  id: f.id,
+                  name: f.name,
+                  parentId: f.parentId || f.shelfId || null,
+                  shelfId: f.shelfId,
+                  isShelf: false,
+                  itemCount: activeDocs.filter((d: any) => d.folderId === f.id).length,
+                });
+              });
+
+              const curShelf = activeShelves.find((s: any) => s.id === selectedShelfId) || activeShelves[0];
+              if (curShelf) pathParts.push(curShelf.name);
+              if (selectedFolderId) {
+                const chain: string[] = [];
+                let curr = activeFolders.find((f: any) => f.id === selectedFolderId);
+                const guard = new Set<string>();
+                while (curr && !guard.has(curr.id)) {
+                  guard.add(curr.id);
+                  chain.unshift(curr.name);
+                  curr = curr.parentId ? activeFolders.find((p: any) => p.id === curr.parentId) : null;
+                }
+                pathParts.push(...chain);
+              }
+            } else {
+              const allFsItems: any[] = (curSp.fileShareItems || []).filter((i: any) => !i.deletedAt);
+              const fsFolders = allFsItems.filter((i: any) => i.type === 'folder');
+              fsFolders.forEach((f: any) => {
+                treeNodes.push({
+                  id: f.id,
+                  name: f.name,
+                  parentId: f.parentId || null,
+                  isShelf: false,
+                  itemCount: allFsItems.filter((c: any) => c.parentId === f.id && c.type === 'file').length,
+                });
+              });
+
+              pathParts.push('קיר שיתוף');
+              if (selectedFolderId) {
+                const chain: string[] = [];
+                let curr = fsFolders.find((f: any) => f.id === selectedFolderId);
+                const guard = new Set<string>();
+                while (curr && !guard.has(curr.id)) {
+                  guard.add(curr.id);
+                  chain.unshift(curr.name);
+                  curr = curr.parentId ? fsFolders.find((p: any) => p.id === curr.parentId) : null;
+                }
+                pathParts.push(...chain);
+              } else {
+                pathParts.push('רמה ראשית');
+              }
+            }
+
+            return (
+              <>
+                <div
+                  style={{
+                    marginTop: '0.75rem',
+                    padding: '0.6rem 0.75rem',
+                    borderRadius: '12px',
+                    background: 'linear-gradient(135deg, #f8fafc, #eef2ff)',
+                    border: '1px solid #c7d2fe',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '0.5rem',
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: '170px', fontSize: '0.75rem', color: '#312e81', fontWeight: 700, lineHeight: 1.4 }}>
+                    <span style={{ opacity: 0.75 }}>📍 מסלול: </span>
+                    <strong>{pathParts.join(' ← ')}</strong>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsTreeExplorerOpen(true)}
+                    style={{
+                      padding: '0.4rem 0.72rem',
+                      borderRadius: '9px',
+                      border: '1px solid #818cf8',
+                      background: '#ffffff',
+                      color: '#3730a3',
+                      fontWeight: 800,
+                      fontSize: '0.76rem',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      boxShadow: '0 2px 6px rgba(79,70,229,0.12)',
+                    }}
+                  >
+                    🌳 עץ תיקיות
+                  </button>
+                </div>
+
+                <FolderTreeExplorerModal
+                  isOpen={isTreeExplorerOpen}
+                  title={isVault ? 'עץ תיקיות — מדף מסמכים' : 'עץ תיקיות — קיר שיתוף'}
+                  spaceTitle={curSp.title || 'פרויקט'}
+                  mode={isVault ? 'vault' : 'fileshare'}
+                  nodes={treeNodes}
+                  selectedShelfId={selectedShelfId}
+                  selectedFolderId={selectedFolderId}
+                  onSelect={(nextShelfId, nextFolderId) => {
+                    if (isVault && nextShelfId) {
+                      setSelectedShelfId(nextShelfId);
+                    }
+                    setSelectedFolderId(nextFolderId);
+                  }}
+                  onClose={() => setIsTreeExplorerOpen(false)}
+                />
+              </>
+            );
+          })()}
 
           {/* Live Cloud Upload Progress Bar with Flashing Cloud (Rule 21: bytesTransferred / totalBytes) */}
           {isProcessing && (
