@@ -98,15 +98,38 @@ export function FolderTreeExplorerModal({
     return trail;
   }, [focusNodeId, nodeMap]);
 
+  // Recursive subtree stats: total documents (including all descendant subfolders) + direct subfolders count
+  const subtreeStatsMap = useMemo(() => {
+    const cache = new Map<string, { totalDocs: number; directSubfolders: number }>();
+    const compute = (id: string, visited = new Set<string>()): { totalDocs: number; directSubfolders: number } => {
+      if (cache.has(id)) return cache.get(id)!;
+      if (visited.has(id)) return { totalDocs: 0, directSubfolders: 0 };
+      visited.add(id);
+      const node = nodeMap.get(id);
+      const kids = childrenMap.get(id) || [];
+      let totalDocs = node?.itemCount || 0;
+      for (const child of kids) {
+        totalDocs += compute(child.id, visited).totalDocs;
+      }
+      const res = { totalDocs, directSubfolders: kids.length };
+      cache.set(id, res);
+      return res;
+    };
+    nodes.forEach((n) => compute(n.id));
+    return cache;
+  }, [nodes, nodeMap, childrenMap]);
+
   // Build selected path preview
   const selectedPathText = useMemo(() => {
     const parts: string[] = [spaceTitle];
     if (mode === 'vault') {
-      const shelf = selectedShelfId ? nodeMap.get(selectedShelfId) : undefined;
+      const selectedFolderNode = selectedFolderId ? nodeMap.get(selectedFolderId) : undefined;
+      const effectiveShelfId = selectedFolderNode?.shelfId || selectedShelfId;
+      const shelf = effectiveShelfId ? nodeMap.get(effectiveShelfId) : undefined;
       if (shelf) parts.push(shelf.name);
       if (selectedFolderId) {
         const chain: string[] = [];
-        let curr = nodeMap.get(selectedFolderId);
+        let curr = selectedFolderNode;
         const guard = new Set<string>();
         while (curr && !curr.isShelf && !guard.has(curr.id)) {
           guard.add(curr.id);
@@ -286,21 +309,33 @@ export function FolderTreeExplorerModal({
               >
                 {node.name}
               </span>
-              {typeof node.itemCount === 'number' && (
-                <span
-                  style={{
-                    fontSize: '0.68rem',
-                    fontWeight: 800,
-                    color: '#64748b',
-                    background: '#f1f5f9',
-                    padding: '1px 6px',
-                    borderRadius: '999px',
-                    flexShrink: 0,
-                  }}
-                >
-                  {node.itemCount}
-                </span>
-              )}
+              {(() => {
+                const stats = subtreeStatsMap.get(node.id) || { totalDocs: node.itemCount || 0, directSubfolders: 0 };
+                let badgeText = 'ריק';
+                if (stats.directSubfolders > 0 && stats.totalDocs > 0) {
+                  badgeText = `📁 ${stats.directSubfolders} • 📄 ${stats.totalDocs}`;
+                } else if (stats.totalDocs > 0) {
+                  badgeText = `📄 ${stats.totalDocs}`;
+                } else if (stats.directSubfolders > 0) {
+                  badgeText = `📁 ${stats.directSubfolders}`;
+                }
+                return (
+                  <span
+                    style={{
+                      fontSize: '0.67rem',
+                      fontWeight: 800,
+                      color: stats.totalDocs > 0 || stats.directSubfolders > 0 ? '#334155' : '#94a3b8',
+                      background: '#f1f5f9',
+                      padding: '1px 7px',
+                      borderRadius: '999px',
+                      flexShrink: 0,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {badgeText}
+                  </span>
+                );
+              })()}
               {selected && (
                 <span
                   style={{
