@@ -1159,25 +1159,25 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
                   type="button"
                   onClick={() => setFinanceTab(financeTab === 'smart_calendar' ? (hasFinance ? 'summary' : hasVault ? 'shelves' : 'fileshare') : 'smart_calendar')}
                   style={{
-                    background: financeTab === 'smart_calendar' ? '#eef2ff' : '#ffffff',
-                    color: financeTab === 'smart_calendar' ? '#4338ca' : '#334155',
-                    border: financeTab === 'smart_calendar' ? '1.5px solid #818cf8' : '1px solid #cbd5e1',
-                    padding: '0.28rem 0.7rem',
+                    background: financeTab === 'smart_calendar' ? 'linear-gradient(135deg, #4f46e5, #2563eb)' : '#ffffff',
+                    color: financeTab === 'smart_calendar' ? '#ffffff' : '#334155',
+                    border: financeTab === 'smart_calendar' ? '1.5px solid #4338ca' : '1px solid #cbd5e1',
+                    padding: '0.32rem 0.78rem',
                     borderRadius: '10px',
                     fontWeight: 800,
-                    fontSize: '0.76rem',
+                    fontSize: '0.78rem',
                     cursor: 'pointer',
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: '0.3rem',
-                    boxShadow: 'var(--shadow-sm)',
+                    gap: '0.32rem',
+                    boxShadow: financeTab === 'smart_calendar' ? '0 3px 10px rgba(79,70,229,0.28)' : 'var(--shadow-sm)',
                     transition: 'all 0.15s ease',
                     flexShrink: 0
                   }}
-                  title="פתח את לוח השנה החכם"
+                  title={financeTab === 'smart_calendar' ? 'חזור לדף הראשי של המרחב' : 'פתח את לוח השנה החכם'}
                 >
-                  <span>📅</span>
-                  <span>לוח שנה</span>
+                  <span>{financeTab === 'smart_calendar' ? '🏠' : '📅'}</span>
+                  <span>{financeTab === 'smart_calendar' ? 'דף ראשי' : 'לוח שנה'}</span>
                 </button>
               )}
 

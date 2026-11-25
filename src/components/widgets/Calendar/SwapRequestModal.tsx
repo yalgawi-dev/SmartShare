@@ -11,6 +11,7 @@ import {
 
 interface SwapRequestModalProps {
   initialDate: string;
+  initialReturnDate?: string;
   config: SmartCalendarConfig;
   defaultFromParent: ParentRole;
   currentUserId: string;
@@ -21,6 +22,7 @@ interface SwapRequestModalProps {
 
 export const SwapRequestModal: React.FC<SwapRequestModalProps> = ({
   initialDate,
+  initialReturnDate,
   config,
   defaultFromParent,
   currentUserId,
@@ -28,11 +30,11 @@ export const SwapRequestModal: React.FC<SwapRequestModalProps> = ({
   onClose,
   onSubmit,
 }) => {
-  const [swapType, setSwapType] = useState<SwapRequestType>('one_time');
+  const [swapType, setSwapType] = useState<SwapRequestType>(initialReturnDate ? 'two_way' : 'one_time');
   const [targetDate, setTargetDate] = useState(initialDate);
   const [endDate, setEndDate] = useState(initialDate);
-  const [returnDate, setReturnDate] = useState('');
-  const [returnEndDate, setReturnEndDate] = useState('');
+  const [returnDate, setReturnDate] = useState(initialReturnDate || '');
+  const [returnEndDate, setReturnEndDate] = useState(initialReturnDate || '');
   const [fromParent, setFromParent] = useState<ParentRole>(defaultFromParent);
   const [toParent, setToParent] = useState<ParentRole>(
     defaultFromParent === 'parent_a' ? 'parent_b' : 'parent_a'

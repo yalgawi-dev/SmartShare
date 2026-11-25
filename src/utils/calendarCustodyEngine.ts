@@ -185,6 +185,26 @@ function flipParent(role: ParentRole): ParentRole {
   return role === 'parent_a' ? 'parent_b' : 'parent_a';
 }
 
+function resolveCycleParent(
+  weeksDiff: number,
+  cycle: '1_1' | '1_2' | '2_1',
+  anchorParent: ParentRole,
+  shouldFlipCycle: boolean
+): ParentRole {
+  let base: ParentRole;
+  if (cycle === '1_2') {
+    const mod = ((weeksDiff % 3) + 3) % 3;
+    base = mod === 0 ? anchorParent : flipParent(anchorParent);
+  } else if (cycle === '2_1') {
+    const mod = ((weeksDiff % 3) + 3) % 3;
+    base = mod === 0 || mod === 1 ? anchorParent : flipParent(anchorParent);
+  } else {
+    const mod = ((weeksDiff % 2) + 2) % 2;
+    base = mod === 0 ? anchorParent : flipParent(anchorParent);
+  }
+  return shouldFlipCycle ? flipParent(base) : base;
+}
+
 /**
  * Computes base parent from repeating custody pattern (accounting for any approved 'shift_forward' swaps up to this date)
  */
@@ -200,32 +220,30 @@ function resolveBasePatternParent(
   const shiftFlips = approvedShiftSwaps.filter((s) => s.targetDate <= ymd).length;
   const shouldFlipCycle = shiftFlips % 2 === 1;
 
-  // Alternating full weeks preset
+  const effectiveCycle: '1_1' | '1_2' | '2_1' | 'fixed' =
+    pattern.weekendCycle || (pattern.weekendAlternating ? '1_1' : 'fixed');
+
+  // Alternating full weeks preset (supports 1:1, 1:2, 2:1)
   if (pattern.preset === 'equal_alt_weeks') {
     const anchor = parseYMD(pattern.weekendAnchorDate || ymd);
-    // Align to start of week (Sunday)
     const anchorSun = new Date(anchor);
     anchorSun.setDate(anchor.getDate() - anchor.getDay());
     const curSun = new Date(dateObj);
     curSun.setDate(dateObj.getDate() - dow);
     const weeksDiff = Math.round((curSun.getTime() - anchorSun.getTime()) / (1000 * 60 * 60 * 24 * 7));
-    const isEvenWeek = ((weeksDiff % 2) + 2) % 2 === 0;
-    let base = isEvenWeek ? pattern.weekendAnchorParent : flipParent(pattern.weekendAnchorParent);
-    return shouldFlipCycle ? flipParent(base) : base;
+    const cycleToUse = effectiveCycle === 'fixed' ? '1_1' : effectiveCycle;
+    return resolveCycleParent(weeksDiff, cycleToUse, pattern.weekendAnchorParent, shouldFlipCycle);
   }
 
-  // Alternating weekends (Friday = 5, Saturday = 6)
-  if (pattern.weekendAlternating && (dow === 5 || dow === 6)) {
+  // Alternating weekends (Friday = 5, Saturday = 6) with 1:1, 1:2, or 2:1 cycle
+  if (effectiveCycle !== 'fixed' && (dow === 5 || dow === 6)) {
     const anchor = parseYMD(pattern.weekendAnchorDate || ymd);
-    // Align both to Friday of their respective week
     const anchorFri = new Date(anchor);
     anchorFri.setDate(anchor.getDate() - ((anchor.getDay() + 2) % 7));
     const curFri = new Date(dateObj);
     curFri.setDate(dateObj.getDate() - ((dow + 2) % 7));
     const weeksDiff = Math.round((curFri.getTime() - anchorFri.getTime()) / (1000 * 60 * 60 * 24 * 7));
-    const isEvenWknd = ((weeksDiff % 2) + 2) % 2 === 0;
-    let wkndParent = isEvenWknd ? pattern.weekendAnchorParent : flipParent(pattern.weekendAnchorParent);
-    return shouldFlipCycle ? flipParent(wkndParent) : wkndParent;
+    return resolveCycleParent(weeksDiff, effectiveCycle, pattern.weekendAnchorParent, shouldFlipCycle);
   }
 
   // Regular weekday assignment

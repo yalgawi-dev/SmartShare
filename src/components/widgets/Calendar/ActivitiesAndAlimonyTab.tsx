@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react';
 import {
-  ActivityPaymentArrangement,
   KidActivityItem,
   ParentRole,
   SchoolBreakItem,
@@ -14,55 +13,26 @@ import {
   HEBREW_DAYS_SHORT,
   SPECIAL_PERIOD_META,
 } from '@/utils/calendarCustodyEngine';
-import {
-  formatAmountInputDisplay,
-  parseFormattedAmount,
-  stripAmountCommas,
-} from '@/utils/numberFormat';
 import { HebrewTimeSelect } from './HebrewTimeSelect';
 
 interface ActivitiesAndAlimonyTabProps {
   config: SmartCalendarConfig;
   currentUserId: string;
   currentUserName: string;
-  hasFinanceEngine?: boolean;
   onSaveConfig: (next: SmartCalendarConfig) => Promise<void>;
-  onMarkAlimonyPaid: (ym: string) => Promise<void>;
-  onOpenFinanceBridge?: () => void;
 }
-
-const PAYMENT_LABELS: Record<ActivityPaymentArrangement, string> = {
-  split_50_50: '⚖️ חצי-חצי (50/50)',
-  alternating_activities: '🔁 חוג עליי / חוג עליך',
-  parent_a_only: '👤 משולם ע״י הורה א׳',
-  parent_b_only: '👤 משולם ע״י הורה ב׳',
-  custom_percent: '📊 לפי אחוזים מותאמים',
-};
 
 export const ActivitiesAndAlimonyTab: React.FC<ActivitiesAndAlimonyTabProps> = ({
   config,
   currentUserId,
-  hasFinanceEngine,
   onSaveConfig,
-  onMarkAlimonyPaid,
-  onOpenFinanceBridge,
 }) => {
-  const now = new Date();
-  const currentYM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const isPaidThisMonth = Boolean(config.alimony.paidMonths?.[currentYM]);
-
-  // Alimony inline edit
-  const [alimonyAmtInput, setAlimonyAmtInput] = useState(
-    config.alimony.monthlyAmount ? String(config.alimony.monthlyAmount) : ''
-  );
-
-  // Add Activity form state
+  // Add Activity form state (Calendar-only: schedule, time & location — zero finance/half-splits per Rule 16!)
   const [actTitle, setActTitle] = useState('');
-  const [actChildId, setActChildId] = useState(config.children[0]?.id || '');
+  const [actChildId, setActChildId] = useState(config.children[0]?.id || 'all');
   const [actDays, setActDays] = useState<number[]>([0, 3]);
   const [actTime, setActTime] = useState('17:00');
-  const [actCost, setActCost] = useState('');
-  const [actPayment, setActPayment] = useState<ActivityPaymentArrangement>('split_50_50');
+  const [actLocation, setActLocation] = useState('');
 
   // Add School Break form state
   const [brkTitle, setBrkTitle] = useState('');
@@ -81,36 +51,24 @@ export const ActivitiesAndAlimonyTab: React.FC<ActivitiesAndAlimonyTabProps> = (
   const pA = config.parents.parent_a;
   const pB = config.parents.parent_b;
 
-  const handleSaveAlimony = async () => {
-    const num = parseFormattedAmount(alimonyAmtInput);
-    await onSaveConfig({
-      ...config,
-      alimony: {
-        ...config.alimony,
-        monthlyAmount: !isNaN(num) && num > 0 ? num : undefined,
-      },
-    });
-  };
-
   const handleAddActivity = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!actTitle.trim()) return;
-    const costNum = parseFormattedAmount(actCost);
     const item: KidActivityItem = {
       id: `act_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
       title: actTitle.trim(),
       childId: actChildId || config.children[0]?.id || 'all',
       daysOfWeek: actDays.length > 0 ? actDays : [0],
       time: actTime || undefined,
-      paymentArrangement: actPayment,
-      monthlyCost: !isNaN(costNum) && costNum > 0 ? costNum : undefined,
+      location: actLocation.trim() || undefined,
+      paymentArrangement: 'split_50_50',
     };
     await onSaveConfig({
       ...config,
       activities: [...(config.activities || []), item],
     });
     setActTitle('');
-    setActCost('');
+    setActLocation('');
   };
 
   const handleRemoveActivity = async (id: string) => {
@@ -190,152 +148,7 @@ export const ActivitiesAndAlimonyTab: React.FC<ActivitiesAndAlimonyTabProps> = (
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-      {/* 1. ALIMONY SCHEDULE & REMINDER */}
-      <div
-        style={{
-          background: '#ffffff',
-          borderRadius: '16px',
-          border: '1px solid #e2e8f0',
-          padding: '1rem',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '0.65rem',
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 900, color: '#0f172a' }}>
-            💳 תזכורת ומעקב מזונות חודשי
-          </h4>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.78rem', fontWeight: 800 }}>
-            <input
-              type="checkbox"
-              checked={config.alimony.enabled}
-              onChange={(e) =>
-                onSaveConfig({
-                  ...config,
-                  alimony: { ...config.alimony, enabled: e.target.checked },
-                })
-              }
-              style={{ accentColor: '#10b981', width: '16px', height: '16px' }}
-            />
-            פעיל
-          </label>
-        </div>
-
-        {config.alimony.enabled && (
-          <>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.45rem' }}>
-              <label style={{ fontSize: '0.72rem', fontWeight: 700, color: '#475569' }}>
-                הורה משלם:
-                <select
-                  value={config.alimony.payingParent}
-                  onChange={(e) =>
-                    onSaveConfig({
-                      ...config,
-                      alimony: { ...config.alimony, payingParent: e.target.value as ParentRole },
-                    })
-                  }
-                  style={{ width: '100%', padding: '0.45rem', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff', marginTop: '2px' }}
-                >
-                  <option value="parent_a">{pA.name}</option>
-                  <option value="parent_b">{pB.name}</option>
-                </select>
-              </label>
-
-              <label style={{ fontSize: '0.72rem', fontWeight: 700, color: '#475569' }}>
-                יום בחודש לתשלום:
-                <input
-                  type="number"
-                  min={1}
-                  max={28}
-                  value={config.alimony.dueDayOfMonth}
-                  onChange={(e) =>
-                    onSaveConfig({
-                      ...config,
-                      alimony: { ...config.alimony, dueDayOfMonth: Math.max(1, Math.min(28, Number(e.target.value) || 1)) },
-                    })
-                  }
-                  style={{ width: '100%', padding: '0.45rem', borderRadius: '8px', border: '1px solid #cbd5e1', marginTop: '2px' }}
-                />
-              </label>
-
-              <label style={{ fontSize: '0.72rem', fontWeight: 700, color: '#475569' }}>
-                סכום חודשי (₪):
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  dir="ltr"
-                  placeholder="0"
-                  value={formatAmountInputDisplay(alimonyAmtInput)}
-                  onChange={(e) => setAlimonyAmtInput(stripAmountCommas(e.target.value))}
-                  onBlur={handleSaveAlimony}
-                  style={{ width: '100%', padding: '0.45rem', borderRadius: '8px', border: '1px solid #cbd5e1', marginTop: '2px', textAlign: 'left' }}
-                />
-              </label>
-            </div>
-
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: '0.5rem',
-                padding: '0.6rem 0.75rem',
-                borderRadius: '12px',
-                background: isPaidThisMonth ? '#ecfdf5' : '#fffbeb',
-                border: isPaidThisMonth ? '1px solid #a7f3d0' : '1px solid #fde68a',
-              }}
-            >
-              <div style={{ fontSize: '0.8rem', fontWeight: 800, color: isPaidThisMonth ? '#065f46' : '#92400e' }}>
-                {isPaidThisMonth
-                  ? `✅ מזונות חודש ${currentYM} סומנו כשולמו!`
-                  : `🔔 תזכורת: תשלום מזונות ע״י ${config.parents[config.alimony.payingParent].name} בכל ${config.alimony.dueDayOfMonth} לחודש`}
-              </div>
-              <div style={{ display: 'flex', gap: '0.4rem' }}>
-                {!isPaidThisMonth && (
-                  <button
-                    type="button"
-                    onClick={() => onMarkAlimonyPaid(currentYM)}
-                    style={{
-                      padding: '0.35rem 0.75rem',
-                      borderRadius: '8px',
-                      border: 'none',
-                      background: '#10b981',
-                      color: '#ffffff',
-                      fontSize: '0.76rem',
-                      fontWeight: 800,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    ✅ סמן ששולם החודש
-                  </button>
-                )}
-                {hasFinanceEngine && onOpenFinanceBridge && (
-                  <button
-                    type="button"
-                    onClick={onOpenFinanceBridge}
-                    style={{
-                      padding: '0.35rem 0.7rem',
-                      borderRadius: '8px',
-                      border: '1px solid #c7d2fe',
-                      background: '#eef2ff',
-                      color: '#4338ca',
-                      fontSize: '0.74rem',
-                      fontWeight: 800,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    🧾 רשום בהתחשבנויות
-                  </button>
-                )}
-              </div>
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* 2. KIDS ACTIVITIES & COST ARRANGEMENTS */}
+      {/* 1. KIDS ACTIVITIES (Schedule & Location only — zero expenses/half-splits per Rule 16) */}
       <div
         style={{
           background: '#ffffff',
@@ -348,7 +161,7 @@ export const ActivitiesAndAlimonyTab: React.FC<ActivitiesAndAlimonyTabProps> = (
         }}
       >
         <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 900, color: '#0f172a' }}>
-          🏅 חוגים קבועים והסדרי תשלום
+          🏅 חוגים קבועים בלוח
         </h4>
 
         {(config.activities || []).map((act) => {
@@ -372,10 +185,11 @@ export const ActivitiesAndAlimonyTab: React.FC<ActivitiesAndAlimonyTabProps> = (
                 <div style={{ fontWeight: 800, color: '#0f172a' }}>
                   {act.title} {child ? `(${child.name})` : ''} • ימים: {daysStr} {act.time ? `🕒 ${act.time}` : ''}
                 </div>
-                <div style={{ fontSize: '0.72rem', color: '#475569' }}>
-                  {PAYMENT_LABELS[act.paymentArrangement]}
-                  {act.monthlyCost ? ` • ₪${act.monthlyCost.toLocaleString('he-IL')}/חודש` : ''}
-                </div>
+                {act.location && (
+                  <div style={{ fontSize: '0.72rem', color: '#475569' }}>
+                    📍 {act.location}
+                  </div>
+                )}
               </div>
               <button
                 type="button"
@@ -436,7 +250,7 @@ export const ActivitiesAndAlimonyTab: React.FC<ActivitiesAndAlimonyTabProps> = (
               );
             })}
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.4rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
             <HebrewTimeSelect
               value={actTime || '17:00'}
               onChange={setActTime}
@@ -444,23 +258,11 @@ export const ActivitiesAndAlimonyTab: React.FC<ActivitiesAndAlimonyTabProps> = (
             />
             <input
               type="text"
-              inputMode="decimal"
-              dir="ltr"
-              placeholder="עלות ₪/חודש"
-              value={formatAmountInputDisplay(actCost)}
-              onChange={(e) => setActCost(stripAmountCommas(e.target.value))}
-              style={{ padding: '0.42rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.78rem', textAlign: 'left' }}
+              placeholder="מיקום (אופציונלי)"
+              value={actLocation}
+              onChange={(e) => setActLocation(e.target.value)}
+              style={{ padding: '0.42rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.78rem' }}
             />
-            <select
-              value={actPayment}
-              onChange={(e) => setActPayment(e.target.value as ActivityPaymentArrangement)}
-              style={{ padding: '0.42rem', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff', fontSize: '0.76rem' }}
-            >
-              <option value="split_50_50">חצי-חצי (50/50)</option>
-              <option value="alternating_activities">חוג עליי / חוג עליך</option>
-              <option value="parent_a_only">{pA.name} משלם</option>
-              <option value="parent_b_only">{pB.name} משלם</option>
-            </select>
           </div>
           <button
             type="submit"

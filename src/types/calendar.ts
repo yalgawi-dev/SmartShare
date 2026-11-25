@@ -36,12 +36,16 @@ export type CustodyPresetId =
   | 'equal_alt_weeks'
   | 'custom';
 
+export type WeekendCycleType = '1_1' | '1_2' | '2_1' | 'fixed';
+
 export interface CustodyPattern {
   preset: CustodyPresetId;
   /** Default weekday assignment (0 = Sunday .. 6 = Saturday) */
   weekdayAssignments: Record<number, ParentRole>;
-  /** Whether weekends (Fri-Sat) alternate every week */
+  /** Whether weekends (Fri-Sat) alternate every week (legacy boolean kept for backwards compatibility) */
   weekendAlternating: boolean;
+  /** Visual weekend cycle ratio: 1:1 (every other), 1:2 (1 week anchor / 2 weeks other), 2:1 (2 weeks anchor / 1 week other), or fixed */
+  weekendCycle?: WeekendCycleType;
   /** Reference Friday/Saturday anchor date (YYYY-MM-DD) */
   weekendAnchorDate: string;
   /** Which parent has the weekend on weekendAnchorDate */
