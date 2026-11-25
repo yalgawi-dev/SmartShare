@@ -15,9 +15,39 @@ const geistMono = Geist_Mono({
 import type { Viewport } from "next";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://smart-share-tvwn-delta.vercel.app"),
   title: "MySpace — שיתוף מסמכים, תוכניות וניהול מרחבים",
   description: "צפייה מאובטחת במסמכים, תוכניות והתחשבנויות משותפות באפליקציית MySpace.",
   manifest: "/manifest.json",
+  icons: {
+    icon: [
+      { url: "/myspace_logo.png", type: "image/png" },
+      { url: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: "/icons/icon-192x192.png",
+  },
+  openGraph: {
+    title: "MySpace — שיתוף מסמכים, תוכניות וניהול מרחבים",
+    description: "צפייה מאובטחת במסמכים, תוכניות והתחשבנויות משותפות באפליקציית MySpace.",
+    url: "https://smart-share-tvwn-delta.vercel.app",
+    siteName: "MySpace",
+    images: [
+      {
+        url: "https://smart-share-tvwn-delta.vercel.app/myspace_logo.png",
+        width: 512,
+        height: 512,
+        alt: "MySpace",
+      },
+    ],
+    type: "website",
+    locale: "he_IL",
+  },
+  twitter: {
+    card: "summary",
+    title: "MySpace — שיתוף מסמכים, תוכניות וניהול מרחבים",
+    description: "צפייה מאובטחת במסמכים, תוכניות והתחשבנויות משותפות באפליקציית MySpace.",
+    images: ["https://smart-share-tvwn-delta.vercel.app/myspace_logo.png"],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
