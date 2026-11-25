@@ -364,3 +364,88 @@ export function installPassiveUiMapLearner(): () => void {
     passiveListenerInstalled = false;
   };
 }
+
+
+// ============================================================
+// Layer 7B: Autonomous Continuous Screen-Change Watcher (MutationObserver)
+// Automatically detects newly added screens, buttons, and entity types on ANY host app
+// without developer intervention or manual tags!
+// ============================================================
+const DISCOVERED_SCREENS_KEY = 'smartshare_assistant_discovered_screens_v1';
+
+export interface DiscoveredScreenSnapshot {
+  routePattern: string;
+  scopeLabel: string;
+  controls: string[];
+  entityTypes: string[];
+  lastSeenAt: number;
+}
+
+let watcherInstalled = false;
+
+export function getDiscoveredScreensMap(): DiscoveredScreenSnapshot[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(DISCOVERED_SCREENS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function installAutonomousScreenWatcher(): () => void {
+  if (typeof window === 'undefined' || typeof MutationObserver === 'undefined' || watcherInstalled) {
+    return () => {};
+  }
+  watcherInstalled = true;
+  let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  let lastFingerprint = '';
+
+  const scanAndLearn = () => {
+    try {
+      const dom = inspectLiveScreenDOM();
+      const routePattern = normalizeRoutePattern(window.location.pathname);
+      const scopeLabel = dom.activeScope?.label || dom.visibleHeadings[0] || routePattern;
+      const controls = Array.from(
+        new Set(dom.visibleButtonsAndActions.map(normalizeTriggerLabel).filter((c) => c.length >= 2))
+      ).slice(0, 20);
+      const entityTypes = Array.from(
+        new Set((dom.visibleEntities || []).map((e) => e.type).filter(Boolean))
+      );
+
+      const fp = `${routePattern}|${scopeLabel}|${controls.join(',')}|${entityTypes.join(',')}`;
+      if (fp === lastFingerprint || controls.length === 0) return;
+      lastFingerprint = fp;
+
+      const list = getDiscoveredScreensMap();
+      const idx = list.findIndex((s) => s.routePattern === routePattern && s.scopeLabel === scopeLabel);
+      const entry: DiscoveredScreenSnapshot = {
+        routePattern,
+        scopeLabel,
+        controls,
+        entityTypes,
+        lastSeenAt: Date.now(),
+      };
+      if (idx >= 0) list[idx] = entry;
+      else list.unshift(entry);
+
+      localStorage.setItem(DISCOVERED_SCREENS_KEY, JSON.stringify(list.slice(0, 30)));
+    } catch {
+      // Never impact host UI
+    }
+  };
+
+  const observer = new MutationObserver(() => {
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(scanAndLearn, 1800);
+  });
+
+  observer.observe(document.body, { childList: true, subtree: true });
+  debounceTimer = setTimeout(scanAndLearn, 1200);
+
+  return () => {
+    if (debounceTimer) clearTimeout(debounceTimer);
+    observer.disconnect();
+    watcherInstalled = false;
+  };
+}

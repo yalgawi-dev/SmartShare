@@ -299,7 +299,8 @@ export function inspectLiveScreenDOM(): LiveScreenDomInspection {
     if (txt) modalSet.add(txt);
   });
 
-  // 4. Layer 2.5 — Active Viewport Scope & Currently Visible Entities (App-Agnostic)
+  // 4. Layer 2.5 — Zero-Tag Autonomous Viewport Scope & Entity Discovery (App-Agnostic)
+  // Priority 1: Explicit semantic attributes if present; Priority 2: 100% Automatic heuristic discovery on ANY app!
   let activeScope: ActiveViewportScope | null = null;
   const scopeEls = Array.from(document.querySelectorAll('[data-agent-scope-label], [data-agent-scope-id]'));
   for (let i = scopeEls.length - 1; i >= 0; i--) {
@@ -314,21 +315,78 @@ export function inspectLiveScreenDOM(): LiveScreenDomInspection {
     break;
   }
 
+  // Zero-Tag Fallback for Active Scope (works on ANY unknown external app automatically!)
+  if (!activeScope) {
+    const breadcrumbEl = document.querySelector('nav[aria-label*="breadcrumb" i], [role="navigation"][aria-label*="מיקום"]');
+    const activeTabEl = document.querySelector('[role="tab"][aria-selected="true"]');
+    const topHeading = Array.from(headingSet)[0];
+    const autoLabel =
+      cleanLabel(breadcrumbEl?.textContent) ||
+      cleanLabel(activeTabEl?.textContent) ||
+      topHeading ||
+      cleanLabel(document.title);
+    if (autoLabel) {
+      activeScope = {
+        containerType: 'auto_discovered_screen',
+        label: autoLabel.slice(0, 80),
+      };
+    }
+  }
+
   const visibleEntities: VisibleAgentEntity[] = [];
   const seenEntityIds = new Set<string>();
-  document.querySelectorAll('[data-agent-entity-id]').forEach((el) => {
+
+  const pushVisibleEntity = (id: string, type: string, title: string, parentId?: string) => {
     if (visibleEntities.length >= 40) return;
-    if (!isElementVisible(el)) return;
-    const id = el.getAttribute('data-agent-entity-id') || '';
-    if (!id || seenEntityIds.has(id)) return;
+    const cleanT = cleanLabel(title).slice(0, 80);
+    if (!id || !cleanT || seenEntityIds.has(id)) return;
     seenEntityIds.add(id);
-    visibleEntities.push({
-      id,
-      type: el.getAttribute('data-agent-entity-type') || 'item',
-      title: cleanLabel(el.getAttribute('data-agent-entity-title') || el.textContent).slice(0, 80),
-      parentId: el.getAttribute('data-agent-entity-parent') || undefined,
-    });
+    visibleEntities.push({ id, type, title: cleanT, parentId });
+  };
+
+  // Pass A: Explicit data-agent-entity-id (if host provides them)
+  document.querySelectorAll('[data-agent-entity-id]').forEach((el) => {
+    if (!isElementVisible(el)) return;
+    pushVisibleEntity(
+      el.getAttribute('data-agent-entity-id') || '',
+      el.getAttribute('data-agent-entity-type') || 'item',
+      el.getAttribute('data-agent-entity-title') || el.textContent || '',
+      el.getAttribute('data-agent-entity-parent') || undefined
+    );
   });
+
+  // Pass B: 100% Automatic Zero-Tag Heuristic Entity Discovery (works on ANY external app without manual tags!)
+  if (visibleEntities.length < 25) {
+    document
+      .querySelectorAll('[data-doc-id], [data-folder-id], [data-item-id], [data-id], [role="listitem"], article, tbody tr')
+      .forEach((el, idx) => {
+        if (visibleEntities.length >= 40) return;
+        if (!isElementVisible(el)) return;
+        const explicitId =
+          el.getAttribute('data-doc-id') ||
+          el.getAttribute('data-folder-id') ||
+          el.getAttribute('data-item-id') ||
+          el.getAttribute('data-id') ||
+          el.getAttribute('id') ||
+          `auto_ent_${idx}`;
+        const inferredType = el.hasAttribute('data-folder-id')
+          ? 'folder'
+          : el.hasAttribute('data-doc-id')
+            ? 'document'
+            : el.tagName.toLowerCase() === 'tr'
+              ? 'row'
+              : 'card';
+        const titleNode = el.querySelector('h1, h2, h3, h4, strong, [title]');
+        const titleText =
+          titleNode?.getAttribute('title') ||
+          titleNode?.textContent ||
+          Array.from(el.querySelectorAll('span, div, td'))
+            .map((n) => cleanLabel(n.textContent))
+            .find((t) => t.length >= 2 && t.length <= 60) ||
+          '';
+        pushVisibleEntity(explicitId, inferredType, titleText);
+      });
+  }
 
   return {
     urlPath: window.location.pathname + window.location.search,

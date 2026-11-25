@@ -134,7 +134,20 @@ export const VaultContextMenuPopover: React.FC<VaultContextMenuPopoverProps> = (
   onPasteIntoTarget,
   onDelete,
 }) => {
+  // Guard against Android synthetic 'click' event fired right after touchend of a 450ms long-press!
+  const openedAtRef = React.useRef<number>(0);
+  React.useEffect(() => {
+    if (menu) {
+      openedAtRef.current = Date.now();
+    }
+  }, [menu]);
+
   if (!menu || typeof document === 'undefined') return null;
+
+  const handleBackdropDismiss = () => {
+    if (Date.now() - openedAtRef.current < 450) return;
+    onClose();
+  };
 
   const canPasteIntoFolder =
     menu.itemType === 'folder' &&
@@ -152,17 +165,20 @@ export const VaultContextMenuPopover: React.FC<VaultContextMenuPopoverProps> = (
         position: 'fixed',
         inset: 0,
         zIndex: 999999,
-        background: 'rgba(15, 23, 42, 0.25)',
+        background: 'rgba(15, 23, 42, 0.32)',
+        touchAction: 'none',
       }}
-      onClick={onClose}
+      onClick={handleBackdropDismiss}
       onContextMenu={(e) => {
         e.preventDefault();
-        onClose();
+        handleBackdropDismiss();
       }}
     >
       <div
         dir="rtl"
         onClick={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
+        onTouchEnd={(e) => e.stopPropagation()}
         style={{
           position: 'fixed',
           top: `${top}px`,

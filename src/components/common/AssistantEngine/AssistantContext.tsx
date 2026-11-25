@@ -28,6 +28,7 @@ import {
 import { inspectLiveScreenDOM, isDestructiveUiLabel } from './assistantDomIntrospector';
 import {
   installPassiveUiMapLearner,
+  installAutonomousScreenWatcher,
   recordUiTransition,
   markUiTransitionMissed,
   wasTriggerLearnedOnRoute
@@ -478,7 +479,12 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // Install passive self-learning UI Map observer once (0ms overhead, 0 API calls, 0 host-app edits)
   useEffect(() => {
-    return installPassiveUiMapLearner();
+    const stopClicks = installPassiveUiMapLearner();
+    const stopWatcher = installAutonomousScreenWatcher();
+    return () => {
+      stopClicks();
+      stopWatcher();
+    };
   }, []);
 
   const [isIosInstallCoachActive, setIsIosInstallCoachActive] = useState(false);
