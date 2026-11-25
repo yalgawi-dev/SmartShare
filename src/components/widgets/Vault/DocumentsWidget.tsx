@@ -2466,9 +2466,9 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           }}
           style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', padding: '0 1rem', minHeight: '55vh' }}
         >
-          {/* Word-style Undo / Redo Bar (appears cleanly after any move/delete) */}
+          {/* Safety-First Undo / Redo Bar (aligned to far-left edge, away from navigation buttons) */}
           {(vaultHistory.canUndo || vaultHistory.canRedo) && (
-            <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
               <UndoRedoBar
                 canUndo={vaultHistory.canUndo}
                 canRedo={vaultHistory.canRedo}
