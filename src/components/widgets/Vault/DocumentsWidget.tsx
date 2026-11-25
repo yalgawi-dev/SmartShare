@@ -556,18 +556,73 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
     );
   };
 
+  // Self-Healing Recovery: if any document or subfolder has a shelfId out of sync with its parent folder
+  // (e.g. from an earlier folder cut), automatically re-align shelfId so zero documents are ever orphaned!
+  const healedOrphansRef = useRef<string>('');
+  useEffect(() => {
+    if (!space?.id || !Array.isArray(space.documentFolders) || space.documentFolders.length === 0) return;
+    const folderById = new Map<string, any>();
+    space.documentFolders.forEach((f: any) => {
+      if (f && !f.deletedAt) folderById.set(f.id, f);
+    });
+    const mismatchedFolders = space.documentFolders.filter((f: any) => {
+      if (!f || f.deletedAt || !f.parentId) return false;
+      const parent = folderById.get(f.parentId);
+      return parent && parent.shelfId && parent.shelfId !== f.shelfId;
+    });
+    const mismatchedDocs = (space.documents || []).filter((d: any) => {
+      if (!d || d.deletedAt || !d.folderId) return false;
+      const parent = folderById.get(d.folderId);
+      return parent && parent.shelfId && parent.shelfId !== d.shelfId;
+    });
+    if (mismatchedFolders.length === 0 && mismatchedDocs.length === 0) return;
+    const sig = `${space.id}:${mismatchedFolders.map((f: any) => f.id).join(',')}:${mismatchedDocs.map((d: any) => d.id).join(',')}`;
+    if (healedOrphansRef.current === sig) return;
+    healedOrphansRef.current = sig;
+
+    mismatchedFolders.forEach((f: any) => {
+      const parent = folderById.get(f.parentId);
+      if (parent?.shelfId) {
+        updateDocumentFolder(space.id, f.id, { shelfId: parent.shelfId });
+      }
+    });
+    mismatchedDocs.forEach((d: any) => {
+      const parent = folderById.get(d.folderId);
+      if (parent?.shelfId) {
+        updateDocument(space.id, d.id, { shelfId: parent.shelfId });
+      }
+    });
+  }, [space?.id, space?.documentFolders, space?.documents, updateDocumentFolder, updateDocument]);
+
   const handlePasteClipboardInto = (destShelfId: string, destFolderId: string | null) => {
     if (!clipboard) return;
     const count = clipboard.itemIds.length;
     if (clipboard.itemType === 'folder') {
+      const getDescendantSet = (rootId: string): Set<string> => {
+        const res = new Set<string>([rootId]);
+        const queue = [rootId];
+        while (queue.length > 0) {
+          const curr = queue.shift()!;
+          (space.documentFolders || []).forEach((f: any) => {
+            if (!f.deletedAt && f.parentId === curr && !res.has(f.id)) {
+              res.add(f.id);
+              queue.push(f.id);
+            }
+          });
+        }
+        return res;
+      };
+      for (const fid of clipboard.itemIds) {
+        const subtree = getDescendantSet(fid);
+        if (destFolderId && subtree.has(destFolderId)) {
+          showFeedbackToast('לא ניתן להעביר תיקייה לתוך עצמה או לתת-תיקייה שלה.');
+          return;
+        }
+      }
       clipboard.itemIds.forEach((fid) => {
-        if (fid === destFolderId) return;
-        updateDocumentFolder(space.id, fid, {
-          shelfId: destShelfId,
-          parentId: destFolderId || null,
-        });
+        moveDocumentFolder(space.id, fid, destShelfId, destFolderId || null);
       });
-      showFeedbackToast(count > 1 ? `${count} תיקיות הועברו בהצלחה!` : 'התיקייה הועברה בהצלחה!');
+      showFeedbackToast(count > 1 ? `${count} תיקיות וכל תכולתן הועברו בהצלחה!` : 'התיקייה וכל תכולתה הועברו בהצלחה!');
     } else if (clipboard.mode === 'copy') {
       clipboard.itemIds.forEach((id) => {
         const orig = documents.find((d) => String(d.id) === String(id));

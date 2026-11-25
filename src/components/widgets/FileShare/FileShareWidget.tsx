@@ -404,14 +404,37 @@ export function FileShareWidget({
     }
 
     if (clipboard.mode === 'copy') {
-      const selectedItems = allItems.filter(i => movingIds.has(i.id));
-      const newClonedItems: FileShareItem[] = selectedItems.map((item, idx) => ({
-        ...item,
-        id: `item_${Date.now()}_${idx}_${Math.random().toString(36).substring(2, 6)}`,
-        name: `${item.name} (עותק)`,
-        parentId: targetFolderId,
-        createdAt: Date.now()
-      }));
+      // Recursively collect entire subtree (selected folders + all descendant subfolders & files)
+      const collected: FileShareItem[] = [];
+      const visited = new Set<string>();
+      const collectSubtree = (item: FileShareItem) => {
+        if (visited.has(item.id)) return;
+        visited.add(item.id);
+        collected.push(item);
+        if (item.type === 'folder') {
+          allItems
+            .filter(child => !child.deletedAt && child.parentId === item.id)
+            .forEach(collectSubtree);
+        }
+      };
+      allItems.filter(i => movingIds.has(i.id)).forEach(collectSubtree);
+
+      const idMap: Record<string, string> = {};
+      const now = Date.now();
+      collected.forEach((item, idx) => {
+        idMap[item.id] = `item_${now}_${idx}_${Math.random().toString(36).substring(2, 6)}`;
+      });
+
+      const newClonedItems: FileShareItem[] = collected.map((item) => {
+        const isRootSelected = movingIds.has(item.id);
+        return {
+          ...item,
+          id: idMap[item.id],
+          name: isRootSelected ? `${item.name} (עותק)` : item.name,
+          parentId: isRootSelected ? targetFolderId : (item.parentId && idMap[item.parentId] ? idMap[item.parentId] : targetFolderId),
+          createdAt: now,
+        };
+      });
       await saveItems([...allItems, ...newClonedItems]);
     } else {
       const next = allItems.map(i => (movingIds.has(i.id) ? { ...i, parentId: targetFolderId } : i));
