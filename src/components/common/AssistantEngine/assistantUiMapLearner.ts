@@ -8,6 +8,11 @@
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { inspectLiveScreenDOM } from './assistantDomIntrospector';
+import {
+  installCollectiveTelemetryFlusher,
+  queueCollectiveAction,
+  queueScreenDiscoveryDiff,
+} from './agentCollectiveTelemetry';
 
 export interface LearnedUiTransition {
   routePattern: string;
@@ -300,6 +305,7 @@ export function getCompactUiMapForRoute(routePath: string, visibleLabels: string
 export function installPassiveUiMapLearner(): () => void {
   if (typeof window === 'undefined' || typeof document === 'undefined') return () => {};
   hydrateCloudUiMap();
+  const stopTelemetryFlusher = installCollectiveTelemetryFlusher();
 
   if (passiveListenerInstalled) return () => {};
   passiveListenerInstalled = true;
@@ -325,6 +331,8 @@ export function installPassiveUiMapLearner(): () => void {
     if (isNoiseTrigger(triggerLabel)) return;
 
     const beforePath = window.location.pathname;
+    // ADR-014: Queue anonymous structural action into 60s RAM batch (0ms, zero per-click writes)
+    queueCollectiveAction(normalizeRoutePattern(beforePath), triggerLabel, 'human');
     const beforeSnapshot = inspectLiveScreenDOM();
     const beforeLabels = new Set(beforeSnapshot.interactiveElements.map((e) => normalizeTriggerLabel(e.label)));
 
@@ -361,6 +369,7 @@ export function installPassiveUiMapLearner(): () => void {
   document.addEventListener('click', onClickCapture, { capture: true });
   return () => {
     document.removeEventListener('click', onClickCapture, { capture: true });
+    stopTelemetryFlusher();
     passiveListenerInstalled = false;
   };
 }
@@ -419,6 +428,9 @@ export function installAutonomousScreenWatcher(): () => void {
 
       const list = getDiscoveredScreensMap();
       const idx = list.findIndex((s) => s.routePattern === routePattern && s.scopeLabel === scopeLabel);
+      const prevControls = idx >= 0 ? list[idx].controls : undefined;
+      // ADR-014: Record discovered screen controls & structural UI change markers into 60s batch
+      queueScreenDiscoveryDiff(routePattern, scopeLabel, controls, prevControls);
       const entry: DiscoveredScreenSnapshot = {
         routePattern,
         scopeLabel,

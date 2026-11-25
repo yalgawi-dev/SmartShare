@@ -11,6 +11,8 @@
  */
 
 import type { AgentActionProposal } from './assistantActionRegistry';
+import { queueCollectiveAction } from './agentCollectiveTelemetry';
+import { normalizeRoutePattern } from './assistantUiMapLearner';
 
 export type SkillAutonomyStage = 'apprentice' | 'graduated' | 'quarantined';
 
@@ -85,6 +87,14 @@ export function recordSkillSuccessFromAI(userQuery: string, proposal: AgentActio
   const existing = skills.find(
     (s) => s.tool === proposal.tool && s.keywords.filter((k) => keywords.includes(k)).length >= Math.min(2, keywords.length)
   );
+
+  if (typeof window !== 'undefined') {
+    queueCollectiveAction(
+      normalizeRoutePattern(window.location.pathname),
+      `AI:${proposal.title || proposal.tool}`,
+      'ai'
+    );
+  }
 
   const now = Date.now();
   if (existing) {
@@ -175,6 +185,13 @@ export function recordShadowAuditOutcome(skillId: string, matched: boolean): Com
   target.lastAuditedAt = Date.now();
   if (matched) {
     target.verifiedStreak += 1;
+    if (typeof window !== 'undefined') {
+      queueCollectiveAction(
+        normalizeRoutePattern(window.location.pathname),
+        `AUTO:${target.title || target.tool}`,
+        'autonomous_skill'
+      );
+    }
     if (target.stage === 'apprentice' && target.verifiedStreak >= GRADUATION_STREAK_THRESHOLD) {
       target.stage = 'graduated';
     }

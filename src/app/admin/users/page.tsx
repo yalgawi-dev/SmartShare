@@ -40,6 +40,7 @@ import { db } from '../../../lib/firebase';
 import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { AdminBugReportsModal } from '@/components/admin/AdminBugReportsModal';
 import { fetchAllBugReportsForAdmin } from '@/components/common/AssistantEngine/assistantBugReporter';
+import { AgentIntelligencePanel } from '@/components/common/AssistantEngine/AgentIntelligencePanel';
 
 export default function AdminUsersPage() {
   const { user, allUsers, blockUser, toggleAdmin, updateUserByAdmin, updateAllUsersQuotasByAdmin, deleteUserDoc } = useAuth();
@@ -1470,6 +1471,9 @@ export default function AdminUsersPage() {
                   })}
                 </div>
               </div>
+
+              {/* ADR-014: Collective Batch Telemetry, Version Impact & Agent Learning Intelligence */}
+              <AgentIntelligencePanel />
 
             </div>
           );
