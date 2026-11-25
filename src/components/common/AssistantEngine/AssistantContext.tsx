@@ -16,6 +16,7 @@ import { executeAgentActionPlan } from './agentPlanOrchestrator';
 import { executeApprovedAgentAction } from './assistantActionExecutor';
 import { runPreExecutionClarityGate } from './agentClarityGate';
 import { recordSkillSuccessFromAI } from './agentSkillCompiler';
+import { registerAgentUndo, executeAgentUndo } from './agentUndoLedger';
 import {
   type AssistantPersona,
   type AssistantPersonaId,
@@ -80,8 +81,9 @@ interface AssistantContextType {
   rejectProposedAction: (messageId: string) => void;
   approveProposedPlan: (messageId: string) => Promise<void>;
   rejectProposedPlan: (messageId: string) => void;
-  actionToast: { message: string; proofUrl?: string } | null;
+  actionToast: { message: string; proofUrl?: string; undoId?: string } | null;
   dismissActionToast: () => void;
+  undoLastActionToast: () => Promise<void>;
   submitFeedback: (messageId: string, rating: 'helpful' | 'not_helpful') => void;
   clearChat: () => void;
   suggestedQuestions: string[];
@@ -979,7 +981,7 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   }, [screenContext, providerConfig, user, spaces, allUsers, messages, autoSpeak, speakText, prefetchAudio, router, updateDocument, addDocumentFolder, updateDocumentFolder, removeDocument, updateInvoice]);
 
-  const [actionToast, setActionToast] = useState<{ message: string; proofUrl?: string } | null>(null);
+  const [actionToast, setActionToast] = useState<{ message: string; proofUrl?: string; undoId?: string } | null>(null);
   const actionToastTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const dismissActionToast = useCallback(() => {
     setActionToast(null);
@@ -989,20 +991,66 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   }, []);
 
-  const triggerSmartAutoCollapse = useCallback((message: string, proofUrl?: string) => {
+  const triggerSmartAutoCollapse = useCallback((message: string, proofUrl?: string, undoId?: string) => {
     if (actionToastTimerRef.current) clearTimeout(actionToastTimerRef.current);
     setTimeout(() => {
       setIsOpen(false);
-      setActionToast({ message, proofUrl });
+      setActionToast({ message, proofUrl, undoId });
       actionToastTimerRef.current = setTimeout(() => {
         setActionToast(null);
-      }, 6500);
+      }, undoId ? 9000 : 6500);
     }, 850);
   }, []);
+
+  const undoLastActionToast = useCallback(async () => {
+    const uid = actionToast?.undoId;
+    if (!uid) return;
+    const res = await executeAgentUndo(uid);
+    if (actionToastTimerRef.current) clearTimeout(actionToastTimerRef.current);
+    setActionToast({ message: res.message });
+    if (autoSpeak && res.message) speakText(res.message);
+    actionToastTimerRef.current = setTimeout(() => setActionToast(null), 4000);
+  }, [actionToast?.undoId, autoSpeak, speakText]);
 
   const approveProposedAction = useCallback(async (messageId: string) => {
     const target = messages.find(m => m.id === messageId);
     if (!target?.proposedAction || target.actionStatus !== 'pending') return;
+
+    // Layer 6.5 — Capture Pre-Action Snapshot for 1-Tap Undo
+    let capturedUndoId: string | undefined = undefined;
+    try {
+      const p: any = target.proposedAction.params || {};
+      const toolName = target.proposedAction.tool;
+      const targetSpace = spaces.find((s: any) => s.id === p.spaceId);
+      if (targetSpace && (toolName === 'move_document' || toolName === 'transfer_items')) {
+        const docId = p.documentId || p.itemId || (Array.isArray(p.itemIds) ? p.itemIds[0] : null);
+        const origDoc = docId ? (targetSpace.documents || []).find((d: any) => d.id === docId) : null;
+        if (origDoc) {
+          const origFolderId = origDoc.folderId ?? null;
+          const origShelfId = origDoc.shelfId;
+          capturedUndoId = registerAgentUndo(`העברת "${origDoc.title || 'קובץ'}"`, () => {
+            updateDocument(targetSpace.id, origDoc.id, { folderId: origFolderId, shelfId: origShelfId });
+            return `↩️ "${origDoc.title || 'הקובץ'}" הוחזר למיקומו הקודם.`;
+          });
+        }
+      } else if (targetSpace && toolName === 'set_item_permission') {
+        const origFolder = p.itemType === 'folder' ? (targetSpace.documentFolders || []).find((f: any) => f.id === p.itemId) : null;
+        const origDoc = p.itemType !== 'folder' ? (targetSpace.documents || []).find((d: any) => d.id === p.itemId) : null;
+        if (origFolder) {
+          const prevAllowed = [...(origFolder.allowedPartners || [])];
+          capturedUndoId = registerAgentUndo(`הרשאת תיקייה "${origFolder.name}"`, () => {
+            updateDocumentFolder(targetSpace.id, origFolder.id, { allowedPartners: prevAllowed });
+            return `↩️ ההרשאה של "${origFolder.name}" הוחזרה לקדמותה.`;
+          });
+        } else if (origDoc) {
+          const prevAllowed = [...(origDoc.allowedPartners || [])];
+          capturedUndoId = registerAgentUndo(`הרשאת מסמך "${origDoc.title}"`, () => {
+            updateDocument(targetSpace.id, origDoc.id, { allowedPartners: prevAllowed });
+            return `↩️ ההרשאה של "${origDoc.title}" הוחזרה לקדמותה.`;
+          });
+        }
+      }
+    } catch {}
 
     setMessages(prev => prev.map(m => (m.id === messageId ? { ...m, actionStatus: 'executing' } : m)));
 
@@ -1032,7 +1080,7 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     // Smart Auto-Collapse Pill: reveal the updated screen immediately if no follow-up WhatsApp CTA is pending
     if (result.success && !(result as any).whatsappUrl) {
-      triggerSmartAutoCollapse(result.message || target.proposedAction.title, result.proofUrl);
+      triggerSmartAutoCollapse(result.message || target.proposedAction.title, result.proofUrl, capturedUndoId);
     }
   }, [messages, user, spaces, router, updateDocument, addDocumentFolder, updateDocumentFolder, removeDocument, updateInvoice, updateFileShareItems, autoSpeak, speakText, triggerSmartAutoCollapse]);
 
@@ -1164,6 +1212,7 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         rejectProposedPlan,
         actionToast,
         dismissActionToast,
+        undoLastActionToast,
         submitFeedback,
         clearChat,
         suggestedQuestions,

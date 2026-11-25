@@ -13,7 +13,7 @@ export interface VaultClipboardState {
 }
 
 export interface VaultContextMenuState {
-  itemType: 'document' | 'folder';
+  itemType: 'document' | 'folder' | 'canvas';
   id: string;
   title: string;
   x: number;
@@ -119,11 +119,12 @@ interface VaultContextMenuPopoverProps {
   onCut: () => void;
   onCopy: () => void;
   onPasteIntoTarget?: () => void;
+  onCancelClipboard?: () => void;
   onDelete: () => void;
 }
 
 /**
- * Windows / iOS-style Long-Press & Right-Click Context Menu for Files & Folders.
+ * Windows / iOS-style Long-Press & Right-Click Context Menu for Files, Folders & Empty Canvas.
  */
 export const VaultContextMenuPopover: React.FC<VaultContextMenuPopoverProps> = ({
   menu,
@@ -132,6 +133,7 @@ export const VaultContextMenuPopover: React.FC<VaultContextMenuPopoverProps> = (
   onCut,
   onCopy,
   onPasteIntoTarget,
+  onCancelClipboard,
   onDelete,
 }) => {
   // Guard against Android synthetic 'click' event fired right after touchend of a 450ms long-press!
@@ -149,11 +151,12 @@ export const VaultContextMenuPopover: React.FC<VaultContextMenuPopoverProps> = (
     onClose();
   };
 
-  const canPasteIntoFolder =
-    menu.itemType === 'folder' &&
+  const isCanvasPasteMenu = menu.itemType === 'canvas';
+  const canPasteHere =
     Boolean(clipboard) &&
     Boolean(onPasteIntoTarget) &&
-    !(clipboard?.itemType === 'folder' && clipboard.itemIds.includes(menu.id));
+    (isCanvasPasteMenu ||
+      (menu.itemType === 'folder' && !(clipboard?.itemType === 'folder' && clipboard.itemIds.includes(menu.id))));
 
   // Clamp coordinates so menu stays fully inside viewport
   const left = Math.min(Math.max(12, menu.x - 110), (typeof window !== 'undefined' ? window.innerWidth : 380) - 232);
@@ -183,7 +186,7 @@ export const VaultContextMenuPopover: React.FC<VaultContextMenuPopoverProps> = (
           position: 'fixed',
           top: `${top}px`,
           left: `${left}px`,
-          width: '220px',
+          width: '228px',
           background: '#ffffff',
           borderRadius: '14px',
           border: '1px solid #cbd5e1',
@@ -207,10 +210,10 @@ export const VaultContextMenuPopover: React.FC<VaultContextMenuPopoverProps> = (
             whiteSpace: 'nowrap',
           }}
         >
-          {menu.itemType === 'folder' ? '📁' : '📄'} {menu.title}
+          {isCanvasPasteMenu ? '📂' : menu.itemType === 'folder' ? '📁' : '📄'} {menu.title}
         </div>
 
-        {canPasteIntoFolder && (
+        {canPasteHere && (
           <button
             type="button"
             onClick={() => {
@@ -218,13 +221,13 @@ export const VaultContextMenuPopover: React.FC<VaultContextMenuPopoverProps> = (
               onClose();
             }}
             style={{
-              padding: '0.52rem 0.65rem',
+              padding: '0.55rem 0.65rem',
               borderRadius: '9px',
               border: 'none',
               background: '#eef2ff',
               color: '#3730a3',
               fontWeight: 900,
-              fontSize: '0.82rem',
+              fontSize: '0.84rem',
               textAlign: 'right',
               cursor: 'pointer',
               display: 'flex',
@@ -233,40 +236,15 @@ export const VaultContextMenuPopover: React.FC<VaultContextMenuPopoverProps> = (
             }}
           >
             <span>📥</span>
-            <span>הדבק לתוך תיקייה זו</span>
+            <span>{isCanvasPasteMenu ? `הדבק כאן (${clipboard?.label})` : 'הדבק לתוך תיקייה זו'}</span>
           </button>
         )}
 
-        <button
-          type="button"
-          onClick={() => {
-            onCut();
-            onClose();
-          }}
-          style={{
-            padding: '0.5rem 0.65rem',
-            borderRadius: '9px',
-            border: 'none',
-            background: 'transparent',
-            color: '#0f172a',
-            fontWeight: 700,
-            fontSize: '0.82rem',
-            textAlign: 'right',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.45rem',
-          }}
-        >
-          <span>✂️</span>
-          <span>גזור (העבר לתיקייה אחרת)</span>
-        </button>
-
-        {menu.itemType === 'document' && (
+        {isCanvasPasteMenu && onCancelClipboard && (
           <button
             type="button"
             onClick={() => {
-              onCopy();
+              onCancelClipboard();
               onClose();
             }}
             style={{
@@ -274,9 +252,9 @@ export const VaultContextMenuPopover: React.FC<VaultContextMenuPopoverProps> = (
               borderRadius: '9px',
               border: 'none',
               background: 'transparent',
-              color: '#0f172a',
+              color: '#64748b',
               fontWeight: 700,
-              fontSize: '0.82rem',
+              fontSize: '0.8rem',
               textAlign: 'right',
               cursor: 'pointer',
               display: 'flex',
@@ -284,37 +262,93 @@ export const VaultContextMenuPopover: React.FC<VaultContextMenuPopoverProps> = (
               gap: '0.45rem',
             }}
           >
-            <span>📋</span>
-            <span>העתק (שכפל לתיקייה אחרת)</span>
+            <span>✕</span>
+            <span>בטל גזירה / העתקה</span>
           </button>
         )}
 
-        <div style={{ height: '1px', background: '#e2e8f0', margin: '2px 0' }} />
+        {!isCanvasPasteMenu && (
+          <>
+            <button
+              type="button"
+              onClick={() => {
+                onCut();
+                onClose();
+              }}
+              style={{
+                padding: '0.5rem 0.65rem',
+                borderRadius: '9px',
+                border: 'none',
+                background: 'transparent',
+                color: '#0f172a',
+                fontWeight: 700,
+                fontSize: '0.82rem',
+                textAlign: 'right',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+              }}
+            >
+              <span>✂️</span>
+              <span>גזור (העבר לתיקייה אחרת)</span>
+            </button>
 
-        <button
-          type="button"
-          onClick={() => {
-            onDelete();
-            onClose();
-          }}
-          style={{
-            padding: '0.5rem 0.65rem',
-            borderRadius: '9px',
-            border: 'none',
-            background: '#fef2f2',
-            color: '#dc2626',
-            fontWeight: 800,
-            fontSize: '0.82rem',
-            textAlign: 'right',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.45rem',
-          }}
-        >
-          <span>🗑️</span>
-          <span>מחק</span>
-        </button>
+            {menu.itemType === 'document' && (
+              <button
+                type="button"
+                onClick={() => {
+                  onCopy();
+                  onClose();
+                }}
+                style={{
+                  padding: '0.5rem 0.65rem',
+                  borderRadius: '9px',
+                  border: 'none',
+                  background: 'transparent',
+                  color: '#0f172a',
+                  fontWeight: 700,
+                  fontSize: '0.82rem',
+                  textAlign: 'right',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.45rem',
+                }}
+              >
+                <span>📋</span>
+                <span>העתק (שכפל לתיקייה אחרת)</span>
+              </button>
+            )}
+
+            <div style={{ height: '1px', background: '#e2e8f0', margin: '2px 0' }} />
+
+            <button
+              type="button"
+              onClick={() => {
+                onDelete();
+                onClose();
+              }}
+              style={{
+                padding: '0.5rem 0.65rem',
+                borderRadius: '9px',
+                border: 'none',
+                background: '#fef2f2',
+                color: '#dc2626',
+                fontWeight: 800,
+                fontSize: '0.82rem',
+                textAlign: 'right',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+              }}
+            >
+              <span>🗑️</span>
+              <span>מחק</span>
+            </button>
+          </>
+        )}
       </div>
     </div>,
     document.body

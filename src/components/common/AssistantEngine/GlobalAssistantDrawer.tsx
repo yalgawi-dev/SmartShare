@@ -32,6 +32,7 @@ export const GlobalAssistantDrawer: React.FC = () => {
     rejectProposedPlan,
     actionToast,
     dismissActionToast,
+    undoLastActionToast,
     submitFeedback,
     suggestedQuestions,
     isSpeaking,
@@ -807,9 +808,29 @@ export const GlobalAssistantDrawer: React.FC = () => {
           }}
         >
           <span>✅</span>
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '52vw' }}>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '46vw' }}>
             {actionToast.message}
           </span>
+          {actionToast.undoId && (
+            <button
+              type="button"
+              onClick={() => void undoLastActionToast()}
+              style={{
+                border: '1px solid rgba(255,255,255,0.45)',
+                background: 'rgba(255,255,255,0.18)',
+                color: '#ffffff',
+                borderRadius: '999px',
+                padding: '2px 8px',
+                fontSize: '0.72rem',
+                fontWeight: 900,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+              title="בטל את הפעולה והחזר למצב הקודם"
+            >
+              ↩️ בטל
+            </button>
+          )}
           {isSpeaking && (
             <button
               type="button"

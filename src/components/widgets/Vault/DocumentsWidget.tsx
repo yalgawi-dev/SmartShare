@@ -512,7 +512,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
 
   const startContextLongPress = (
     e: React.TouchEvent | React.MouseEvent,
-    itemType: 'document' | 'folder',
+    itemType: 'document' | 'folder' | 'canvas',
     id: string,
     title: string
   ) => {
@@ -2306,7 +2306,28 @@ const handleDeleteDocument = (docId: string, title?: string) => {
               ? ((space.documentFolders || []).find((f) => f.id === currentFolderId)?.name || activeShelf.name)
               : activeShelf.name
           }
-          style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', padding: '0 1rem' }}
+          onTouchStart={(e) => {
+            if (!clipboard) return;
+            const targetEl = e.target as HTMLElement | null;
+            if (targetEl?.closest('button, a, input, select, [data-doc-id], [data-folder-id]')) return;
+            const locName = currentFolderId
+              ? ((space.documentFolders || []).find((f) => f.id === currentFolderId)?.name || activeShelf.name)
+              : activeShelf.name;
+            startContextLongPress(e, 'canvas', currentFolderId || activeShelf.id, locName);
+          }}
+          onTouchMove={cancelContextLongPress}
+          onTouchEnd={cancelContextLongPress}
+          onContextMenu={(e) => {
+            if (!clipboard) return;
+            const targetEl = e.target as HTMLElement | null;
+            if (targetEl?.closest('button, a, input, select, [data-doc-id], [data-folder-id]')) return;
+            e.preventDefault();
+            const locName = currentFolderId
+              ? ((space.documentFolders || []).find((f) => f.id === currentFolderId)?.name || activeShelf.name)
+              : activeShelf.name;
+            setContextMenu({ itemType: 'canvas', id: currentFolderId || activeShelf.id, title: locName, x: e.clientX, y: e.clientY });
+          }}
+          style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', padding: '0 1rem', minHeight: '55vh' }}
         >
           {/* Sticky Windows/Drive Cut-Copy-Paste Bar */}
           <VaultTransferClipboardBar
@@ -4938,7 +4959,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
         clipboard={clipboard}
         onClose={() => setContextMenu(null)}
         onCut={() => {
-          if (!contextMenu) return;
+          if (!contextMenu || contextMenu.itemType === 'canvas') return;
           handleStageClipboard('cut', contextMenu.itemType, [contextMenu.id], contextMenu.title);
         }}
         onCopy={() => {
@@ -4946,9 +4967,14 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           handleStageClipboard('copy', 'document', [contextMenu.id], contextMenu.title);
         }}
         onPasteIntoTarget={() => {
-          if (!contextMenu || contextMenu.itemType !== 'folder' || !activeShelf) return;
-          handlePasteClipboardInto(activeShelf.id, contextMenu.id);
+          if (!contextMenu || !activeShelf) return;
+          if (contextMenu.itemType === 'canvas') {
+            handlePasteClipboardInto(activeShelf.id, currentFolderId || null);
+          } else if (contextMenu.itemType === 'folder') {
+            handlePasteClipboardInto(activeShelf.id, contextMenu.id);
+          }
         }}
+        onCancelClipboard={() => setClipboard(null)}
         onDelete={() => {
           if (!contextMenu) return;
           if (contextMenu.itemType === 'folder') {
