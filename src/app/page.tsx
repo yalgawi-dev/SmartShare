@@ -352,27 +352,6 @@ export default function Dashboard() {
           <InstallAppHeaderButton />
           
           <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-card)', borderRadius: '24px', border: '1px solid var(--border-light)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)', padding: '0.15rem 0.25rem', gap: '0.15rem' }}>
-            <Link
-              href="/calendar"
-              style={{
-                padding: '0.32rem 0.55rem',
-                background: 'linear-gradient(135deg, #eef2ff, #dbeafe)',
-                color: '#3730a3',
-                border: '1px solid #c7d2fe',
-                borderRadius: '999px',
-                textDecoration: 'none',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.25rem',
-                fontSize: '0.76rem',
-                fontWeight: 900,
-                whiteSpace: 'nowrap',
-              }}
-              title="פתח את היומן המאוחד שלי (אישי + כל השכבות)"
-            >
-              <span>📅</span>
-              <span>יומן</span>
-            </Link>
             <button onClick={() => setShowShareModal(true)} style={{ padding: '0.4rem', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', transition: 'all 0.2s', borderRadius: '50%' }} title="שתף אפליקציה" onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
             </button>
@@ -423,96 +402,132 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {/* Unified Bottom Bar for Main Page */}
+      {/* Unified Symmetric Bottom Bar for Main Page (2 Right | Big Center + FAB | 2 Left — matches Space FloatingActionBar!) */}
       <>
         <div style={{
           position: 'fixed',
-          bottom: '1.5rem',
+          bottom: '1.35rem',
           left: '50%',
           transform: 'translateX(-50%)',
-          width: '90%',
+          width: '94%',
           maxWidth: '420px',
-          background: 'rgba(255, 255, 255, 0.95)',
+          background: 'rgba(255, 255, 255, 0.96)',
           backdropFilter: 'blur(15px)',
           WebkitBackdropFilter: 'blur(15px)',
           border: '1px solid rgba(0,0,0,0.08)',
           borderRadius: '24px',
-          padding: '0.8rem',
+          padding: '0.45rem 0.55rem',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-evenly',
+          justifyContent: 'space-between',
           boxShadow: '0 20px 40px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1)',
           zIndex: 50,
           animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
         }}>
-          {/* New Space */}
-          <Link 
-            href="/space/new" 
-            title="צור מרחב התחשבנויות חדש" 
-            style={{ 
-              textDecoration: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem',
-              color: 'var(--text-secondary)', minWidth: '60px', transition: 'all 0.2s'
-            }}
-          >
-            <div style={{ width: '45px', height: '45px', borderRadius: '50%', background: 'rgba(16, 185, 129, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
-              <span style={{ fontSize: '1.5rem' }}>➕</span>
-            </div>
-            <span style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>חדש</span>
-          </Link>
-          
-          
-          {/* Quick Standalone Scanner */}
-          <button 
-            onClick={() => { setStandaloneScannerMode('camera'); setIsStandaloneScannerOpen(true); }}
-            title="סורק מסמכים מהיר (סריקה, עריכה, שיתוף ושמירה למכשיר)" 
-            style={{ 
-              background: 'transparent', border: 'none', padding: 0,
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
-              color: 'var(--text-secondary)', minWidth: '60px', transition: 'all 0.2s'
-            }}
-          >
-            <div style={{ width: '45px', height: '45px', borderRadius: '50%', background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(168, 85, 247, 0.15) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(99, 102, 241, 0.3)', boxShadow: '0 2px 6px rgba(99, 102, 241, 0.2)' }}>
-              <span style={{ fontSize: '1.5rem' }}>📷</span>
-            </div>
-            <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--primary)' }}>סורק</span>
-          </button>
+          {/* Right 2 (RTL Start): Calendar + Scanner */}
+          <div style={{ display: 'flex', flex: 1, justifyContent: 'space-evenly', alignItems: 'center' }}>
+            <Link
+              href="/calendar"
+              title="היומן שלי (אישי + כל השכבות)"
+              style={{
+                textDecoration: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.18rem',
+                color: '#4338ca', minWidth: '52px', transition: 'all 0.2s'
+              }}
+            >
+              <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'linear-gradient(135deg, rgba(79,70,229,0.14), rgba(37,99,235,0.14))', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(79,70,229,0.28)' }}>
+                <span style={{ fontSize: '1.3rem' }}>📅</span>
+              </div>
+              <span style={{ fontSize: '0.7rem', fontWeight: 800 }}>יומן</span>
+            </Link>
 
-          {/* Notifications */}
-          <button 
-            onClick={() => setShowNotifications(true)}
-            title="התראות והודעות פרטיות" 
-            style={{ 
-              background: 'transparent', border: 'none', padding: 0,
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
-              color: 'var(--text-secondary)', minWidth: '60px', transition: 'all 0.2s'
-            }}
-          >
-            <div style={{ position: 'relative', width: '45px', height: '45px', borderRadius: '50%', background: 'rgba(245, 158, 11, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(245, 158, 11, 0.2)' }}>
-              <span style={{ fontSize: '1.5rem' }}>✉️</span>
-              {unreadMessagesCount > 0 && (
-                <span style={{ position: 'absolute', top: '-4px', right: '-4px', minWidth: '18px', height: '18px', background: '#ef4444', color: 'white', borderRadius: '50%', fontSize: '0.65rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid white', padding: '0 2px' }}>
-                  {unreadMessagesCount}
-                </span>
-              )}
-            </div>
-            <span style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>הודעות</span>
-          </button>
+            <button
+              onClick={() => { setStandaloneScannerMode('camera'); setIsStandaloneScannerOpen(true); }}
+              title="סורק מסמכים מהיר (סריקה, עריכה, שיתוף ושמירה למכשיר)"
+              style={{
+                background: 'transparent', border: 'none', padding: 0,
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.18rem', cursor: 'pointer',
+                color: 'var(--primary)', minWidth: '52px', transition: 'all 0.2s'
+              }}
+            >
+              <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.14) 0%, rgba(168, 85, 247, 0.14) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(99, 102, 241, 0.28)' }}>
+                <span style={{ fontSize: '1.3rem' }}>📷</span>
+              </div>
+              <span style={{ fontSize: '0.7rem', fontWeight: 800 }}>סורק</span>
+            </button>
+          </div>
 
-          {/* Inbox */}
-          <button 
-            onClick={() => setShowPersonalInbox(true)}
-            title="מחסן מסמכים אישי" 
-            style={{ 
-              background: 'transparent', border: 'none', padding: 0,
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
-              color: 'var(--text-secondary)', minWidth: '60px', transition: 'all 0.2s'
-            }}
-          >
-            <div style={{ width: '45px', height: '45px', borderRadius: '50%', background: 'rgba(79, 70, 229, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(79, 70, 229, 0.2)' }}>
-              <span style={{ fontSize: '1.5rem' }}>📥</span>
-            </div>
-            <span style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>מחסן</span>
-          </button>
+          {/* Center Raised Hero + Button (New Space) */}
+          <div style={{ position: 'relative', marginTop: '-2.35rem', display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 10, padding: '0 0.2rem' }}>
+            <div style={{
+              position: 'absolute',
+              top: '0.05rem',
+              width: '74px',
+              height: '74px',
+              borderRadius: '50%',
+              background: '#ffffff',
+              borderTop: '1px solid rgba(0,0,0,0.08)',
+              borderLeft: '1px solid rgba(0,0,0,0.04)',
+              borderRight: '1px solid rgba(0,0,0,0.04)',
+              boxShadow: '0 -10px 20px rgba(0,0,0,0.04)',
+              zIndex: 1
+            }} />
+            <Link
+              href="/space/new"
+              title="צור מרחב חדש"
+              style={{
+                position: 'relative', zIndex: 2,
+                textDecoration: 'none',
+                width: '60px', height: '60px', borderRadius: '50%',
+                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                color: '#ffffff',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '2rem', fontWeight: 900, lineHeight: 1,
+                boxShadow: '0 8px 22px rgba(16, 185, 129, 0.42)',
+                transition: 'transform 0.2s'
+              }}
+            >
+              +
+            </Link>
+            <span style={{ position: 'relative', zIndex: 2, fontSize: '0.68rem', fontWeight: 900, color: '#047857', marginTop: '3px' }}>חדש</span>
+          </div>
+
+          {/* Left 2 (RTL End): Messages + Inbox */}
+          <div style={{ display: 'flex', flex: 1, justifyContent: 'space-evenly', alignItems: 'center' }}>
+            <button
+              onClick={() => setShowNotifications(true)}
+              title="התראות והודעות פרטיות"
+              style={{
+                background: 'transparent', border: 'none', padding: 0,
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.18rem', cursor: 'pointer',
+                color: 'var(--text-secondary)', minWidth: '52px', transition: 'all 0.2s'
+              }}
+            >
+              <div style={{ position: 'relative', width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(245, 158, 11, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(245, 158, 11, 0.25)' }}>
+                <span style={{ fontSize: '1.3rem' }}>✉️</span>
+                {unreadMessagesCount > 0 && (
+                  <span style={{ position: 'absolute', top: '-4px', right: '-4px', minWidth: '18px', height: '18px', background: '#ef4444', color: 'white', borderRadius: '50%', fontSize: '0.65rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid white', padding: '0 2px' }}>
+                    {unreadMessagesCount}
+                  </span>
+                )}
+              </div>
+              <span style={{ fontSize: '0.7rem', fontWeight: 800 }}>הודעות</span>
+            </button>
+
+            <button
+              onClick={() => setShowPersonalInbox(true)}
+              title="מחסן מסמכים אישי"
+              style={{
+                background: 'transparent', border: 'none', padding: 0,
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.18rem', cursor: 'pointer',
+                color: 'var(--text-secondary)', minWidth: '52px', transition: 'all 0.2s'
+              }}
+            >
+              <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(79, 70, 229, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(79, 70, 229, 0.22)' }}>
+                <span style={{ fontSize: '1.3rem' }}>📥</span>
+              </div>
+              <span style={{ fontSize: '0.7rem', fontWeight: 800 }}>מחסן</span>
+            </button>
+          </div>
         </div>
 
         {showNotifications && typeof window !== 'undefined' && createPortal(<NotificationCenterWidget onClose={() => setShowNotifications(false)} />, document.body)}

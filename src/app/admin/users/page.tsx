@@ -39,6 +39,7 @@ import Link from 'next/link';
 import { db } from '../../../lib/firebase';
 import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { AdminBugReportsModal } from '@/components/admin/AdminBugReportsModal';
+import { AdminShareGuestsSection } from '@/components/admin/AdminShareGuestsSection';
 import { fetchAllBugReportsForAdmin } from '@/components/common/AssistantEngine/assistantBugReporter';
 import { AgentIntelligencePanel } from '@/components/common/AssistantEngine/AgentIntelligencePanel';
 
@@ -1228,6 +1229,9 @@ export default function AdminUsersPage() {
                 </div>
               )}
             </div>
+
+            {/* External Share Guests Tracker (Name, Phone, Visit Count, Returning Visitors & Timestamps) */}
+            <AdminShareGuestsSection />
 
             {/* Admins Accordion List */}
             <div>

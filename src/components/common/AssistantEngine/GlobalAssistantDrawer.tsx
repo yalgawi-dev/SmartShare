@@ -130,9 +130,19 @@ export const GlobalAssistantDrawer: React.FC = () => {
           : null);
     if (!msg) return;
 
+    const spokenMsg = isGuestShare
+      ? (firstName
+          ? `פססס... ${firstName}! אני פה, לחץ עליי אם תרצה עזרה או לגלות מה עוד מיי ספייס יודעת לעשות.`
+          : `פססס... היי! אני פה אם צריך עזרה עם הקבצים.`)
+      : `פססס... ${firstName}! אני העוזרת האישית שלך, לחץ עליי בכל רגע.`;
+
     const showTimer = setTimeout(() => {
       try { localStorage.setItem(targetKey, '1'); } catch {}
       setPsstBubbleText(msg);
+      // Attempt natural voice greeting (plays immediately if user already tapped e.g. Guest Identity submit!)
+      try {
+        speakText(spokenMsg);
+      } catch (_) {}
     }, 3200);
 
     const hideTimer = setTimeout(() => {
@@ -143,7 +153,7 @@ export const GlobalAssistantDrawer: React.FC = () => {
       clearTimeout(showTimer);
       clearTimeout(hideTimer);
     };
-  }, [activeGuestSession?.token, activeGuestSession?.guestName, user?.id, user?.realName, user?.nickname, isOpen]);
+  }, [activeGuestSession?.token, activeGuestSession?.guestName, user?.id, user?.realName, user?.nickname, isOpen, speakText]);
 
   useHardwareBack(isOpen && isBugComposerOpen && !lightboxMedia, () => setIsBugComposerOpen(false), 'assistant_bug_composer');
   useHardwareBack(isOpen && !isBugComposerOpen && !lightboxMedia, () => setIsOpen(false), 'assistant_drawer');
@@ -781,8 +791,12 @@ export const GlobalAssistantDrawer: React.FC = () => {
             dir="rtl"
             onClick={(e) => {
               e.stopPropagation();
+              const cleanText = psstBubbleText.replace(/[👋✨]/g, '').trim();
               setPsstBubbleText(null);
               setIsOpen(true);
+              if (!isSpeaking) {
+                try { speakText(cleanText); } catch (_) {}
+              }
             }}
             style={{
               position: 'absolute',
