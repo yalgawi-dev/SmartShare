@@ -75,6 +75,39 @@ export function isDateInRange(ymd: string, startDate: string, endDate?: string):
   return ymd >= startDate && ymd <= end;
 }
 
+/**
+ * Pure Conflict Detector: finds overlapping or same-hour events on a given day
+ * (works seamlessly across both Shared Space layer and Private Personal layer!).
+ */
+export function detectDayTimeConflicts(dayEvents: CalendarEventItem[]): Set<string> {
+  const conflictingIds = new Set<string>();
+  const timed = dayEvents
+    .filter((ev) => ev.time && /^\d{1,2}:\d{2}$/.test(ev.time))
+    .map((ev) => {
+      const [h, m] = ev.time!.split(':').map(Number);
+      const startMin = h * 60 + m;
+      let endMin = startMin + 45; // Default 45-min slot if no endTime
+      if (ev.endTime && /^\d{1,2}:\d{2}$/.test(ev.endTime)) {
+        const [eh, em] = ev.endTime.split(':').map(Number);
+        const parsedEnd = eh * 60 + em;
+        if (parsedEnd > startMin) endMin = parsedEnd;
+      }
+      return { id: ev.id, startMin, endMin };
+    });
+
+  for (let i = 0; i < timed.length; i++) {
+    for (let j = i + 1; j < timed.length; j++) {
+      const a = timed[i];
+      const b = timed[j];
+      if (a.startMin < b.endMin && b.startMin < a.endMin) {
+        conflictingIds.add(a.id);
+        conflictingIds.add(b.id);
+      }
+    }
+  }
+  return conflictingIds;
+}
+
 /** Pre-seeded editable Israeli holidays & school breaks (2025-2027) */
 export function getDefaultIsraeliSchoolBreaks(): SchoolBreakItem[] {
   return [

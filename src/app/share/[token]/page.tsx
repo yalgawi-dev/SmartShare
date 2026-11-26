@@ -9,6 +9,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { useAuth } from '@/app/context/AuthContext';
 import { getPublicShare, recordPublicShareView, recordShareHeartbeat, registerAnonymousGuestVisit, isShareExpired, PublicSharedData, formatFileSize, uploadRecipientSubmission } from '@/utils/fileShareUtils';
 import { GuestIdentityGateCard } from '@/components/share/GuestIdentityGateCard';
+import { setActiveGuestShareSession } from '@/utils/guestSessionContext';
 import { saveSharedLink } from '@/utils/savedSharedLinksUtils';
 import { uploadBlobToStorage } from '@/lib/firebase';
 import UniversalViewerModal from '@/components/common/ViewerEngine/UniversalViewerModal';
@@ -114,6 +115,23 @@ export default function PublicSharePage({ params }: SharePageProps) {
   const [submissionNote, setSubmissionNote] = useState('');
   const [submissionPhone, setSubmissionPhone] = useState('');
   const [uploadedFilesList, setUploadedFilesList] = useState<string[]>([]);
+
+  // Broadcast active guest identity to the Personal Assistant (so Dana greets the guest by name!)
+  useEffect(() => {
+    if (isUnlocked && !needsGuestIdentity && shareData && token) {
+      setActiveGuestShareSession({
+        token,
+        guestName: shareData.recipientName || '',
+        guestPhone: (shareData as any).recipientPhone || '',
+        senderName: (shareData as any).creatorName || (shareData as any).ownerName || '',
+        spaceTitle: (shareData as any).spaceTitle || '',
+        itemName: (shareData as any).itemName || (shareData as any).title || '',
+      });
+    }
+    return () => {
+      setActiveGuestShareSession(null);
+    };
+  }, [isUnlocked, needsGuestIdentity, shareData, token]);
 
   useEffect(() => {
     if (isUnlocked && !needsGuestIdentity && token) {

@@ -19,7 +19,9 @@ import {
 } from '@/utils/calendarCustodyEngine';
 import {
   createCalendarEvent,
+  createPersonalCalendarEvent,
   deleteCalendarEvent,
+  deletePersonalCalendarEvent,
   deleteSwapRequest,
   requestCustodySwap,
   respondToCustodySwap,
@@ -27,6 +29,8 @@ import {
   subscribeCalendarConfig,
   subscribeCalendarEvents,
   subscribeCalendarSwaps,
+  subscribePersonalCalendarEvents,
+  toggleCalendarEventCompleted,
 } from '@/services/calendarService';
 import { CalendarMonthGrid } from './CalendarMonthGrid';
 import { CalendarWeekView } from './CalendarWeekView';
@@ -47,8 +51,10 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
 }) => {
   const { user } = useAuth();
   const [resolution, setResolution] = useState<CalendarResolution>('month');
+  const [layerFilter, setLayerFilter] = useState<'all' | 'shared' | 'private'>('all');
   const [config, setConfig] = useState<SmartCalendarConfig | null>(null);
-  const [events, setEvents] = useState<CalendarEventItem[]>([]);
+  const [sharedEvents, setSharedEvents] = useState<CalendarEventItem[]>([]);
+  const [personalEvents, setPersonalEvents] = useState<CalendarEventItem[]>([]);
   const [swaps, setSwaps] = useState<SwapRequestItem[]>([]);
   const [loaded, setLoaded] = useState(false);
 
@@ -56,6 +62,7 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
   const [viewYear, setViewYear] = useState(now.getFullYear());
   const [viewMonth, setViewMonth] = useState(now.getMonth());
   const [selectedDate, setSelectedDate] = useState(toYMD(now));
+  const [showDaySheet, setShowDaySheet] = useState(false);
 
   // Settings & Management Popover + Drawers (keeps Calendar Desktop 100% clean!)
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
@@ -105,7 +112,7 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
       setConfig(cfg);
       setLoaded(true);
     });
-    const unsubEvents = subscribeCalendarEvents(space.id, setEvents);
+    const unsubEvents = subscribeCalendarEvents(space.id, setSharedEvents);
     const unsubSwaps = subscribeCalendarSwaps(space.id, setSwaps);
     return () => {
       unsubConfig();
@@ -113,6 +120,26 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
       unsubSwaps();
     };
   }, [space?.id]);
+
+  // Private Personal Calendar Layer (stored in users/{uid}/personalCalendarEvents — invisible to partners!)
+  useEffect(() => {
+    if (!user?.id) {
+      setPersonalEvents([]);
+      return;
+    }
+    const unsubPersonal = subscribePersonalCalendarEvents(user.id, setPersonalEvents);
+    return () => unsubPersonal();
+  }, [user?.id]);
+
+  const events = useMemo(() => {
+    const merged =
+      layerFilter === 'shared'
+        ? sharedEvents
+        : layerFilter === 'private'
+          ? personalEvents
+          : [...sharedEvents, ...personalEvents];
+    return [...merged].sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')));
+  }, [sharedEvents, personalEvents, layerFilter]);
 
   const pendingSwapsCount = swaps.filter((s) => s.status === 'pending').length;
 
@@ -167,6 +194,7 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
       const dt = parseYMD(ymd);
       setViewYear(dt.getFullYear());
       setViewMonth(dt.getMonth());
+      setShowDaySheet(true);
       return;
     }
     // Visual Swap Mode: pick Day 1 -> pick Day 2
@@ -244,6 +272,28 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
       );
     });
     window.open(buildWhatsAppLink(undefined, lines.join('\n')), '_blank', 'noopener,noreferrer');
+  };
+
+  const handleAddCalendarEvent = async (ev: Omit<CalendarEventItem, 'id' | 'createdAt'>) => {
+    if (ev.visibility === 'private' && user?.id) {
+      await createPersonalCalendarEvent(user.id, ev);
+      showToast('🔒 נשמר ביומן האישי שלך בלבד!');
+    } else {
+      await createCalendarEvent(space.id, ev);
+      showToast('🌐 נשמר ביומן המשותף של המרחב!');
+    }
+  };
+
+  const handleDeleteCalendarEvent = async (ev: CalendarEventItem) => {
+    if (ev.visibility === 'private' && user?.id) {
+      await deletePersonalCalendarEvent(user.id, ev.id);
+    } else {
+      await deleteCalendarEvent(space.id, ev.id);
+    }
+  };
+
+  const handleToggleEventCompleted = async (ev: CalendarEventItem, completed: boolean) => {
+    await toggleCalendarEventCompleted(space.id, user?.id || 'me', ev, completed);
   };
 
   const formatShortDate = (ymd: string) => {
@@ -525,6 +575,50 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
         </div>
       </div>
 
+      {/* LAYER FILTER BAR: All | Shared Space | Private Personal Only */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+        {(
+          [
+            { id: 'all', label: '✨ הכל ביחד' },
+            { id: 'shared', label: `🌐 משותף (${sharedEvents.length})` },
+            { id: 'private', label: `🔒 אישי שלי (${personalEvents.length})` },
+          ] as const
+        ).map((lf) => {
+          const active = layerFilter === lf.id;
+          return (
+            <button
+              key={lf.id}
+              type="button"
+              onClick={() => setLayerFilter(lf.id)}
+              style={{
+                padding: '0.26rem 0.65rem',
+                borderRadius: '999px',
+                border: active
+                  ? lf.id === 'private'
+                    ? '1.5px solid #7c3aed'
+                    : '1.5px solid #2563eb'
+                  : '1px solid #cbd5e1',
+                background: active
+                  ? lf.id === 'private'
+                    ? '#f3e8ff'
+                    : '#eff6ff'
+                  : '#ffffff',
+                color: active
+                  ? lf.id === 'private'
+                    ? '#6d28d9'
+                    : '#1d4ed8'
+                  : '#475569',
+                fontSize: '0.72rem',
+                fontWeight: 800,
+                cursor: 'pointer',
+              }}
+            >
+              {lf.label}
+            </button>
+          );
+        })}
+      </div>
+
       {/* Subtle 1-Line First-Time Setup Nudge (only if unconfigured — never blocks calendar!) */}
       {loaded && !config && (
         <button
@@ -740,24 +834,102 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
         </div>
       )}
 
-      {/* SELECTED DAY AGENDA CARD (always visible below Month/Week, or hero in Daily!) */}
-      <CalendarDayDrawer
-        selectedDate={selectedDate}
-        config={effectiveConfig}
-        events={events}
-        swaps={swaps}
-        currentUserId={user?.id || 'me'}
-        onAddEvent={async (ev) => {
-          await createCalendarEvent(space.id, ev);
-        }}
-        onDeleteEvent={async (id) => {
-          await deleteCalendarEvent(space.id, id);
-        }}
-        onOpenSwapModal={(from) =>
-          setSwapModalState({ fromParent: from, initialDate: selectedDate })
-        }
-        onToggleBagItem={handleToggleBagItem}
-      />
+      {/* INLINE DAY AGENDA IN DAILY VIEW (In Month/Week views, tapping ANY day opens the Day Detail Sheet Modal immediately!) */}
+      {resolution === 'day' && (
+        <CalendarDayDrawer
+          selectedDate={selectedDate}
+          config={effectiveConfig}
+          events={events}
+          swaps={swaps}
+          currentUserId={user?.id || 'me'}
+          defaultVisibility={layerFilter === 'private' ? 'private' : 'shared'}
+          onAddEvent={handleAddCalendarEvent}
+          onDeleteEvent={handleDeleteCalendarEvent}
+          onToggleComplete={handleToggleEventCompleted}
+          onOpenSwapModal={(from) =>
+            setSwapModalState({ fromParent: from, initialDate: selectedDate })
+          }
+          onToggleBagItem={handleToggleBagItem}
+        />
+      )}
+
+      {/* DAY DETAIL SHEET MODAL — Opens immediately when tapping ANY day in Month or Week view! */}
+      {showDaySheet &&
+        resolution !== 'day' &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 999990,
+              background: 'rgba(15, 23, 42, 0.56)',
+              backdropFilter: 'blur(3px)',
+              display: 'flex',
+              alignItems: 'flex-end',
+              justifyContent: 'center',
+              padding: '0.5rem',
+            }}
+            onClick={() => setShowDaySheet(false)}
+          >
+            <div
+              dir="rtl"
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: '100%',
+                maxWidth: '520px',
+                maxHeight: '88dvh',
+                overflowY: 'auto',
+                background: '#f8fafc',
+                borderRadius: '22px',
+                padding: '0.65rem',
+                boxShadow: '0 24px 60px rgba(15,23,42,0.38)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.45rem',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.15rem 0.35rem' }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: 900, color: '#475569' }}>
+                  📅 פירוט יום מלא
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowDaySheet(false)}
+                  style={{
+                    border: 'none',
+                    background: '#e2e8f0',
+                    color: '#0f172a',
+                    width: '30px',
+                    height: '30px',
+                    borderRadius: '50%',
+                    fontWeight: 900,
+                    cursor: 'pointer',
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+              <CalendarDayDrawer
+                selectedDate={selectedDate}
+                config={effectiveConfig}
+                events={events}
+                swaps={swaps}
+                currentUserId={user?.id || 'me'}
+                defaultVisibility={layerFilter === 'private' ? 'private' : 'shared'}
+                onAddEvent={handleAddCalendarEvent}
+                onDeleteEvent={handleDeleteCalendarEvent}
+                onToggleComplete={handleToggleEventCompleted}
+                onOpenSwapModal={(from) => {
+                  setShowDaySheet(false);
+                  setSwapModalState({ fromParent: from, initialDate: selectedDate });
+                }}
+                onToggleBagItem={handleToggleBagItem}
+              />
+            </div>
+          </div>,
+          document.body
+        )}
 
       {/* MODAL 1: FAMILY & VISUAL SCHEDULE SETUP */}
       {showSetupModal && (

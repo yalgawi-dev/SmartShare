@@ -7,6 +7,7 @@ import { AssistantPersonaPicker } from './AssistantPersonaPicker';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
 import { useAuth } from '@/app/context/AuthContext';
 import { APP_VERSION } from '@/constants/version';
+import { useActiveGuestShareSession, extractGuestFirstName } from '@/utils/guestSessionContext';
 import {
   BUG_VIDEO_MAX_SECONDS,
   BugReportRecord,
@@ -100,6 +101,50 @@ export const GlobalAssistantDrawer: React.FC = () => {
 
   // Android / Galaxy Hardware Back Button closes Assistant overlays step-by-step (Lightbox -> Bug Composer -> Drawer)
   useHardwareBack(Boolean(lightboxMedia), () => setLightboxMedia(null), 'assistant_lightbox');
+  const activeGuestSession = useActiveGuestShareSession();
+  const [psstBubbleText, setPsstBubbleText] = useState<string | null>(null);
+
+  // One-Time Friendly First-Impression "Psst [Name]! 👋" Teaser Bubble (after 3.2s, never repeats!)
+  useEffect(() => {
+    if (isOpen || typeof window === 'undefined') return;
+    const isGuestShare = Boolean(activeGuestSession?.token);
+    const guestFirst = extractGuestFirstName(activeGuestSession?.guestName);
+    const userFirst = extractGuestFirstName(user?.realName || user?.nickname);
+
+    // Only trigger for guests on /share/[token] OR brand-new logged-in users who haven't seen the teaser yet
+    const targetKey = isGuestShare
+      ? `smartshare_assistant_psst_guest_${activeGuestSession!.token}`
+      : user?.id
+        ? `smartshare_assistant_psst_user_${user.id}`
+        : null;
+    if (!targetKey) return;
+    if (localStorage.getItem(targetKey) === '1') return;
+
+    const firstName = isGuestShare ? guestFirst : userFirst;
+    const msg = isGuestShare
+      ? (firstName
+          ? `פססס... ${firstName}! 👋 אני פה — לחץ עליי לעזרה או לגלות מה עוד MySpace יודעת לעשות ✨`
+          : `פססס... היי! 👋 אני פה אם צריך עזרה עם הקבצים ✨`)
+      : (firstName
+          ? `פססס... ${firstName}! 👋 אני העוזרת האישית שלך — לחץ עליי בכל רגע ✨`
+          : null);
+    if (!msg) return;
+
+    const showTimer = setTimeout(() => {
+      try { localStorage.setItem(targetKey, '1'); } catch {}
+      setPsstBubbleText(msg);
+    }, 3200);
+
+    const hideTimer = setTimeout(() => {
+      setPsstBubbleText(null);
+    }, 12800);
+
+    return () => {
+      clearTimeout(showTimer);
+      clearTimeout(hideTimer);
+    };
+  }, [activeGuestSession?.token, activeGuestSession?.guestName, user?.id, user?.realName, user?.nickname, isOpen]);
+
   useHardwareBack(isOpen && isBugComposerOpen && !lightboxMedia, () => setIsBugComposerOpen(false), 'assistant_bug_composer');
   useHardwareBack(isOpen && !isBugComposerOpen && !lightboxMedia, () => setIsOpen(false), 'assistant_drawer');
 
@@ -717,7 +762,7 @@ export const GlobalAssistantDrawer: React.FC = () => {
             50% { transform: scale(1.09); }
           }
         `}</style>
-        {(isSpeaking || externalSpeaking) && !isOpen && (
+        {((isSpeaking || externalSpeaking || Boolean(psstBubbleText)) && !isOpen) && (
           <div
             style={{
               position: 'absolute',
@@ -729,6 +774,64 @@ export const GlobalAssistantDrawer: React.FC = () => {
               animation: 'assistantSpeakRipple 1.15s ease-out infinite'
             }}
           />
+        )}
+        {/* One-Time "Psst [Name]! 👋" Teaser Speech Bubble */}
+        {!isOpen && psstBubbleText && (
+          <div
+            dir="rtl"
+            onClick={(e) => {
+              e.stopPropagation();
+              setPsstBubbleText(null);
+              setIsOpen(true);
+            }}
+            style={{
+              position: 'absolute',
+              top: '62px',
+              left: position && position.x > (typeof window !== 'undefined' ? window.innerWidth / 2 : 200) ? 'auto' : '0px',
+              right: position && position.x > (typeof window !== 'undefined' ? window.innerWidth / 2 : 200) ? '0px' : 'auto',
+              width: '235px',
+              background: 'linear-gradient(135deg, #ffffff 0%, #eef2ff 100%)',
+              color: '#1e1b4b',
+              border: '2px solid #6366f1',
+              borderRadius: '16px',
+              padding: '0.6rem 0.75rem',
+              boxShadow: '0 12px 30px rgba(79, 70, 229, 0.28)',
+              fontSize: '0.77rem',
+              fontWeight: 800,
+              lineHeight: 1.4,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '0.4rem',
+              zIndex: 1000010,
+            }}
+          >
+            <span style={{ flex: 1 }}>{psstBubbleText}</span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setPsstBubbleText(null);
+              }}
+              style={{
+                border: 'none',
+                background: 'rgba(99,102,241,0.12)',
+                color: '#4338ca',
+                borderRadius: '50%',
+                width: '20px',
+                height: '20px',
+                fontSize: '0.68rem',
+                cursor: 'pointer',
+                flexShrink: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              title="סגור"
+            >
+              ✕
+            </button>
+          </div>
         )}
         <button
           type="button"

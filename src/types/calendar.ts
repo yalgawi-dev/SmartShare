@@ -108,7 +108,16 @@ export interface SwapRequestItem {
   createdAt: string;
 }
 
-export type CalendarEventCategory = 'doctor' | 'school' | 'activity' | 'general';
+export type CalendarEventCategory =
+  | 'task'
+  | 'meeting'
+  | 'note'
+  | 'doctor'
+  | 'school'
+  | 'activity'
+  | 'general';
+
+export type CalendarEventVisibility = 'shared' | 'private';
 
 export interface CalendarEventItem {
   id: string;
@@ -117,6 +126,10 @@ export interface CalendarEventItem {
   time?: string;      // HH:mm
   endTime?: string;   // HH:mm
   category: CalendarEventCategory;
+  /** 'shared' = visible to space members; 'private' = stored in user's private collection (ONLY creator sees!) */
+  visibility?: CalendarEventVisibility;
+  /** Task completion checkbox state */
+  completed?: boolean;
   childIds: string[] | 'all';
   location?: string;
   driverParent?: ParentRole | 'both';

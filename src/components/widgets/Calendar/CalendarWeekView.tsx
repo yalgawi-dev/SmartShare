@@ -7,6 +7,7 @@ import {
   SwapRequestItem,
 } from '@/types/calendar';
 import {
+  detectDayTimeConflicts,
   getBirthdaysForDate,
   HEBREW_DAYS_FULL,
   HEBREW_MONTHS,
@@ -149,6 +150,7 @@ export const CalendarWeekView: React.FC<CalendarWeekViewProps> = ({
         {weekDays.map((day) => {
           const resolution = resolveDayCustody(day.ymd, config, swaps);
           const dayEvents = events.filter((e) => e.date === day.ymd);
+          const conflictIds = detectDayTimeConflicts(dayEvents);
           const dayActivities = (config.activities || []).filter((a) => a.daysOfWeek.includes(day.dow));
           const birthdays = getBirthdaysForDate(day.ymd, config);
 
@@ -265,11 +267,26 @@ export const CalendarWeekView: React.FC<CalendarWeekViewProps> = ({
                       🏅 {a.title}{a.time ? ` (${a.time})` : ''}
                     </span>
                   ))}
-                  {dayEvents.map((ev) => (
-                    <span key={ev.id} style={{ fontSize: '0.7rem', fontWeight: 800, padding: '2px 7px', borderRadius: '8px', background: '#f0f9ff', color: '#0369a1' }}>
-                      📌 {ev.title}{ev.time ? ` (${ev.time})` : ''}
-                    </span>
-                  ))}
+                  {dayEvents.map((ev) => {
+                    const isPriv = ev.visibility === 'private';
+                    const isConf = conflictIds.has(ev.id);
+                    return (
+                      <span
+                        key={ev.id}
+                        style={{
+                          fontSize: '0.7rem',
+                          fontWeight: 800,
+                          padding: '2px 7px',
+                          borderRadius: '8px',
+                          background: isConf ? '#fee2e2' : isPriv ? '#f3e8ff' : '#f0f9ff',
+                          color: isConf ? '#dc2626' : isPriv ? '#6d28d9' : '#0369a1',
+                          textDecoration: ev.completed ? 'line-through' : 'none',
+                        }}
+                      >
+                        {isConf ? '⚠️ ' : isPriv ? '🔒 ' : '📌 '}{ev.title}{ev.time ? ` (${ev.time})` : ''}
+                      </span>
+                    );
+                  })}
                 </div>
               )}
             </button>

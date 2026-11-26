@@ -120,6 +120,69 @@ export async function deleteCalendarEvent(spaceId: string, eventId: string): Pro
   await deleteDoc(doc(db, 'spaces', spaceId, 'smartCalendarEvents', eventId));
 }
 
+// ============================================================
+// Private Personal Calendar Layer (`users/{userId}/personalCalendarEvents`)
+// True DB-level privacy: partners in any space NEVER have access to this collection!
+// ============================================================
+
+export function subscribePersonalCalendarEvents(
+  userId: string,
+  onUpdate: (events: CalendarEventItem[]) => void
+): () => void {
+  const colRef = collection(db, 'users', userId, 'personalCalendarEvents');
+  return onSnapshot(
+    colRef,
+    (snap) => {
+      const items: CalendarEventItem[] = [];
+      snap.forEach((d) =>
+        items.push({
+          id: d.id,
+          ...(d.data() as Omit<CalendarEventItem, 'id'>),
+          visibility: 'private',
+        })
+      );
+      items.sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')));
+      onUpdate(items);
+    },
+    (err) => {
+      console.warn('[SmartCalendar] personal events listener warning:', err);
+      onUpdate([]);
+    }
+  );
+}
+
+export async function createPersonalCalendarEvent(
+  userId: string,
+  eventInput: Omit<CalendarEventItem, 'id' | 'createdAt'>
+): Promise<CalendarEventItem> {
+  const id = `priv_ev_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+  const item: CalendarEventItem = {
+    ...eventInput,
+    id,
+    visibility: 'private',
+    createdAt: new Date().toISOString(),
+  };
+  await setDoc(doc(db, 'users', userId, 'personalCalendarEvents', id), sanitize(item));
+  return item;
+}
+
+export async function deletePersonalCalendarEvent(userId: string, eventId: string): Promise<void> {
+  await deleteDoc(doc(db, 'users', userId, 'personalCalendarEvents', eventId));
+}
+
+export async function toggleCalendarEventCompleted(
+  spaceId: string,
+  userId: string,
+  event: CalendarEventItem,
+  completed: boolean
+): Promise<void> {
+  if (event.visibility === 'private') {
+    await updateDoc(doc(db, 'users', userId, 'personalCalendarEvents', event.id), { completed });
+  } else {
+    await updateDoc(doc(db, 'spaces', spaceId, 'smartCalendarEvents', event.id), { completed });
+  }
+}
+
 export async function requestCustodySwap(
   spaceId: string,
   swapInput: Omit<SwapRequestItem, 'id' | 'createdAt'>

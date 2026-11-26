@@ -17,6 +17,7 @@ import { executeApprovedAgentAction } from './assistantActionExecutor';
 import { runPreExecutionClarityGate } from './agentClarityGate';
 import { recordSkillSuccessFromAI } from './agentSkillCompiler';
 import { registerAgentUndo, executeAgentUndo } from './agentUndoLedger';
+import { useActiveGuestShareSession, extractGuestFirstName } from '@/utils/guestSessionContext';
 import {
   type AssistantPersona,
   type AssistantPersonaId,
@@ -186,12 +187,40 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     ];
   });
 
-  // Personalize initial welcome greeting with user's Hebrew first name once Auth loads
-  const personalizedWelcomeRef = React.useRef(false);
+  const activeGuestSession = useActiveGuestShareSession();
+
+  // Personalize initial welcome greeting with user's Hebrew first name once Auth loads (OR Guest's name on /share/[token]!)
+  const personalizedWelcomeRef = React.useRef<string>('');
   useEffect(() => {
+    const isShareRoute = pathname.startsWith('/share/');
+    const guestFirst = isShareRoute ? extractGuestFirstName(activeGuestSession?.guestName) : '';
+    if (isShareRoute && !user && guestFirst) {
+      const sig = `guest:${activeGuestSession?.token}:${guestFirst}`;
+      if (personalizedWelcomeRef.current === sig) return;
+      personalizedWelcomeRef.current = sig;
+      const senderPart = activeGuestSession?.senderName ? ` מ-${activeGuestSession.senderName}` : '';
+      const greeting = `היי ${guestFirst}! 👋 נעים להכיר, אני ${activePersona.name} — העוזרת האישית של MySpace.\nקיבלת כאן גישה מאובטחת לקבצים ששותפו איתך${senderPart}. אני כאן אם תרצה עזרה בצפייה/הורדה, שליחת הודעה חזרה, או לשמוע איך תוכל גם אתה להקים מרחב חכם משלך בחינם ✨`;
+      setMessages((prev) =>
+        prev.length === 1 && prev[0].id === 'welcome'
+          ? [
+              {
+                ...prev[0],
+                text: greeting,
+                followUps: [
+                  'מה עוד MySpace יודעת לעשות?',
+                  'איך מורידים או צופים בקבצים?',
+                  'איך נרשמים בחינם?',
+                ],
+              },
+            ]
+          : prev
+      );
+      return;
+    }
+
     const rawName = user?.realName || user?.nickname || (user as any)?.displayName;
-    if (!rawName || personalizedWelcomeRef.current) return;
-    personalizedWelcomeRef.current = true;
+    if (!rawName || personalizedWelcomeRef.current === `user:${rawName}`) return;
+    personalizedWelcomeRef.current = `user:${rawName}`;
     const isFirstTime = !hasMetAssistantBefore();
     const greeting = buildHumanGreeting(activePersona, rawName, isFirstTime);
     setMessages((prev) =>
@@ -199,7 +228,7 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         ? [{ ...prev[0], text: greeting }]
         : prev
     );
-  }, [user, activePersona]);
+  }, [user, activePersona, pathname, activeGuestSession]);
 
   const setSelectedPersonaId = useCallback((id: AssistantPersonaId) => {
     setSelectedPersonaIdState(id);
@@ -722,6 +751,43 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       ]);
       if (autoSpeak) speakText(instantIosReply.text);
       else prefetchAudio(instantIosReply.text);
+      return;
+    }
+
+    // 0-Token Secure Guest Concierge on /share/[token] (Zero Data Leak + Personalized Conversion Engine!)
+    if (!user && pathname.startsWith('/share/')) {
+      const gFirst = extractGuestFirstName(activeGuestSession?.guestName);
+      const namePrefix = gFirst ? `${gFirst}, ` : '';
+      let guestReply = '';
+      let guestFollowUps: string[] = ['מה עוד MySpace יודעת לעשות?', 'איך נרשמים בחינם?'];
+
+      if (lowerQ.includes('הורד') || lowerQ.includes('צופ') || lowerQ.includes('קובץ') || lowerQ.includes('קבצים') || lowerQ.includes('תוכנית')) {
+        guestReply = `${namePrefix}פשוט מאוד! לחץ על כל קובץ או תיקייה במסך כדי לפתוח תצוגה חדה במסך מלא (כולל זום לתוכניות PDF), או לחץ על כפתור ההורדה שליד הקובץ כדי לשמור אותו ישירות למכשיר שלך. אפשר גם להשאיר הודעה ישירה לבעל הקישור דרך כפתור הצ׳אט למעלה.`;
+        guestFollowUps = ['מה עוד MySpace יודעת לעשות?', 'איך נרשמים בחינם?'];
+      } else if (lowerQ.includes('נרשמ') || lowerQ.includes('להירשם') || lowerQ.includes('חינם') || lowerQ.includes('חשבון') || lowerQ.includes('הצטרף')) {
+        guestReply = `${namePrefix}איזה כיף! ההרשמה ל-MySpace היא בחינם ולוקחת 10 שניות בלבד עם חשבון גוגל או טלפון. פשוט לחץ על לוגו MySpace למעלה או היכנס לדף הבית כדי לפתוח מרחב משלך — ותקבל כספת מסמכים, קיר שיתוף מאובטח עם מעקב צפיות, יומן שיתופי חכם והתחשבנויות במקום אחד!`;
+        guestFollowUps = ['מה עוד MySpace יודעת לעשות?', 'איך מורידים או צופים בקבצים?'];
+      } else if (lowerQ.includes('עוד') || lowerQ.includes('יודעת') || lowerQ.includes('יכולות') || lowerQ.includes('אפליקציה') || lowerQ.includes('myspace')) {
+        guestReply = `${namePrefix}MySpace היא סביבת עבודה חכמה ומאובטחת שמרכזת הכל במקום אחד:\n• 🗂️ כספת מסמכים ותוכניות PDF עם שיתוף מאובטח ומעקב צפיות\n• 📅 לוח שנה שיתופי ואישי חכם (למשפחה, פרויקטים ונותני שירות)\n• 🧾 ניהול הוצאות והתחשבנויות שקוף בין שותפים\n• 🤖 עוזרת אישית קולית שמבצעת פעולות בשבילך\nאפשר להירשם בחינם ולהתחיל תוך שניות!`;
+        guestFollowUps = ['איך נרשמים בחינם?', 'איך מורידים או צופים בקבצים?'];
+      } else {
+        guestReply = `היי ${gFirst || 'אורח'}! 😊 אני כאן כדי לעזור לך עם הקבצים ששותפו איתך בדף הזה. מכיוון שאתה גולש כאורח, יש לי גישה רק להדרכה על דף השיתוף הזה — אם תרצה, תוכל גם להירשם בחינם ל-MySpace ולהקים מרחב חכם משלך עם כספת קבצים, יומן שיתופי ועוזרת אישית!`;
+        guestFollowUps = ['מה עוד MySpace יודעת לעשות?', 'איך מורידים או צופים בקבצים?', 'איך נרשמים בחינם?'];
+      }
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `guest_reply_${Date.now()}`,
+          sender: 'assistant',
+          text: guestReply,
+          timestamp: Date.now(),
+          source: 'local_brain',
+          confidence: 'high',
+          followUps: guestFollowUps,
+        },
+      ]);
+      if (autoSpeak) speakText(guestReply);
       return;
     }
 

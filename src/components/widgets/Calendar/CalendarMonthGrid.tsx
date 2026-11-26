@@ -8,6 +8,7 @@ import {
 } from '@/types/calendar';
 import {
   computeMonthlyCustodyStats,
+  detectDayTimeConflicts,
   getBirthdaysForDate,
   HEBREW_DAYS_SHORT,
   HEBREW_MONTHS,
@@ -236,6 +237,9 @@ export const CalendarMonthGrid: React.FC<CalendarMonthGridProps> = ({
               ? resolveDayCustody(cell.ymd, config, swaps)
               : null;
           const dayEvents = eventsByDate[cell.ymd] || [];
+          const hasPrivateEvent = dayEvents.some((ev) => ev.visibility === 'private');
+          const hasSharedEvent = dayEvents.some((ev) => ev.visibility !== 'private');
+          const hasConflict = detectDayTimeConflicts(dayEvents).size > 0;
           const birthdays = getBirthdaysForDate(cell.ymd, config);
           const hasActivity = (config.activities || []).some((a) => a.daysOfWeek.includes(cell.dow));
 
@@ -364,6 +368,7 @@ export const CalendarMonthGrid: React.FC<CalendarMonthGridProps> = ({
                   minHeight: '12px',
                 }}
               >
+                {hasConflict && <span title="התנגשות שעות">⚠️</span>}
                 {resolution?.source === 'swap' && <span title="החלפה">🔄</span>}
                 {resolution?.activeSpecialPeriod && (
                   <span title={resolution.activeSpecialPeriod.title}>
@@ -372,7 +377,8 @@ export const CalendarMonthGrid: React.FC<CalendarMonthGridProps> = ({
                 )}
                 {resolution?.activeSchoolBreak && <span title={resolution.activeSchoolBreak.title}>🏖️</span>}
                 {birthdays.length > 0 && <span title="יום הולדת">🎂</span>}
-                {dayEvents.length > 0 && <span title={`${dayEvents.length} אירועים`}>📌</span>}
+                {hasPrivateEvent && <span title="פריט אישי שלי">🔒</span>}
+                {hasSharedEvent && <span title="אירוע/משימה במרחב">📌</span>}
                 {hasActivity && <span title="חוג">🏅</span>}
               </div>
 
