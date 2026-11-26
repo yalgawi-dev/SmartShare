@@ -28,6 +28,7 @@ interface CalendarDayDrawerProps {
   swaps: SwapRequestItem[];
   currentUserId: string;
   defaultVisibility?: CalendarEventVisibility;
+  initialShowAddForm?: boolean;
   onAddEvent: (ev: Omit<CalendarEventItem, 'id' | 'createdAt'>) => Promise<void>;
   onDeleteEvent: (ev: CalendarEventItem) => Promise<void>;
   onToggleComplete?: (ev: CalendarEventItem, completed: boolean) => Promise<void>;
@@ -52,13 +53,14 @@ export const CalendarDayDrawer: React.FC<CalendarDayDrawerProps> = ({
   swaps,
   currentUserId,
   defaultVisibility = 'shared',
+  initialShowAddForm = false,
   onAddEvent,
   onDeleteEvent,
   onToggleComplete,
   onOpenSwapModal,
   onToggleBagItem,
 }) => {
-  const [showAddForm, setShowAddForm] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(initialShowAddForm);
   const [title, setTitle] = useState('');
   const [time, setTime] = useState('');
   const [category, setCategory] = useState<CalendarEventCategory>('task');

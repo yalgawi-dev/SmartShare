@@ -34,8 +34,8 @@ export function FloatingActionBar({
   hasPartners?: boolean;
   hasActivePartners?: boolean;
   partnersCount?: number;
-  activeTab?: 'summary' | 'transactions' | 'inbox' | 'shelves' | 'documents' | 'fileshare';
-  setActiveTab?: (tab: 'summary' | 'transactions' | 'inbox' | 'shelves' | 'documents' | 'fileshare') => void;
+  activeTab?: 'summary' | 'transactions' | 'inbox' | 'shelves' | 'documents' | 'fileshare' | 'smart_calendar';
+  setActiveTab?: (tab: 'summary' | 'transactions' | 'inbox' | 'shelves' | 'documents' | 'fileshare' | 'smart_calendar') => void;
   onAddExpense: () => void;
   onOpenScanner: (mode?: 'camera' | 'upload', category?: 'receipt' | 'document' | 'image') => void;
   onOpenPartners?: () => void;
@@ -143,6 +143,7 @@ export function FloatingActionBar({
   const isShelvesActive = isInShelf ? shelfSubTab === 'timeline' : effectiveTab === 'shelves';
   const isDocsActive = isInShelf ? shelfSubTab === 'vault' : effectiveTab === 'documents';
   const isSummaryActive = !isInShelf && hasFinance && (effectiveTab === 'summary' || !effectiveTab);
+  const isCalendarActive = effectiveTab === 'smart_calendar';
 
   return createPortal(
     <div style={{
@@ -301,7 +302,7 @@ export function FloatingActionBar({
       </div>
       {/* Center Main Action */}
       <div style={{ position: 'relative', marginTop: '-2.5rem', display: 'flex', justifyContent: 'center', flex: 0, zIndex: 10 }}>
-        {hasScanner && (
+        {(isCalendarActive || hasScanner) && (
           <div style={{
             position: 'absolute',
             top: '0.1rem',
@@ -316,7 +317,23 @@ export function FloatingActionBar({
             zIndex: 1
           }} />
         )}
-        {hasScanner && (
+        {isCalendarActive ? (
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent('smartshare:calendar_quick_add'))}
+            style={{
+              position: 'relative', zIndex: 2,
+              background: 'linear-gradient(135deg, #4f46e5, #2563eb)', border: 'none', padding: '0.75rem', borderRadius: '50%',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+              color: 'white', boxShadow: '0 8px 20px rgba(79, 70, 229, 0.42)',
+              width: '60px', height: '60px', transition: 'transform 0.2s', flexShrink: 0,
+              fontSize: '1.85rem', fontWeight: 900, lineHeight: 1
+            }}
+            title="הוסף משימה, פגישה או הערה ליום"
+          >
+            +
+          </button>
+        ) : hasScanner && (
            <button 
              onClick={() => {
                if (isInShelf && activeShelfId) {
@@ -343,9 +360,39 @@ export function FloatingActionBar({
         )}
       </div>
 
-      {/* Left side (RTL End) - Inbox and Manual Add */}
+      {/* Left side (RTL End) - Context-Aware Actions */}
       <div style={{ display: 'flex', gap: '0.1rem', paddingLeft: '0.1rem', flex: 1, justifyContent: 'space-evenly' }}>
-        {hasFinance && effectiveTab !== 'documents' && effectiveTab !== 'shelves' && effectiveTab !== 'fileshare' ? (
+        {isCalendarActive ? (
+          <div style={{ display: 'flex', gap: '0.1rem', flex: 1, width: '100%', alignItems: 'center' }}>
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent('smartshare:calendar_open_layers'))}
+              style={{ background: 'transparent', border: 'none', padding: '0.45rem 0.1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.18rem', cursor: 'pointer', color: '#4f46e5', minWidth: '42px', flex: 1 }}
+              title="בחר שכבות יומן (אישי + מרחבים)"
+            >
+              <span style={{ fontSize: '1.2rem' }}>📚</span>
+              <span style={{ fontSize: '0.62rem', fontWeight: 800, textAlign: 'center', lineHeight: 1.1 }}>שכבות</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent('smartshare:calendar_toggle_swap'))}
+              style={{ background: 'transparent', border: 'none', padding: '0.45rem 0.1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.18rem', cursor: 'pointer', color: '#0284c7', minWidth: '42px', flex: 1 }}
+              title="החלפת ימים ויזואלית על הלוח"
+            >
+              <span style={{ fontSize: '1.2rem' }}>🔄</span>
+              <span style={{ fontSize: '0.62rem', fontWeight: 800, textAlign: 'center', lineHeight: 1.1 }}>החלף יום</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent('smartshare:calendar_open_settings'))}
+              style={{ background: 'transparent', border: 'none', padding: '0.45rem 0.1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.18rem', cursor: 'pointer', color: '#334155', minWidth: '42px', flex: 1 }}
+              title="הגדרות לוח השנה, חוגים והחלפות"
+            >
+              <span style={{ fontSize: '1.2rem' }}>⚙️</span>
+              <span style={{ fontSize: '0.62rem', fontWeight: 800, textAlign: 'center', lineHeight: 1.1 }}>הגדרות</span>
+            </button>
+          </div>
+        ) : hasFinance && effectiveTab !== 'documents' && effectiveTab !== 'shelves' && effectiveTab !== 'fileshare' ? (
           <>
             <button 
               onClick={() => setActiveTab && setActiveTab('inbox')}

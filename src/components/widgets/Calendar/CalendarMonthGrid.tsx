@@ -25,6 +25,8 @@ interface CalendarMonthGridProps {
   onPrevMonth: () => void;
   onNextMonth: () => void;
   onToday: () => void;
+  resolution: 'month' | 'week' | 'day';
+  onChangeResolution: (res: 'month' | 'week' | 'day') => void;
   config: SmartCalendarConfig;
   events: CalendarEventItem[];
   swaps: SwapRequestItem[];
@@ -41,6 +43,8 @@ export const CalendarMonthGrid: React.FC<CalendarMonthGridProps> = ({
   onPrevMonth,
   onNextMonth,
   onToday,
+  resolution,
+  onChangeResolution,
   config,
   events,
   swaps,
@@ -83,56 +87,78 @@ export const CalendarMonthGrid: React.FC<CalendarMonthGridProps> = ({
   const pAPct = Math.round((stats.parentADays / totalDays) * 100);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-      {/* Vibrant Month Navigator */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.42rem' }}>
+      {/* UNIFIED COMPACT HEADER: Month Nav + Today + Resolution Switcher on ONE sleek row! */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
+          gap: '0.35rem',
           background: '#ffffff',
-          padding: '0.55rem 0.75rem',
-          borderRadius: '16px',
+          padding: '0.4rem 0.55rem',
+          borderRadius: '14px',
           border: '1px solid #e2e8f0',
-          boxShadow: '0 4px 14px rgba(15,23,42,0.05)',
+          boxShadow: '0 2px 8px rgba(15,23,42,0.04)',
+          flexWrap: 'wrap',
         }}
       >
-        <button
-          type="button"
-          onClick={onPrevMonth}
-          style={{
-            width: '36px',
-            height: '36px',
-            borderRadius: '11px',
-            border: '1px solid #e2e8f0',
-            background: '#f8fafc',
-            color: '#1e293b',
-            fontWeight: 900,
-            fontSize: '0.9rem',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-          title="חודש קודם"
-        >
-          ◀
-        </button>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <h3 style={{ margin: 0, fontSize: '1.08rem', fontWeight: 900, color: '#0f172a', letterSpacing: '-0.01em' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+          <button
+            type="button"
+            onClick={onPrevMonth}
+            style={{
+              width: '30px',
+              height: '30px',
+              borderRadius: '9px',
+              border: '1px solid #e2e8f0',
+              background: '#f8fafc',
+              color: '#1e293b',
+              fontWeight: 900,
+              fontSize: '0.78rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            title="חודש קודם"
+          >
+            ◀
+          </button>
+          <h3 style={{ margin: 0, fontSize: '0.94rem', fontWeight: 900, color: '#0f172a', whiteSpace: 'nowrap' }}>
             {HEBREW_MONTHS[monthIndex]} {year}
           </h3>
           <button
             type="button"
+            onClick={onNextMonth}
+            style={{
+              width: '30px',
+              height: '30px',
+              borderRadius: '9px',
+              border: '1px solid #e2e8f0',
+              background: '#f8fafc',
+              color: '#1e293b',
+              fontWeight: 900,
+              fontSize: '0.78rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            title="חודש הבא"
+          >
+            ▶
+          </button>
+          <button
+            type="button"
             onClick={onToday}
             style={{
-              padding: '0.22rem 0.6rem',
+              padding: '0.18rem 0.48rem',
               borderRadius: '999px',
               border: '1px solid #c7d2fe',
               background: '#eef2ff',
               color: '#4338ca',
-              fontSize: '0.72rem',
+              fontSize: '0.68rem',
               fontWeight: 800,
               cursor: 'pointer',
             }}
@@ -141,54 +167,72 @@ export const CalendarMonthGrid: React.FC<CalendarMonthGridProps> = ({
           </button>
         </div>
 
-        <button
-          type="button"
-          onClick={onNextMonth}
+        {/* Compact 3-Resolution Toggle */}
+        <div
           style={{
-            width: '36px',
-            height: '36px',
-            borderRadius: '11px',
-            border: '1px solid #e2e8f0',
-            background: '#f8fafc',
-            color: '#1e293b',
-            fontWeight: 900,
-            fontSize: '0.9rem',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            display: 'inline-flex',
+            background: '#f1f5f9',
+            padding: '2px',
+            borderRadius: '9px',
+            gap: '2px',
           }}
-          title="חודש הבא"
         >
-          ▶
-        </button>
+          {(
+            [
+              { id: 'month', label: 'חודשי' },
+              { id: 'week', label: 'שבועי' },
+              { id: 'day', label: 'יומי' },
+            ] as const
+          ).map((r) => {
+            const active = resolution === r.id;
+            return (
+              <button
+                key={r.id}
+                type="button"
+                onClick={() => onChangeResolution(r.id)}
+                style={{
+                  padding: '0.24rem 0.52rem',
+                  borderRadius: '7px',
+                  border: 'none',
+                  background: active ? '#ffffff' : 'transparent',
+                  color: active ? '#0f172a' : '#64748b',
+                  fontWeight: active ? 900 : 700,
+                  fontSize: '0.71rem',
+                  cursor: 'pointer',
+                  boxShadow: active ? '0 1px 4px rgba(15,23,42,0.1)' : 'none',
+                }}
+              >
+                {r.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Live Visual Balance Bar (Parent A vs Parent B) */}
+      {/* ULTRA-SLIM CUSTODY LEGEND & SPLIT BAR (24px height!) */}
       {config.mode === 'parenting' && (
         <div
           style={{
             background: '#ffffff',
-            padding: '0.5rem 0.75rem',
-            borderRadius: '14px',
+            padding: '0.32rem 0.65rem',
+            borderRadius: '11px',
             border: '1px solid #e2e8f0',
             display: 'flex',
             flexDirection: 'column',
-            gap: '0.35rem',
+            gap: '4px',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.76rem', fontWeight: 800 }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: pA.color }}>
-              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: pA.color, boxShadow: `0 0 6px ${pA.color}88` }} />
-              {pA.name}: <strong>{stats.parentADays}</strong> ימים
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.72rem', fontWeight: 800 }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', color: pA.color }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: pA.color }} />
+              {pA.name}: <strong>{stats.parentADays}</strong>
             </span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: pB.color }}>
-              {pB.name}: <strong>{stats.parentBDays}</strong> ימים
-              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: pB.color, boxShadow: `0 0 6px ${pB.color}88` }} />
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', color: pB.color }}>
+              {pB.name}: <strong>{stats.parentBDays}</strong>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: pB.color }} />
             </span>
           </div>
-          {/* Vivid Split Progress Bar */}
-          <div style={{ height: '6px', borderRadius: '999px', background: `${pB.color}40`, overflow: 'hidden', display: 'flex' }}>
+          <div style={{ height: '4px', borderRadius: '999px', background: `${pB.color}40`, overflow: 'hidden', display: 'flex' }}>
             <div style={{ width: `${pAPct}%`, background: pA.color, transition: 'width 0.3s ease' }} />
             <div style={{ flex: 1, background: pB.color }} />
           </div>
@@ -200,9 +244,9 @@ export const CalendarMonthGrid: React.FC<CalendarMonthGridProps> = ({
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(7, 1fr)',
-          gap: '5px',
+          gap: '4px',
           textAlign: 'center',
-          fontSize: '0.78rem',
+          fontSize: '0.74rem',
           fontWeight: 900,
           color: '#475569',
           padding: '0 2px',
@@ -215,16 +259,16 @@ export const CalendarMonthGrid: React.FC<CalendarMonthGridProps> = ({
         ))}
       </div>
 
-      {/* Vibrant Interactive Month Grid */}
+      {/* CLEAN COMPACT MONTH GRID — ALL 5–6 WEEKS FIT ON ONE SCREEN! */}
       <div
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(7, 1fr)',
-          gap: '5px',
+          gap: '4px',
         }}
       >
         {cells.map((cell, idx) => {
-          if (!cell) return <div key={`empty_${idx}`} style={{ minHeight: '64px' }} />;
+          if (!cell) return <div key={`empty_${idx}`} style={{ minHeight: '50px' }} />;
 
           const isSelected = !visualSwapMode && cell.ymd === selectedDate;
           const isSwapFirst = visualSwapMode && cell.ymd === swapFirstDate;
@@ -232,7 +276,7 @@ export const CalendarMonthGrid: React.FC<CalendarMonthGridProps> = ({
           const isToday = cell.ymd === todayYMD;
           const isShabbat = cell.dow === 6;
 
-          const resolution =
+          const resolutionDay =
             config.mode === 'parenting'
               ? resolveDayCustody(cell.ymd, config, swaps)
               : null;
@@ -243,42 +287,38 @@ export const CalendarMonthGrid: React.FC<CalendarMonthGridProps> = ({
           const birthdays = getBirthdaysForDate(cell.ymd, config);
           const hasActivity = (config.activities || []).some((a) => a.daysOfWeek.includes(cell.dow));
 
-          // Vivid, alive color fills based on host parent
+          // Vivid, alive parent color fills (zero cut-off text!)
           let bg = '#ffffff';
           let topStrip = 'transparent';
-          let parentShort = '';
-          let parentColor = '#334155';
+          let parentColor = '#94a3b8';
 
-          if (resolution) {
-            if (resolution.overallParent === 'parent_a') {
-              bg = `linear-gradient(180deg, ${pA.color}26 0%, ${pA.color}10 100%)`;
+          if (resolutionDay) {
+            if (resolutionDay.overallParent === 'parent_a') {
+              bg = `linear-gradient(180deg, ${pA.color}28 0%, ${pA.color}12 100%)`;
               topStrip = pA.color;
-              parentShort = pA.name.slice(0, 4);
               parentColor = pA.color;
-            } else if (resolution.overallParent === 'parent_b') {
-              bg = `linear-gradient(180deg, ${pB.color}26 0%, ${pB.color}10 100%)`;
+            } else if (resolutionDay.overallParent === 'parent_b') {
+              bg = `linear-gradient(180deg, ${pB.color}28 0%, ${pB.color}12 100%)`;
               topStrip = pB.color;
-              parentShort = pB.name.slice(0, 4);
               parentColor = pB.color;
             } else {
               bg = `linear-gradient(135deg, ${pA.color}28 50%, ${pB.color}28 50%)`;
               topStrip = `linear-gradient(90deg, ${pA.color} 50%, ${pB.color} 50%)`;
-              parentShort = 'מפוצל';
               parentColor = '#6d28d9';
             }
           }
 
-          let borderStyle = `1px solid ${parentColor}33`;
-          let boxShadowStyle = '0 2px 6px rgba(15,23,42,0.04)';
+          let borderStyle = `1px solid ${parentColor}38`;
+          let boxShadowStyle = '0 1px 4px rgba(15,23,42,0.04)';
           if (isSwapFirst) {
             borderStyle = '2.5px solid #4f46e5';
-            boxShadowStyle = '0 0 0 3px rgba(79,70,229,0.28), 0 6px 14px rgba(79,70,229,0.22)';
+            boxShadowStyle = '0 0 0 2.5px rgba(79,70,229,0.28)';
           } else if (isSwapSecond) {
             borderStyle = '2.5px solid #059669';
-            boxShadowStyle = '0 0 0 3px rgba(5,150,105,0.28), 0 6px 14px rgba(5,150,105,0.22)';
+            boxShadowStyle = '0 0 0 2.5px rgba(5,150,105,0.28)';
           } else if (isSelected) {
-            borderStyle = '2.5px solid #0f172a';
-            boxShadowStyle = '0 6px 16px rgba(15,23,42,0.18)';
+            borderStyle = '2px solid #0f172a';
+            boxShadowStyle = '0 4px 10px rgba(15,23,42,0.16)';
           } else if (isToday) {
             borderStyle = '2px solid #2563eb';
             boxShadowStyle = '0 0 0 2px rgba(37,99,235,0.2)';
@@ -291,9 +331,9 @@ export const CalendarMonthGrid: React.FC<CalendarMonthGridProps> = ({
               onClick={() => onSelectDate(cell.ymd)}
               style={{
                 position: 'relative',
-                minHeight: '66px',
-                padding: '7px 2px 4px',
-                borderRadius: '13px',
+                minHeight: '50px',
+                padding: '6px 2px 3px',
+                borderRadius: '11px',
                 border: borderStyle,
                 background: bg,
                 cursor: 'pointer',
@@ -304,7 +344,7 @@ export const CalendarMonthGrid: React.FC<CalendarMonthGridProps> = ({
                 overflow: 'hidden',
                 boxShadow: boxShadowStyle,
                 transform: isSelected || isSwapFirst || isSwapSecond ? 'scale(1.03)' : 'scale(1)',
-                transition: 'transform 0.14s ease, box-shadow 0.14s ease',
+                transition: 'transform 0.12s ease',
               }}
             >
               {/* Vivid Top Host Bar */}
@@ -314,7 +354,7 @@ export const CalendarMonthGrid: React.FC<CalendarMonthGridProps> = ({
                   top: 0,
                   left: 0,
                   right: 0,
-                  height: '5px',
+                  height: '4px',
                   background: topStrip,
                 }}
               />
@@ -324,15 +364,15 @@ export const CalendarMonthGrid: React.FC<CalendarMonthGridProps> = ({
                 <span
                   style={{
                     position: 'absolute',
-                    top: '6px',
-                    left: '3px',
-                    fontSize: '0.62rem',
+                    top: '5px',
+                    left: '2px',
+                    fontSize: '0.58rem',
                     fontWeight: 900,
                     background: isSwapFirst ? '#4f46e5' : '#059669',
                     color: '#ffffff',
-                    borderRadius: '5px',
-                    padding: '0 4px',
-                    lineHeight: '14px',
+                    borderRadius: '4px',
+                    padding: '0 3px',
+                    lineHeight: '13px',
                   }}
                 >
                   {isSwapFirst ? '1' : '2'}
@@ -342,20 +382,20 @@ export const CalendarMonthGrid: React.FC<CalendarMonthGridProps> = ({
               {/* Day Number */}
               <span
                 style={{
-                  fontSize: '0.9rem',
+                  fontSize: '0.88rem',
                   fontWeight: isToday || isSelected ? 900 : 800,
                   color: isToday ? '#ffffff' : isShabbat ? '#92400e' : '#0f172a',
                   background: isToday ? '#2563eb' : 'transparent',
                   borderRadius: isToday ? '999px' : undefined,
-                  padding: isToday ? '1px 7px' : '1px 3px',
-                  lineHeight: 1.2,
+                  padding: isToday ? '1px 6px' : '1px 2px',
+                  lineHeight: 1.15,
                   marginTop: '1px',
                 }}
               >
                 {cell.day}
               </span>
 
-              {/* Badges Row (Events, Swaps, Birthdays, Activities, Holidays — ZERO Alimony!) */}
+              {/* Clean Badges Row */}
               <div
                 style={{
                   display: 'flex',
@@ -365,41 +405,22 @@ export const CalendarMonthGrid: React.FC<CalendarMonthGridProps> = ({
                   flexWrap: 'wrap',
                   fontSize: '0.62rem',
                   lineHeight: 1,
-                  minHeight: '12px',
+                  minHeight: '13px',
                 }}
               >
                 {hasConflict && <span title="התנגשות שעות">⚠️</span>}
-                {resolution?.source === 'swap' && <span title="החלפה">🔄</span>}
-                {resolution?.activeSpecialPeriod && (
-                  <span title={resolution.activeSpecialPeriod.title}>
-                    {SPECIAL_PERIOD_META[resolution.activeSpecialPeriod.category].icon}
+                {resolutionDay?.source === 'swap' && <span title="החלפה">🔄</span>}
+                {resolutionDay?.activeSpecialPeriod && (
+                  <span title={resolutionDay.activeSpecialPeriod.title}>
+                    {SPECIAL_PERIOD_META[resolutionDay.activeSpecialPeriod.category].icon}
                   </span>
                 )}
-                {resolution?.activeSchoolBreak && <span title={resolution.activeSchoolBreak.title}>🏖️</span>}
+                {resolutionDay?.activeSchoolBreak && <span title={resolutionDay.activeSchoolBreak.title}>🏖️</span>}
                 {birthdays.length > 0 && <span title="יום הולדת">🎂</span>}
                 {hasPrivateEvent && <span title="פריט אישי שלי">🔒</span>}
                 {hasSharedEvent && <span title="אירוע/משימה במרחב">📌</span>}
                 {hasActivity && <span title="חוג">🏅</span>}
               </div>
-
-              {/* Tiny Vivid Parent Name Tag */}
-              {parentShort && (
-                <span
-                  style={{
-                    fontSize: '0.56rem',
-                    fontWeight: 800,
-                    color: parentColor,
-                    opacity: 0.92,
-                    maxWidth: '100%',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    lineHeight: 1.1,
-                  }}
-                >
-                  {parentShort}
-                </span>
-              )}
             </button>
           );
         })}

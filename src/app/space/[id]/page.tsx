@@ -1462,6 +1462,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
           {hasSmartCalendar && (financeTab === 'smart_calendar' || (!hasFinance && !hasVault && !hasFileShare)) && (
             <SmartCalendarWidget
               space={space}
+              allCalendarSpaces={(spaces || []).filter((sp: any) => !sp.deletedAt && Array.isArray(sp.features) && sp.features.includes('smart_calendar'))}
               onOpenFinanceTab={hasFinance ? () => setFinanceTab('summary') : undefined}
             />
           )}

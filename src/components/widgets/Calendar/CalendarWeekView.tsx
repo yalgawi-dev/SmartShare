@@ -23,6 +23,8 @@ interface CalendarWeekViewProps {
   onPrevWeek: () => void;
   onNextWeek: () => void;
   onToday: () => void;
+  resolution: 'month' | 'week' | 'day';
+  onChangeResolution: (res: 'month' | 'week' | 'day') => void;
   config: SmartCalendarConfig;
   events: CalendarEventItem[];
   swaps: SwapRequestItem[];
@@ -37,6 +39,8 @@ export const CalendarWeekView: React.FC<CalendarWeekViewProps> = ({
   onPrevWeek,
   onNextWeek,
   onToday,
+  resolution,
+  onChangeResolution,
   config,
   events,
   swaps,
@@ -73,76 +77,75 @@ export const CalendarWeekView: React.FC<CalendarWeekViewProps> = ({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-      {/* Week Navigator */}
+      {/* Unified Compact Week Navigator + Resolution Switcher */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
+          gap: '0.35rem',
           background: '#ffffff',
-          padding: '0.55rem 0.75rem',
-          borderRadius: '16px',
+          padding: '0.4rem 0.55rem',
+          borderRadius: '14px',
           border: '1px solid #e2e8f0',
-          boxShadow: '0 4px 14px rgba(15,23,42,0.05)',
+          boxShadow: '0 2px 8px rgba(15,23,42,0.04)',
+          flexWrap: 'wrap',
         }}
       >
-        <button
-          type="button"
-          onClick={onPrevWeek}
-          style={{
-            width: '36px',
-            height: '36px',
-            borderRadius: '11px',
-            border: '1px solid #e2e8f0',
-            background: '#f8fafc',
-            color: '#1e293b',
-            fontWeight: 900,
-            cursor: 'pointer',
-          }}
-          title="שבוע קודם"
-        >
-          ◀
-        </button>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 900, color: '#0f172a' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+          <button
+            type="button"
+            onClick={onPrevWeek}
+            style={{ width: '30px', height: '30px', borderRadius: '9px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#1e293b', fontWeight: 900, fontSize: '0.78rem', cursor: 'pointer' }}
+            title="שבוע קודם"
+          >
+            ◀
+          </button>
+          <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 900, color: '#0f172a', whiteSpace: 'nowrap' }}>
             {headerRangeLabel}
           </h3>
           <button
             type="button"
+            onClick={onNextWeek}
+            style={{ width: '30px', height: '30px', borderRadius: '9px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#1e293b', fontWeight: 900, fontSize: '0.78rem', cursor: 'pointer' }}
+            title="שבוע הבא"
+          >
+            ▶
+          </button>
+          <button
+            type="button"
             onClick={onToday}
-            style={{
-              padding: '0.22rem 0.6rem',
-              borderRadius: '999px',
-              border: '1px solid #c7d2fe',
-              background: '#eef2ff',
-              color: '#4338ca',
-              fontSize: '0.72rem',
-              fontWeight: 800,
-              cursor: 'pointer',
-            }}
+            style={{ padding: '0.18rem 0.48rem', borderRadius: '999px', border: '1px solid #c7d2fe', background: '#eef2ff', color: '#4338ca', fontSize: '0.68rem', fontWeight: 800, cursor: 'pointer' }}
           >
             היום
           </button>
         </div>
 
-        <button
-          type="button"
-          onClick={onNextWeek}
-          style={{
-            width: '36px',
-            height: '36px',
-            borderRadius: '11px',
-            border: '1px solid #e2e8f0',
-            background: '#f8fafc',
-            color: '#1e293b',
-            fontWeight: 900,
-            cursor: 'pointer',
-          }}
-          title="שבוע הבא"
-        >
-          ▶
-        </button>
+        <div style={{ display: 'inline-flex', background: '#f1f5f9', padding: '2px', borderRadius: '9px', gap: '2px' }}>
+          {([{ id: 'month', label: 'חודשי' }, { id: 'week', label: 'שבועי' }, { id: 'day', label: 'יומי' }] as const).map((r) => {
+            const active = resolution === r.id;
+            return (
+              <button
+                key={r.id}
+                type="button"
+                onClick={() => onChangeResolution(r.id)}
+                style={{
+                  padding: '0.24rem 0.52rem',
+                  borderRadius: '7px',
+                  border: 'none',
+                  background: active ? '#ffffff' : 'transparent',
+                  color: active ? '#0f172a' : '#64748b',
+                  fontWeight: active ? 900 : 700,
+                  fontSize: '0.71rem',
+                  cursor: 'pointer',
+                  boxShadow: active ? '0 1px 4px rgba(15,23,42,0.1)' : 'none',
+                }}
+              >
+                {r.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* 7 Vibrant Day Cards */}

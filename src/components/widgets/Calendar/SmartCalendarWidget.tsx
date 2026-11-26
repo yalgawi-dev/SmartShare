@@ -38,46 +38,65 @@ import { CalendarDayDrawer } from './CalendarDayDrawer';
 import { SwapRequestModal } from './SwapRequestModal';
 import { FamilySetupModal } from './FamilySetupModal';
 import { ActivitiesAndAlimonyTab } from './ActivitiesAndAlimonyTab';
+import { CalendarLayersDrawer, CalendarLayerDescriptor } from './CalendarLayersDrawer';
 
 type CalendarResolution = 'month' | 'week' | 'day';
 
+const LAYER_COLORS = ['#2563eb', '#059669', '#ea580c', '#0891b2', '#ec4899', '#d97706'];
+
 interface SmartCalendarWidgetProps {
   space: any;
+  /** Optional list of all user spaces with smart_calendar enabled for multi-layer viewing (keeps widget 100% decoupled from SpacesContext!) */
+  allCalendarSpaces?: any[];
   onOpenFinanceTab?: () => void;
 }
 
 export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
   space,
+  allCalendarSpaces,
 }) => {
   const { user } = useAuth();
   const [resolution, setResolution] = useState<CalendarResolution>('month');
-  const [layerFilter, setLayerFilter] = useState<'all' | 'shared' | 'private'>('all');
   const [config, setConfig] = useState<SmartCalendarConfig | null>(null);
-  const [sharedEvents, setSharedEvents] = useState<CalendarEventItem[]>([]);
+  const [eventsBySpaceId, setEventsBySpaceId] = useState<Record<string, CalendarEventItem[]>>({});
   const [personalEvents, setPersonalEvents] = useState<CalendarEventItem[]>([]);
   const [swaps, setSwaps] = useState<SwapRequestItem[]>([]);
   const [loaded, setLoaded] = useState(false);
+
+  // Multi-Select Calendar Layers: defaults to Current Space + Personal Private Layer
+  const [selectedLayerIds, setSelectedLayerIds] = useState<string[]>(() =>
+    space?.id ? ['personal', space.id] : ['personal']
+  );
+
+  // Ensure current space is selected when switching spaces
+  useEffect(() => {
+    if (space?.id) {
+      setSelectedLayerIds((prev) => (prev.includes(space.id) ? prev : [...prev, space.id]));
+    }
+  }, [space?.id]);
 
   const now = new Date();
   const [viewYear, setViewYear] = useState(now.getFullYear());
   const [viewMonth, setViewMonth] = useState(now.getMonth());
   const [selectedDate, setSelectedDate] = useState(toYMD(now));
   const [showDaySheet, setShowDaySheet] = useState(false);
+  const [daySheetAutoAdd, setDaySheetAutoAdd] = useState(false);
 
-  // Settings & Management Popover + Drawers (keeps Calendar Desktop 100% clean!)
-  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  // Drawers triggered cleanly from the Bottom Floating Bar!
+  const [showLayersDrawer, setShowLayersDrawer] = useState(false);
+  const [showSettingsSheet, setShowSettingsSheet] = useState(false);
   const [showSetupModal, setShowSetupModal] = useState(false);
   const [showSwapsDrawer, setShowSwapsDrawer] = useState(false);
   const [showLifeDrawer, setShowLifeDrawer] = useState(false);
 
-  // Manual Swap Modal state (always available alongside Visual Swap!)
+  // Manual Swap Modal state
   const [swapModalState, setSwapModalState] = useState<{
     fromParent: ParentRole;
     initialDate: string;
     initialReturnDate?: string;
   } | null>(null);
 
-  // Visual Interactive Swap Mode directly on the Calendar Grid/Week!
+  // Visual Interactive Swap Mode directly on the Calendar!
   const [visualSwapMode, setVisualSwapMode] = useState(false);
   const [swapFirstDate, setSwapFirstDate] = useState<string | null>(null);
   const [swapSecondDate, setSwapSecondDate] = useState<string | null>(null);
@@ -88,6 +107,24 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
     setToastMsg(msg);
     setTimeout(() => setToastMsg((cur) => (cur === msg ? null : cur)), 3200);
   };
+
+  // Normalized list of all available Calendar Spaces (current space always included)
+  const calendarSpaces = useMemo(() => {
+    const raw = Array.isArray(allCalendarSpaces) && allCalendarSpaces.length > 0 ? allCalendarSpaces : [space];
+    const seen = new Set<string>();
+    const list: any[] = [];
+    if (space?.id) {
+      seen.add(space.id);
+      list.push(space);
+    }
+    raw.forEach((sp) => {
+      if (sp?.id && !seen.has(sp.id)) {
+        seen.add(sp.id);
+        list.push(sp);
+      }
+    });
+    return list;
+  }, [allCalendarSpaces, space]);
 
   const firstPartner = useMemo(() => {
     const members = (space?.members || []).filter(
@@ -106,22 +143,40 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
     );
   }, [config, user?.realName, user?.id, firstPartner?.name, firstPartner?.userId]);
 
+  // Subscribe to current space config + swaps
   useEffect(() => {
     if (!space?.id) return;
     const unsubConfig = subscribeCalendarConfig(space.id, (cfg) => {
       setConfig(cfg);
       setLoaded(true);
     });
-    const unsubEvents = subscribeCalendarEvents(space.id, setSharedEvents);
     const unsubSwaps = subscribeCalendarSwaps(space.id, setSwaps);
     return () => {
       unsubConfig();
-      unsubEvents();
       unsubSwaps();
     };
   }, [space?.id]);
 
-  // Private Personal Calendar Layer (stored in users/{uid}/personalCalendarEvents — invisible to partners!)
+  // Subscribe to events for EVERY checked space layer (multi-layer calendar support!)
+  const activeSpaceLayerIds = useMemo(
+    () => selectedLayerIds.filter((id) => id !== 'personal'),
+    [selectedLayerIds]
+  );
+
+  useEffect(() => {
+    const unsubs: Array<() => void> = [];
+    activeSpaceLayerIds.forEach((spId) => {
+      const unsub = subscribeCalendarEvents(spId, (evList) => {
+        setEventsBySpaceId((prev) => ({ ...prev, [spId]: evList }));
+      });
+      unsubs.push(unsub);
+    });
+    return () => {
+      unsubs.forEach((fn) => fn());
+    };
+  }, [activeSpaceLayerIds.join(',')]);
+
+  // Subscribe to Private Personal Calendar Layer (`users/{uid}/personalCalendarEvents`)
   useEffect(() => {
     if (!user?.id) {
       setPersonalEvents([]);
@@ -131,15 +186,84 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
     return () => unsubPersonal();
   }, [user?.id]);
 
+  // Listen to decoupled Bottom Floating Bar events (Rule 16!)
+  useEffect(() => {
+    const onQuickAdd = () => {
+      setVisualSwapMode(false);
+      setDaySheetAutoAdd(true);
+      setShowDaySheet(true);
+    };
+    const onOpenLayers = () => setShowLayersDrawer(true);
+    const onToggleSwap = () => {
+      setVisualSwapMode((prev) => {
+        if (prev) {
+          setSwapFirstDate(null);
+          setSwapSecondDate(null);
+          return false;
+        }
+        setSwapFirstDate(null);
+        setSwapSecondDate(null);
+        if (resolution === 'day') setResolution('month');
+        return true;
+      });
+    };
+    const onOpenSettings = () => setShowSettingsSheet(true);
+
+    window.addEventListener('smartshare:calendar_quick_add', onQuickAdd);
+    window.addEventListener('smartshare:calendar_open_layers', onOpenLayers);
+    window.addEventListener('smartshare:calendar_toggle_swap', onToggleSwap);
+    window.addEventListener('smartshare:calendar_open_settings', onOpenSettings);
+    return () => {
+      window.removeEventListener('smartshare:calendar_quick_add', onQuickAdd);
+      window.removeEventListener('smartshare:calendar_open_layers', onOpenLayers);
+      window.removeEventListener('smartshare:calendar_toggle_swap', onToggleSwap);
+      window.removeEventListener('smartshare:calendar_open_settings', onOpenSettings);
+    };
+  }, [resolution]);
+
+  // Build Layer Descriptors for CalendarLayersDrawer
+  const layerDescriptors: CalendarLayerDescriptor[] = useMemo(() => {
+    const list: CalendarLayerDescriptor[] = [
+      {
+        id: 'personal',
+        title: 'היומן האישי שלי',
+        color: '#7c3aed',
+        icon: '🔒',
+        isPersonal: true,
+        partnerNames: [],
+        eventCount: personalEvents.length,
+      },
+    ];
+    calendarSpaces.forEach((sp, idx) => {
+      const partners = (sp.members || [])
+        .filter((m: any) => m && m.isActive !== false && m.status !== 'removed')
+        .map((m: any) => m.name || m.realName)
+        .filter(Boolean);
+      list.push({
+        id: sp.id,
+        title: sp.title || 'מרחב',
+        color: LAYER_COLORS[idx % LAYER_COLORS.length],
+        icon: sp.icon || '📅',
+        isCurrentSpace: sp.id === space?.id,
+        partnerNames: partners,
+        eventCount: (eventsBySpaceId[sp.id] || []).length,
+      });
+    });
+    return list;
+  }, [calendarSpaces, eventsBySpaceId, personalEvents.length, space?.id]);
+
+  // Merged visible events across ALL selected layers!
   const events = useMemo(() => {
-    const merged =
-      layerFilter === 'shared'
-        ? sharedEvents
-        : layerFilter === 'private'
-          ? personalEvents
-          : [...sharedEvents, ...personalEvents];
-    return [...merged].sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')));
-  }, [sharedEvents, personalEvents, layerFilter]);
+    const merged: CalendarEventItem[] = [];
+    if (selectedLayerIds.includes('personal')) {
+      merged.push(...personalEvents);
+    }
+    activeSpaceLayerIds.forEach((spId) => {
+      const spEvents = eventsBySpaceId[spId] || [];
+      merged.push(...spEvents);
+    });
+    return merged.sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')));
+  }, [selectedLayerIds, personalEvents, activeSpaceLayerIds, eventsBySpaceId]);
 
   const pendingSwapsCount = swaps.filter((s) => s.status === 'pending').length;
 
@@ -194,10 +318,10 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
       const dt = parseYMD(ymd);
       setViewYear(dt.getFullYear());
       setViewMonth(dt.getMonth());
+      setDaySheetAutoAdd(false);
       setShowDaySheet(true);
       return;
     }
-    // Visual Swap Mode: pick Day 1 -> pick Day 2
     if (!swapFirstDate) {
       setSwapFirstDate(ymd);
       return;
@@ -254,26 +378,6 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
     }
   };
 
-  const handleShareSwapLogWhatsApp = () => {
-    const lines = ['📋 סיכום החלפות ותיעוד יומן (MySpace):'];
-    swaps.slice(0, 12).forEach((s) => {
-      const fromName = effectiveConfig.parents[s.fromParent]?.name || s.fromParent;
-      const toName = effectiveConfig.parents[s.toParent]?.name || s.toParent;
-      const statusLabel =
-        s.status === 'approved'
-          ? '✅ אושר'
-          : s.status === 'recorded_solo'
-            ? '📌 תועד'
-            : s.status === 'declined'
-              ? '❌ נדחה'
-              : '⏳ ממתין';
-      lines.push(
-        `• ${s.targetDate}${s.endDate && s.endDate !== s.targetDate ? `–${s.endDate}` : ''}: ${fromName} → ${toName} (${statusLabel})${s.reason ? ` — ${s.reason}` : ''}`
-      );
-    });
-    window.open(buildWhatsAppLink(undefined, lines.join('\n')), '_blank', 'noopener,noreferrer');
-  };
-
   const handleAddCalendarEvent = async (ev: Omit<CalendarEventItem, 'id' | 'createdAt'>) => {
     if (ev.visibility === 'private' && user?.id) {
       await createPersonalCalendarEvent(user.id, ev);
@@ -296,10 +400,32 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
     await toggleCalendarEventCompleted(space.id, user?.id || 'me', ev, completed);
   };
 
+  const handleShareSwapLogWhatsApp = () => {
+    const lines = ['📋 סיכום החלפות ותיעוד יומן (MySpace):'];
+    swaps.slice(0, 12).forEach((s) => {
+      const fromName = effectiveConfig.parents[s.fromParent]?.name || s.fromParent;
+      const toName = effectiveConfig.parents[s.toParent]?.name || s.toParent;
+      const statusLabel =
+        s.status === 'approved'
+          ? '✅ אושר'
+          : s.status === 'recorded_solo'
+            ? '📌 תועד'
+            : s.status === 'declined'
+              ? '❌ נדחה'
+              : '⏳ ממתין';
+      lines.push(
+        `• ${s.targetDate}${s.endDate && s.endDate !== s.targetDate ? `–${s.endDate}` : ''}: ${fromName} → ${toName} (${statusLabel})${s.reason ? ` — ${s.reason}` : ''}`
+      );
+    });
+    window.open(buildWhatsAppLink(undefined, lines.join('\n')), '_blank', 'noopener,noreferrer');
+  };
+
   const formatShortDate = (ymd: string) => {
     const d = parseYMD(ymd);
     return `${d.getDate()}.${d.getMonth() + 1}`;
   };
+
+  const onlyPersonalSelected = selectedLayerIds.length === 1 && selectedLayerIds[0] === 'personal';
 
   return (
     <div
@@ -307,10 +433,10 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
       style={{
         display: 'flex',
         flexDirection: 'column',
-        gap: '0.65rem',
-        padding: '0.65rem',
+        gap: '0.45rem',
+        padding: '0.45rem',
         background: 'linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)',
-        borderRadius: '22px',
+        borderRadius: '18px',
         border: '1px solid #e2e8f0',
         marginBottom: '5.5rem',
         position: 'relative',
@@ -320,317 +446,32 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
       {toastMsg && (
         <div
           style={{
-            padding: '0.55rem 0.85rem',
-            borderRadius: '12px',
+            padding: '0.45rem 0.75rem',
+            borderRadius: '11px',
             background: '#0f172a',
             color: '#ffffff',
-            fontSize: '0.8rem',
+            fontSize: '0.78rem',
             fontWeight: 800,
             textAlign: 'center',
-            boxShadow: '0 8px 20px rgba(15,23,42,0.2)',
+            boxShadow: '0 6px 16px rgba(15,23,42,0.2)',
           }}
         >
           {toastMsg}
         </div>
       )}
 
-      {/* RAZOR-CLEAN SINGLE-ROW TOP TOOLBAR — Calendar stays front & center! */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '0.45rem',
-          flexWrap: 'wrap',
-        }}
-      >
-        {/* 3-Resolution Segmented Switcher: Monthly | Weekly | Daily */}
-        <div
-          style={{
-            display: 'inline-flex',
-            background: '#e2e8f0',
-            padding: '3px',
-            borderRadius: '12px',
-            gap: '2px',
-          }}
-        >
-          {(
-            [
-              { id: 'month', label: 'חודשי' },
-              { id: 'week', label: 'שבועי' },
-              { id: 'day', label: 'יומי' },
-            ] as const
-          ).map((r) => {
-            const active = resolution === r.id;
-            return (
-              <button
-                key={r.id}
-                type="button"
-                onClick={() => setResolution(r.id)}
-                style={{
-                  padding: '0.35rem 0.72rem',
-                  borderRadius: '9px',
-                  border: 'none',
-                  background: active ? '#ffffff' : 'transparent',
-                  color: active ? '#1e293b' : '#64748b',
-                  fontWeight: active ? 900 : 700,
-                  fontSize: '0.78rem',
-                  cursor: 'pointer',
-                  boxShadow: active ? '0 2px 6px rgba(15,23,42,0.1)' : 'none',
-                  transition: 'all 0.14s ease',
-                }}
-              >
-                {r.label}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Right Actions: Visual Swap Toggle + Settings Drawer Trigger */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', position: 'relative' }}>
-          <button
-            type="button"
-            onClick={() => {
-              if (visualSwapMode) {
-                exitVisualSwap();
-              } else {
-                setVisualSwapMode(true);
-                setSwapFirstDate(null);
-                setSwapSecondDate(null);
-                if (resolution === 'day') setResolution('month');
-              }
-            }}
-            style={{
-              padding: '0.38rem 0.72rem',
-              borderRadius: '11px',
-              border: visualSwapMode ? '1.5px solid #4f46e5' : '1px solid #c7d2fe',
-              background: visualSwapMode ? 'linear-gradient(135deg, #4f46e5, #2563eb)' : '#eef2ff',
-              color: visualSwapMode ? '#ffffff' : '#4338ca',
-              fontSize: '0.76rem',
-              fontWeight: 900,
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.3rem',
-              boxShadow: visualSwapMode ? '0 3px 10px rgba(79,70,229,0.28)' : 'none',
-            }}
-            title="החלפת ימים ויזואלית ישירות על הלוח"
-          >
-            <span>🔄</span>
-            <span>{visualSwapMode ? 'מצב החלפה פעיל' : 'החלף יום'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setShowSettingsMenu((v) => !v)}
-            style={{
-              position: 'relative',
-              width: '36px',
-              height: '36px',
-              borderRadius: '11px',
-              border: '1px solid #cbd5e1',
-              background: '#ffffff',
-              color: '#0f172a',
-              fontSize: '1.02rem',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 2px 6px rgba(15,23,42,0.05)',
-            }}
-            title="הגדרות לוח השנה ותפריט ניהול"
-          >
-            ⚙️
-            {(pendingSwapsCount > 0 || (loaded && !config)) && (
-              <span
-                style={{
-                  position: 'absolute',
-                  top: '-3px',
-                  left: '-3px',
-                  width: '10px',
-                  height: '10px',
-                  borderRadius: '50%',
-                  background: '#ef4444',
-                  border: '2px solid #ffffff',
-                }}
-              />
-            )}
-          </button>
-
-          {/* Clean Settings & Management Popover Menu */}
-          {showSettingsMenu && (
-            <>
-              <div
-                onClick={() => setShowSettingsMenu(false)}
-                style={{ position: 'fixed', inset: 0, zIndex: 9998 }}
-              />
-              <div
-                style={{
-                  position: 'absolute',
-                  top: '42px',
-                  left: 0,
-                  zIndex: 9999,
-                  width: '245px',
-                  background: '#ffffff',
-                  borderRadius: '16px',
-                  border: '1px solid #cbd5e1',
-                  boxShadow: '0 18px 42px rgba(15,23,42,0.2)',
-                  padding: '0.45rem',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '3px',
-                }}
-              >
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '0.35rem 0.55rem',
-                    borderBottom: '1px solid #f1f5f9',
-                    marginBottom: '2px',
-                  }}
-                >
-                  <span style={{ fontSize: '0.75rem', fontWeight: 900, color: '#334155' }}>
-                    ניהול לוח השנה
-                  </span>
-                  <span
-                    style={{
-                      fontSize: '0.64rem',
-                      background: '#eef2ff',
-                      color: '#4338ca',
-                      borderRadius: '5px',
-                      padding: '1px 5px',
-                      fontWeight: 800,
-                    }}
-                  >
-                    {APP_VERSION}
-                  </span>
-                </div>
-
-                {[
-                  {
-                    icon: '⚙️',
-                    label: 'הגדרות משפחה וימים קבועים',
-                    onClick: () => {
-                      setShowSettingsMenu(false);
-                      setShowSetupModal(true);
-                    },
-                  },
-                  {
-                    icon: '🔄',
-                    label: `יומן החלפות ותיעוד${pendingSwapsCount > 0 ? ` (${pendingSwapsCount})` : ''}`,
-                    onClick: () => {
-                      setShowSettingsMenu(false);
-                      setShowSwapsDrawer(true);
-                    },
-                  },
-                  {
-                    icon: '🏅',
-                    label: 'חוגים, חופשות ותקופות מיוחדות',
-                    onClick: () => {
-                      setShowSettingsMenu(false);
-                      setShowLifeDrawer(true);
-                    },
-                  },
-                  {
-                    icon: '📅',
-                    label: 'החלפה לפי תאריכים (ידני)',
-                    onClick: () => {
-                      setShowSettingsMenu(false);
-                      const res = resolveDayCustody(selectedDate, effectiveConfig, swaps);
-                      setSwapModalState({
-                        fromParent: res.overallParent === 'parent_b' ? 'parent_b' : 'parent_a',
-                        initialDate: selectedDate,
-                      });
-                    },
-                  },
-                ].map((item) => (
-                  <button
-                    key={item.label}
-                    type="button"
-                    onClick={item.onClick}
-                    style={{
-                      padding: '0.55rem 0.65rem',
-                      borderRadius: '10px',
-                      border: 'none',
-                      background: 'transparent',
-                      color: '#0f172a',
-                      fontWeight: 800,
-                      fontSize: '0.8rem',
-                      textAlign: 'right',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.5rem',
-                    }}
-                  >
-                    <span>{item.icon}</span>
-                    <span>{item.label}</span>
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* LAYER FILTER BAR: All | Shared Space | Private Personal Only */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
-        {(
-          [
-            { id: 'all', label: '✨ הכל ביחד' },
-            { id: 'shared', label: `🌐 משותף (${sharedEvents.length})` },
-            { id: 'private', label: `🔒 אישי שלי (${personalEvents.length})` },
-          ] as const
-        ).map((lf) => {
-          const active = layerFilter === lf.id;
-          return (
-            <button
-              key={lf.id}
-              type="button"
-              onClick={() => setLayerFilter(lf.id)}
-              style={{
-                padding: '0.26rem 0.65rem',
-                borderRadius: '999px',
-                border: active
-                  ? lf.id === 'private'
-                    ? '1.5px solid #7c3aed'
-                    : '1.5px solid #2563eb'
-                  : '1px solid #cbd5e1',
-                background: active
-                  ? lf.id === 'private'
-                    ? '#f3e8ff'
-                    : '#eff6ff'
-                  : '#ffffff',
-                color: active
-                  ? lf.id === 'private'
-                    ? '#6d28d9'
-                    : '#1d4ed8'
-                  : '#475569',
-                fontSize: '0.72rem',
-                fontWeight: 800,
-                cursor: 'pointer',
-              }}
-            >
-              {lf.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Subtle 1-Line First-Time Setup Nudge (only if unconfigured — never blocks calendar!) */}
+      {/* Subtle 1-Line First-Time Setup Nudge (only if unconfigured) */}
       {loaded && !config && (
         <button
           type="button"
           onClick={() => setShowSetupModal(true)}
           style={{
-            padding: '0.48rem 0.8rem',
-            borderRadius: '12px',
+            padding: '0.38rem 0.7rem',
+            borderRadius: '10px',
             border: '1.5px solid #c7d2fe',
             background: 'linear-gradient(135deg, #eef2ff, #e0e7ff)',
             color: '#312e81',
-            fontSize: '0.78rem',
+            fontSize: '0.74rem',
             fontWeight: 800,
             cursor: 'pointer',
             display: 'flex',
@@ -643,40 +484,40 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
         </button>
       )}
 
-      {/* VISUAL INTERACTIVE SWAP BANNER (Appears right above the calendar when active!) */}
+      {/* VISUAL INTERACTIVE SWAP BANNER (only visible when Swap Mode is active!) */}
       {visualSwapMode && (
         <div
           style={{
-            padding: '0.7rem 0.85rem',
-            borderRadius: '15px',
+            padding: '0.6rem 0.75rem',
+            borderRadius: '14px',
             background: 'linear-gradient(135deg, #eef2ff 0%, #ecfdf5 100%)',
             border: '2px solid #818cf8',
             display: 'flex',
             flexDirection: 'column',
-            gap: '0.5rem',
-            boxShadow: '0 6px 18px rgba(79,70,229,0.14)',
+            gap: '0.45rem',
+            boxShadow: '0 6px 16px rgba(79,70,229,0.14)',
           }}
         >
-          <div style={{ fontSize: '0.82rem', fontWeight: 900, color: '#1e1b4b' }}>
+          <div style={{ fontSize: '0.8rem', fontWeight: 900, color: '#1e1b4b' }}>
             {!swapFirstDate
               ? '1️⃣ לחץ על היום הראשון על הלוח שרוצים להעביר/להחליף'
               : !swapSecondDate
                 ? `1️⃣ נבחר ${formatShortDate(swapFirstDate)} — עכשיו לחץ על יום תמורה (או אשר העברה חד-פעמית)`
                 : `🔄 החלפה בין ${formatShortDate(swapFirstDate)} לבין ${formatShortDate(swapSecondDate)}`}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
             {swapFirstDate && (
               <button
                 type="button"
                 disabled={visualSwapSaving}
                 onClick={handleConfirmVisualSwap}
                 style={{
-                  padding: '0.42rem 0.85rem',
-                  borderRadius: '10px',
+                  padding: '0.38rem 0.8rem',
+                  borderRadius: '9px',
                   border: 'none',
                   background: 'linear-gradient(135deg, #059669, #10b981)',
                   color: '#ffffff',
-                  fontSize: '0.78rem',
+                  fontSize: '0.76rem',
                   fontWeight: 900,
                   cursor: visualSwapSaving ? 'wait' : 'pointer',
                 }}
@@ -701,12 +542,12 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
                 exitVisualSwap();
               }}
               style={{
-                padding: '0.42rem 0.72rem',
-                borderRadius: '10px',
+                padding: '0.38rem 0.65rem',
+                borderRadius: '9px',
                 border: '1px solid #cbd5e1',
                 background: '#ffffff',
                 color: '#334155',
-                fontSize: '0.74rem',
+                fontSize: '0.72rem',
                 fontWeight: 800,
                 cursor: 'pointer',
               }}
@@ -717,12 +558,12 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
               type="button"
               onClick={exitVisualSwap}
               style={{
-                padding: '0.42rem 0.65rem',
-                borderRadius: '10px',
+                padding: '0.38rem 0.6rem',
+                borderRadius: '9px',
                 border: 'none',
                 background: '#fee2e2',
                 color: '#dc2626',
-                fontSize: '0.74rem',
+                fontSize: '0.72rem',
                 fontWeight: 800,
                 cursor: 'pointer',
               }}
@@ -733,7 +574,7 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
         </div>
       )}
 
-      {/* RESOLUTION 1: MONTHLY VIEW */}
+      {/* RESOLUTION 1: COMPACT FULL-MONTH GRID (ALL 5-6 WEEKS VISIBLE ABOVE FLOATING BAR!) */}
       {resolution === 'month' && (
         <CalendarMonthGrid
           year={viewYear}
@@ -743,6 +584,8 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
           onPrevMonth={handlePrevMonth}
           onNextMonth={handleNextMonth}
           onToday={handleToday}
+          resolution={resolution}
+          onChangeResolution={setResolution}
           config={effectiveConfig}
           events={events}
           swaps={swaps}
@@ -760,6 +603,8 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
           onPrevWeek={() => shiftSelectedDateBy(-7)}
           onNextWeek={() => shiftSelectedDateBy(7)}
           onToday={handleToday}
+          resolution={resolution}
+          onChangeResolution={setResolution}
           config={effectiveConfig}
           events={events}
           swaps={swaps}
@@ -769,93 +614,70 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
         />
       )}
 
-      {/* RESOLUTION 3: DAILY NAVIGATOR */}
+      {/* RESOLUTION 3: DAILY NAVIGATOR + INLINE AGENDA */}
       {resolution === 'day' && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            background: '#ffffff',
-            padding: '0.55rem 0.75rem',
-            borderRadius: '16px',
-            border: '1px solid #e2e8f0',
-            boxShadow: '0 4px 14px rgba(15,23,42,0.05)',
-          }}
-        >
-          <button
-            type="button"
-            onClick={() => shiftSelectedDateBy(-1)}
+        <>
+          <div
             style={{
-              padding: '0.4rem 0.75rem',
-              borderRadius: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '0.35rem',
+              background: '#ffffff',
+              padding: '0.4rem 0.55rem',
+              borderRadius: '14px',
               border: '1px solid #e2e8f0',
-              background: '#f8fafc',
-              color: '#1e293b',
-              fontWeight: 800,
-              fontSize: '0.78rem',
-              cursor: 'pointer',
+              flexWrap: 'wrap',
             }}
           >
-            ◀ יום קודם
-          </button>
-          <button
-            type="button"
-            onClick={handleToday}
-            style={{
-              padding: '0.28rem 0.75rem',
-              borderRadius: '999px',
-              border: '1px solid #c7d2fe',
-              background: '#eef2ff',
-              color: '#4338ca',
-              fontSize: '0.76rem',
-              fontWeight: 900,
-              cursor: 'pointer',
-            }}
-          >
-            היום
-          </button>
-          <button
-            type="button"
-            onClick={() => shiftSelectedDateBy(1)}
-            style={{
-              padding: '0.4rem 0.75rem',
-              borderRadius: '10px',
-              border: '1px solid #e2e8f0',
-              background: '#f8fafc',
-              color: '#1e293b',
-              fontWeight: 800,
-              fontSize: '0.78rem',
-              cursor: 'pointer',
-            }}
-          >
-            יום הבא ▶
-          </button>
-        </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+              <button type="button" onClick={() => shiftSelectedDateBy(-1)} style={{ padding: '0.3rem 0.55rem', borderRadius: '9px', border: '1px solid #e2e8f0', background: '#f8fafc', fontWeight: 800, fontSize: '0.75rem', cursor: 'pointer' }}>◀ קודם</button>
+              <button type="button" onClick={handleToday} style={{ padding: '0.24rem 0.55rem', borderRadius: '999px', border: '1px solid #c7d2fe', background: '#eef2ff', color: '#4338ca', fontSize: '0.72rem', fontWeight: 900, cursor: 'pointer' }}>היום</button>
+              <button type="button" onClick={() => shiftSelectedDateBy(1)} style={{ padding: '0.3rem 0.55rem', borderRadius: '9px', border: '1px solid #e2e8f0', background: '#f8fafc', fontWeight: 800, fontSize: '0.75rem', cursor: 'pointer' }}>הבא ▶</button>
+            </div>
+            <div style={{ display: 'inline-flex', background: '#f1f5f9', padding: '2px', borderRadius: '9px', gap: '2px' }}>
+              {([{ id: 'month', label: 'חודשי' }, { id: 'week', label: 'שבועי' }, { id: 'day', label: 'יומי' }] as const).map((r) => (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => setResolution(r.id)}
+                  style={{
+                    padding: '0.24rem 0.52rem',
+                    borderRadius: '7px',
+                    border: 'none',
+                    background: resolution === r.id ? '#ffffff' : 'transparent',
+                    color: resolution === r.id ? '#0f172a' : '#64748b',
+                    fontWeight: resolution === r.id ? 900 : 700,
+                    fontSize: '0.71rem',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {r.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <CalendarDayDrawer
+            selectedDate={selectedDate}
+            config={effectiveConfig}
+            events={events}
+            swaps={swaps}
+            currentUserId={user?.id || 'me'}
+            defaultVisibility={onlyPersonalSelected ? 'private' : 'shared'}
+            onAddEvent={handleAddCalendarEvent}
+            onDeleteEvent={handleDeleteCalendarEvent}
+            onToggleComplete={handleToggleEventCompleted}
+            onOpenSwapModal={(from) =>
+              setSwapModalState({ fromParent: from, initialDate: selectedDate })
+            }
+            onToggleBagItem={handleToggleBagItem}
+          />
+        </>
       )}
 
-      {/* INLINE DAY AGENDA IN DAILY VIEW (In Month/Week views, tapping ANY day opens the Day Detail Sheet Modal immediately!) */}
-      {resolution === 'day' && (
-        <CalendarDayDrawer
-          selectedDate={selectedDate}
-          config={effectiveConfig}
-          events={events}
-          swaps={swaps}
-          currentUserId={user?.id || 'me'}
-          defaultVisibility={layerFilter === 'private' ? 'private' : 'shared'}
-          onAddEvent={handleAddCalendarEvent}
-          onDeleteEvent={handleDeleteCalendarEvent}
-          onToggleComplete={handleToggleEventCompleted}
-          onOpenSwapModal={(from) =>
-            setSwapModalState({ fromParent: from, initialDate: selectedDate })
-          }
-          onToggleBagItem={handleToggleBagItem}
-        />
-      )}
-
-      {/* DAY DETAIL SHEET MODAL — Opens immediately when tapping ANY day in Month or Week view! */}
+      {/* DAY DETAIL SHEET MODAL — Opens immediately when tapping ANY day or tapping center ➕ FAB! */}
       {showDaySheet &&
-        resolution !== 'day' &&
         typeof document !== 'undefined' &&
         createPortal(
           <div
@@ -896,27 +718,20 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowDaySheet(false)}
-                  style={{
-                    border: 'none',
-                    background: '#e2e8f0',
-                    color: '#0f172a',
-                    width: '30px',
-                    height: '30px',
-                    borderRadius: '50%',
-                    fontWeight: 900,
-                    cursor: 'pointer',
-                  }}
+                  style={{ border: 'none', background: '#e2e8f0', color: '#0f172a', width: '30px', height: '30px', borderRadius: '50%', fontWeight: 900, cursor: 'pointer' }}
                 >
                   ✕
                 </button>
               </div>
               <CalendarDayDrawer
+                key={`${selectedDate}_${daySheetAutoAdd ? 'add' : 'view'}`}
                 selectedDate={selectedDate}
                 config={effectiveConfig}
                 events={events}
                 swaps={swaps}
                 currentUserId={user?.id || 'me'}
-                defaultVisibility={layerFilter === 'private' ? 'private' : 'shared'}
+                defaultVisibility={onlyPersonalSelected ? 'private' : 'shared'}
+                initialShowAddForm={daySheetAutoAdd}
                 onAddEvent={handleAddCalendarEvent}
                 onDeleteEvent={handleDeleteCalendarEvent}
                 onToggleComplete={handleToggleEventCompleted}
@@ -926,6 +741,112 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
                 }}
                 onToggleBagItem={handleToggleBagItem}
               />
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* MULTI-SELECT CALENDAR LAYERS DRAWER (opened from Bottom Bar 📚 שכבות) */}
+      {showLayersDrawer && (
+        <CalendarLayersDrawer
+          layers={layerDescriptors}
+          selectedLayerIds={selectedLayerIds}
+          onToggleLayer={(layerId) =>
+            setSelectedLayerIds((prev) =>
+              prev.includes(layerId)
+                ? prev.length > 1
+                  ? prev.filter((id) => id !== layerId)
+                  : prev
+                : [...prev, layerId]
+            )
+          }
+          onSelectAll={() => setSelectedLayerIds(layerDescriptors.map((l) => l.id))}
+          onSelectOnlyCurrent={() => setSelectedLayerIds(space?.id ? [space.id] : ['personal'])}
+          onClose={() => setShowLayersDrawer(false)}
+        />
+      )}
+
+      {/* SETTINGS & MANAGEMENT ACTION SHEET (opened from Bottom Bar ⚙️ הגדרות) */}
+      {showSettingsSheet &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 999995,
+              background: 'rgba(15, 23, 42, 0.52)',
+              display: 'flex',
+              alignItems: 'flex-end',
+              justifyContent: 'center',
+              padding: '0.6rem',
+            }}
+            onClick={() => setShowSettingsSheet(false)}
+          >
+            <div
+              dir="rtl"
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: '100%',
+                maxWidth: '420px',
+                background: '#ffffff',
+                borderRadius: '22px',
+                padding: '0.9rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.45rem',
+                boxShadow: '0 24px 60px rgba(15,23,42,0.34)',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '0.4rem', borderBottom: '1px solid #e2e8f0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                  <span style={{ fontSize: '0.95rem', fontWeight: 900, color: '#0f172a' }}>⚙️ ניהול והגדרות לוח השנה</span>
+                  <span style={{ fontSize: '0.65rem', background: '#eef2ff', color: '#4338ca', borderRadius: '5px', padding: '1px 6px', fontWeight: 800 }}>
+                    {APP_VERSION}
+                  </span>
+                </div>
+                <button type="button" onClick={() => setShowSettingsSheet(false)} style={{ border: 'none', background: '#f1f5f9', width: '28px', height: '28px', borderRadius: '50%', cursor: 'pointer' }}>✕</button>
+              </div>
+              {[
+                { icon: '⚙️', label: 'הגדרות משפחה, ילדים וימים קבועים', onClick: () => { setShowSettingsSheet(false); setShowSetupModal(true); } },
+                { icon: '🔄', label: `יומן החלפות ותיעוד${pendingSwapsCount > 0 ? ` (${pendingSwapsCount})` : ''}`, onClick: () => { setShowSettingsSheet(false); setShowSwapsDrawer(true); } },
+                { icon: '🏅', label: 'חוגים, חופשות ותקופות מיוחדות', onClick: () => { setShowSettingsSheet(false); setShowLifeDrawer(true); } },
+                {
+                  icon: '📅',
+                  label: 'החלפה לפי תאריכים (ידני / טווח)',
+                  onClick: () => {
+                    setShowSettingsSheet(false);
+                    const res = resolveDayCustody(selectedDate, effectiveConfig, swaps);
+                    setSwapModalState({
+                      fromParent: res.overallParent === 'parent_b' ? 'parent_b' : 'parent_a',
+                      initialDate: selectedDate,
+                    });
+                  },
+                },
+              ].map((item) => (
+                <button
+                  key={item.label}
+                  type="button"
+                  onClick={item.onClick}
+                  style={{
+                    padding: '0.68rem 0.8rem',
+                    borderRadius: '12px',
+                    border: '1px solid #e2e8f0',
+                    background: '#f8fafc',
+                    color: '#0f172a',
+                    fontWeight: 800,
+                    fontSize: '0.84rem',
+                    textAlign: 'right',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.55rem',
+                  }}
+                >
+                  <span>{item.icon}</span>
+                  <span>{item.label}</span>
+                </button>
+              ))}
             </div>
           </div>,
           document.body
@@ -957,125 +878,43 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
         />
       )}
 
-      {/* MODAL 3: SWAPS AUDIT LOG DRAWER (opened from ⚙️ menu) */}
+      {/* MODAL 3: SWAPS AUDIT LOG DRAWER */}
       {showSwapsDrawer &&
         typeof document !== 'undefined' &&
         createPortal(
           <div
-            style={{
-              position: 'fixed',
-              inset: 0,
-              zIndex: 999999,
-              background: 'rgba(15,23,42,0.58)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '0.75rem',
-            }}
+            style={{ position: 'fixed', inset: 0, zIndex: 999999, background: 'rgba(15,23,42,0.58)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.75rem' }}
             onClick={() => setShowSwapsDrawer(false)}
           >
-            <div
-              dir="rtl"
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                width: '100%',
-                maxWidth: '480px',
-                maxHeight: '88dvh',
-                background: '#f8fafc',
-                borderRadius: '20px',
-                overflow: 'hidden',
-                display: 'flex',
-                flexDirection: 'column',
-                boxShadow: '0 24px 60px rgba(0,0,0,0.32)',
-              }}
-            >
-              <div
-                style={{
-                  padding: '0.9rem 1.1rem',
-                  background: '#ffffff',
-                  borderBottom: '1px solid #e2e8f0',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                }}
-              >
-                <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 900, color: '#0f172a' }}>
-                  🔄 יומן החלפות ותיעוד
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => setShowSwapsDrawer(false)}
-                  style={{ border: 'none', background: '#f1f5f9', width: '30px', height: '30px', borderRadius: '50%', cursor: 'pointer' }}
-                >
-                  ✕
-                </button>
+            <div dir="rtl" onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: '480px', maxHeight: '88dvh', background: '#f8fafc', borderRadius: '20px', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 60px rgba(0,0,0,0.32)' }}>
+              <div style={{ padding: '0.9rem 1.1rem', background: '#ffffff', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 900, color: '#0f172a' }}>🔄 יומן החלפות ותיעוד</h3>
+                <button type="button" onClick={() => setShowSwapsDrawer(false)} style={{ border: 'none', background: '#f1f5f9', width: '30px', height: '30px', borderRadius: '50%', cursor: 'pointer' }}>✕</button>
               </div>
               <div style={{ flex: 1, overflowY: 'auto', padding: '0.9rem', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
                 <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap' }}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowSwapsDrawer(false);
-                      setVisualSwapMode(true);
-                    }}
-                    style={{ padding: '0.48rem 0.85rem', borderRadius: '10px', border: 'none', background: '#4f46e5', color: '#fff', fontWeight: 800, fontSize: '0.78rem', cursor: 'pointer' }}
-                  >
-                    👆 החלף ויזואלית על הלוח
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowSwapsDrawer(false);
-                      setSwapModalState({ fromParent: 'parent_a', initialDate: selectedDate });
-                    }}
-                    style={{ padding: '0.48rem 0.85rem', borderRadius: '10px', border: '1px solid #cbd5e1', background: '#fff', color: '#334155', fontWeight: 800, fontSize: '0.78rem', cursor: 'pointer' }}
-                  >
-                    📅 לפי תאריכים ידנית
-                  </button>
+                  <button type="button" onClick={() => { setShowSwapsDrawer(false); setVisualSwapMode(true); }} style={{ padding: '0.48rem 0.85rem', borderRadius: '10px', border: 'none', background: '#4f46e5', color: '#fff', fontWeight: 800, fontSize: '0.78rem', cursor: 'pointer' }}>👆 החלף ויזואלית על הלוח</button>
+                  <button type="button" onClick={() => { setShowSwapsDrawer(false); setSwapModalState({ fromParent: 'parent_a', initialDate: selectedDate }); }} style={{ padding: '0.48rem 0.85rem', borderRadius: '10px', border: '1px solid #cbd5e1', background: '#fff', color: '#334155', fontWeight: 800, fontSize: '0.78rem', cursor: 'pointer' }}>📅 לפי תאריכים ידנית</button>
                   {swaps.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={handleShareSwapLogWhatsApp}
-                      style={{ padding: '0.48rem 0.8rem', borderRadius: '10px', border: '1px solid #86efac', background: '#f0fdf4', color: '#15803d', fontWeight: 800, fontSize: '0.76rem', cursor: 'pointer' }}
-                    >
-                      📤 שתף בוואטסאפ
-                    </button>
+                    <button type="button" onClick={handleShareSwapLogWhatsApp} style={{ padding: '0.48rem 0.8rem', borderRadius: '10px', border: '1px solid #86efac', background: '#f0fdf4', color: '#15803d', fontWeight: 800, fontSize: '0.76rem', cursor: 'pointer' }}>📤 שתף בוואטסאפ</button>
                   )}
                 </div>
-
                 {swaps.length === 0 ? (
-                  <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '14px', border: '1px solid #e2e8f0', textAlign: 'center', color: '#64748b', fontSize: '0.84rem' }}>
-                    אין עדיין החלפות רשומות.
-                  </div>
+                  <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '14px', border: '1px solid #e2e8f0', textAlign: 'center', color: '#64748b', fontSize: '0.84rem' }}>אין עדיין החלפות רשומות.</div>
                 ) : (
                   swaps.map((sw) => {
                     const fromName = effectiveConfig.parents[sw.fromParent]?.name || sw.fromParent;
                     const toName = effectiveConfig.parents[sw.toParent]?.name || sw.toParent;
                     return (
-                      <div
-                        key={sw.id}
-                        style={{
-                          background: '#ffffff',
-                          borderRadius: '14px',
-                          border: sw.status === 'pending' ? '2px solid #f59e0b' : '1px solid #cbd5e1',
-                          padding: '0.75rem',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '0.35rem',
-                        }}
-                      >
+                      <div key={sw.id} style={{ background: '#ffffff', borderRadius: '14px', border: sw.status === 'pending' ? '2px solid #f59e0b' : '1px solid #cbd5e1', padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: '0.84rem', fontWeight: 900, color: '#0f172a' }}>
-                            📅 {sw.targetDate}{sw.endDate && sw.endDate !== sw.targetDate ? ` → ${sw.endDate}` : ''}
-                          </span>
+                          <span style={{ fontSize: '0.84rem', fontWeight: 900, color: '#0f172a' }}>📅 {sw.targetDate}{sw.endDate && sw.endDate !== sw.targetDate ? ` → ${sw.endDate}` : ''}</span>
                           <span style={{ fontSize: '0.72rem', fontWeight: 800, color: sw.status === 'declined' ? '#dc2626' : '#059669' }}>
                             {sw.status === 'approved' ? '✅ אושר' : sw.status === 'recorded_solo' ? '📌 מתועד' : sw.status === 'declined' ? '❌ נדחה' : '⏳ ממתין'}
                           </span>
                         </div>
                         <div style={{ fontSize: '0.78rem', color: '#334155', fontWeight: 700 }}>
-                          {sw.type === 'shift_forward'
-                            ? '🔁 היפוך רצף מכאן והלאה'
-                            : `עובר מ-${fromName} אל ${toName}`}
+                          {sw.type === 'shift_forward' ? '🔁 היפוך רצף מכאן והלאה' : `עובר מ-${fromName} אל ${toName}`}
                           {sw.type === 'two_way' && sw.returnDate ? ` • בתמורה: ${sw.returnDate}` : ''}
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.35rem' }}>
@@ -1097,58 +936,18 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
           document.body
         )}
 
-      {/* MODAL 4: ACTIVITIES, HOLIDAYS & SPECIAL PERIODS DRAWER (opened from ⚙️ menu — zero alimony/expenses!) */}
+      {/* MODAL 4: ACTIVITIES, HOLIDAYS & SPECIAL PERIODS DRAWER */}
       {showLifeDrawer &&
         typeof document !== 'undefined' &&
         createPortal(
           <div
-            style={{
-              position: 'fixed',
-              inset: 0,
-              zIndex: 999999,
-              background: 'rgba(15,23,42,0.58)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '0.75rem',
-            }}
+            style={{ position: 'fixed', inset: 0, zIndex: 999999, background: 'rgba(15,23,42,0.58)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.75rem' }}
             onClick={() => setShowLifeDrawer(false)}
           >
-            <div
-              dir="rtl"
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                width: '100%',
-                maxWidth: '500px',
-                maxHeight: '90dvh',
-                background: '#f8fafc',
-                borderRadius: '20px',
-                overflow: 'hidden',
-                display: 'flex',
-                flexDirection: 'column',
-                boxShadow: '0 24px 60px rgba(0,0,0,0.32)',
-              }}
-            >
-              <div
-                style={{
-                  padding: '0.9rem 1.1rem',
-                  background: '#ffffff',
-                  borderBottom: '1px solid #e2e8f0',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                }}
-              >
-                <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 900, color: '#0f172a' }}>
-                  🏅 חוגים, חופשות ותקופות מיוחדות
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => setShowLifeDrawer(false)}
-                  style={{ border: 'none', background: '#f1f5f9', width: '30px', height: '30px', borderRadius: '50%', cursor: 'pointer' }}
-                >
-                  ✕
-                </button>
+            <div dir="rtl" onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: '500px', maxHeight: '90dvh', background: '#f8fafc', borderRadius: '20px', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 60px rgba(0,0,0,0.32)' }}>
+              <div style={{ padding: '0.9rem 1.1rem', background: '#ffffff', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 900, color: '#0f172a' }}>🏅 חוגים, חופשות ותקופות מיוחדות</h3>
+                <button type="button" onClick={() => setShowLifeDrawer(false)} style={{ border: 'none', background: '#f1f5f9', width: '30px', height: '30px', borderRadius: '50%', cursor: 'pointer' }}>✕</button>
               </div>
               <div style={{ flex: 1, overflowY: 'auto', padding: '0.9rem' }}>
                 <ActivitiesAndAlimonyTab
