@@ -45,7 +45,8 @@ type CalendarResolution = 'month' | 'week' | 'day';
 const LAYER_COLORS = ['#2563eb', '#059669', '#ea580c', '#0891b2', '#ec4899', '#d97706'];
 
 interface SmartCalendarWidgetProps {
-  space: any;
+  /** Optional: omitted when opened from standalone `/calendar` page (works even with ZERO spaces!) */
+  space?: any;
   /** Optional list of all user spaces with smart_calendar enabled for multi-layer viewing (keeps widget 100% decoupled from SpacesContext!) */
   allCalendarSpaces?: any[];
   onOpenFinanceTab?: () => void;
@@ -63,17 +64,45 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
   const [swaps, setSwaps] = useState<SwapRequestItem[]>([]);
   const [loaded, setLoaded] = useState(false);
 
-  // Multi-Select Calendar Layers: defaults to Current Space + Personal Private Layer
-  const [selectedLayerIds, setSelectedLayerIds] = useState<string[]>(() =>
-    space?.id ? ['personal', space.id] : ['personal']
-  );
+  // Normalized list of all available Calendar Spaces (current space always first if provided)
+  const calendarSpaces = useMemo(() => {
+    const raw = Array.isArray(allCalendarSpaces) ? allCalendarSpaces : [];
+    const seen = new Set<string>();
+    const list: any[] = [];
+    if (space?.id) {
+      seen.add(space.id);
+      list.push(space);
+    }
+    raw.forEach((sp) => {
+      if (sp?.id && !seen.has(sp.id)) {
+        seen.add(sp.id);
+        list.push(sp);
+      }
+    });
+    return list;
+  }, [allCalendarSpaces, space]);
 
-  // Ensure current space is selected when switching spaces
+  // Multi-Select Calendar Layers:
+  // - Inside a Space: defaults to Personal + Current Space
+  // - From Standalone `/calendar`: defaults to ALL layers (Master Calendar!)
+  const [selectedLayerIds, setSelectedLayerIds] = useState<string[]>(() => {
+    if (space?.id) return ['personal', space.id];
+    const spaceIds = (Array.isArray(allCalendarSpaces) ? allCalendarSpaces : [])
+      .map((s: any) => s?.id)
+      .filter(Boolean);
+    return ['personal', ...spaceIds];
+  });
+
+  // Auto-sync layers when spaces finish loading on standalone `/calendar` or when switching spaces
+  const initializedStandaloneRef = React.useRef(false);
   useEffect(() => {
     if (space?.id) {
       setSelectedLayerIds((prev) => (prev.includes(space.id) ? prev : [...prev, space.id]));
+    } else if (!initializedStandaloneRef.current && calendarSpaces.length > 0) {
+      initializedStandaloneRef.current = true;
+      setSelectedLayerIds(['personal', ...calendarSpaces.map((s) => s.id)]);
     }
-  }, [space?.id]);
+  }, [space?.id, calendarSpaces]);
 
   const now = new Date();
   const [viewYear, setViewYear] = useState(now.getFullYear());
@@ -108,32 +137,46 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
     setTimeout(() => setToastMsg((cur) => (cur === msg ? null : cur)), 3200);
   };
 
-  // Normalized list of all available Calendar Spaces (current space always included)
-  const calendarSpaces = useMemo(() => {
-    const raw = Array.isArray(allCalendarSpaces) && allCalendarSpaces.length > 0 ? allCalendarSpaces : [space];
-    const seen = new Set<string>();
-    const list: any[] = [];
-    if (space?.id) {
-      seen.add(space.id);
-      list.push(space);
-    }
-    raw.forEach((sp) => {
-      if (sp?.id && !seen.has(sp.id)) {
-        seen.add(sp.id);
-        list.push(sp);
-      }
-    });
-    return list;
-  }, [allCalendarSpaces, space]);
+  // Active space layer driving custody coloring / swaps / settings (works identically from `/calendar` AND `/space/[id]`!)
+  const activeSpaceLayerIds = useMemo(
+    () => selectedLayerIds.filter((id) => id !== 'personal'),
+    [selectedLayerIds]
+  );
+
+  const activeHostSpace = useMemo(() => {
+    if (space?.id && activeSpaceLayerIds.includes(space.id)) return space;
+    const firstCheckedId = activeSpaceLayerIds[0];
+    if (!firstCheckedId) return null;
+    return calendarSpaces.find((s) => s.id === firstCheckedId) || null;
+  }, [space, activeSpaceLayerIds, calendarSpaces]);
+
+  const activeHostSpaceId = activeHostSpace?.id || null;
+
+  // 3-Month Sliding Window around current viewMonth (saves 90%+ Firestore reads, slides seamlessly to any month/year!)
+  const slidingDateRange = useMemo(() => {
+    const startDt = new Date(viewYear, viewMonth - 1, 1, 12);
+    const endDt = new Date(viewYear, viewMonth + 2, 0, 12);
+    return {
+      startDate: toYMD(startDt),
+      endDate: toYMD(endDt),
+    };
+  }, [viewYear, viewMonth]);
 
   const firstPartner = useMemo(() => {
-    const members = (space?.members || []).filter(
+    const members = (activeHostSpace?.members || []).filter(
       (m: any) => m && m.userId && m.userId !== user?.id && m.isActive !== false && m.status !== 'removed'
     );
     return members[0] || null;
-  }, [space?.members, user?.id]);
+  }, [activeHostSpace?.members, user?.id]);
 
   const effectiveConfig: SmartCalendarConfig = useMemo(() => {
+    if (!activeHostSpaceId) {
+      // Pure Personal Calendar Mode (no space layer selected -> clean calendar without parent coloring!)
+      return {
+        ...createDefaultCalendarConfig(user?.realName || 'אני', user?.id),
+        mode: 'general',
+      };
+    }
     if (config) return config;
     return createDefaultCalendarConfig(
       user?.realName || 'אני',
@@ -141,50 +184,58 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
       firstPartner?.name || 'הורה ב׳',
       firstPartner?.userId
     );
-  }, [config, user?.realName, user?.id, firstPartner?.name, firstPartner?.userId]);
+  }, [activeHostSpaceId, config, user?.realName, user?.id, firstPartner?.name, firstPartner?.userId]);
 
-  // Subscribe to current space config + swaps
+  // Subscribe to active host space config + swaps
   useEffect(() => {
-    if (!space?.id) return;
-    const unsubConfig = subscribeCalendarConfig(space.id, (cfg) => {
+    if (!activeHostSpaceId) {
+      setConfig(null);
+      setSwaps([]);
+      setLoaded(true);
+      return;
+    }
+    const unsubConfig = subscribeCalendarConfig(activeHostSpaceId, (cfg) => {
       setConfig(cfg);
       setLoaded(true);
     });
-    const unsubSwaps = subscribeCalendarSwaps(space.id, setSwaps);
+    const unsubSwaps = subscribeCalendarSwaps(activeHostSpaceId, setSwaps);
     return () => {
       unsubConfig();
       unsubSwaps();
     };
-  }, [space?.id]);
+  }, [activeHostSpaceId]);
 
-  // Subscribe to events for EVERY checked space layer (multi-layer calendar support!)
-  const activeSpaceLayerIds = useMemo(
-    () => selectedLayerIds.filter((id) => id !== 'personal'),
-    [selectedLayerIds]
-  );
-
+  // Subscribe to events for EVERY checked space layer (3-month sliding window!)
   useEffect(() => {
     const unsubs: Array<() => void> = [];
     activeSpaceLayerIds.forEach((spId) => {
-      const unsub = subscribeCalendarEvents(spId, (evList) => {
-        setEventsBySpaceId((prev) => ({ ...prev, [spId]: evList }));
-      });
+      const unsub = subscribeCalendarEvents(
+        spId,
+        (evList) => {
+          setEventsBySpaceId((prev) => ({ ...prev, [spId]: evList }));
+        },
+        slidingDateRange
+      );
       unsubs.push(unsub);
     });
     return () => {
       unsubs.forEach((fn) => fn());
     };
-  }, [activeSpaceLayerIds.join(',')]);
+  }, [activeSpaceLayerIds.join(','), slidingDateRange.startDate, slidingDateRange.endDate]);
 
-  // Subscribe to Private Personal Calendar Layer (`users/{uid}/personalCalendarEvents`)
+  // Subscribe to Private Personal Calendar Layer (`users/{uid}/personalCalendarEvents`, 3-month sliding window!)
   useEffect(() => {
     if (!user?.id) {
       setPersonalEvents([]);
       return;
     }
-    const unsubPersonal = subscribePersonalCalendarEvents(user.id, setPersonalEvents);
+    const unsubPersonal = subscribePersonalCalendarEvents(
+      user.id,
+      setPersonalEvents,
+      slidingDateRange
+    );
     return () => unsubPersonal();
-  }, [user?.id]);
+  }, [user?.id, slidingDateRange.startDate, slidingDateRange.endDate]);
 
   // Listen to decoupled Bottom Floating Bar events (Rule 16!)
   useEffect(() => {
@@ -301,15 +352,20 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
   };
 
   const handleSaveConfig = async (next: SmartCalendarConfig) => {
-    await saveCalendarConfig(space.id, next);
+    if (!activeHostSpaceId) {
+      showToast('במצב אישי טהור אין צורך בהגדרת הורות — כדי להוסיף שכבת הורות/מרחב פתח מרחב עם לוח שנה.');
+      return;
+    }
+    await saveCalendarConfig(activeHostSpaceId, next);
     showToast('✅ הגדרות לוח השנה נשמרו והלוח עודכן!');
   };
 
   const handleToggleBagItem = async (bagId: string) => {
+    if (!activeHostSpaceId) return;
     const nextBag = (effectiveConfig.handoverBag || []).map((b) =>
       b.id === bagId ? { ...b, checked: !b.checked } : b
     );
-    await saveCalendarConfig(space.id, { ...effectiveConfig, handoverBag: nextBag });
+    await saveCalendarConfig(activeHostSpaceId, { ...effectiveConfig, handoverBag: nextBag });
   };
 
   const handleCalendarDateTap = (ymd: string) => {
@@ -345,7 +401,10 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
   };
 
   const handleConfirmVisualSwap = async () => {
-    if (!swapFirstDate) return;
+    if (!swapFirstDate || !activeHostSpaceId) {
+      showToast('כדי לבצע החלפת ימים יש לסמן שכבת מרחב הורות ב-📚 שכבות.');
+      return;
+    }
     setVisualSwapSaving(true);
     try {
       const firstRes = resolveDayCustody(swapFirstDate, effectiveConfig, swaps);
@@ -353,7 +412,7 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
       const toParent: ParentRole = fromParent === 'parent_a' ? 'parent_b' : 'parent_a';
       const isTwoWay = Boolean(swapSecondDate);
 
-      await requestCustodySwap(space.id, {
+      await requestCustodySwap(activeHostSpaceId, {
         type: isTwoWay ? 'two_way' : 'one_time',
         targetDate: swapFirstDate,
         endDate: swapFirstDate,
@@ -379,11 +438,11 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
   };
 
   const handleAddCalendarEvent = async (ev: Omit<CalendarEventItem, 'id' | 'createdAt'>) => {
-    if (ev.visibility === 'private' && user?.id) {
-      await createPersonalCalendarEvent(user.id, ev);
+    if ((ev.visibility === 'private' || !activeHostSpaceId) && user?.id) {
+      await createPersonalCalendarEvent(user.id, { ...ev, visibility: 'private' });
       showToast('🔒 נשמר ביומן האישי שלך בלבד!');
-    } else {
-      await createCalendarEvent(space.id, ev);
+    } else if (activeHostSpaceId) {
+      await createCalendarEvent(activeHostSpaceId, ev);
       showToast('🌐 נשמר ביומן המשותף של המרחב!');
     }
   };
@@ -391,13 +450,13 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
   const handleDeleteCalendarEvent = async (ev: CalendarEventItem) => {
     if (ev.visibility === 'private' && user?.id) {
       await deletePersonalCalendarEvent(user.id, ev.id);
-    } else {
-      await deleteCalendarEvent(space.id, ev.id);
+    } else if (activeHostSpaceId) {
+      await deleteCalendarEvent(activeHostSpaceId, ev.id);
     }
   };
 
   const handleToggleEventCompleted = async (ev: CalendarEventItem, completed: boolean) => {
-    await toggleCalendarEventCompleted(space.id, user?.id || 'me', ev, completed);
+    await toggleCalendarEventCompleted(activeHostSpaceId || '', user?.id || 'me', ev, completed);
   };
 
   const handleShareSwapLogWhatsApp = () => {
@@ -460,8 +519,8 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
         </div>
       )}
 
-      {/* Subtle 1-Line First-Time Setup Nudge (only if unconfigured) */}
-      {loaded && !config && (
+      {/* Subtle 1-Line First-Time Setup Nudge (only if activeHostSpaceId exists and is unconfigured) */}
+      {loaded && activeHostSpaceId && !config && (
         <button
           type="button"
           onClick={() => setShowSetupModal(true)}
@@ -872,7 +931,8 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
           currentUserName={user?.realName || 'הורה'}
           onClose={() => setSwapModalState(null)}
           onSubmit={async (payload) => {
-            await requestCustodySwap(space.id, payload);
+            if (!activeHostSpaceId) return;
+            await requestCustodySwap(activeHostSpaceId, payload);
             showToast('🔄 ההחלפה נשמרה ועודכנה בלוח!');
           }}
         />
@@ -920,11 +980,11 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.35rem' }}>
                           {sw.status === 'pending' && (
                             <>
-                              <button type="button" onClick={() => respondToCustodySwap(space.id, sw.id, 'approved', user?.id || 'me')} style={{ padding: '0.28rem 0.65rem', borderRadius: '8px', border: 'none', background: '#10b981', color: '#fff', fontSize: '0.72rem', fontWeight: 800, cursor: 'pointer' }}>✅ אשר</button>
-                              <button type="button" onClick={() => respondToCustodySwap(space.id, sw.id, 'declined', user?.id || 'me')} style={{ padding: '0.28rem 0.65rem', borderRadius: '8px', border: 'none', background: '#ef4444', color: '#fff', fontSize: '0.72rem', fontWeight: 800, cursor: 'pointer' }}>❌ סרב</button>
+                              <button type="button" onClick={() => activeHostSpaceId && respondToCustodySwap(activeHostSpaceId, sw.id, 'approved', user?.id || 'me')} style={{ padding: '0.28rem 0.65rem', borderRadius: '8px', border: 'none', background: '#10b981', color: '#fff', fontSize: '0.72rem', fontWeight: 800, cursor: 'pointer' }}>✅ אשר</button>
+                              <button type="button" onClick={() => activeHostSpaceId && respondToCustodySwap(activeHostSpaceId, sw.id, 'declined', user?.id || 'me')} style={{ padding: '0.28rem 0.65rem', borderRadius: '8px', border: 'none', background: '#ef4444', color: '#fff', fontSize: '0.72rem', fontWeight: 800, cursor: 'pointer' }}>❌ סרב</button>
                             </>
                           )}
-                          <button type="button" onClick={() => deleteSwapRequest(space.id, sw.id)} style={{ padding: '0.28rem 0.55rem', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#fff', color: '#64748b', fontSize: '0.72rem', cursor: 'pointer' }}>מחק</button>
+                          <button type="button" onClick={() => activeHostSpaceId && deleteSwapRequest(activeHostSpaceId, sw.id)} style={{ padding: '0.28rem 0.55rem', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#fff', color: '#64748b', fontSize: '0.72rem', cursor: 'pointer' }}>מחק</button>
                         </div>
                       </div>
                     );

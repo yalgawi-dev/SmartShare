@@ -14,9 +14,16 @@ import {
   deleteDoc,
   doc,
   onSnapshot,
+  query,
   setDoc,
   updateDoc,
+  where,
 } from 'firebase/firestore';
+
+export interface CalendarDateRange {
+  startDate: string; // YYYY-MM-DD
+  endDate: string;   // YYYY-MM-DD
+}
 import {
   CalendarEventItem,
   SchoolBreakItem,
@@ -48,11 +55,16 @@ export function subscribeCalendarConfig(
 
 export function subscribeCalendarEvents(
   spaceId: string,
-  onUpdate: (events: CalendarEventItem[]) => void
+  onUpdate: (events: CalendarEventItem[]) => void,
+  dateRange?: CalendarDateRange
 ): () => void {
   const colRef = collection(db, 'spaces', spaceId, 'smartCalendarEvents');
+  const targetQuery =
+    dateRange?.startDate && dateRange?.endDate
+      ? query(colRef, where('date', '>=', dateRange.startDate), where('date', '<=', dateRange.endDate))
+      : colRef;
   return onSnapshot(
-    colRef,
+    targetQuery,
     (snap) => {
       const items: CalendarEventItem[] = [];
       snap.forEach((d) => items.push({ id: d.id, ...(d.data() as Omit<CalendarEventItem, 'id'>) }));
@@ -127,11 +139,16 @@ export async function deleteCalendarEvent(spaceId: string, eventId: string): Pro
 
 export function subscribePersonalCalendarEvents(
   userId: string,
-  onUpdate: (events: CalendarEventItem[]) => void
+  onUpdate: (events: CalendarEventItem[]) => void,
+  dateRange?: CalendarDateRange
 ): () => void {
   const colRef = collection(db, 'users', userId, 'personalCalendarEvents');
+  const targetQuery =
+    dateRange?.startDate && dateRange?.endDate
+      ? query(colRef, where('date', '>=', dateRange.startDate), where('date', '<=', dateRange.endDate))
+      : colRef;
   return onSnapshot(
-    colRef,
+    targetQuery,
     (snap) => {
       const items: CalendarEventItem[] = [];
       snap.forEach((d) =>

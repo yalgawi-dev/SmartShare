@@ -352,7 +352,27 @@ export default function Dashboard() {
           <InstallAppHeaderButton />
           
           <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-card)', borderRadius: '24px', border: '1px solid var(--border-light)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)', padding: '0.15rem 0.25rem', gap: '0.15rem' }}>
-            
+            <Link
+              href="/calendar"
+              style={{
+                padding: '0.32rem 0.55rem',
+                background: 'linear-gradient(135deg, #eef2ff, #dbeafe)',
+                color: '#3730a3',
+                border: '1px solid #c7d2fe',
+                borderRadius: '999px',
+                textDecoration: 'none',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.25rem',
+                fontSize: '0.76rem',
+                fontWeight: 900,
+                whiteSpace: 'nowrap',
+              }}
+              title="פתח את היומן המאוחד שלי (אישי + כל השכבות)"
+            >
+              <span>📅</span>
+              <span>יומן</span>
+            </Link>
             <button onClick={() => setShowShareModal(true)} style={{ padding: '0.4rem', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', transition: 'all 0.2s', borderRadius: '50%' }} title="שתף אפליקציה" onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
             </button>
