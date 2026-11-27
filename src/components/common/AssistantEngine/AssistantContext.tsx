@@ -1135,11 +1135,11 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
       currentDom = afterDom;
 
-      // Show live progress while running Ultra-Slim Follow-Up API call (~85% fewer tokens!)
+      // Show clean live progress while running Ultra-Slim Follow-Up API call (never narrate internal button clicks!)
       setMessages(prev =>
         prev.map(m =>
           m.id === msgId
-            ? { ...m, text: `${finalAnswer}\n⏳ ממשיך לשלב ${stepNum + 1} מתוך ${MAX_AUTONOMOUS_STEPS}...` }
+            ? { ...m, text: `⏳ מבצעת את המשימה (שלב ${stepNum + 1})...` }
             : m
         )
       );

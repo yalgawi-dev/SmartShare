@@ -126,7 +126,8 @@ ${JSON.stringify(activeToolsList.filter((t: any) => String(t?.name || '').starts
    - אם מטרת המשתמש הייתה **יצירה / הוספה / שמירה / שליחה** (ולא בקשה להישאר לצפייה בתוך חלון), ואימתת ב-visibleScreenText שהפריט אכן נשמר והופיע בהצלחה, אך עדיין פתוח על המסך מודאל/חלון קופץ (openModalsOrBanners לא ריק או שיש כפתור "סגור חלון (×)" / "סגור" / "Close" עם inModal: true) — לחץ על כפתור הסגירה של המודאל עם ui_click_element ו-"continueExploring": false (וב-answer דווח בקצרה שהפעולה נשמרה בהצלחה וסגרת את החלון) כדי להשאיר למשתמש מסך נקי ומסודר!
    - אם כבר אין מודאלים פתוחים (או שהמשתמש ביקש במפורש "תפתחי / תראי לי" את החלון) והמטרה הושלמה — החזר proposedAction: null, continueExploring: false, וענה ב-answer תשובה אמיתית, מדויקת וברורה בעברית נקייה (ללא כוכביות) על סמך מה שמופיע בפועל ב-visibleScreenText.
 3. לעולם אל תמציא agentId! השתמש רק ב-agentId קיים מתוך interactiveElements.
-4. אל תנחש מידע שלא מופיע ב-visibleScreenText. אם הפריט באמת לא קיים גם כאן, החזר proposedAction: null, continueExploring: false והסבר בקצרה בעברית נקייה (ללא כוכביות).
+4. חוק שפה אנושית בלבד (ללא קריינות לחיצות!): לעולם אל תכתוב למשתמש "אני לוחצת על כפתור X" או "פתחתי את הטופס וכעת אלחץ...". בצעדי ביניים (כש-"continueExploring": true) כתוב ב-answer מילים ספורות בלבד כמו "מבצעת..." ובצעד הסופי דווח אך ורק על התוצאה הסופית בשפה אנושית וטבעית!
+5. אל תנחש מידע שלא מופיע ב-visibleScreenText. אם הפריט באמת לא קיים גם כאן, החזר proposedAction: null, continueExploring: false והסבר בקצרה בעברית נקייה (ללא כוכביות).
 
 פורמט JSON תקני בלבד:
 {
@@ -249,7 +250,7 @@ ${formattedHistory}`;
           contents: [{ role: 'user', parts: [{ text: `${systemPrompt}\n\nשאלת המשתמש: ${securityCheck.sanitizedText}` }] }],
           generationConfig: {
             temperature: 0.1,
-            maxOutputTokens: 900,
+            maxOutputTokens: 1200,
             responseMimeType: 'application/json'
           }
         })
@@ -283,14 +284,41 @@ ${formattedHistory}`;
       return NextResponse.json({ error: 'Empty AI response', reason: 'gemini_empty' }, { status: 502 });
     }
 
-    let parsedAnswer = rawText;
+    let parsedAnswer = '';
     let proposedAction: any = null;
     let proposedPlan: any = null;
     let continueExploring = false;
 
+    const tryParseModelJson = (text: string): any | null => {
+      const stripped = text.replace(/^```json\s*/i, '').replace(/```$/i, '').trim();
+      const firstBrace = stripped.indexOf('{');
+      const lastBrace = stripped.lastIndexOf('}');
+      const candidate = firstBrace >= 0 ? stripped.slice(firstBrace, lastBrace > firstBrace ? lastBrace + 1 : undefined) : stripped;
+
+      const attempts = [
+        candidate,
+        // Repair trailing commas before } or ]
+        candidate.replace(/,\s*([}\]])/g, '$1'),
+        // Repair truncated JSON missing 1-2 closing braces
+        `${candidate.replace(/,\s*$/, '')}}`,
+        `${candidate.replace(/,\s*$/, '')}}}`,
+      ];
+      for (const attempt of attempts) {
+        try {
+          const obj = JSON.parse(attempt);
+          if (obj && typeof obj === 'object') return obj;
+        } catch {
+          // Try next repair strategy
+        }
+      }
+      return null;
+    };
+
     try {
-      const cleanedJson = rawText.replace(/^```json\s*/i, '').replace(/```$/i, '').trim();
-      const parsed = JSON.parse(cleanedJson);
+      const parsed = tryParseModelJson(rawText);
+      if (!parsed) {
+        throw new Error('json_parse_failed');
+      }
       if (typeof parsed?.answer === 'string' && parsed.answer.trim()) {
         parsedAnswer = parsed.answer.trim();
       }
@@ -350,8 +378,20 @@ ${formattedHistory}`;
         }
       }
     } catch {
-      // Graceful fallback if model returned plain text
-      parsedAnswer = rawText;
+      // NEVER leak raw JSON to the user! Extract "answer" string if present, else return clean human retry message.
+      const looksLikeJson = rawText.trim().startsWith('{') || rawText.includes('"proposedAction"') || rawText.includes('"continueExploring"');
+      if (looksLikeJson) {
+        const ansMatch = rawText.match(/"answer"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+        parsedAnswer = ansMatch?.[1]
+          ? ansMatch[1].replace(/\\"/g, '"').replace(/\\n/g, '\n')
+          : 'הייתה שגיאת עיבוד רגעית — אנא נסה לשלוח שוב את הבקשה.';
+      } else {
+        parsedAnswer = rawText;
+      }
+    }
+
+    if (!parsedAnswer) {
+      parsedAnswer = 'מבצעת את הבקשה...';
     }
 
     const answer = filterAssistantResponse(parsedAnswer);
