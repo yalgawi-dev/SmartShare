@@ -1077,8 +1077,20 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         )
       );
 
-      // Stop if action failed, AI did not ask to continue exploring, or we reached step 3 cap
-      if (!execRes.success || !aiResult.continueExploring || stepNum >= MAX_AUTONOMOUS_STEPS) {
+      // Stop if action failed or we reached step cap.
+      // UNIVERSAL SELF-READ GUARD: If the user asked to read/report/summarize content AND we just clicked a UI element,
+      // force 1 follow-up verification step so the agent reads the newly opened screen's `visibleScreenText` instead of stopping early!
+      const userAskedToReadContent =
+        /מה\s+|כמה\s+|תגידי|תגיד|תקריא|תעקרי|תקריאי|ספר|רשימת|סיכום|what\s+|how\s+many|tell\s+me|read\s+/i.test(
+          sanitizedText
+        );
+      const shouldAutoContinueToRead =
+        execRes.success &&
+        stepNum < MAX_AUTONOMOUS_STEPS &&
+        (Boolean(aiResult.continueExploring) ||
+          (userAskedToReadContent && proposal.tool === 'ui_click_element'));
+
+      if (!shouldAutoContinueToRead) {
         break;
       }
 
