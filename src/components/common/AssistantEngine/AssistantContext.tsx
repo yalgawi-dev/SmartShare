@@ -1022,7 +1022,10 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setMessages(prev => [...prev, assistantMsg]);
     }
 
-    // Autonomous Multi-Step Loop (Hard-capped at MAX_AUTONOMOUS_STEPS = 6, zero user intervention for safe steps!)
+    // Autonomous Multi-Step Closed-Loop OODA Execution + Self-Healing Recovery Supervisor
+    const MAX_SELF_HEAL_RETRIES = 2;
+    let selfHealRetries = 0;
+
     for (let stepNum = 1; stepNum <= MAX_AUTONOMOUS_STEPS; stepNum++) {
       if (!proposal || proposal.requiresConfirmation) break;
 
@@ -1071,12 +1074,73 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       );
 
       const execRes = await executeApprovedAgentAction(proposal, execCtx);
-      completedSteps.push(humanDesc);
-      if (execRes.success && clickedEl?.label) {
-        executedClickLabels.push(clickedEl.label);
+      if (execRes.success) {
+        completedSteps.push(humanDesc);
+        if (clickedEl?.label) {
+          executedClickLabels.push(clickedEl.label);
+        }
+        selfHealRetries = 0; // Reset recovery counter on any successful progress
+        stepRecord.status = 'done';
+        stepRecord.detail = execRes.message;
+      } else {
+        // General-Purpose Closed-Loop Self-Healing Recovery (works on ANY failure & ANY web app!):
+        // Instead of immediately aborting with a red error card, re-scan live DOM and let the AI re-plan cleanly!
+        if (selfHealRetries < MAX_SELF_HEAL_RETRIES && stepNum < MAX_AUTONOMOUS_STEPS) {
+          selfHealRetries++;
+          // Remove failed transient step from user-facing timeline while recovering silently
+          timelineSteps.pop();
+          await new Promise((r) => setTimeout(r, 260));
+          const recoveredDom = inspectLiveScreenDOM();
+          currentDom = recoveredDom;
+
+          setMessages(prev =>
+            prev.map(m =>
+              m.id === msgId
+                ? { ...m, text: '⏳ מתאימה מסלול וממשיכה לבצע...', executionSteps: [...timelineSteps] }
+                : m
+            )
+          );
+
+          aiResult = await queryAIAssistant(
+            sanitizedText,
+            screenContext,
+            providerConfig,
+            undefined,
+            undefined,
+            {
+              stepNumber: stepNum + 1,
+              completedSteps,
+              liveScreenDOM: { ...recoveredDom, visibleButtonsAndActions: [] },
+              availableActionTools: liveData.availableActionTools,
+              lastError: { attemptedAction: humanDesc, reason: execRes.message }
+            }
+          );
+          recordTelemetry(aiResult);
+          finalAnswer = filterAssistantResponse(aiResult.text);
+          proposal = enforceDestructiveGuard(aiResult.proposedAction || null, currentDom);
+
+          setMessages(prev =>
+            prev.map(m =>
+              m.id === msgId
+                ? {
+                    ...m,
+                    text: finalAnswer,
+                    proposedAction: proposal,
+                    actionStatus: proposal
+                      ? (proposal.requiresConfirmation ? 'pending' : 'executing')
+                      : 'executed',
+                    executionSteps: [...timelineSteps]
+                  }
+                : m
+            )
+          );
+          continue;
+        }
+
+        // Exhausted recovery retries: report failure honestly (Rule 9 — Zero Fake Success)
+        stepRecord.status = 'failed';
+        stepRecord.detail = execRes.message;
       }
-      stepRecord.status = execRes.success ? 'done' : 'failed';
-      stepRecord.detail = execRes.message;
 
       setMessages(prev =>
         prev.map(m =>

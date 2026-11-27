@@ -38,6 +38,8 @@ export interface AutonomousFollowUpPayload {
   completedSteps: string[];
   liveScreenDOM: LiveAssistantToolPayload['liveScreenDOM'];
   availableActionTools: LiveAssistantToolPayload['availableActionTools'];
+  /** Universal Closed-Loop Recovery diagnostic when the previous action failed */
+  lastError?: { attemptedAction: string; reason: string };
 }
 
 /**

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
+import { useSpeechToText } from '@/hooks/useSpeechToText';
 
 export interface StationNotesEditorProps {
   value: string;
@@ -35,12 +36,19 @@ export default function StationNotesEditor({
 }: StationNotesEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const [isExpanded, setIsExpanded] = useState(false);
-  const [isListening, setIsListening] = useState(false);
-  const [speechSupported, setSpeechSupported] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showHighlighterPicker, setShowHighlighterPicker] = useState(false);
-  const recognitionRef = useRef<any>(null);
-  const lastProcessedIndexRef = useRef<number>(0);
+
+  const {
+    isListening,
+    isSupported: speechSupported,
+    toggleListening: toggleSpeechEngine,
+  } = useSpeechToText({
+    lang: 'he-IL',
+    continuous: true,
+    onTranscript: (finalPhrase) => insertTextAtCursor(`${finalPhrase} `),
+    onError: (msg) => alert(msg),
+  });
 
   // Sync incoming value to editor content if changed externally
   useEffect(() => {
@@ -51,75 +59,15 @@ export default function StationNotesEditor({
     }
   }, [value]);
 
-  // Setup Web Speech API for Hebrew Speech-to-Text with strict duplication prevention
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (SpeechRecognition) {
-        setSpeechSupported(true);
-        const recognition = new SpeechRecognition();
-        recognition.continuous = true;
-        recognition.interimResults = false; // Only accept finalized phrases to prevent repeated duplicate echoes
-        recognition.lang = 'he-IL';
-
-        recognition.onresult = (event: any) => {
-          for (let i = lastProcessedIndexRef.current; i < event.results.length; ++i) {
-            if (event.results[i].isFinal) {
-              const text = event.results[i][0].transcript.trim();
-              if (text) {
-                insertTextAtCursor(text + ' ');
-              }
-              lastProcessedIndexRef.current = i + 1;
-            }
-          }
-        };
-
-        recognition.onerror = (e: any) => {
-          console.warn('Speech recognition error:', e.error);
-          setIsListening(false);
-        };
-
-        recognition.onend = () => {
-          setIsListening(false);
-          lastProcessedIndexRef.current = 0;
-        };
-
-        recognitionRef.current = recognition;
-      }
-    }
-
-    return () => {
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.stop();
-        } catch (e) {}
-      }
-    };
-  }, []);
-
   const toggleListening = () => {
-    if (!speechSupported || !recognitionRef.current) {
+    if (!speechSupported) {
       alert('זיהוי קולי אינו נתמך בדפדפן זה. מומלץ להשתמש ב-Google Chrome או Safari.');
       return;
     }
-
-    if (isListening) {
-      recognitionRef.current.stop();
-      setIsListening(false);
-      lastProcessedIndexRef.current = 0;
-    } else {
-      try {
-        lastProcessedIndexRef.current = 0;
-        recognitionRef.current.start();
-        setIsListening(true);
-        if (editorRef.current) {
-          editorRef.current.focus();
-        }
-      } catch (err) {
-        console.error('Failed to start speech recognition', err);
-        setIsListening(false);
-      }
+    if (!isListening && editorRef.current) {
+      editorRef.current.focus();
     }
+    toggleSpeechEngine();
   };
 
   const executeCommand = (command: string, arg: string | undefined = undefined) => {

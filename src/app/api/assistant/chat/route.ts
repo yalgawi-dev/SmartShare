@@ -105,6 +105,7 @@ export async function POST(request: Request) {
       ? `אתה הסוכן האוטונומי האוניברסלי של האפליקציה (שלב ${followUp.stepNumber} מתוך 6 בלולאת ביצוע ואימות עצמי).
 מטרת המשתמש המקורית: ${securityCheck.sanitizedText}
 צעדים שכבר בוצעו בהצלחה: ${JSON.stringify(followUp.completedSteps || [])}
+${followUp.lastError ? `[התאוששות אוטונומית משגיאה — תקן מסלול והמשך עצמאית!]:\nהניסיון לבצע "${followUp.lastError.attemptedAction}" נכשל מהסיבה: "${followUp.lastError.reason}".\nסרקנו את המסך החי מחדש למטה. בחן את המצב האמיתי (urlPath, visibleHeadings, interactiveElements, openModalsOrBanners), תקן את הבעיה ובחר את הצעד הנכון הבא באמצעות agentId קיים בלבד (או בדוק אם אתה כבר במסך היעד)!` : ''}
 סריקת המסך החי כרגע (כולל interactiveElements, openModalsOrBanners וגם visibleScreenText — הטקסט האמיתי שגלוי כרגע על המסך!):
 ${JSON.stringify(followUp.liveScreenDOM || {})}
 

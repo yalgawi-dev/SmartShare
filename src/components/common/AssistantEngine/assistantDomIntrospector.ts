@@ -133,14 +133,36 @@ export function inspectLiveScreenDOM(options?: { assignIds?: boolean }): LiveScr
     if (txt && txt.length >= 2) headingSet.add(txt);
   });
 
-  // 2. Visible Buttons, Tabs, Links & Safe Form Inputs (modal elements prioritized first!)
+  // 2. Visible Buttons, Tabs, Links & Safe Form Inputs — 3 Universal Structural Priority Buckets:
+  //    Bucket 1: Active Modals/Dialogs (highest priority)
+  //    Bucket 2: Global Navigation & Fixed/Sticky Action Bars (<nav>, <header>, <footer>, position:fixed/sticky)
+  //    Bucket 3: Main Page Body Content
+  //    Guarantees bottom tab bars & floating action bars are NEVER cut off by long card feeds on ANY app!
   const actionSet = new Set<string>();
   const modalElements: InteractiveDomElement[] = [];
+  const navElements: InteractiveDomElement[] = [];
   const pageElements: InteractiveDomElement[] = [];
   let counter = 1;
 
   const selector =
     'button, [role="button"], [role="tab"], a[href], input[type="text"], input[type="search"], input[type="tel"], input[type="email"], input[type="number"], input[type="date"], input[type="time"], input[type="checkbox"], textarea, select';
+
+  const isInsideNavOrFixedBar = (el: Element): boolean => {
+    if (el.closest('nav, header, footer, [role="navigation"], [role="menubar"], [role="toolbar"]')) {
+      return true;
+    }
+    let cur: HTMLElement | null = el as HTMLElement;
+    let depth = 0;
+    while (cur && cur !== document.body && depth < 7) {
+      const style = window.getComputedStyle(cur);
+      if (style.position === 'fixed' || style.position === 'sticky') {
+        return true;
+      }
+      cur = cur.parentElement;
+      depth++;
+    }
+    return false;
+  };
 
   const isInsideOpenModal = (el: Element): boolean => {
     if (el.closest('[role="dialog"], [aria-modal="true"]')) return true;
@@ -206,10 +228,12 @@ export function inspectLiveScreenDOM(options?: { assignIds?: boolean }): LiveScr
     const htmlEl = el as HTMLElement;
     const tagName = el.tagName.toLowerCase();
     const inModal = isInsideOpenModal(el);
-    // Cap modal & background page SEPARATELY so portal modals at the end of document.body are NEVER cut off by background page buttons!
-    if (inModal && modalElements.length >= 45) return;
-    if (!inModal && pageElements.length >= 45) return;
-    const targetBucket = inModal ? modalElements : pageElements;
+    const inNavBar = !inModal && isInsideNavOrFixedBar(el);
+    // Cap each structural bucket separately so modals AND bottom/top fixed nav bars are NEVER cut off by long lists!
+    if (inModal && modalElements.length >= 35) return;
+    if (inNavBar && navElements.length >= 20) return;
+    if (!inModal && !inNavBar && pageElements.length >= 40) return;
+    const targetBucket = inModal ? modalElements : inNavBar ? navElements : pageElements;
 
     if (tagName === 'input') {
       const inp = el as HTMLInputElement;
@@ -352,8 +376,8 @@ export function inspectLiveScreenDOM(options?: { assignIds?: boolean }): LiveScr
     });
   });
 
-  // Prioritize modal elements first so the agent focuses immediately on any open dialog form
-  const interactiveElements = [...modalElements, ...pageElements].slice(0, 45);
+  // Priority order: 1. Open Modals -> 2. Fixed/Sticky Navigation & Action Bars -> 3. Main Page Content
+  const interactiveElements = [...modalElements, ...navElements, ...pageElements].slice(0, 60);
 
   // 3. Open Modals or Dialogs (ARIA dialogs + universal CSS-fixed full-screen modal overlays!)
   const modalSet = new Set<string>();

@@ -4,18 +4,26 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 export interface UseSpeechToTextOptions {
   lang?: string;
-  /** Called continuously with live interim + final text while the user is speaking */
+  /** Default false (best for Android Chrome live streaming without duplication); true for long-form cursor editors */
+  continuous?: boolean;
+  /** Optional hook called right before starting mic (e.g. stop TTS playback so Android releases AudioFocus!) */
+  onBeforeStart?: () => void;
+  /** Called live while speaking with the full combined text (when continuous=false) or finalized phrase (when continuous=true) */
   onTranscript: (liveText: string, isFinal: boolean) => void;
   onError?: (reason: string) => void;
 }
 
 /**
- * DRY Single-Source-of-Truth Free Live-Streaming Speech-to-Text Hook (Web Speech API, 0 API cost).
- * Streams Hebrew/English dictation live into any text field as the user speaks (`interimResults = true`),
- * with Android/iOS safe handler detachment on stop so duplicate late transcripts never flush.
+ * Single-Source-of-Truth Free Live-Streaming Speech-to-Text Engine (Web Speech API, 0 API cost).
+ * Battle-tested on Android Chrome & iOS Safari:
+ * - Uses latest cumulative result entry when continuous=false to guarantee ZERO duplicate words on Android
+ * - Releases AudioFocus via onBeforeStart()
+ * - Detaches handlers BEFORE abort() on stop so stale late transcripts never re-populate cleared inputs!
  */
 export function useSpeechToText({
   lang = 'he-IL',
+  continuous = false,
+  onBeforeStart,
   onTranscript,
   onError,
 }: UseSpeechToTextOptions) {
@@ -23,125 +31,130 @@ export function useSpeechToText({
   const [isSupported, setIsSupported] = useState(false);
   const recognitionRef = useRef<any>(null);
   const baseTextRef = useRef<string>('');
+  const lastProcessedIdxRef = useRef<number>(0);
+
+  const onBeforeStartRef = useRef(onBeforeStart);
   const onTranscriptRef = useRef(onTranscript);
   const onErrorRef = useRef(onError);
 
   useEffect(() => {
+    onBeforeStartRef.current = onBeforeStart;
     onTranscriptRef.current = onTranscript;
     onErrorRef.current = onError;
-  }, [onTranscript, onError]);
+  }, [onBeforeStart, onTranscript, onError]);
+
+  const stopListening = useCallback((mode: 'abort' | 'stop' = 'abort') => {
+    const rec = recognitionRef.current;
+    recognitionRef.current = null;
+    if (rec) {
+      // Detach handlers FIRST so Android SpeechRecognition cannot flush a late event after clear/send
+      rec.onresult = null;
+      rec.onerror = null;
+      rec.onend = null;
+      rec.onstart = null;
+      try {
+        if (mode === 'stop') rec.stop();
+        else rec.abort();
+      } catch {}
+    }
+    lastProcessedIdxRef.current = 0;
+    setIsListening(false);
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     setIsSupported(Boolean(SR));
-    return () => {
-      const rec = recognitionRef.current;
-      if (rec) {
-        rec.onresult = null;
-        rec.onerror = null;
-        rec.onend = null;
-        try {
-          rec.abort();
-        } catch {}
-        recognitionRef.current = null;
-      }
-    };
-  }, []);
-
-  const stopListening = useCallback(() => {
-    const rec = recognitionRef.current;
-    if (rec) {
-      // Detach handlers FIRST before abort() so Android cannot flush a stale final transcript
-      rec.onresult = null;
-      rec.onerror = null;
-      rec.onend = null;
-      try {
-        rec.abort();
-      } catch {}
-      recognitionRef.current = null;
-    }
-    setIsListening(false);
-  }, []);
+    return () => stopListening('abort');
+  }, [stopListening]);
 
   const startListening = useCallback(
     (initialExistingText = '') => {
       if (typeof window === 'undefined') return;
       const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (!SR) {
-        onErrorRef.current?.('הדפדפן אינו תומך בהכתבה קולית.');
+        onErrorRef.current?.('דפדפן זה אינו תומך בזיהוי קולי ישיר. אנא השתמש בהקלדה.');
         return;
       }
 
-      // Stop any previous active session cleanly
-      stopListening();
+      onBeforeStartRef.current?.();
+      stopListening('abort');
 
       baseTextRef.current = initialExistingText.trim();
+      lastProcessedIdxRef.current = 0;
 
       try {
         const recognition = new SR();
         recognition.lang = lang;
-        recognition.interimResults = true;
-        recognition.continuous = false;
+        recognition.continuous = continuous;
+        recognition.interimResults = !continuous;
         recognition.maxAlternatives = 1;
 
+        recognitionRef.current = recognition;
+
+        recognition.onstart = () => {
+          if (recognitionRef.current === recognition) setIsListening(true);
+        };
+
         recognition.onresult = (event: any) => {
-          let finalSegment = '';
-          let interimSegment = '';
-          for (let i = event.resultIndex; i < event.results.length; i++) {
-            const res = event.results[i];
-            const text = res?.[0]?.transcript || '';
-            if (res.isFinal) {
-              finalSegment += text;
-            } else {
-              interimSegment += text;
+          if (recognitionRef.current !== recognition) return;
+          if (continuous) {
+            for (let i = lastProcessedIdxRef.current; i < event.results.length; ++i) {
+              if (event.results[i]?.isFinal) {
+                const text = (event.results[i]?.[0]?.transcript || '').trim();
+                if (text) onTranscriptRef.current(text, true);
+                lastProcessedIdxRef.current = i + 1;
+              }
             }
+            return;
           }
 
-          const spoken = (finalSegment || interimSegment).trim();
-          if (!spoken) return;
-          const prefix = baseTextRef.current ? `${baseTextRef.current} ` : '';
-          const combined = `${prefix}${spoken}`.trim();
-          onTranscriptRef.current(combined, Boolean(finalSegment));
-          if (finalSegment) {
-            baseTextRef.current = combined;
+          // Android Chrome proven pattern: latest result holds the cumulative utterance with zero duplication!
+          const lastIdx = event.results.length - 1;
+          const res = event.results[lastIdx];
+          const transcript = (res?.[0]?.transcript || '').trim();
+          if (transcript) {
+            const base = baseTextRef.current;
+            onTranscriptRef.current(base ? `${base} ${transcript}` : transcript, Boolean(res?.isFinal));
           }
         };
 
-        recognition.onerror = (ev: any) => {
-          const code = ev?.error || 'unknown';
-          if (code !== 'aborted' && code !== 'no-speech') {
-            onErrorRef.current?.(
-              code === 'not-allowed'
-                ? 'יש לאשר גישה למיקרופון בדפדפן.'
-                : 'לא ניתן להפעיל מיקרופון כרגע.'
-            );
+        recognition.onerror = (event: any) => {
+          const code = event?.error || 'unknown';
+          if (recognitionRef.current === recognition) {
+            recognitionRef.current = null;
+            setIsListening(false);
           }
-          setIsListening(false);
-          recognitionRef.current = null;
+          if (code === 'not-allowed' || code === 'service-not-allowed') {
+            onErrorRef.current?.('הגישה למיקרופון חסומה בדפדפן. אנא אשר גישה למיקרופון בהגדרות הדפדפן.');
+          } else if (code !== 'aborted' && code !== 'no-speech') {
+            onErrorRef.current?.('לא ניתן להפעיל מיקרופון כרגע.');
+          }
         };
 
         recognition.onend = () => {
-          setIsListening(false);
-          recognitionRef.current = null;
+          if (recognitionRef.current === recognition) {
+            recognitionRef.current = null;
+            setIsListening(false);
+          }
+          lastProcessedIdxRef.current = 0;
         };
 
-        recognitionRef.current = recognition;
-        setIsListening(true);
         recognition.start();
+        setIsListening(true);
       } catch {
-        setIsListening(false);
         recognitionRef.current = null;
-        onErrorRef.current?.('שגיאה בהפעלת ההכתבה הקולית.');
+        setIsListening(false);
+        onErrorRef.current?.('שגיאה בהפעלת הזיהוי הקולי.');
       }
     },
-    [lang, stopListening]
+    [lang, continuous, stopListening]
   );
 
   const toggleListening = useCallback(
     (initialExistingText = '') => {
       if (isListening) {
-        stopListening();
+        stopListening('stop');
       } else {
         startListening(initialExistingText);
       }

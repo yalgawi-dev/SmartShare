@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
+import { useSpeechToText } from '@/hooks/useSpeechToText';
 import { useRouter } from 'next/navigation';
 import { useAssistant } from './AssistantContext';
 import { AssistantPersonaPicker } from './AssistantPersonaPicker';
@@ -70,10 +71,17 @@ export const GlobalAssistantDrawer: React.FC = () => {
     window.addEventListener('smartshare:assistant_speaking', onSpeakEvt);
     return () => window.removeEventListener('smartshare:assistant_speaking', onSpeakEvt);
   }, []);
-  const [isListening, setIsListening] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
-  const recognitionRef = useRef<any>(null);
-  const baseInputRef = useRef<string>('');
+  const {
+    isListening,
+    stopListening: stopVoiceListening,
+    toggleListening: toggleVoiceListening,
+  } = useSpeechToText({
+    lang: 'he-IL',
+    onBeforeStart: () => stopSpeaking(),
+    onTranscript: (liveText) => setInputVal(liveText),
+    onError: (msg) => alert(msg),
+  });
 
   // BUG REPORTING & SCREEN CAPTURE / 35s VIDEO RECORDER STATE (Supports BOTH screenshot AND video simultaneously!)
   const [isBugComposerOpen, setIsBugComposerOpen] = useState(false);
@@ -513,118 +521,23 @@ export const GlobalAssistantDrawer: React.FC = () => {
     }
   }, [messages, isOpen]);
 
-  // Clean up speech recognition if drawer closes or unmounts
+  // Clean up speech recognition if drawer closes
   useEffect(() => {
-    if (!isOpen && recognitionRef.current) {
-      try {
-        recognitionRef.current.abort();
-      } catch (_) {}
-      recognitionRef.current = null;
-      setIsListening(false);
+    if (!isOpen && isListening) {
+      stopVoiceListening('abort');
     }
-  }, [isOpen]);
+  }, [isOpen, isListening, stopVoiceListening]);
 
-  // Speech-to-Text via Web Speech API (with Android AudioFocus release & live interim preview)
+  // Unified DRY Speech-to-Text Engine (shared across Dana, Calendar, and Vault Notes!)
   const handleToggleVoiceInput = () => {
-    if (typeof window === 'undefined') return;
-
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert('דפדפן זה אינו תומך בזיהוי קולי ישיר. אנא השתמש בהקלדה.');
-      return;
-    }
-
-    // 1. If currently listening, stop cleanly via recognitionRef
-    if (isListening) {
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.stop();
-        } catch (_) {}
-        recognitionRef.current = null;
-      }
-      setIsListening(false);
-      return;
-    }
-
-    // 2. Immediately stop any active TTS audio playback so Android releases AudioFocus for the microphone!
-    stopSpeaking();
-
-    // 3. Abort any stale recognition instance that may still hold the browser mic lock
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.abort();
-      } catch (_) {}
-      recognitionRef.current = null;
-    }
-
-    try {
-      const recognition = new SpeechRecognition();
-      recognition.lang = 'he-IL';
-      recognition.continuous = false;
-      recognition.interimResults = true;
-      recognition.maxAlternatives = 1;
-
-      baseInputRef.current = inputVal.trim();
-      recognitionRef.current = recognition;
-
-      recognition.onstart = () => {
-        setIsListening(true);
-      };
-
-      recognition.onresult = (event: any) => {
-        // Ignore stale results if recognition was already detached/sent
-        if (recognitionRef.current !== recognition) return;
-        // On Android Chrome with continuous=false & interimResults=true,
-        // the latest result entry holds the cumulative utterance without duplication
-        const lastIdx = event.results.length - 1;
-        const transcript = (event.results[lastIdx]?.[0]?.transcript || '').trim();
-        if (transcript) {
-          const base = baseInputRef.current;
-          setInputVal(base ? `${base} ${transcript}` : transcript);
-        }
-      };
-
-      recognition.onerror = (event: any) => {
-        console.warn('Speech recognition error:', event.error);
-        setIsListening(false);
-        recognitionRef.current = null;
-        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-          alert('הגישה למיקרופון חסומה בדפדפן. אנא אשר גישה למיקרופון בהגדרות הדפדפן.');
-        }
-      };
-
-      recognition.onend = () => {
-        setIsListening(false);
-        recognitionRef.current = null;
-      };
-
-      recognition.start();
-      setIsListening(true);
-    } catch (err) {
-      console.warn('Failed to start speech recognition:', err);
-      setIsListening(false);
-      recognitionRef.current = null;
-    }
+    toggleVoiceListening(inputVal);
   };
 
   const handleSend = async (textToSend?: string) => {
-    const activeRec = recognitionRef.current;
-    if (activeRec) {
-      // Detach handlers FIRST and abort() so Android SpeechRecognition cannot flush a late
-      // final onresult event that re-populates the cleared input box!
-      recognitionRef.current = null;
-      try {
-        activeRec.onresult = null;
-        activeRec.onend = null;
-        activeRec.onerror = null;
-        activeRec.abort();
-      } catch (_) {}
-      setIsListening(false);
-    }
+    stopVoiceListening('abort');
     const text = (textToSend || inputVal).trim();
     if (!text) return;
     setInputVal('');
-    baseInputRef.current = '';
     await sendMessage(text);
   };
 
