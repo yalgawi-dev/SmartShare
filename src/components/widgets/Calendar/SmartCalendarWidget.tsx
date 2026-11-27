@@ -34,6 +34,7 @@ import {
   subscribeCalendarSwaps,
   subscribePersonalCalendarEvents,
   toggleCalendarEventCompleted,
+  updateCalendarEvent,
 } from '@/services/calendarService';
 import { CalendarMonthGrid } from './CalendarMonthGrid';
 import { CalendarWeekView } from './CalendarWeekView';
@@ -487,6 +488,14 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
     }
   };
 
+  const handleUpdateCalendarEvent = async (
+    ev: CalendarEventItem,
+    patch: Partial<Omit<CalendarEventItem, 'id' | 'createdAt'>>
+  ) => {
+    await updateCalendarEvent(activeHostSpaceId || '', user?.id || 'me', ev, patch);
+    showToast('✅ הפרטים עודכנו ונשמרו ביומן!');
+  };
+
   const handleDeleteCalendarEvent = async (ev: CalendarEventItem) => {
     if (ev.visibility === 'private' && user?.id) {
       await deletePersonalCalendarEvent(user.id, ev.id);
@@ -732,6 +741,7 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
             currentUserId={user?.id || 'me'}
             defaultVisibility={onlyPersonalSelected ? 'private' : 'shared'}
             onAddEvent={handleAddCalendarEvent}
+            onUpdateEvent={handleUpdateCalendarEvent}
             onDeleteEvent={handleDeleteCalendarEvent}
             onToggleComplete={handleToggleEventCompleted}
             onOpenSwapModal={(from) =>
@@ -769,6 +779,7 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
               currentUserId={user?.id || 'me'}
               defaultVisibility={onlyPersonalSelected ? 'private' : 'shared'}
               onAddEvent={handleAddCalendarEvent}
+              onUpdateEvent={handleUpdateCalendarEvent}
               onDeleteEvent={handleDeleteCalendarEvent}
               onToggleComplete={handleToggleEventCompleted}
               onOpenSwapModal={(from) =>
@@ -839,6 +850,7 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
                 defaultVisibility={onlyPersonalSelected ? 'private' : 'shared'}
                 initialShowAddForm={daySheetAutoAdd}
                 onAddEvent={handleAddCalendarEvent}
+                onUpdateEvent={handleUpdateCalendarEvent}
                 onDeleteEvent={handleDeleteCalendarEvent}
                 onToggleComplete={handleToggleEventCompleted}
                 onOpenSwapModal={(from) => {

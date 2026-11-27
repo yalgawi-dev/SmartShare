@@ -200,6 +200,23 @@ export async function toggleCalendarEventCompleted(
   }
 }
 
+export async function updateCalendarEvent(
+  spaceId: string,
+  userId: string,
+  event: CalendarEventItem,
+  patch: Partial<Omit<CalendarEventItem, 'id' | 'createdAt'>>
+): Promise<void> {
+  const cleanPatch = sanitize({
+    ...patch,
+    updatedAt: new Date().toISOString(),
+  });
+  if (event.visibility === 'private') {
+    await updateDoc(doc(db, 'users', userId, 'personalCalendarEvents', event.id), cleanPatch);
+  } else {
+    await updateDoc(doc(db, 'spaces', spaceId, 'smartCalendarEvents', event.id), cleanPatch);
+  }
+}
+
 export async function requestCustodySwap(
   spaceId: string,
   swapInput: Omit<SwapRequestItem, 'id' | 'createdAt'>

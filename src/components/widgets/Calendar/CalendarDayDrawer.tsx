@@ -32,6 +32,7 @@ interface CalendarDayDrawerProps {
   defaultVisibility?: CalendarEventVisibility;
   initialShowAddForm?: boolean;
   onAddEvent: (ev: Omit<CalendarEventItem, 'id' | 'createdAt'>) => Promise<void>;
+  onUpdateEvent?: (ev: CalendarEventItem, patch: Partial<Omit<CalendarEventItem, 'id' | 'createdAt'>>) => Promise<void>;
   onDeleteEvent: (ev: CalendarEventItem) => Promise<void>;
   onToggleComplete?: (ev: CalendarEventItem, completed: boolean) => Promise<void>;
   onOpenSwapModal: (defaultFrom: ParentRole) => void;
@@ -74,6 +75,7 @@ export const CalendarDayDrawer: React.FC<CalendarDayDrawerProps> = ({
   defaultVisibility = 'shared',
   initialShowAddForm = false,
   onAddEvent,
+  onUpdateEvent,
   onDeleteEvent,
   onToggleComplete,
   onOpenSwapModal,
@@ -82,6 +84,7 @@ export const CalendarDayDrawer: React.FC<CalendarDayDrawerProps> = ({
   onRemoveBagItem,
 }) => {
   const [showAddForm, setShowAddForm] = useState(initialShowAddForm);
+  const [editingEvent, setEditingEvent] = useState<CalendarEventItem | null>(null);
   const [title, setTitle] = useState('');
   const [hasTime, setHasTime] = useState(false);
   const [time, setTime] = useState('16:00');
@@ -152,15 +155,33 @@ export const CalendarDayDrawer: React.FC<CalendarDayDrawerProps> = ({
     } catch {}
   };
 
+  const handleStartEditEvent = (ev: CalendarEventItem) => {
+    setEditingEvent(ev);
+    setTitle(ev.title || '');
+    setHasTime(Boolean(ev.time));
+    setTime(ev.time || '16:00');
+    setCategory(ev.category || 'task');
+    setSelectedCustomCat(
+      ev.customCategoryLabel
+        ? { id: `edit_${ev.id}`, label: ev.customCategoryLabel, icon: ev.customCategoryIcon || '✨', color: '#0f766e' }
+        : null
+    );
+    setVisibility(ev.visibility || defaultVisibility);
+    setLocation(ev.location || '');
+    setDriverParent(ev.driverParent || '');
+    setNotes(ev.notes || '');
+    setShowAddForm(true);
+  };
+
   const handleSaveEvent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
     setSaving(true);
     try {
-      await onAddEvent({
+      const payload = {
         title: title.trim(),
         date: selectedDate,
-        time: hasTime ? time : undefined,
+        time: hasTime ? time : '',
         category,
         ...(selectedCustomCat
           ? {
@@ -169,13 +190,22 @@ export const CalendarDayDrawer: React.FC<CalendarDayDrawerProps> = ({
             }
           : {}),
         visibility,
-        completed: false,
-        childIds: visibility === 'private' || childScope === 'all' ? 'all' : [childScope],
+        childIds: (visibility === 'private' || childScope === 'all' ? 'all' : [childScope]) as 'all' | string[],
         location: location.trim() || undefined,
         driverParent: visibility === 'private' ? undefined : (driverParent || undefined),
         notes: notes.trim() || undefined,
-        createdBy: currentUserId,
-      });
+      };
+      if (editingEvent && onUpdateEvent) {
+        await onUpdateEvent(editingEvent, payload);
+      } else {
+        await onAddEvent({
+          ...payload,
+          time: hasTime ? time : undefined,
+          completed: false,
+          createdBy: currentUserId,
+        });
+      }
+      setEditingEvent(null);
       setTitle('');
       setHasTime(false);
       setLocation('');
@@ -632,7 +662,13 @@ export const CalendarDayDrawer: React.FC<CalendarDayDrawerProps> = ({
               cursor: saving ? 'wait' : 'pointer',
             }}
           >
-            {saving ? 'שומר...' : visibility === 'private' ? '🔒 שמור ביומן האישי שלי בלבד' : '🌐 שמור ביומן המשותף'}
+            {saving
+              ? 'שומר...'
+              : editingEvent
+                ? '💾 שמור שינויים'
+                : visibility === 'private'
+                  ? '🔒 שמור ביומן האישי שלי בלבד'
+                  : '🌐 שמור ביומן המשותף'}
           </button>
         </form>
       )}
@@ -795,13 +831,25 @@ export const CalendarDayDrawer: React.FC<CalendarDayDrawerProps> = ({
                     )}
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => onDeleteEvent(ev)}
-                  style={{ border: 'none', background: '#fef2f2', color: '#dc2626', borderRadius: '8px', padding: '0.26rem 0.48rem', fontSize: '0.72rem', fontWeight: 800, cursor: 'pointer', flexShrink: 0 }}
-                >
-                  מחק
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.28rem', flexShrink: 0 }}>
+                  {onUpdateEvent && (
+                    <button
+                      type="button"
+                      onClick={() => handleStartEditEvent(ev)}
+                      aria-label={`ערוך ${ev.title}`}
+                      style={{ border: 'none', background: '#eef2ff', color: '#4338ca', borderRadius: '8px', padding: '0.26rem 0.48rem', fontSize: '0.72rem', fontWeight: 800, cursor: 'pointer', flexShrink: 0 }}
+                    >
+                      ✏️ ערוך
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => onDeleteEvent(ev)}
+                    style={{ border: 'none', background: '#fef2f2', color: '#dc2626', borderRadius: '8px', padding: '0.26rem 0.48rem', fontSize: '0.72rem', fontWeight: 800, cursor: 'pointer', flexShrink: 0 }}
+                  >
+                    מחק
+                  </button>
+                </div>
               </div>
             );
           })}
