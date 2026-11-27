@@ -13,6 +13,7 @@ import {
   queueCollectiveAction,
   queueScreenDiscoveryDiff,
 } from './agentCollectiveTelemetry';
+import { recordPassiveClickForMacro } from './agentUiMacroLearner';
 
 export interface LearnedUiTransition {
   routePattern: string;
@@ -358,6 +359,12 @@ export function installPassiveUiMapLearner(): () => void {
             triggerLabel,
             opensTitle,
             discoveredControls: newControls,
+          });
+          // Learn multi-step UI click sequences passively from normal daily user clicks!
+          recordPassiveClickForMacro({
+            routePath: beforePath,
+            triggerLabel,
+            opensTitle,
           });
         }
       } catch {

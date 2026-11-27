@@ -28,7 +28,8 @@ import {
   markAssistantMet,
   buildHumanGreeting
 } from './assistantPersonas';
-import { inspectLiveScreenDOM, isDestructiveUiLabel } from './assistantDomIntrospector';
+import { inspectLiveScreenDOM, executeLiveDomElementAction, isDestructiveUiLabel } from './assistantDomIntrospector';
+import { findMatchingUiMacro, recordAiMacroSuccess } from './agentUiMacroLearner';
 import {
   installPassiveUiMapLearner,
   installAutonomousScreenWatcher,
@@ -807,6 +808,120 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       .map(m => ({ sender: m.sender, text: m.text }));
 
     let currentDom = liveData.liveScreenDOM;
+    const loopStartRoute = typeof window !== 'undefined' ? window.location.pathname : pathname;
+
+    // 0-TOKEN UNIVERSAL MULTI-STEP UI MACRO REPLAY (Learned from passive daily clicks OR prior AI runs!)
+    const matchedMacro = findMatchingUiMacro(sanitizedText, loopStartRoute, currentDom);
+    if (matchedMacro) {
+      const macroMsgId = `ast_macro_${Date.now()}`;
+      const macroTimeline: AgentExecutionStep[] = [];
+      const macroDoneLabels: string[] = [];
+      let macroFailed = false;
+      let latestDom = currentDom;
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: macroMsgId,
+          sender: 'assistant',
+          text: `⚡ מפעילה מסלול שנלמד אוטומטית (${matchedMacro.macro.steps.join(' ← ')})...`,
+          timestamp: Date.now(),
+          source: 'local_brain',
+          confidence: 'high',
+          executionSteps: [],
+        },
+      ]);
+
+      for (let idx = 0; idx < matchedMacro.macro.steps.length; idx++) {
+        const targetLbl = matchedMacro.macro.steps[idx];
+        const targetLower = targetLbl.toLowerCase();
+        const foundEl = latestDom.interactiveElements.find((e) => {
+          const elLbl = e.label.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+          return elLbl === targetLower || elLbl.includes(targetLower) || targetLower.includes(elLbl);
+        });
+        if (!foundEl || isDestructiveUiLabel(foundEl.label)) {
+          macroFailed = true;
+          break;
+        }
+        const clickRes = executeLiveDomElementAction(foundEl.agentId, 'click');
+        if (!clickRes.success) {
+          macroFailed = true;
+          break;
+        }
+        macroDoneLabels.push(targetLbl);
+        macroTimeline.push({
+          stepNumber: idx + 1,
+          description: `לחיצה אוטומטית על "${targetLbl}"`,
+          source: 'learned_map',
+          learnedHits: matchedMacro.macro.successCount,
+          status: 'done',
+        });
+        await new Promise((r) => setTimeout(r, 380));
+        latestDom = inspectLiveScreenDOM();
+      }
+
+      if (!macroFailed && macroDoneLabels.length === matchedMacro.macro.steps.length) {
+        recordAiMacroSuccess({
+          startRoute: loopStartRoute,
+          steps: macroDoneLabels,
+          endHeading: latestDom.openModalsOrBanners[0] || latestDom.visibleHeadings[0] || '',
+          userQuery: sanitizedText,
+        });
+
+        let finalMacroAnswer = `בוצע! פתחתי עבורך את ${macroDoneLabels.join(' ← ')} (0 טוקנים — מסלול שנלמד מהשימוש שלך).`;
+
+        // If user ALSO asked to read/report visible details from the opened screen, do ONLY 1 ultra-slim read call!
+        if (matchedMacro.needsFinalScreenRead) {
+          const readRes = await queryAIAssistant(
+            sanitizedText,
+            screenContext,
+            providerConfig,
+            undefined,
+            undefined,
+            {
+              stepNumber: macroDoneLabels.length + 1,
+              completedSteps: macroDoneLabels,
+              liveScreenDOM: { ...latestDom, visibleButtonsAndActions: [] },
+              availableActionTools: [],
+            }
+          );
+          if (readRes.source === 'cloud_llm' && readRes.tokensUsed) {
+            void recordUserAiTokenUsage(user?.id, readRes.tokensUsed);
+          }
+          if (readRes.text) {
+            finalMacroAnswer = filterAssistantResponse(readRes.text);
+            macroTimeline.push({
+              stepNumber: macroTimeline.length + 1,
+              description: 'קריאת תוכן המסך שנפתח',
+              source: 'cloud_ai',
+              status: 'done',
+            });
+          }
+        }
+
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === macroMsgId
+              ? { ...m, text: finalMacroAnswer, executionSteps: [...macroTimeline] }
+              : m
+          )
+        );
+        if (actionToastTimerRef.current) clearTimeout(actionToastTimerRef.current);
+        setTimeout(() => {
+          setIsOpen(false);
+          setActionToast({ message: finalMacroAnswer });
+          actionToastTimerRef.current = setTimeout(() => setActionToast(null), 7000);
+        }, 850);
+        if (autoSpeak) speakText(finalMacroAnswer);
+        else prefetchAudio(finalMacroAnswer);
+        return;
+      } else {
+        // Remove temporary macro message and gracefully fall back to full AI loop
+        setMessages((prev) => prev.filter((m) => m.id !== macroMsgId));
+        currentDom = inspectLiveScreenDOM();
+      }
+    }
+
     let aiResult = await queryAIAssistant(sanitizedText, screenContext, providerConfig, liveData, recentHistory);
 
     const recordTelemetry = (res: typeof aiResult) => {
@@ -889,6 +1004,7 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     // Autonomous Multi-Step Loop (Hard-capped at MAX_AUTONOMOUS_STEPS = 3, zero user intervention for safe steps!)
     const completedSteps: string[] = [];
+    const executedClickLabels: string[] = [];
     const timelineSteps: AgentExecutionStep[] = [];
 
     for (let stepNum = 1; stepNum <= MAX_AUTONOMOUS_STEPS; stepNum++) {
@@ -940,6 +1056,9 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
       const execRes = await executeApprovedAgentAction(proposal, execCtx);
       completedSteps.push(humanDesc);
+      if (execRes.success && clickedEl?.label) {
+        executedClickLabels.push(clickedEl.label);
+      }
       stepRecord.status = execRes.success ? 'done' : 'failed';
       stepRecord.detail = execRes.message;
 
@@ -1035,6 +1154,16 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             : m
         )
       );
+    }
+
+    // Auto-Compile multi-step UI click chain into a 0-Token Learned UI Macro for future instant replay!
+    if (executedClickLabels.length >= 2) {
+      recordAiMacroSuccess({
+        startRoute: loopStartRoute,
+        steps: executedClickLabels.slice(0, 3),
+        endHeading: currentDom.openModalsOrBanners[0] || currentDom.visibleHeadings[0] || '',
+        userQuery: sanitizedText,
+      });
     }
 
     // Smart Auto-Collapse when autonomous UI actions succeeded (reveals the opened screen immediately + shows top toast!)
