@@ -479,6 +479,27 @@ export function executeLiveDomElementAction(
 
   if (operation === 'fill') {
     const tag = el.tagName.toLowerCase();
+    if (tag === 'select') {
+      const sel = el as HTMLSelectElement;
+      const wanted = String(value ?? '').trim().toLowerCase();
+      const matchedOpt = Array.from(sel.options).find(
+        (o) =>
+          o.value.toLowerCase() === wanted ||
+          o.text.trim().toLowerCase() === wanted ||
+          o.text.trim().toLowerCase().includes(wanted)
+      );
+      if (!matchedOpt) {
+        return { success: false, message: `האפשרות "${value ?? ''}" לא נמצאה ברשימה.` };
+      }
+      const nativeSelectSetter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')?.set;
+      if (nativeSelectSetter) {
+        nativeSelectSetter.call(sel, matchedOpt.value);
+      } else {
+        sel.value = matchedOpt.value;
+      }
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
+      return { success: true, message: `נבחר "${matchedOpt.text.trim()}" ברשימה.` };
+    }
     if (tag !== 'input' && tag !== 'textarea') {
       return { success: false, message: 'האלמנט שנבחר אינו שדה הקלדה.' };
     }
@@ -514,7 +535,7 @@ export async function executeLiveDomBatch(
     return { success: false, message: 'לא התקבלו צעדים לביצוע.', completedSteps: 0 };
   }
 
-  const capped = steps.slice(0, 3);
+  const capped = steps.slice(0, 5);
   const logs: string[] = [];
   let completed = 0;
 
