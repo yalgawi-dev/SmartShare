@@ -1078,33 +1078,27 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       );
 
       // Stop if action failed or we reached step cap.
-      // UNIVERSAL SELF-READ GUARD: If the user asked to read/report/summarize content AND we just clicked a UI element,
-      // force 1 follow-up verification step so the agent reads the newly opened screen's `visibleScreenText` instead of stopping early!
-      const userAskedToReadContent =
-        /מה\s+|כמה\s+|תגידי|תגיד|תקריא|תעקרי|תקריאי|ספר|רשימת|סיכום|what\s+|how\s+many|tell\s+me|read\s+/i.test(
-          sanitizedText
-        );
-      const shouldAutoContinueToRead =
-        execRes.success &&
-        stepNum < MAX_AUTONOMOUS_STEPS &&
-        (Boolean(aiResult.continueExploring) ||
-          (userAskedToReadContent && proposal.tool === 'ui_click_element'));
-
-      if (!shouldAutoContinueToRead) {
+      // OPTION A (100% Universal, Zero Regex): Always verify physically after any UI action that changes the screen/modal!
+      const isUiAction = proposal.tool === 'ui_click_element' || proposal.tool === 'ui_execute_batch';
+      if (!execRes.success || stepNum >= MAX_AUTONOMOUS_STEPS || (!aiResult.continueExploring && !isUiAction)) {
         break;
       }
 
       // Wait for React DOM / modal to mount and settle, then re-scan live UI
-      await new Promise((r) => setTimeout(r, 340));
+      await new Promise((r) => setTimeout(r, 360));
       const afterDom = inspectLiveScreenDOM();
       const routeChanged = typeof window !== 'undefined' && window.location.pathname !== beforePath;
       const newControls = afterDom.interactiveElements
         .filter((e) => e.inModal || !beforeLabels.has(e.label))
         .map((e) => e.label);
+      const textChanged =
+        Boolean(afterDom.visibleScreenText) &&
+        afterDom.visibleScreenText !== currentDom.visibleScreenText;
       const domChanged =
         routeChanged ||
         newControls.length > 0 ||
-        afterDom.openModalsOrBanners.length !== beforeModalsCount;
+        afterDom.openModalsOrBanners.length !== beforeModalsCount ||
+        textChanged;
 
       // Self-Healing & Auto-Learning from AI's own navigation!
       if (clickedEl?.label) {
