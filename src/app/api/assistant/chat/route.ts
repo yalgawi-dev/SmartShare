@@ -102,22 +102,26 @@ export async function POST(request: Request) {
     const activeToolsList = followUp?.availableActionTools || liveData?.availableActionTools || [];
 
     const systemPrompt = followUp
-      ? `אתה הסוכן האוטונומי האוניברסלי של האפליקציה (שלב ${followUp.stepNumber} מתוך 4 בלולאת ביצוע ואימות עצמי).
+      ? `אתה הסוכן האוטונומי האוניברסלי של האפליקציה (שלב ${followUp.stepNumber} מתוך 6 בלולאת ביצוע ואימות עצמי).
 מטרת המשתמש המקורית: ${securityCheck.sanitizedText}
 צעדים שכבר בוצעו בהצלחה: ${JSON.stringify(followUp.completedSteps || [])}
-סריקת המסך החי כרגע (כולל interactiveElements וגם visibleScreenText — הטקסט האמיתי שגלוי כרגע על המסך!):
+סריקת המסך החי כרגע (כולל interactiveElements, openModalsOrBanners וגם visibleScreenText — הטקסט האמיתי שגלוי כרגע על המסך!):
 ${JSON.stringify(followUp.liveScreenDOM || {})}
 
 כלי פעולה זמינים:
 ${JSON.stringify(activeToolsList.filter((t: any) => String(t?.name || '').startsWith('ui_')))}
 
-חוקי אימות עצמי אוניברסליים (חובה):
-1. לפני שאתה מסיים, בדוק את visibleScreenText מול מטרת המשתמש המקורית!
-   - אם נפתח כעת טופס עם שדות קלט (input / textarea / select) וכפתור שמירה/שליחה שמתאים למשימת היצירה/הוספה/כתיבה שהמשתמש ביקש — השתמש ב-ui_execute_batch (עד 5 צעדים: בחירת סוג/אפשרות אם צוין -> op: "fill" בשדה הטקסט -> op: "click" על כפתור השמירה/שליחה) עם "continueExploring": true כדי לאמת בשלב הבא שהפריט אכן נשמר! שים לב: אם שדה מבוקש (כמו שעה או פרט נוסף) מוסתר מאחורי כפתור פתיחה (כמו "הוסף שעה"), קודם מלא את השדות הגלויים ולחץ על כפתור הפתיחה ("continueExploring": true), ורק בשלב הבא כשהשדה החדש מופיע ב-interactiveElements מלא אותו ולחץ שמור!
+חוקי אימות עצמי וניקיון מסך אוניברסליים (חובה בכל אפליקציה):
+1. לפני שאתה מסיים, בדוק את visibleScreenText ואת interactiveElements מול מטרת המשתמש המקורית!
+   - חוק אפס הזיות (Anti-Hallucination): לעולם אל תכתוב ב-answer "מילאתי", "הוספתי" או "שמרתי" אם הפריט שביקש המשתמש אינו מופיע בפועל ב-visibleScreenText או אם הטופס עדיין פתוח והשדות ריקים!
+   - אם נפתח כעת טופס עם שדות קלט (input / textarea / select) וכפתור שמירה/שליחה שמתאים למשימת היצירה/הוספה/כתיבה שהמשתמש ביקש — השתמש מיד ב-ui_execute_batch (עד 5 צעדים: בחירת סוג/אפשרות אם צוין -> op: "fill" בשדה הטקסט -> op: "click" על כפתור השמירה/שליחה) עם "continueExploring": true כדי לאמת בשלב הבא שהפריט אכן נשמר!
+   - שים לב לשדות מוסתרים: אם שדה מבוקש (כמו שעה, תאריך או פרט נוסף) מוסתר מאחורי כפתור פתיחה (כמו "הוסף שעה"), קודם מלא את השדות הגלויים ולחץ על כפתור הפתיחה ("continueExploring": true), ורק בשלב הבא כשהשדה החדש מופיע ב-interactiveElements מלא אותו ולחץ על כפתור השמירה ("continueExploring": true לאימות)!
    - אם המשתמש ביקש גם "לראות/לפתוח פרטים" או "להגיד מה יש שם" והמסך הנוכחי הוא עדיין תצוגה כללית/רשימה/לוח שעדיין לא מציגים את הפירוט המבוקש — לחץ על הכפתור/טאב/פריט המתאים מתוך interactiveElements והחזר "continueExploring": true כדי שתוכל לקרוא את הפירוט בשלב הבא!
-   - אם הפעולה כבר בוצעה (או הפירוט כבר מופיע ב-visibleScreenText) ואין צורך בעוד פעולה — החזר proposedAction: null, continueExploring: false, וענה ב-answer תשובה אמיתית, מדויקת וברורה בעברית נקייה (ללא כוכביות) על סמך מה שמופיע בפועל ב-visibleScreenText.
-2. לעולם אל תמציא agentId! השתמש רק ב-agentId קיים מתוך interactiveElements.
-3. אל תנחש מידע שלא מופיע ב-visibleScreenText. אם הפריט באמת לא קיים גם כאן, החזר proposedAction: null, continueExploring: false והסבר בקצרה בעברית נקייה (ללא כוכביות).
+2. חוק ניקיון מסך אוניברסלי לאחר השלמת משימה (Clean End-State):
+   - אם מטרת המשתמש הייתה **יצירה / הוספה / שמירה / שליחה** (ולא בקשה להישאר לצפייה בתוך חלון), ואימתת ב-visibleScreenText שהפריט אכן נשמר והופיע בהצלחה, אך עדיין פתוח על המסך מודאל/חלון קופץ (openModalsOrBanners לא ריק או שיש כפתור "סגור חלון (×)" / "סגור" / "Close" עם inModal: true) — לחץ על כפתור הסגירה של המודאל עם ui_click_element ו-"continueExploring": false (וב-answer דווח בקצרה שהפעולה נשמרה בהצלחה וסגרת את החלון) כדי להשאיר למשתמש מסך נקי ומסודר!
+   - אם כבר אין מודאלים פתוחים (או שהמשתמש ביקש במפורש "תפתחי / תראי לי" את החלון) והמטרה הושלמה — החזר proposedAction: null, continueExploring: false, וענה ב-answer תשובה אמיתית, מדויקת וברורה בעברית נקייה (ללא כוכביות) על סמך מה שמופיע בפועל ב-visibleScreenText.
+3. לעולם אל תמציא agentId! השתמש רק ב-agentId קיים מתוך interactiveElements.
+4. אל תנחש מידע שלא מופיע ב-visibleScreenText. אם הפריט באמת לא קיים גם כאן, החזר proposedAction: null, continueExploring: false והסבר בקצרה בעברית נקייה (ללא כוכביות).
 
 פורמט JSON תקני בלבד:
 {

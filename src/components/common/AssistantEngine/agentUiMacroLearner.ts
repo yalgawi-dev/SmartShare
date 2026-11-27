@@ -16,17 +16,17 @@ export interface LearnedUiMacro {
   lastUsedAt: number;
 }
 
-const STORAGE_KEY = 'agent_learned_ui_macros_v1';
+const STORAGE_KEY = 'agent_learned_ui_macros_v2';
 const MAX_MACROS = 60;
 const PASSIVE_CHAIN_WINDOW_MS = 14_000;
 
 const DESTRUCTIVE_RE = /מחק|הסר|בטל|סגור חשבון|חסום|אפס|רוקן|delete|remove|destroy|reset|block|revoke/i;
-const QUESTION_READ_RE = /מה\s+|כמה\s+|תגידי|תגיד|ספר|תקריא|האם\s+|איזה\s+|אילו\s+|רשימת|סיכום|what\s+|how\s+many|tell\s+me|read\s+/i;
 
 const HEBREW_STOP_WORDS = new Set([
   'את', 'של', 'על', 'אל', 'עם', 'לי', 'אותי', 'בבקשה', 'תפתחי', 'תפתח', 'פתח', 'פתחי',
   'תביאי', 'תביא', 'לך', 'לעבור', 'לפתוח', 'עבור', 'כדי', 'הזה', 'הזו', 'באותו', 'שלי',
-  'the', 'to', 'and', 'for', 'me', 'open', 'go', 'show', 'please',
+  'רוצה', 'ממך', 'תתחברי', 'תתחבר', 'תיכנסי', 'תיכנס', 'כנסי', 'כנס', 'שם', 'שמה',
+  'the', 'to', 'and', 'for', 'me', 'open', 'go', 'show', 'please', 'want', 'you',
 ]);
 
 function normalizeLabel(raw: string): string {
@@ -187,8 +187,13 @@ export function recordAiMacroSuccess(params: {
 
 export interface MatchedUiMacroResult {
   macro: LearnedUiMacro;
-  /** True if the user ALSO asked a question requiring 1 final AI read of the opened screen's visibleScreenText */
-  needsFinalScreenRead: boolean;
+  /**
+   * 100% Universal Token-Coverage Check (Zero app-specific regex!):
+   * True if the user's request contains ANY meaningful words/data/questions NOT already covered
+   * by the macro's navigation steps (e.g., data to fill into a form, a time, a name, or a question to answer).
+   * When true, the macro acts as a 0-token fast-forward prefix and hands off directly to the full Autonomous AI Loop!
+   */
+  requiresAiContinuation: boolean;
 }
 
 /**
@@ -196,7 +201,7 @@ export interface MatchedUiMacroResult {
  * Matches only when:
  * 1. Query is non-destructive
  * 2. Step 1 button/link is ACTUALLY visible on the current live DOM
- * 3. Strong token match covering at least 2 steps (or >= 2 distinct macro keywords)
+ * 3. Strong token match covering at least 2 distinct steps
  */
 export function findMatchingUiMacro(
   query: string,
@@ -226,16 +231,20 @@ export function findMatchingUiMacro(
     );
     if (!hasStep1OnScreen) continue;
 
-    // Count how many distinct steps match query tokens
+    // Count how many distinct steps match query tokens (strict token matching, no tiny substring collisions)
     let matchedSteps = 0;
     for (const stepLabel of macro.steps) {
       const stepTokens = extractTokens(stepLabel);
-      if (stepTokens.some((st) => queryTokens.some((qt) => qt === st || qt.includes(st) || st.includes(qt)))) {
+      if (
+        stepTokens.some((st) =>
+          queryTokens.some((qt) => qt === st || (st.length >= 3 && qt.includes(st)))
+        )
+      ) {
         matchedSteps++;
       }
     }
 
-    // Require ALL steps of a 2-step macro (or >=2 steps of a 3-step macro) to be referenced in the user's request!
+    // Require >=2 steps to be explicitly referenced in the user's request!
     if (matchedSteps < 2) continue;
 
     let score = matchedSteps * 20 + Math.min(macro.successCount, 10) * 2;
@@ -248,8 +257,18 @@ export function findMatchingUiMacro(
   }
 
   if (!best) return null;
+
+  // Universal Token-Coverage Check: if the user asked for ANYTHING beyond clicking these exact buttons
+  // (such as filling a form, adding a task/time/note, or reading/summarizing content), hand off to AI loop!
+  const macroCoveredTokens = extractTokens(
+    `${best.macro.steps.join(' ')} ${best.macro.endHeading || ''}`
+  );
+  const uncoveredQueryTokens = queryTokens.filter(
+    (qt) => !macroCoveredTokens.some((mt) => qt === mt || (mt.length >= 3 && qt.includes(mt)) || (qt.length >= 3 && mt.includes(qt)))
+  );
+
   return {
     macro: best.macro,
-    needsFinalScreenRead: QUESTION_READ_RE.test(query),
+    requiresAiContinuation: uncoveredQueryTokens.length > 0,
   };
 }

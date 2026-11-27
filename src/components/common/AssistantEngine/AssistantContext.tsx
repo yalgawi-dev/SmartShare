@@ -792,7 +792,7 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       return;
     }
 
-    const MAX_AUTONOMOUS_STEPS = 5;
+    const MAX_AUTONOMOUS_STEPS = 6;
     const execCtx = {
       user,
       spaces,
@@ -810,7 +810,13 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     let currentDom = liveData.liveScreenDOM;
     const loopStartRoute = typeof window !== 'undefined' ? window.location.pathname : pathname;
 
-    // 0-TOKEN UNIVERSAL MULTI-STEP UI MACRO REPLAY (Learned from passive daily clicks OR prior AI runs!)
+    // Seed state for seamless handoff if a 0-Token Macro fast-forwards navigation before AI form-fill/verification
+    const completedSteps: string[] = [];
+    const executedClickLabels: string[] = [];
+    const timelineSteps: AgentExecutionStep[] = [];
+    let reusedMsgId: string | null = null;
+
+    // 0-TOKEN UNIVERSAL MULTI-STEP UI MACRO FAST-FORWARD (Learned from passive daily clicks OR prior AI runs!)
     const matchedMacro = findMatchingUiMacro(sanitizedText, loopStartRoute, currentDom);
     if (matchedMacro) {
       const macroMsgId = `ast_macro_${Date.now()}`;
@@ -868,53 +874,48 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           userQuery: sanitizedText,
         });
 
-        let finalMacroAnswer = `בוצע! פתחתי עבורך את ${macroDoneLabels.join(' ← ')} (0 טוקנים — מסלול שנלמד מהשימוש שלך).`;
+        const hasOpenModalForm = latestDom.interactiveElements.some(
+          (e) => e.inModal && (e.tag === 'input' || e.tag === 'textarea' || e.tag === 'select')
+        );
 
-        // If user ALSO asked to read/report visible details from the opened screen, do ONLY 1 ultra-slim read call!
-        if (matchedMacro.needsFinalScreenRead) {
-          const readRes = await queryAIAssistant(
-            sanitizedText,
-            screenContext,
-            providerConfig,
-            undefined,
-            undefined,
-            {
-              stepNumber: macroDoneLabels.length + 1,
-              completedSteps: macroDoneLabels,
-              liveScreenDOM: { ...latestDom, visibleButtonsAndActions: [] },
-              availableActionTools: [],
-            }
+        // Pure 0-AI finish ONLY when ALL query intent is already covered by the navigation clicks AND no form awaits input!
+        if (!matchedMacro.requiresAiContinuation && !hasOpenModalForm) {
+          const finalMacroAnswer = `בוצע! פתחתי עבורך את ${macroDoneLabels.join(' ← ')} (0 טוקנים — מסלול שנלמד מהשימוש שלך).`;
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === macroMsgId
+                ? { ...m, text: finalMacroAnswer, executionSteps: [...macroTimeline] }
+                : m
+            )
           );
-          if (readRes.source === 'cloud_llm' && readRes.tokensUsed) {
-            void recordUserAiTokenUsage(user?.id, readRes.tokensUsed);
-          }
-          if (readRes.text) {
-            finalMacroAnswer = filterAssistantResponse(readRes.text);
-            macroTimeline.push({
-              stepNumber: macroTimeline.length + 1,
-              description: 'קריאת תוכן המסך שנפתח',
-              source: 'cloud_ai',
-              status: 'done',
-            });
-          }
+          if (actionToastTimerRef.current) clearTimeout(actionToastTimerRef.current);
+          setTimeout(() => {
+            setIsOpen(false);
+            setActionToast({ message: finalMacroAnswer });
+            actionToastTimerRef.current = setTimeout(() => setActionToast(null), 7000);
+          }, 850);
+          if (autoSpeak) speakText(finalMacroAnswer);
+          else prefetchAudio(finalMacroAnswer);
+          return;
         }
 
+        // Seamless Handoff to Full Autonomous AI Loop (with FULL availableActionTools — never strip tools!)
+        currentDom = latestDom;
+        completedSteps.push(...macroDoneLabels);
+        executedClickLabels.push(...macroDoneLabels);
+        timelineSteps.push(...macroTimeline);
+        reusedMsgId = macroMsgId;
         setMessages((prev) =>
           prev.map((m) =>
             m.id === macroMsgId
-              ? { ...m, text: finalMacroAnswer, executionSteps: [...macroTimeline] }
+              ? {
+                  ...m,
+                  text: `⚡ הניווט בוצע (${macroDoneLabels.join(' ← ')}), ממשיכה לביצוע המשימה...`,
+                  executionSteps: [...macroTimeline],
+                }
               : m
           )
         );
-        if (actionToastTimerRef.current) clearTimeout(actionToastTimerRef.current);
-        setTimeout(() => {
-          setIsOpen(false);
-          setActionToast({ message: finalMacroAnswer });
-          actionToastTimerRef.current = setTimeout(() => setActionToast(null), 7000);
-        }, 850);
-        if (autoSpeak) speakText(finalMacroAnswer);
-        else prefetchAudio(finalMacroAnswer);
-        return;
       } else {
         // Remove temporary macro message and gracefully fall back to full AI loop
         setMessages((prev) => prev.filter((m) => m.id !== macroMsgId));
@@ -922,7 +923,21 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
     }
 
-    let aiResult = await queryAIAssistant(sanitizedText, screenContext, providerConfig, liveData, recentHistory);
+    let aiResult = reusedMsgId
+      ? await queryAIAssistant(
+          sanitizedText,
+          screenContext,
+          providerConfig,
+          undefined,
+          undefined,
+          {
+            stepNumber: timelineSteps.length + 1,
+            completedSteps,
+            liveScreenDOM: { ...currentDom, visibleButtonsAndActions: [] },
+            availableActionTools: liveData.availableActionTools,
+          }
+        )
+      : await queryAIAssistant(sanitizedText, screenContext, providerConfig, liveData, recentHistory);
 
     const recordTelemetry = (res: typeof aiResult) => {
       if (res.source === 'cloud_llm' && res.tokensUsed) {
@@ -981,7 +996,7 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     proposal = clarityResult.proposedAction;
     finalPlan = clarityResult.proposedPlan;
 
-    const msgId = `ast_${Date.now()}`;
+    const msgId = reusedMsgId || `ast_${Date.now()}`;
 
     const assistantMsg: ChatMessage = {
       id: msgId,
@@ -998,15 +1013,16 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       proposedAction: proposal,
       actionStatus: proposal ? (proposal.requiresConfirmation ? 'pending' : 'executing') : undefined,
       proposedPlan: finalPlan,
-      planStatus: finalPlan ? 'pending' : undefined
+      planStatus: finalPlan ? 'pending' : undefined,
+      executionSteps: timelineSteps.length > 0 ? [...timelineSteps] : undefined
     };
-    setMessages(prev => [...prev, assistantMsg]);
+    if (reusedMsgId) {
+      setMessages(prev => prev.map(m => (m.id === reusedMsgId ? { ...m, ...assistantMsg } : m)));
+    } else {
+      setMessages(prev => [...prev, assistantMsg]);
+    }
 
-    // Autonomous Multi-Step Loop (Hard-capped at MAX_AUTONOMOUS_STEPS = 3, zero user intervention for safe steps!)
-    const completedSteps: string[] = [];
-    const executedClickLabels: string[] = [];
-    const timelineSteps: AgentExecutionStep[] = [];
-
+    // Autonomous Multi-Step Loop (Hard-capped at MAX_AUTONOMOUS_STEPS = 6, zero user intervention for safe steps!)
     for (let stepNum = 1; stepNum <= MAX_AUTONOMOUS_STEPS; stepNum++) {
       if (!proposal || proposal.requiresConfirmation) break;
 
@@ -1038,7 +1054,7 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           : proposal.summary || proposal.tool);
 
       const stepRecord: AgentExecutionStep = {
-        stepNumber: stepNum,
+        stepNumber: timelineSteps.length + 1,
         description: humanDesc,
         source: stepSource,
         learnedHits,

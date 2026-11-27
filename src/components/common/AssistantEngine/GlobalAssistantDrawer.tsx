@@ -1244,13 +1244,11 @@ export const GlobalAssistantDrawer: React.FC = () => {
                 מיקום נוכחי:{' '}
                 {screenContext.spaceTitle
                   ? `מרחב "${screenContext.spaceTitle}"${screenContext.currentFolderName ? ` › ${screenContext.currentFolderName}` : ''}`
-                  : screenContext.route?.startsWith('/space/')
-                    ? 'בתוך מרחב עבודה'
-                    : screenContext.route?.startsWith('/settings')
-                      ? 'הגדרות'
-                      : screenContext.route?.startsWith('/admin')
-                        ? 'ניהול מערכת'
-                        : 'דף ראשי'}
+                  : screenContext.route && screenContext.route !== '/'
+                    ? (typeof document !== 'undefined'
+                        ? (document.querySelector('h1, h2')?.textContent?.trim().slice(0, 32) || screenContext.route)
+                        : screenContext.route)
+                    : 'דף ראשי'}
               </span>
             </div>
             {screenContext.activeWidget && screenContext.activeWidget !== 'general' && (

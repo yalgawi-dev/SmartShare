@@ -219,7 +219,25 @@ export function inspectLiveScreenDOM(): LiveScreenDomInspection {
         return;
       }
       if (!['text', 'search', 'tel', 'email', 'number', 'date', 'time'].includes(type)) return;
-      const placeholder = cleanLabel(inp.placeholder || inp.getAttribute('aria-label') || inp.name);
+      const assocLabel =
+        (inp.id ? document.querySelector(`label[for="${CSS.escape(inp.id)}"]`)?.textContent : '') ||
+        inp.closest('label')?.textContent ||
+        '';
+      const fallbackTypeLabel =
+        type === 'time'
+          ? 'שעה (time)'
+          : type === 'date'
+            ? 'תאריך (date)'
+            : type === 'number'
+              ? 'מספר'
+              : type === 'email'
+                ? 'אימייל'
+                : type === 'tel'
+                  ? 'טלפון'
+                  : '';
+      const placeholder = cleanLabel(
+        inp.placeholder || inp.getAttribute('aria-label') || inp.title || assocLabel || inp.name || fallbackTypeLabel
+      );
       if (!placeholder) return;
       const agentId = `ui_${counter++}`;
       el.setAttribute('data-agent-action-id', agentId);
@@ -236,7 +254,13 @@ export function inspectLiveScreenDOM(): LiveScreenDomInspection {
 
     if (tagName === 'textarea') {
       const ta = el as HTMLTextAreaElement;
-      const placeholder = cleanLabel(ta.placeholder || ta.getAttribute('aria-label'));
+      const assocLabel =
+        (ta.id ? document.querySelector(`label[for="${CSS.escape(ta.id)}"]`)?.textContent : '') ||
+        ta.closest('label')?.textContent ||
+        '';
+      const placeholder = cleanLabel(
+        ta.placeholder || ta.getAttribute('aria-label') || ta.title || assocLabel || ta.name || 'שדה טקסט'
+      );
       if (!placeholder) return;
       const agentId = `ui_${counter++}`;
       el.setAttribute('data-agent-action-id', agentId);
@@ -269,7 +293,17 @@ export function inspectLiveScreenDOM(): LiveScreenDomInspection {
 
     const text = cleanLabel(htmlEl.innerText || htmlEl.textContent);
     const title = cleanLabel(htmlEl.getAttribute('title') || htmlEl.getAttribute('aria-label'));
-    const combined = text && title && text !== title ? `${text} (${title})` : text || title;
+    let combined = text && title && text !== title ? `${text} (${title})` : text || title;
+
+    // 100% Universal Modal Close Button detection (single-char ×/✕/X or icon-only close button inside any modal!)
+    if (inModal && (!combined || combined.length < 2)) {
+      const rawTxt = (htmlEl.innerText || htmlEl.textContent || '').trim();
+      const isCloseGlyph = ['×', '✕', '✖', 'x', 'X'].includes(rawTxt);
+      const isSvgCloseBtn = !rawTxt && Boolean(htmlEl.querySelector('svg')) && htmlEl.getBoundingClientRect().width <= 52;
+      if (isCloseGlyph || isSvgCloseBtn) {
+        combined = 'סגור חלון (×)';
+      }
+    }
     if (!combined || combined.length < 2) return;
 
     const agentId = `ui_${counter++}`;
@@ -294,7 +328,7 @@ export function inspectLiveScreenDOM(): LiveScreenDomInspection {
   // Prioritize modal elements first so the agent focuses immediately on any open dialog form
   const interactiveElements = [...modalElements, ...pageElements].slice(0, 45);
 
-  // 3. Open Modals or Dialogs
+  // 3. Open Modals or Dialogs (ARIA dialogs + universal CSS-fixed full-screen modal overlays!)
   const modalSet = new Set<string>();
   document.querySelectorAll('[role="dialog"], [aria-modal="true"]').forEach((el) => {
     if (!isElementVisible(el)) return;
@@ -302,6 +336,25 @@ export function inspectLiveScreenDOM(): LiveScreenDomInspection {
     const txt = cleanLabel(heading?.textContent || el.getAttribute('aria-label'));
     if (txt) modalSet.add(txt);
   });
+  if (modalElements.length > 0 && modalSet.size === 0) {
+    // Detect CSS-fixed modal overlays without explicit ARIA dialog attributes (works on ANY React/Vue/HTML app!)
+    const allFixed = Array.from(document.querySelectorAll('div, section, aside'));
+    for (let i = allFixed.length - 1; i >= 0; i--) {
+      const el = allFixed[i];
+      if (!isElementVisible(el)) continue;
+      const style = window.getComputedStyle(el);
+      const z = parseInt(style.zIndex || '0', 10) || 0;
+      if (style.position === 'fixed' && z >= 50) {
+        const r = el.getBoundingClientRect();
+        if (r.width >= window.innerWidth * 0.7 && r.height >= window.innerHeight * 0.5) {
+          const heading = el.querySelector('h1, h2, h3, h4, strong');
+          const txt = cleanLabel(heading?.textContent) || 'חלון קופץ פתוח';
+          modalSet.add(txt);
+          break;
+        }
+      }
+    }
+  }
 
   // 4. Layer 2.5 — Zero-Tag Autonomous Viewport Scope & Entity Discovery (App-Agnostic)
   // Priority 1: Explicit semantic attributes if present; Priority 2: 100% Automatic heuristic discovery on ANY app!
