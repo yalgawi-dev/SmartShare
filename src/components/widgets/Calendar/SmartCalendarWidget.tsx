@@ -13,10 +13,13 @@ import {
 import {
   buildWhatsAppLink,
   createDefaultCalendarConfig,
+  HEBREW_DAYS_FULL,
+  HEBREW_MONTHS,
   parseYMD,
   resolveDayCustody,
   toYMD,
 } from '@/utils/calendarCustodyEngine';
+import { CalendarUnifiedHeader } from './CalendarUnifiedHeader';
 import {
   createCalendarEvent,
   createPersonalCalendarEvent,
@@ -686,16 +689,20 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
         </div>
       )}
 
-      {/* RESOLUTION 2: WEEKLY VIEW (Swipe Left/Right + Inline '+' supported!) */}
+      {/* RESOLUTION 2: WEEKLY VIEW (Unified Header + 7-Day Strip + Live Selected Day Card right below — zero 7 empty rows!) */}
       {resolution === 'week' && (
-        <div {...swipeHandlers}>
+        <div {...swipeHandlers} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           <CalendarWeekView
             selectedDate={selectedDate}
-            onSelectDate={handleCalendarDateTap}
-            onQuickAddForDate={(ymd) => {
-              setSelectedDate(ymd);
-              setDaySheetAutoAdd(true);
-              setShowDaySheet(true);
+            onSelectDate={(ymd) => {
+              if (visualSwapMode) {
+                handleCalendarDateTap(ymd);
+              } else {
+                setSelectedDate(ymd);
+                const dt = parseYMD(ymd);
+                setViewYear(dt.getFullYear());
+                setViewMonth(dt.getMonth());
+              }
             }}
             onPrevWeek={() => shiftSelectedDateBy(-7)}
             onNextWeek={() => shiftSelectedDateBy(7)}
@@ -709,54 +716,8 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
             swapFirstDate={swapFirstDate}
             swapSecondDate={swapSecondDate}
           />
-        </div>
-      )}
-
-      {/* RESOLUTION 3: DAILY NAVIGATOR + INLINE AGENDA (Swipe Left/Right supported!) */}
-      {resolution === 'day' && (
-        <div {...swipeHandlers} style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '0.25rem',
-              background: '#ffffff',
-              padding: '0.36rem 0.45rem',
-              borderRadius: '14px',
-              border: '1px solid #e2e8f0',
-              flexWrap: 'nowrap',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-              <button type="button" onClick={() => shiftSelectedDateBy(-1)} style={{ padding: '0.26rem 0.48rem', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', fontWeight: 800, fontSize: '0.72rem', cursor: 'pointer' }}>◀ קודם</button>
-              <button type="button" onClick={handleToday} style={{ padding: '0.2rem 0.48rem', borderRadius: '999px', border: '1px solid #c7d2fe', background: '#eef2ff', color: '#4338ca', fontSize: '0.68rem', fontWeight: 900, cursor: 'pointer' }}>היום</button>
-              <button type="button" onClick={() => shiftSelectedDateBy(1)} style={{ padding: '0.26rem 0.48rem', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', fontWeight: 800, fontSize: '0.72rem', cursor: 'pointer' }}>הבא ▶</button>
-            </div>
-            <div style={{ display: 'inline-flex', background: '#f1f5f9', padding: '2px', borderRadius: '9px', gap: '2px', flexShrink: 0 }}>
-              {([{ id: 'month', label: 'חודשי' }, { id: 'week', label: 'שבועי' }, { id: 'day', label: 'יומי' }] as const).map((r) => (
-                <button
-                  key={r.id}
-                  type="button"
-                  onClick={() => setResolution(r.id)}
-                  style={{
-                    padding: '0.22rem 0.44rem',
-                    borderRadius: '7px',
-                    border: 'none',
-                    background: resolution === r.id ? '#ffffff' : 'transparent',
-                    color: resolution === r.id ? '#0f172a' : '#64748b',
-                    fontWeight: resolution === r.id ? 900 : 700,
-                    fontSize: '0.68rem',
-                    cursor: 'pointer',
-                  }}
-                >
-                  {r.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
           <CalendarDayDrawer
+            key={`week_day_${selectedDate}`}
             selectedDate={selectedDate}
             config={effectiveConfig}
             events={events}
@@ -775,6 +736,44 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
           />
         </div>
       )}
+
+      {/* RESOLUTION 3: DAILY VIEW (DRY Unified Header + Visual Day Cube Card!) */}
+      {resolution === 'day' && (() => {
+        const dt = parseYMD(selectedDate);
+        const dailyTitle = `יום ${HEBREW_DAYS_FULL[dt.getDay()]}, ${dt.getDate()} ב${HEBREW_MONTHS[dt.getMonth()]} ${dt.getFullYear()}`;
+        return (
+          <div {...swipeHandlers} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <CalendarUnifiedHeader
+              resolution={resolution}
+              onChangeResolution={setResolution}
+              title={dailyTitle}
+              onPrev={() => shiftSelectedDateBy(-1)}
+              onNext={() => shiftSelectedDateBy(1)}
+              onToday={handleToday}
+              prevLabel="יום קודם"
+              nextLabel="יום הבא"
+            />
+            <CalendarDayDrawer
+              key={`day_view_${selectedDate}`}
+              selectedDate={selectedDate}
+              config={effectiveConfig}
+              events={events}
+              swaps={swaps}
+              currentUserId={user?.id || 'me'}
+              defaultVisibility={onlyPersonalSelected ? 'private' : 'shared'}
+              onAddEvent={handleAddCalendarEvent}
+              onDeleteEvent={handleDeleteCalendarEvent}
+              onToggleComplete={handleToggleEventCompleted}
+              onOpenSwapModal={(from) =>
+                setSwapModalState({ fromParent: from, initialDate: selectedDate })
+              }
+              onToggleBagItem={handleToggleBagItem}
+              onAddBagItem={handleAddBagItem}
+              onRemoveBagItem={handleRemoveBagItem}
+            />
+          </div>
+        );
+      })()}
 
       {/* DAY DETAIL SHEET MODAL — Opens immediately when tapping ANY day or tapping center ➕ FAB! */}
       {showDaySheet &&

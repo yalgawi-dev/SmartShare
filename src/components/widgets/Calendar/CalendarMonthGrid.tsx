@@ -16,6 +16,7 @@ import {
   SPECIAL_PERIOD_META,
   toYMD,
 } from '@/utils/calendarCustodyEngine';
+import { CalendarUnifiedHeader } from './CalendarUnifiedHeader';
 
 interface CalendarMonthGridProps {
   year: number;
@@ -87,162 +88,18 @@ export const CalendarMonthGrid: React.FC<CalendarMonthGridProps> = ({
   const pAPct = Math.round((stats.parentADays / totalDays) * 100);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.42rem' }}>
-      {/* UNIFIED SINGLE-ROW COMPACT HEADER: Month Nav + Today + Resolution Switcher */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '0.25rem',
-          background: '#ffffff',
-          padding: '0.36rem 0.45rem',
-          borderRadius: '14px',
-          border: '1px solid #e2e8f0',
-          boxShadow: '0 2px 8px rgba(15,23,42,0.04)',
-          flexWrap: 'nowrap',
-          overflow: 'hidden',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.22rem', minWidth: 0 }}>
-          <button
-            type="button"
-            onClick={onPrevMonth}
-            style={{
-              width: '28px',
-              height: '28px',
-              borderRadius: '8px',
-              border: '1px solid #e2e8f0',
-              background: '#f8fafc',
-              color: '#1e293b',
-              fontWeight: 900,
-              fontSize: '0.72rem',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-            }}
-            title="חודש קודם"
-          >
-            ◀
-          </button>
-          <h3 style={{ margin: 0, fontSize: '0.86rem', fontWeight: 900, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {HEBREW_MONTHS[monthIndex]} {year}
-          </h3>
-          <button
-            type="button"
-            onClick={onNextMonth}
-            style={{
-              width: '28px',
-              height: '28px',
-              borderRadius: '8px',
-              border: '1px solid #e2e8f0',
-              background: '#f8fafc',
-              color: '#1e293b',
-              fontWeight: 900,
-              fontSize: '0.72rem',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-            }}
-            title="חודש הבא"
-          >
-            ▶
-          </button>
-          <button
-            type="button"
-            onClick={onToday}
-            style={{
-              padding: '0.16rem 0.42rem',
-              borderRadius: '999px',
-              border: '1px solid #c7d2fe',
-              background: '#eef2ff',
-              color: '#4338ca',
-              fontSize: '0.66rem',
-              fontWeight: 800,
-              cursor: 'pointer',
-              flexShrink: 0,
-            }}
-          >
-            היום
-          </button>
-        </div>
-
-        {/* Compact 3-Resolution Toggle */}
-        <div
-          style={{
-            display: 'inline-flex',
-            background: '#f1f5f9',
-            padding: '2px',
-            borderRadius: '9px',
-            gap: '2px',
-            flexShrink: 0,
-          }}
-        >
-          {(
-            [
-              { id: 'month', label: 'חודשי' },
-              { id: 'week', label: 'שבועי' },
-              { id: 'day', label: 'יומי' },
-            ] as const
-          ).map((r) => {
-            const active = resolution === r.id;
-            return (
-              <button
-                key={r.id}
-                type="button"
-                onClick={() => onChangeResolution(r.id)}
-                style={{
-                  padding: '0.22rem 0.44rem',
-                  borderRadius: '7px',
-                  border: 'none',
-                  background: active ? '#ffffff' : 'transparent',
-                  color: active ? '#0f172a' : '#64748b',
-                  fontWeight: active ? 900 : 700,
-                  fontSize: '0.68rem',
-                  cursor: 'pointer',
-                  boxShadow: active ? '0 1px 4px rgba(15,23,42,0.1)' : 'none',
-                }}
-              >
-                {r.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* ULTRA-SLIM CUSTODY LEGEND & SPLIT BAR (24px height!) */}
-      {config.mode === 'parenting' && (
-        <div
-          style={{
-            background: '#ffffff',
-            padding: '0.32rem 0.65rem',
-            borderRadius: '11px',
-            border: '1px solid #e2e8f0',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '4px',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.72rem', fontWeight: 800 }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', color: pA.color }}>
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: pA.color }} />
-              {pA.name}: <strong>{stats.parentADays}</strong>
-            </span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', color: pB.color }}>
-              {pB.name}: <strong>{stats.parentBDays}</strong>
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: pB.color }} />
-            </span>
-          </div>
-          <div style={{ height: '4px', borderRadius: '999px', background: `${pB.color}40`, overflow: 'hidden', display: 'flex' }}>
-            <div style={{ width: `${pAPct}%`, background: pA.color, transition: 'width 0.3s ease' }} />
-            <div style={{ flex: 1, background: pB.color }} />
-          </div>
-        </div>
-      )}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+      {/* DRY Unified 2-Row Header (Identical eye-line across Month / Week / Day — ZERO truncation!) */}
+      <CalendarUnifiedHeader
+        resolution={resolution}
+        onChangeResolution={onChangeResolution}
+        title={`${HEBREW_MONTHS[monthIndex]} ${year}`}
+        onPrev={onPrevMonth}
+        onNext={onNextMonth}
+        onToday={onToday}
+        prevLabel="חודש קודם"
+        nextLabel="חודש הבא"
+      />
 
       {/* Weekday Headers */}
       <div
@@ -430,6 +287,37 @@ export const CalendarMonthGrid: React.FC<CalendarMonthGridProps> = ({
           );
         })}
       </div>
+
+      {/* CUSTODY BALANCE & LEGEND BAR — Positioned cleanly BELOW the Month Grid! */}
+      {config.mode === 'parenting' && (
+        <div
+          style={{
+            background: '#ffffff',
+            padding: '0.45rem 0.7rem',
+            borderRadius: '13px',
+            border: '1px solid #e2e8f0',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '5px',
+            marginTop: '0.15rem',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.75rem', fontWeight: 800 }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: pA.color }}>
+              <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: pA.color }} />
+              {pA.name}: <strong>{stats.parentADays}</strong> ימים
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: pB.color }}>
+              {pB.name}: <strong>{stats.parentBDays}</strong> ימים
+              <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: pB.color }} />
+            </span>
+          </div>
+          <div style={{ height: '5px', borderRadius: '999px', background: `${pB.color}40`, overflow: 'hidden', display: 'flex' }}>
+            <div style={{ width: `${pAPct}%`, background: pA.color, transition: 'width 0.3s ease' }} />
+            <div style={{ flex: 1, background: pB.color }} />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

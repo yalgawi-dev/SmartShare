@@ -16,6 +16,7 @@ import {
   detectDayTimeConflicts,
   getBirthdaysForDate,
   HEBREW_DAYS_FULL,
+  HEBREW_MONTHS,
   parseYMD,
   resolveDayCustody,
   SPECIAL_PERIOD_META,
@@ -100,11 +101,14 @@ export const CalendarDayDrawer: React.FC<CalendarDayDrawerProps> = ({
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [showBag, setShowBag] = useState(false);
+  const [showKidsNotify, setShowKidsNotify] = useState(false);
   const [newBagItemLabel, setNewBagItemLabel] = useState('');
 
   const dateObj = parseYMD(selectedDate);
   const dayName = HEBREW_DAYS_FULL[dateObj.getDay()];
-  const formattedDate = `${dateObj.getDate()}.${dateObj.getMonth() + 1}.${dateObj.getFullYear()}`;
+  const monthName = HEBREW_MONTHS[dateObj.getMonth()];
+  const dayNum = dateObj.getDate();
+  const formattedDate = `${dayNum}.${dateObj.getMonth() + 1}.${dateObj.getFullYear()}`;
   const dow = dateObj.getDay();
 
   const resolution =
@@ -196,83 +200,151 @@ export const CalendarDayDrawer: React.FC<CalendarDayDrawerProps> = ({
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
+  const cubeColor = !resolution
+    ? '#4f46e5'
+    : resolution.overallParent === 'parent_a'
+      ? pA.color
+      : resolution.overallParent === 'parent_b'
+        ? pB.color
+        : '#7c3aed';
+
   return (
     <div
       style={{
         background: '#ffffff',
         borderRadius: '18px',
-        border: '1px solid #e2e8f0',
-        padding: '0.9rem',
+        border: `1.5px solid ${cubeColor}33`,
+        padding: '0.85rem',
         display: 'flex',
         flexDirection: 'column',
-        gap: '0.7rem',
+        gap: '0.68rem',
         boxShadow: '0 4px 16px rgba(15, 23, 42, 0.05)',
       }}
     >
-      {/* Header: Date + Primary Actions */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-        <div>
-          <div style={{ fontSize: '0.98rem', fontWeight: 900, color: '#0f172a' }}>
-            יום {dayName}, {formattedDate}
-          </div>
-          {resolution && (
-            <div style={{ fontSize: '0.76rem', fontWeight: 700, color: '#475569', marginTop: '2px' }}>
-              {resolution.overallParent === 'split' ? (
-                <span>⚖️ הילדים מפוצלים היום בין ההורים</span>
-              ) : (
-                <span>
-                  🏠 הילדים אצל{' '}
-                  <strong style={{ color: config.parents[resolution.overallParent].color }}>
-                    {config.parents[resolution.overallParent].name}
-                  </strong>
-                  {resolution.source === 'swap' && ' (החלפה מאושרת 🔄)'}
-                  {resolution.source === 'special_period' && ' (מצב מיוחד 🛡️)'}
-                  {resolution.source === 'school_break' && ' (חופשה/חג 🏖️)'}
-                </span>
-              )}
+      {/* VISUAL HERO HEADER: Info + Actions on Right, Vivid Apple-Style Calendar Day Cube on Left! */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.65rem' }}>
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+          <div>
+            <div style={{ fontSize: '0.96rem', fontWeight: 900, color: '#0f172a' }}>
+              יום {dayName}, {dayNum} ב{monthName}
             </div>
-          )}
-        </div>
+            {resolution && (
+              <div style={{ marginTop: '4px', display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+                {resolution.overallParent === 'split' ? (
+                  <span style={{ fontSize: '0.74rem', fontWeight: 900, background: '#f5f3ff', color: '#6d28d9', padding: '2px 9px', borderRadius: '999px', border: '1px solid #ddd6fe' }}>
+                    ⚖️ הילדים מפוצלים היום
+                  </span>
+                ) : (
+                  <span
+                    style={{
+                      fontSize: '0.76rem',
+                      fontWeight: 900,
+                      background: `${cubeColor}18`,
+                      color: cubeColor,
+                      border: `1px solid ${cubeColor}44`,
+                      padding: '2px 10px',
+                      borderRadius: '999px',
+                    }}
+                  >
+                    🏠 אצל {config.parents[resolution.overallParent].name}
+                    {resolution.source === 'swap' ? ' • 🔄 החלפה' : ''}
+                    {resolution.source === 'special_period' ? ' • 🛡️ מיוחד' : ''}
+                    {resolution.source === 'school_break' ? ' • 🏖️ חופשה' : ''}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
 
-        <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-          {config.mode === 'parenting' && resolution && (
+          <div style={{ display: 'flex', gap: '0.38rem', flexWrap: 'wrap' }}>
             <button
               type="button"
-              onClick={() =>
-                onOpenSwapModal(
-                  resolution.overallParent === 'parent_b' ? 'parent_b' : 'parent_a'
-                )
-              }
+              onClick={() => setShowAddForm((prev) => !prev)}
               style={{
-                padding: '0.4rem 0.68rem',
+                padding: '0.38rem 0.72rem',
                 borderRadius: '10px',
-                border: '1px solid #c7d2fe',
-                background: '#eef2ff',
-                color: '#4338ca',
+                border: 'none',
+                background: 'linear-gradient(135deg, #0f172a, #1e293b)',
+                color: '#ffffff',
                 fontSize: '0.74rem',
                 fontWeight: 800,
                 cursor: 'pointer',
               }}
             >
-              🔄 {config.isSoloMode ? 'תעד החלפה' : 'בקש החלפה'}
+              {showAddForm ? '✕ סגור טופס' : '➕ הוסף ליום'}
             </button>
-          )}
-          <button
-            type="button"
-            onClick={() => setShowAddForm((prev) => !prev)}
+            {config.mode === 'parenting' && resolution && (
+              <button
+                type="button"
+                onClick={() =>
+                  onOpenSwapModal(
+                    resolution.overallParent === 'parent_b' ? 'parent_b' : 'parent_a'
+                  )
+                }
+                style={{
+                  padding: '0.38rem 0.65rem',
+                  borderRadius: '10px',
+                  border: `1px solid ${cubeColor}44`,
+                  background: `${cubeColor}12`,
+                  color: cubeColor,
+                  fontSize: '0.74rem',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                }}
+              >
+                🔄 {config.isSoloMode ? 'החלף יום' : 'בקש החלפה'}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* VIVID VISUAL DAY CUBE (Instant visual glance of Day + Date + Layer Color!) */}
+        <div
+          style={{
+            width: '72px',
+            minHeight: '78px',
+            borderRadius: '16px',
+            border: `2px solid ${cubeColor}`,
+            background: '#ffffff',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            boxShadow: `0 6px 16px ${cubeColor}28`,
+            flexShrink: 0,
+          }}
+        >
+          <div
             style={{
-              padding: '0.4rem 0.72rem',
-              borderRadius: '10px',
-              border: 'none',
-              background: '#0f172a',
+              width: '100%',
+              background: cubeColor,
               color: '#ffffff',
-              fontSize: '0.74rem',
-              fontWeight: 800,
-              cursor: 'pointer',
+              fontSize: '0.66rem',
+              fontWeight: 900,
+              textAlign: 'center',
+              padding: '3px 2px',
+              letterSpacing: '0.01em',
             }}
           >
-            {showAddForm ? '✕ סגור' : '➕ הוסף ליום'}
-          </button>
+            {monthName}
+          </div>
+          <div
+            style={{
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '3px 2px 5px',
+            }}
+          >
+            <span style={{ fontSize: '1.65rem', fontWeight: 900, color: '#0f172a', lineHeight: 1 }}>
+              {dayNum}
+            </span>
+            <span style={{ fontSize: '0.64rem', fontWeight: 800, color: cubeColor, marginTop: '2px' }}>
+              {dayName}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -743,89 +815,80 @@ export const CalendarDayDrawer: React.FC<CalendarDayDrawerProps> = ({
         )
       )}
 
-      {/* Per-Child Breakdown + 1-Click Kid WhatsApp Transparency */}
+      {/* Compact Collapsible Bottom Tools: Kids WhatsApp Update + Editable Handover Bag Checklist */}
       {config.mode === 'parenting' && resolution && (
-        <div
-          style={{
-            background: '#f8fafc',
-            borderRadius: '13px',
-            border: '1px solid #e2e8f0',
-            padding: '0.6rem 0.72rem',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '0.4rem',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ fontSize: '0.74rem', fontWeight: 800, color: '#334155' }}>
-              📲 שקיפות ועדכון לילדים על היום:
-            </span>
+        <div style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '0.45rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
             <button
               type="button"
-              onClick={() => handleNotifyChild(null)}
-              style={{ padding: '0.26rem 0.6rem', borderRadius: '999px', border: '1px solid #86efac', background: '#f0fdf4', color: '#15803d', fontSize: '0.7rem', fontWeight: 800, cursor: 'pointer' }}
+              onClick={() => setShowKidsNotify((p) => !p)}
+              style={{
+                flex: 1,
+                padding: '0.38rem 0.55rem',
+                borderRadius: '10px',
+                border: showKidsNotify ? '1.5px solid #16a34a' : '1px solid #e2e8f0',
+                background: showKidsNotify ? '#f0fdf4' : '#f8fafc',
+                color: showKidsNotify ? '#15803d' : '#475569',
+                fontSize: '0.72rem',
+                fontWeight: 800,
+                cursor: 'pointer',
+              }}
             >
-              💬 שלח עדכון לילדים
+              📲 עדכון לילדים {showKidsNotify ? '▲' : '▼'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowBag((p) => !p)}
+              style={{
+                flex: 1,
+                padding: '0.38rem 0.55rem',
+                borderRadius: '10px',
+                border: showBag ? '1.5px solid #4f46e5' : '1px solid #e2e8f0',
+                background: showBag ? '#eef2ff' : '#f8fafc',
+                color: showBag ? '#3730a3' : '#475569',
+                fontSize: '0.72rem',
+                fontWeight: 800,
+                cursor: 'pointer',
+              }}
+            >
+              🎒 תיק מעבר ({(config.handoverBag || []).filter((b) => b.checked).length}/{(config.handoverBag || []).length}) {showBag ? '▲' : '▼'}
             </button>
           </div>
 
-          {config.children.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.32rem' }}>
+          {showKidsNotify && (
+            <div style={{ background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '0.55rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+              <button
+                type="button"
+                onClick={() => handleNotifyChild(null)}
+                style={{ padding: '0.32rem 0.6rem', borderRadius: '9px', border: '1px solid #86efac', background: '#f0fdf4', color: '#15803d', fontSize: '0.74rem', fontWeight: 800, cursor: 'pointer' }}
+              >
+                💬 שלח עדכון כללי בוואטסאפ
+              </button>
               {config.children.map((child) => {
                 const role = resolution.byChild[child.id] || 'parent_a';
                 const host = config.parents[role];
                 return (
-                  <div key={child.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#ffffff', padding: '0.36rem 0.55rem', borderRadius: '10px', border: '1px solid #e2e8f0', fontSize: '0.76rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <div key={child.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#ffffff', padding: '0.35rem 0.55rem', borderRadius: '9px', border: '1px solid #e2e8f0', fontSize: '0.75rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                       <span>{child.emoji || '🧒'}</span>
                       <strong>{child.name}</strong>
-                      <span style={{ color: '#64748b' }}>← אצל</span>
-                      <span style={{ padding: '1px 7px', borderRadius: '999px', background: `${host.color}18`, color: host.color, fontWeight: 800 }}>
-                        {host.name}
-                      </span>
+                      <span style={{ color: host.color, fontWeight: 800 }}>({host.name})</span>
                     </div>
                     <button
                       type="button"
                       onClick={() => handleNotifyChild(child)}
-                      style={{ padding: '0.2rem 0.5rem', borderRadius: '8px', border: '1px solid #bbf7d0', background: '#ecfdf5', color: '#166534', fontSize: '0.7rem', fontWeight: 800, cursor: 'pointer' }}
+                      style={{ padding: '0.2rem 0.5rem', borderRadius: '7px', border: '1px solid #bbf7d0', background: '#ecfdf5', color: '#166534', fontSize: '0.7rem', fontWeight: 800, cursor: 'pointer' }}
                     >
-                      📲 עדכן את {child.name}
+                      📲 שלח
                     </button>
                   </div>
                 );
               })}
             </div>
           )}
-        </div>
-      )}
 
-      {/* 100% EDITABLE HANDOVER BAG CHECKLIST (Add any item + Delete any item!) */}
-      {config.mode === 'parenting' && (
-        <div style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '0.5rem' }}>
-          <button
-            type="button"
-            onClick={() => setShowBag((p) => !p)}
-            style={{
-              width: '100%',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              background: 'none',
-              border: 'none',
-              padding: '0.2rem 0',
-              fontSize: '0.76rem',
-              fontWeight: 800,
-              color: '#334155',
-              cursor: 'pointer',
-            }}
-          >
-            <span>
-              🎒 צ׳קליסט תיק מעבר ({(config.handoverBag || []).filter((b) => b.checked).length}/{(config.handoverBag || []).length})
-            </span>
-            <span>{showBag ? '▲' : '▼'}</span>
-          </button>
           {showBag && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginTop: '0.4rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '0.55rem' }}>
               {(config.handoverBag || []).map((item) => (
                 <div key={item.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.4rem' }}>
                   <label
@@ -861,12 +924,11 @@ export const CalendarDayDrawer: React.FC<CalendarDayDrawerProps> = ({
                 </div>
               ))}
 
-              {/* Add Custom Checklist Item */}
               {onAddBagItem && (
-                <div style={{ display: 'flex', gap: '0.35rem', marginTop: '0.25rem' }}>
+                <div style={{ display: 'flex', gap: '0.35rem', marginTop: '0.2rem' }}>
                   <input
                     type="text"
-                    placeholder="הוסף פריט חדש לצ׳קליסט (למשל: דרכון, משקפיים)..."
+                    placeholder="הוסף פריט חדש לצ׳קליסט..."
                     value={newBagItemLabel}
                     onChange={(e) => setNewBagItemLabel(e.target.value)}
                     onKeyDown={(e) => {
