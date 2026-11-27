@@ -129,7 +129,7 @@ export function inspectLiveScreenDOM(): LiveScreenDomInspection {
   let counter = 1;
 
   const selector =
-    'button, [role="button"], [role="tab"], a[href], input[type="text"], input[type="search"], input[type="tel"], input[type="checkbox"], textarea, select';
+    'button, [role="button"], [role="tab"], a[href], input[type="text"], input[type="search"], input[type="tel"], input[type="email"], input[type="number"], input[type="date"], input[type="time"], input[type="checkbox"], textarea, select';
 
   const isInsideOpenModal = (el: Element): boolean => {
     if (el.closest('[role="dialog"], [aria-modal="true"]')) return true;
@@ -190,12 +190,14 @@ export function inspectLiveScreenDOM(): LiveScreenDomInspection {
   };
 
   document.querySelectorAll(selector).forEach((el) => {
-    if (modalElements.length + pageElements.length >= 55) return;
     if (!isElementVisible(el)) return;
 
     const htmlEl = el as HTMLElement;
     const tagName = el.tagName.toLowerCase();
     const inModal = isInsideOpenModal(el);
+    // Cap modal & background page SEPARATELY so portal modals at the end of document.body are NEVER cut off by background page buttons!
+    if (inModal && modalElements.length >= 45) return;
+    if (!inModal && pageElements.length >= 45) return;
     const targetBucket = inModal ? modalElements : pageElements;
 
     if (tagName === 'input') {
@@ -216,7 +218,7 @@ export function inspectLiveScreenDOM(): LiveScreenDomInspection {
         });
         return;
       }
-      if (type !== 'text' && type !== 'search' && type !== 'tel') return;
+      if (!['text', 'search', 'tel', 'email', 'number', 'date', 'time'].includes(type)) return;
       const placeholder = cleanLabel(inp.placeholder || inp.getAttribute('aria-label') || inp.name);
       if (!placeholder) return;
       const agentId = `ui_${counter++}`;

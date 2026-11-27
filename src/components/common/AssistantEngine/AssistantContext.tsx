@@ -792,7 +792,7 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       return;
     }
 
-    const MAX_AUTONOMOUS_STEPS = 4;
+    const MAX_AUTONOMOUS_STEPS = 5;
     const execCtx = {
       user,
       spaces,
