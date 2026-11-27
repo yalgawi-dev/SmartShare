@@ -69,7 +69,8 @@ export type LiveScreenSnapshot = LiveScreenDomInspection;
  *
  * Security: Strictly ignores password fields, hidden inputs, scripts, and the assistant drawer itself.
  */
-export function inspectLiveScreenDOM(): LiveScreenDomInspection {
+export function inspectLiveScreenDOM(options?: { assignIds?: boolean }): LiveScreenDomInspection {
+  const assignIds = options?.assignIds !== false;
   if (typeof window === 'undefined' || typeof document === 'undefined') {
     return {
       urlPath: '/',
@@ -109,10 +110,13 @@ export function inspectLiveScreenDOM(): LiveScreenDomInspection {
     return raw.replace(/\s+/g, ' ').trim().slice(0, 75);
   };
 
-  // Clear previous live handles so stale IDs from closed modals never linger
-  document.querySelectorAll('[data-agent-action-id]').forEach((el) => {
-    el.removeAttribute('data-agent-action-id');
-  });
+  // Clear previous live handles ONLY when actively assigning IDs for the agent loop
+  // (passive observers pass assignIds: false so they NEVER wipe live handles mid-turn!)
+  if (assignIds) {
+    document.querySelectorAll('[data-agent-action-id]').forEach((el) => {
+      el.removeAttribute('data-agent-action-id');
+    });
+  }
 
   // 1. Visible Headings (h1, h2, h3)
   const headingSet = new Set<string>();
@@ -208,7 +212,7 @@ export function inspectLiveScreenDOM(): LiveScreenDomInspection {
         const label = cleanLabel(labelEl?.textContent || inp.getAttribute('aria-label') || inp.title);
         if (!label) return;
         const agentId = `ui_${counter++}`;
-        el.setAttribute('data-agent-action-id', agentId);
+        if (assignIds) el.setAttribute('data-agent-action-id', agentId);
         targetBucket.push({
           agentId,
           tag: 'checkbox',
@@ -240,7 +244,7 @@ export function inspectLiveScreenDOM(): LiveScreenDomInspection {
       );
       if (!placeholder) return;
       const agentId = `ui_${counter++}`;
-      el.setAttribute('data-agent-action-id', agentId);
+      if (assignIds) el.setAttribute('data-agent-action-id', agentId);
       targetBucket.push({
         agentId,
         tag: 'input',
@@ -263,7 +267,7 @@ export function inspectLiveScreenDOM(): LiveScreenDomInspection {
       );
       if (!placeholder) return;
       const agentId = `ui_${counter++}`;
-      el.setAttribute('data-agent-action-id', agentId);
+      if (assignIds) el.setAttribute('data-agent-action-id', agentId);
       targetBucket.push({
         agentId,
         tag: 'textarea',
@@ -280,7 +284,7 @@ export function inspectLiveScreenDOM(): LiveScreenDomInspection {
       const label = cleanLabel(sel.getAttribute('aria-label') || sel.getAttribute('title') || sel.options[sel.selectedIndex]?.text);
       if (!label) return;
       const agentId = `ui_${counter++}`;
-      el.setAttribute('data-agent-action-id', agentId);
+      if (assignIds) el.setAttribute('data-agent-action-id', agentId);
       targetBucket.push({
         agentId,
         tag: 'select',
@@ -307,7 +311,7 @@ export function inspectLiveScreenDOM(): LiveScreenDomInspection {
     if (!combined || combined.length < 2) return;
 
     const agentId = `ui_${counter++}`;
-    el.setAttribute('data-agent-action-id', agentId);
+    if (assignIds) el.setAttribute('data-agent-action-id', agentId);
 
     const role = el.getAttribute('role');
     const tag: InteractiveDomElement['tag'] =

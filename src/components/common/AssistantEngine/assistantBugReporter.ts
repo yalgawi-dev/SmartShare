@@ -583,7 +583,7 @@ export async function submitBugReportToAdmin(params: {
       screenSize: typeof window !== 'undefined' ? `${window.innerWidth}x${window.innerHeight}` : 'unknown',
       userAgent: typeof navigator !== 'undefined' ? navigator.userAgent.slice(0, 180) : '',
       domSnapshot: (() => {
-        const rawDom = inspectLiveScreenDOM();
+        const rawDom = inspectLiveScreenDOM({ assignIds: false });
         return {
           urlPath: rawDom.urlPath || '/',
           pageTitle: rawDom.pageTitle || '',

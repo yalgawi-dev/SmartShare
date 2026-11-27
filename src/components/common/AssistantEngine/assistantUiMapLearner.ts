@@ -334,12 +334,12 @@ export function installPassiveUiMapLearner(): () => void {
     const beforePath = window.location.pathname;
     // ADR-014: Queue anonymous structural action into 60s RAM batch (0ms, zero per-click writes)
     queueCollectiveAction(normalizeRoutePattern(beforePath), triggerLabel, 'human');
-    const beforeSnapshot = inspectLiveScreenDOM();
+    const beforeSnapshot = inspectLiveScreenDOM({ assignIds: false });
     const beforeLabels = new Set(beforeSnapshot.interactiveElements.map((e) => normalizeTriggerLabel(e.label)));
 
     setTimeout(() => {
       try {
-        const afterSnapshot = inspectLiveScreenDOM();
+        const afterSnapshot = inspectLiveScreenDOM({ assignIds: false });
         const routeChanged = window.location.pathname !== beforePath;
         const newControls = afterSnapshot.interactiveElements
           .filter((e) => e.inModal || !beforeLabels.has(normalizeTriggerLabel(e.label)))
@@ -419,7 +419,7 @@ export function installAutonomousScreenWatcher(): () => void {
 
   const scanAndLearn = () => {
     try {
-      const dom = inspectLiveScreenDOM();
+      const dom = inspectLiveScreenDOM({ assignIds: false });
       const routePattern = normalizeRoutePattern(window.location.pathname);
       const scopeLabel = dom.activeScope?.label || dom.visibleHeadings[0] || routePattern;
       const controls = Array.from(

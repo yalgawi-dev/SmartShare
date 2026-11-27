@@ -478,13 +478,26 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
     }
   };
 
-  const handleAddCalendarEvent = async (ev: Omit<CalendarEventItem, 'id' | 'createdAt'>) => {
-    if ((ev.visibility === 'private' || !activeHostSpaceId) && user?.id) {
+  const sharedSpaceOptions = useMemo(
+    () =>
+      calendarSpaces
+        .filter((sp) => activeSpaceLayerIds.includes(sp.id))
+        .map((sp) => ({ id: sp.id, title: sp.title || 'מרחב', icon: sp.icon })),
+    [calendarSpaces, activeSpaceLayerIds]
+  );
+
+  const handleAddCalendarEvent = async (
+    ev: Omit<CalendarEventItem, 'id' | 'createdAt'>,
+    targetSpaceId?: string
+  ) => {
+    const destSpaceId = targetSpaceId || activeHostSpaceId;
+    if ((ev.visibility === 'private' || !destSpaceId) && user?.id) {
       await createPersonalCalendarEvent(user.id, { ...ev, visibility: 'private' });
       showToast('🔒 נשמר ביומן האישי שלך בלבד!');
-    } else if (activeHostSpaceId) {
-      await createCalendarEvent(activeHostSpaceId, ev);
-      showToast('🌐 נשמר ביומן המשותף של המרחב!');
+    } else if (destSpaceId) {
+      await createCalendarEvent(destSpaceId, ev);
+      const destTitle = calendarSpaces.find((s) => s.id === destSpaceId)?.title;
+      showToast(destTitle ? `🌐 נשמר ביומן "${destTitle}"!` : '🌐 נשמר ביומן המשותף של המרחב!');
     }
   };
 
@@ -740,6 +753,8 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
             swaps={swaps}
             currentUserId={user?.id || 'me'}
             defaultVisibility={onlyPersonalSelected ? 'private' : 'shared'}
+            sharedSpaceOptions={sharedSpaceOptions}
+            defaultTargetSpaceId={activeHostSpaceId || ''}
             onAddEvent={handleAddCalendarEvent}
             onUpdateEvent={handleUpdateCalendarEvent}
             onDeleteEvent={handleDeleteCalendarEvent}
@@ -778,6 +793,8 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
               swaps={swaps}
               currentUserId={user?.id || 'me'}
               defaultVisibility={onlyPersonalSelected ? 'private' : 'shared'}
+              sharedSpaceOptions={sharedSpaceOptions}
+              defaultTargetSpaceId={activeHostSpaceId || ''}
               onAddEvent={handleAddCalendarEvent}
               onUpdateEvent={handleUpdateCalendarEvent}
               onDeleteEvent={handleDeleteCalendarEvent}
@@ -849,6 +866,8 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
                 currentUserId={user?.id || 'me'}
                 defaultVisibility={onlyPersonalSelected ? 'private' : 'shared'}
                 initialShowAddForm={daySheetAutoAdd}
+                sharedSpaceOptions={sharedSpaceOptions}
+                defaultTargetSpaceId={activeHostSpaceId || ''}
                 onAddEvent={handleAddCalendarEvent}
                 onUpdateEvent={handleUpdateCalendarEvent}
                 onDeleteEvent={handleDeleteCalendarEvent}

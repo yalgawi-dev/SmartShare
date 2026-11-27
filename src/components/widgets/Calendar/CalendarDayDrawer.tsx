@@ -31,7 +31,9 @@ interface CalendarDayDrawerProps {
   currentUserId: string;
   defaultVisibility?: CalendarEventVisibility;
   initialShowAddForm?: boolean;
-  onAddEvent: (ev: Omit<CalendarEventItem, 'id' | 'createdAt'>) => Promise<void>;
+  sharedSpaceOptions?: Array<{ id: string; title: string; icon?: string }>;
+  defaultTargetSpaceId?: string;
+  onAddEvent: (ev: Omit<CalendarEventItem, 'id' | 'createdAt'>, targetSpaceId?: string) => Promise<void>;
   onUpdateEvent?: (ev: CalendarEventItem, patch: Partial<Omit<CalendarEventItem, 'id' | 'createdAt'>>) => Promise<void>;
   onDeleteEvent: (ev: CalendarEventItem) => Promise<void>;
   onToggleComplete?: (ev: CalendarEventItem, completed: boolean) => Promise<void>;
@@ -74,6 +76,8 @@ export const CalendarDayDrawer: React.FC<CalendarDayDrawerProps> = ({
   currentUserId,
   defaultVisibility = 'shared',
   initialShowAddForm = false,
+  sharedSpaceOptions,
+  defaultTargetSpaceId,
   onAddEvent,
   onUpdateEvent,
   onDeleteEvent,
@@ -98,6 +102,9 @@ export const CalendarDayDrawer: React.FC<CalendarDayDrawerProps> = ({
   const [newCatEmoji, setNewCatEmoji] = useState('✨');
 
   const [visibility, setVisibility] = useState<CalendarEventVisibility>(defaultVisibility);
+  const [targetSpaceId, setTargetSpaceId] = useState<string>(
+    defaultTargetSpaceId || sharedSpaceOptions?.[0]?.id || ''
+  );
   const [childScope, setChildScope] = useState<string>('all');
   const [location, setLocation] = useState('');
   const [driverParent, setDriverParent] = useState<ParentRole | 'both' | ''>('');
@@ -198,12 +205,15 @@ export const CalendarDayDrawer: React.FC<CalendarDayDrawerProps> = ({
       if (editingEvent && onUpdateEvent) {
         await onUpdateEvent(editingEvent, payload);
       } else {
-        await onAddEvent({
-          ...payload,
-          time: hasTime ? time : undefined,
-          completed: false,
-          createdBy: currentUserId,
-        });
+        await onAddEvent(
+          {
+            ...payload,
+            time: hasTime ? time : undefined,
+            completed: false,
+            createdBy: currentUserId,
+          },
+          visibility === 'shared' ? (targetSpaceId || defaultTargetSpaceId) : undefined
+        );
       }
       setEditingEvent(null);
       setTitle('');
@@ -427,6 +437,31 @@ export const CalendarDayDrawer: React.FC<CalendarDayDrawerProps> = ({
               🔒 אישי שלי בלבד
             </button>
           </div>
+
+          {/* Target Shared Space Selector (shown automatically when >1 shared space layers are active!) */}
+          {visibility === 'shared' && !editingEvent && sharedSpaceOptions && sharedSpaceOptions.length > 1 && (
+            <select
+              aria-label="מרחב יעד לשמירה"
+              value={targetSpaceId || sharedSpaceOptions[0].id}
+              onChange={(e) => setTargetSpaceId(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '0.45rem 0.6rem',
+                borderRadius: '10px',
+                border: '1.5px solid #93c5fd',
+                background: '#eff6ff',
+                color: '#1e3a8a',
+                fontSize: '0.8rem',
+                fontWeight: 800,
+              }}
+            >
+              {sharedSpaceOptions.map((sp) => (
+                <option key={sp.id} value={sp.id}>
+                  📁 יומן מרחב: {sp.icon ? `${sp.icon} ` : ''}{sp.title}
+                </option>
+              ))}
+            </select>
+          )}
 
           {/* Open-Ended Categories: Built-in + Saved Custom Categories + "➕ קטגוריה חדשה" */}
           <div style={{ display: 'flex', gap: '0.32rem', flexWrap: 'wrap' }}>
