@@ -559,18 +559,26 @@ export function executeLiveDomElementAction(
       return { success: false, message: 'האלמנט שנבחר אינו שדה הקלדה.' };
     }
     const inp = el as HTMLInputElement | HTMLTextAreaElement;
+    // Universal HTML5 <input type="time"> normalization (e.g. "9:30" -> "09:30")
+    let normalizedVal = String(value ?? '');
+    if (tag === 'input' && (inp as HTMLInputElement).type === 'time') {
+      const m = normalizedVal.trim().match(/^(\d{1,2}):(\d{2})/);
+      if (m) {
+        normalizedVal = `${m[1].padStart(2, '0')}:${m[2]}`;
+      }
+    }
     // Use native value setter so React controlled inputs update cleanly
     const proto = tag === 'textarea' ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
     const nativeSetter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
     if (nativeSetter) {
-      nativeSetter.call(inp, value ?? '');
+      nativeSetter.call(inp, normalizedVal);
     } else {
-      inp.value = value ?? '';
+      inp.value = normalizedVal;
     }
     inp.dispatchEvent(new Event('input', { bubbles: true }));
     inp.dispatchEvent(new Event('change', { bubbles: true }));
     inp.focus();
-    return { success: true, message: `הוזן "${value ?? ''}" בשדה "${inp.placeholder || 'טופס'}" על המסך.` };
+    return { success: true, message: `הוזן "${normalizedVal}" בשדה "${inp.placeholder || inp.getAttribute('aria-label') || 'טופס'}" על המסך.` };
   }
 
   // Click operation
@@ -594,7 +602,24 @@ export async function executeLiveDomBatch(
   const logs: string[] = [];
   let completed = 0;
 
-  for (const step of capped) {
+  const countVisibleFormFields = (): number => {
+    if (typeof document === 'undefined') return 0;
+    let count = 0;
+    document.querySelectorAll('input, textarea, select').forEach((node) => {
+      if (node.closest('[data-agent-ui="true"]')) return;
+      const cs = window.getComputedStyle(node);
+      if (cs.display === 'none' || cs.visibility === 'hidden' || Number(cs.opacity) === 0) return;
+      const r = node.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) count++;
+    });
+    return count;
+  };
+
+  for (let i = 0; i < capped.length; i++) {
+    const step = capped[i];
+    const isClickWithMoreSteps = step.op !== 'fill' && i < capped.length - 1;
+    const fieldsBefore = isClickWithMoreSteps ? countVisibleFormFields() : 0;
+
     const res = executeLiveDomElementAction(String(step.agentId || ''), step.op === 'fill' ? 'fill' : 'click', step.value);
     if (!res.success) {
       return {
@@ -607,7 +632,21 @@ export async function executeLiveDomBatch(
     }
     completed++;
     logs.push(res.message);
-    await new Promise((r) => setTimeout(r, 140));
+    await new Promise((r) => setTimeout(r, 160));
+
+    // 100% Universal Progressive-Disclosure Guard (works on ANY web app!):
+    // If clicking a button revealed NEW form input(s) (e.g. "Add time", "Add address", "Add coupon"),
+    // pause the batch BEFORE blindly clicking Submit so the next autonomous step fills the newly-revealed field!
+    if (isClickWithMoreSteps) {
+      const fieldsAfter = countVisibleFormFields();
+      if (fieldsAfter > fieldsBefore) {
+        return {
+          success: true,
+          message: `בוצעו ${completed} פעולות ונפתחו שדות קלט חדשים על המסך — ממתין למילוי השדות החדשים לפני השמירה.`,
+          completedSteps: completed
+        };
+      }
+    }
   }
 
   return {
