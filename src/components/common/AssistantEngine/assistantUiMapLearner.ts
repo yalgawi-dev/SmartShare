@@ -14,6 +14,7 @@ import {
   queueScreenDiscoveryDiff,
 } from './agentCollectiveTelemetry';
 import { recordPassiveClickForMacro } from './agentUiMacroLearner';
+import { recordObservedChoice } from './agentChoiceLearner';
 
 export interface LearnedUiTransition {
   routePattern: string;
@@ -331,6 +332,28 @@ export function installPassiveUiMapLearner(): () => void {
     const triggerLabel = normalizeTriggerLabel(rawLabel);
     if (isNoiseTrigger(triggerLabel)) return;
 
+    // Also observe segmented toggle buttons inside forms (e.g. 2-button grid choices like Private vs Shared)
+    const parentForm = clickable.closest('form');
+    if (parentForm && clickable.tagName === 'BUTTON' && (clickable as HTMLButtonElement).type !== 'submit') {
+      const siblingButtons = Array.from(clickable.parentElement?.children || []).filter(
+        (c) => c.tagName === 'BUTTON' && (c as HTMLButtonElement).type !== 'submit'
+      );
+      if (siblingButtons.length >= 2 && siblingButtons.length <= 5) {
+        const groupKey = siblingButtons
+          .map((b) => normalizeTriggerLabel((b as HTMLElement).innerText || b.textContent || ''))
+          .filter(Boolean)
+          .sort()
+          .join(' / ');
+        if (groupKey.length >= 4) {
+          recordObservedChoice({
+            routePath: window.location.pathname,
+            controlLabel: groupKey,
+            chosenValue: triggerLabel,
+          });
+        }
+      }
+    }
+
     const beforePath = window.location.pathname;
     // ADR-014: Queue anonymous structural action into 60s RAM batch (0ms, zero per-click writes)
     queueCollectiveAction(normalizeRoutePattern(beforePath), triggerLabel, 'human');
@@ -373,9 +396,38 @@ export function installPassiveUiMapLearner(): () => void {
     }, 380);
   };
 
+  const onChangeCapture = (ev: Event) => {
+    const target = ev.target as HTMLElement | null;
+    if (!target || target.closest('[data-assistant-drawer="true"], [data-assistant-ignore="true"]')) return;
+    if (target.tagName === 'SELECT') {
+      const sel = target as HTMLSelectElement;
+      const controlLabel =
+        sel.getAttribute('aria-label') ||
+        sel.getAttribute('title') ||
+        sel.name ||
+        'בחירה';
+      const chosenText = sel.options[sel.selectedIndex]?.text || sel.value;
+      recordObservedChoice({
+        routePath: window.location.pathname,
+        controlLabel,
+        chosenValue: chosenText,
+      });
+    } else if (target.tagName === 'INPUT' && (target as HTMLInputElement).type === 'radio') {
+      const inp = target as HTMLInputElement;
+      const chosenText = inp.closest('label')?.textContent || inp.getAttribute('aria-label') || inp.value;
+      recordObservedChoice({
+        routePath: window.location.pathname,
+        controlLabel: inp.name || 'בחירה',
+        chosenValue: chosenText,
+      });
+    }
+  };
+
   document.addEventListener('click', onClickCapture, { capture: true });
+  document.addEventListener('change', onChangeCapture, { capture: true });
   return () => {
     document.removeEventListener('click', onClickCapture, { capture: true });
+    document.removeEventListener('change', onChangeCapture, { capture: true });
     stopTelemetryFlusher();
     passiveListenerInstalled = false;
   };

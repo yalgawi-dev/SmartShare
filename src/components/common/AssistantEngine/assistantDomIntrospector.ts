@@ -1,3 +1,5 @@
+import { getLearnedDecisionPointsForRoute, type LearnedDecisionPointSummary } from './agentChoiceLearner';
+
 export interface InteractiveDomElement {
   agentId: string;
   tag: 'button' | 'link' | 'tab' | 'input' | 'textarea' | 'checkbox' | 'select';
@@ -5,7 +7,10 @@ export interface InteractiveDomElement {
   contextHint?: string;
   placeholder?: string;
   currentValue?: string;
+  /** Available choices inside <select> elements so the agent NEVER has blind dropdowns on ANY app! */
+  options?: string[];
   checked?: boolean;
+  selected?: boolean;
   inModal?: boolean;
   isDisabled?: boolean;
 }
@@ -56,6 +61,8 @@ export interface LiveScreenDomInspection {
   /** Layer 2.5 Universal Viewport Grounding (Active container + entities currently visible on screen) */
   activeScope?: ActiveViewportScope | null;
   visibleEntities?: VisibleAgentEntity[];
+  /** Behavioral Decision Points learned from real users actively switching between 2+ options on this route */
+  learnedDecisionPoints?: LearnedDecisionPointSummary[];
 }
 
 export type LiveScreenSnapshot = LiveScreenDomInspection;
@@ -283,6 +290,10 @@ export function inspectLiveScreenDOM(options?: { assignIds?: boolean }): LiveScr
       const sel = el as HTMLSelectElement;
       const label = cleanLabel(sel.getAttribute('aria-label') || sel.getAttribute('title') || sel.options[sel.selectedIndex]?.text);
       if (!label) return;
+      const options = Array.from(sel.options)
+        .map((o) => cleanLabel(o.text))
+        .filter(Boolean)
+        .slice(0, 12);
       const agentId = `ui_${counter++}`;
       if (assignIds) el.setAttribute('data-agent-action-id', agentId);
       targetBucket.push({
@@ -290,6 +301,7 @@ export function inspectLiveScreenDOM(options?: { assignIds?: boolean }): LiveScr
         tag: 'select',
         label,
         currentValue: cleanLabel(sel.options[sel.selectedIndex]?.text),
+        options: options.length > 0 ? options : undefined,
         inModal: inModal || undefined
       });
       return;
@@ -316,6 +328,10 @@ export function inspectLiveScreenDOM(options?: { assignIds?: boolean }): LiveScr
     const role = el.getAttribute('role');
     const tag: InteractiveDomElement['tag'] =
       role === 'tab' ? 'tab' : tagName === 'a' ? 'link' : 'button';
+    const isSelected =
+      el.getAttribute('aria-pressed') === 'true' ||
+      el.getAttribute('aria-selected') === 'true' ||
+      el.getAttribute('aria-checked') === 'true';
 
     const contextHint = extractParentContextHint(el, combined);
     actionSet.add(combined);
@@ -324,6 +340,7 @@ export function inspectLiveScreenDOM(options?: { assignIds?: boolean }): LiveScr
       tag,
       label: combined,
       contextHint: contextHint || undefined,
+      selected: isSelected || undefined,
       inModal: inModal || undefined,
       isDisabled: (el as HTMLButtonElement).disabled || el.getAttribute('aria-disabled') === 'true'
     });
@@ -494,6 +511,8 @@ export function inspectLiveScreenDOM(options?: { assignIds?: boolean }): LiveScr
     visibleScreenText = '';
   }
 
+  const learnedDecisionPoints = getLearnedDecisionPointsForRoute(window.location.pathname);
+
   return {
     urlPath: window.location.pathname + window.location.search,
     pageTitle: cleanLabel(document.title),
@@ -503,7 +522,8 @@ export function inspectLiveScreenDOM(options?: { assignIds?: boolean }): LiveScr
     openModalsOrBanners: Array.from(modalSet).slice(0, 10),
     visibleScreenText,
     activeScope,
-    visibleEntities
+    visibleEntities,
+    learnedDecisionPoints: learnedDecisionPoints.length > 0 ? learnedDecisionPoints : undefined
   };
 }
 
