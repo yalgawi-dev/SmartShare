@@ -10,6 +10,7 @@ import {
   detectDayTimeConflicts,
   getBirthdaysForDate,
   HEBREW_DAYS_FULL,
+  HEBREW_DAYS_SHORT,
   HEBREW_MONTHS,
   parseYMD,
   resolveDayCustody,
@@ -20,6 +21,7 @@ import {
 interface CalendarWeekViewProps {
   selectedDate: string;
   onSelectDate: (ymd: string) => void;
+  onQuickAddForDate?: (ymd: string) => void;
   onPrevWeek: () => void;
   onNextWeek: () => void;
   onToday: () => void;
@@ -36,6 +38,7 @@ interface CalendarWeekViewProps {
 export const CalendarWeekView: React.FC<CalendarWeekViewProps> = ({
   selectedDate,
   onSelectDate,
+  onQuickAddForDate,
   onPrevWeek,
   onNextWeek,
   onToday,
@@ -51,6 +54,7 @@ export const CalendarWeekView: React.FC<CalendarWeekViewProps> = ({
   const todayYMD = toYMD(new Date());
   const pA = config.parents.parent_a;
   const pB = config.parents.parent_b;
+  const isParenting = config.mode === 'parenting';
 
   const weekDays = useMemo(() => {
     const base = parseYMD(selectedDate);
@@ -73,41 +77,42 @@ export const CalendarWeekView: React.FC<CalendarWeekViewProps> = ({
   const headerRangeLabel =
     first.monthIdx === last.monthIdx
       ? `${first.dayNum}–${last.dayNum} ${HEBREW_MONTHS[first.monthIdx]}`
-      : `${first.dayNum} ${HEBREW_MONTHS[first.monthIdx]} – ${last.dayNum} ${HEBREW_MONTHS[last.monthIdx]}`;
+      : `${first.dayNum}.${first.monthIdx + 1}–${last.dayNum}.${last.monthIdx + 1}`;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-      {/* Unified Compact Week Navigator + Resolution Switcher */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+      {/* STRICT SINGLE-ROW COMPACT HEADER: Week Nav + Today + Resolution Switcher */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: '0.35rem',
+          gap: '0.25rem',
           background: '#ffffff',
-          padding: '0.4rem 0.55rem',
+          padding: '0.36rem 0.45rem',
           borderRadius: '14px',
           border: '1px solid #e2e8f0',
           boxShadow: '0 2px 8px rgba(15,23,42,0.04)',
-          flexWrap: 'wrap',
+          flexWrap: 'nowrap',
+          overflow: 'hidden',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.22rem', minWidth: 0 }}>
           <button
             type="button"
             onClick={onPrevWeek}
-            style={{ width: '30px', height: '30px', borderRadius: '9px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#1e293b', fontWeight: 900, fontSize: '0.78rem', cursor: 'pointer' }}
+            style={{ width: '28px', height: '28px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#1e293b', fontWeight: 900, fontSize: '0.72rem', cursor: 'pointer', flexShrink: 0 }}
             title="שבוע קודם"
           >
             ◀
           </button>
-          <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 900, color: '#0f172a', whiteSpace: 'nowrap' }}>
+          <h3 style={{ margin: 0, fontSize: '0.84rem', fontWeight: 900, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {headerRangeLabel}
           </h3>
           <button
             type="button"
             onClick={onNextWeek}
-            style={{ width: '30px', height: '30px', borderRadius: '9px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#1e293b', fontWeight: 900, fontSize: '0.78rem', cursor: 'pointer' }}
+            style={{ width: '28px', height: '28px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#1e293b', fontWeight: 900, fontSize: '0.72rem', cursor: 'pointer', flexShrink: 0 }}
             title="שבוע הבא"
           >
             ▶
@@ -115,13 +120,13 @@ export const CalendarWeekView: React.FC<CalendarWeekViewProps> = ({
           <button
             type="button"
             onClick={onToday}
-            style={{ padding: '0.18rem 0.48rem', borderRadius: '999px', border: '1px solid #c7d2fe', background: '#eef2ff', color: '#4338ca', fontSize: '0.68rem', fontWeight: 800, cursor: 'pointer' }}
+            style={{ padding: '0.16rem 0.42rem', borderRadius: '999px', border: '1px solid #c7d2fe', background: '#eef2ff', color: '#4338ca', fontSize: '0.66rem', fontWeight: 800, cursor: 'pointer', flexShrink: 0 }}
           >
             היום
           </button>
         </div>
 
-        <div style={{ display: 'inline-flex', background: '#f1f5f9', padding: '2px', borderRadius: '9px', gap: '2px' }}>
+        <div style={{ display: 'inline-flex', background: '#f1f5f9', padding: '2px', borderRadius: '9px', gap: '2px', flexShrink: 0 }}>
           {([{ id: 'month', label: 'חודשי' }, { id: 'week', label: 'שבועי' }, { id: 'day', label: 'יומי' }] as const).map((r) => {
             const active = resolution === r.id;
             return (
@@ -130,13 +135,13 @@ export const CalendarWeekView: React.FC<CalendarWeekViewProps> = ({
                 type="button"
                 onClick={() => onChangeResolution(r.id)}
                 style={{
-                  padding: '0.24rem 0.52rem',
+                  padding: '0.22rem 0.44rem',
                   borderRadius: '7px',
                   border: 'none',
                   background: active ? '#ffffff' : 'transparent',
                   color: active ? '#0f172a' : '#64748b',
                   fontWeight: active ? 900 : 700,
-                  fontSize: '0.71rem',
+                  fontSize: '0.68rem',
                   cursor: 'pointer',
                   boxShadow: active ? '0 1px 4px rgba(15,23,42,0.1)' : 'none',
                 }}
@@ -148,10 +153,81 @@ export const CalendarWeekView: React.FC<CalendarWeekViewProps> = ({
         </div>
       </div>
 
-      {/* 7 Vibrant Day Cards */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+      {/* FLAGSHIP 7-DAY HORIZONTAL OVERVIEW STRIP (See entire week at a glance!) */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
+          gap: '4px',
+          background: '#ffffff',
+          padding: '0.4rem',
+          borderRadius: '14px',
+          border: '1px solid #e2e8f0',
+        }}
+      >
         {weekDays.map((day) => {
-          const resolution = resolveDayCustody(day.ymd, config, swaps);
+          const res = isParenting ? resolveDayCustody(day.ymd, config, swaps) : null;
+          const dayEvents = events.filter((e) => e.date === day.ymd);
+          const hasConf = detectDayTimeConflicts(dayEvents).size > 0;
+          const isToday = day.ymd === todayYMD;
+          const isSelected = !visualSwapMode && day.ymd === selectedDate;
+          const isSwapFirst = visualSwapMode && day.ymd === swapFirstDate;
+          const isSwapSecond = visualSwapMode && day.ymd === swapSecondDate;
+          const stripColor = !res
+            ? '#4f46e5'
+            : res.overallParent === 'parent_a'
+              ? pA.color
+              : res.overallParent === 'parent_b'
+                ? pB.color
+                : '#7c3aed';
+
+          return (
+            <button
+              key={`strip_${day.ymd}`}
+              type="button"
+              onClick={() => onSelectDate(day.ymd)}
+              style={{
+                padding: '0.36rem 0.1rem',
+                borderRadius: '11px',
+                border: isSwapFirst
+                  ? '2px solid #4f46e5'
+                  : isSwapSecond
+                    ? '2px solid #059669'
+                    : isSelected
+                      ? `2px solid ${stripColor}`
+                      : `1px solid ${stripColor}33`,
+                background: isToday
+                  ? stripColor
+                  : `${stripColor}16`,
+                color: isToday ? '#ffffff' : '#0f172a',
+                cursor: 'pointer',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '2px',
+              }}
+            >
+              <span style={{ fontSize: '0.64rem', fontWeight: 800, opacity: isToday ? 0.92 : 0.7 }}>
+                {HEBREW_DAYS_SHORT[day.dow]}
+              </span>
+              <span style={{ fontSize: '0.86rem', fontWeight: 900, lineHeight: 1.1 }}>
+                {day.dayNum}
+              </span>
+              <div style={{ display: 'flex', gap: '2px', height: '6px', alignItems: 'center' }}>
+                {hasConf && <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#ef4444' }} />}
+                {dayEvents.length > 0 && (
+                  <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: isToday ? '#ffffff' : stripColor }} />
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* RICH WEEKLY AGENDA CARDS WITH INLINE QUICK '+' BUTTON */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+        {weekDays.map((day) => {
+          const res = isParenting ? resolveDayCustody(day.ymd, config, swaps) : null;
           const dayEvents = events.filter((e) => e.date === day.ymd);
           const conflictIds = detectDayTimeConflicts(dayEvents);
           const dayActivities = (config.activities || []).filter((a) => a.daysOfWeek.includes(day.dow));
@@ -162,28 +238,36 @@ export const CalendarWeekView: React.FC<CalendarWeekViewProps> = ({
           const isSwapFirst = visualSwapMode && day.ymd === swapFirstDate;
           const isSwapSecond = visualSwapMode && day.ymd === swapSecondDate;
 
-          const ownerColor =
-            resolution.overallParent === 'parent_a'
+          const ownerColor = !res
+            ? '#4f46e5'
+            : res.overallParent === 'parent_a'
               ? pA.color
-              : resolution.overallParent === 'parent_b'
+              : res.overallParent === 'parent_b'
                 ? pB.color
                 : '#7c3aed';
-          const ownerName =
-            resolution.overallParent === 'parent_a'
+          const ownerName = !res
+            ? ''
+            : res.overallParent === 'parent_a'
               ? pA.name
-              : resolution.overallParent === 'parent_b'
+              : res.overallParent === 'parent_b'
                 ? pB.name
                 : 'מפוצל';
 
+          const hasContent =
+            dayEvents.length > 0 ||
+            dayActivities.length > 0 ||
+            birthdays.length > 0 ||
+            Boolean(res?.activeSchoolBreak) ||
+            Boolean(res?.activeSpecialPeriod);
+
           return (
-            <button
+            <div
               key={day.ymd}
-              type="button"
               onClick={() => onSelectDate(day.ymd)}
               style={{
                 width: '100%',
                 textAlign: 'right',
-                padding: '0.65rem 0.85rem',
+                padding: '0.55rem 0.72rem',
                 borderRadius: '14px',
                 border: isSwapFirst
                   ? '2.5px solid #4f46e5'
@@ -192,72 +276,106 @@ export const CalendarWeekView: React.FC<CalendarWeekViewProps> = ({
                     : isSelected
                       ? `2px solid ${ownerColor}`
                       : `1px solid ${ownerColor}38`,
-                borderRight: `6px solid ${ownerColor}`,
+                borderRight: `5px solid ${ownerColor}`,
                 background: isSwapFirst
                   ? '#eef2ff'
                   : isSwapSecond
                     ? '#ecfdf5'
-                    : `linear-gradient(90deg, #ffffff 0%, ${ownerColor}14 100%)`,
+                    : `linear-gradient(90deg, #ffffff 0%, ${ownerColor}12 100%)`,
                 cursor: 'pointer',
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '0.32rem',
                 boxShadow: isSelected ? '0 4px 12px rgba(15,23,42,0.08)' : '0 1px 4px rgba(15,23,42,0.03)',
+                boxSizing: 'border-box',
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.4rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', minWidth: 0 }}>
                   <span
                     style={{
-                      fontSize: '0.88rem',
+                      fontSize: '0.84rem',
                       fontWeight: 900,
                       color: isToday ? '#ffffff' : '#0f172a',
                       background: isToday ? '#2563eb' : 'transparent',
                       padding: isToday ? '1px 8px' : 0,
                       borderRadius: '999px',
+                      whiteSpace: 'nowrap',
                     }}
                   >
                     יום {HEBREW_DAYS_FULL[day.dow]} {day.dayNum}.{day.monthIdx + 1}
                   </span>
                   {isSwapFirst && (
-                    <span style={{ fontSize: '0.68rem', fontWeight: 900, background: '#4f46e5', color: '#fff', padding: '1px 7px', borderRadius: '999px' }}>
-                      1️⃣ יום למסירה
+                    <span style={{ fontSize: '0.66rem', fontWeight: 900, background: '#4f46e5', color: '#fff', padding: '1px 6px', borderRadius: '999px' }}>
+                      1️⃣ למסירה
                     </span>
                   )}
                   {isSwapSecond && (
-                    <span style={{ fontSize: '0.68rem', fontWeight: 900, background: '#059669', color: '#fff', padding: '1px 7px', borderRadius: '999px' }}>
-                      2️⃣ יום בתמורה
+                    <span style={{ fontSize: '0.66rem', fontWeight: 900, background: '#059669', color: '#fff', padding: '1px 6px', borderRadius: '999px' }}>
+                      2️⃣ בתמורה
                     </span>
                   )}
                 </div>
 
-                <span
-                  style={{
-                    fontSize: '0.74rem',
-                    fontWeight: 900,
-                    color: '#ffffff',
-                    background: ownerColor,
-                    padding: '2px 9px',
-                    borderRadius: '999px',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {ownerName}
-                  {resolution.source === 'swap' ? ' 🔄' : ''}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexShrink: 0 }}>
+                  {ownerName && (
+                    <span
+                      style={{
+                        fontSize: '0.7rem',
+                        fontWeight: 900,
+                        color: '#ffffff',
+                        background: ownerColor,
+                        padding: '2px 8px',
+                        borderRadius: '999px',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {ownerName}
+                      {res?.source === 'swap' ? ' 🔄' : ''}
+                    </span>
+                  )}
+                  {!visualSwapMode && onQuickAddForDate && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onQuickAddForDate(day.ymd);
+                      }}
+                      style={{
+                        width: '24px',
+                        height: '24px',
+                        borderRadius: '50%',
+                        border: `1px solid ${ownerColor}55`,
+                        background: '#ffffff',
+                        color: ownerColor,
+                        fontWeight: 900,
+                        fontSize: '0.9rem',
+                        lineHeight: 1,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: 0,
+                      }}
+                      title={`הוסף פריט ליום ${HEBREW_DAYS_FULL[day.dow]}`}
+                    >
+                      +
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Events, Activities, Birthdays, Breaks Row */}
-              {(dayEvents.length > 0 || dayActivities.length > 0 || birthdays.length > 0 || resolution.activeSchoolBreak || resolution.activeSpecialPeriod) && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginTop: '2px' }}>
-                  {resolution.activeSpecialPeriod && (
-                    <span style={{ fontSize: '0.7rem', fontWeight: 800, padding: '2px 7px', borderRadius: '8px', background: SPECIAL_PERIOD_META[resolution.activeSpecialPeriod.category].bg, color: SPECIAL_PERIOD_META[resolution.activeSpecialPeriod.category].color }}>
-                      {SPECIAL_PERIOD_META[resolution.activeSpecialPeriod.category].icon} {resolution.activeSpecialPeriod.title}
+              {hasContent && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.32rem', marginTop: '2px' }}>
+                  {res?.activeSpecialPeriod && (
+                    <span style={{ fontSize: '0.7rem', fontWeight: 800, padding: '2px 7px', borderRadius: '8px', background: SPECIAL_PERIOD_META[res.activeSpecialPeriod.category].bg, color: SPECIAL_PERIOD_META[res.activeSpecialPeriod.category].color }}>
+                      {SPECIAL_PERIOD_META[res.activeSpecialPeriod.category].icon} {res.activeSpecialPeriod.title}
                     </span>
                   )}
-                  {resolution.activeSchoolBreak && (
+                  {res?.activeSchoolBreak && (
                     <span style={{ fontSize: '0.7rem', fontWeight: 800, padding: '2px 7px', borderRadius: '8px', background: '#fffbeb', color: '#92400e' }}>
-                      🏖️ {resolution.activeSchoolBreak.title}
+                      🏖️ {res.activeSchoolBreak.title}
                     </span>
                   )}
                   {birthdays.map((b, idx) => (
@@ -273,6 +391,7 @@ export const CalendarWeekView: React.FC<CalendarWeekViewProps> = ({
                   {dayEvents.map((ev) => {
                     const isPriv = ev.visibility === 'private';
                     const isConf = conflictIds.has(ev.id);
+                    const icon = ev.customCategoryIcon || (isConf ? '⚠️' : isPriv ? '🔒' : '📌');
                     return (
                       <span
                         key={ev.id}
@@ -286,13 +405,13 @@ export const CalendarWeekView: React.FC<CalendarWeekViewProps> = ({
                           textDecoration: ev.completed ? 'line-through' : 'none',
                         }}
                       >
-                        {isConf ? '⚠️ ' : isPriv ? '🔒 ' : '📌 '}{ev.title}{ev.time ? ` (${ev.time})` : ''}
+                        {icon} {ev.title}{ev.time ? ` (${ev.time})` : ''}
                       </span>
                     );
                   })}
                 </div>
               )}
-            </button>
+            </div>
           );
         })}
       </div>

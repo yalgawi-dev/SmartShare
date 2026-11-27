@@ -39,6 +39,7 @@ import { SwapRequestModal } from './SwapRequestModal';
 import { FamilySetupModal } from './FamilySetupModal';
 import { ActivitiesAndAlimonyTab } from './ActivitiesAndAlimonyTab';
 import { CalendarLayersDrawer, CalendarLayerDescriptor } from './CalendarLayersDrawer';
+import { useHorizontalSwipe } from '@/hooks/useHorizontalSwipe';
 
 type CalendarResolution = 'month' | 'week' | 'day';
 
@@ -368,6 +369,35 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
     await saveCalendarConfig(activeHostSpaceId, { ...effectiveConfig, handoverBag: nextBag });
   };
 
+  const handleAddBagItem = async (label: string) => {
+    if (!activeHostSpaceId) return;
+    const nextBag = [
+      ...(effectiveConfig.handoverBag || []),
+      { id: `bag_${Date.now()}`, label, checked: false },
+    ];
+    await saveCalendarConfig(activeHostSpaceId, { ...effectiveConfig, handoverBag: nextBag });
+  };
+
+  const handleRemoveBagItem = async (bagId: string) => {
+    if (!activeHostSpaceId) return;
+    const nextBag = (effectiveConfig.handoverBag || []).filter((b) => b.id !== bagId);
+    await saveCalendarConfig(activeHostSpaceId, { ...effectiveConfig, handoverBag: nextBag });
+  };
+
+  // Horizontal Swipe Gesture for Month / Week / Day navigation (RTL natural swipe!)
+  const swipeHandlers = useHorizontalSwipe({
+    onSwipeLeft: () => {
+      if (resolution === 'month') handleNextMonth();
+      else if (resolution === 'week') shiftSelectedDateBy(7);
+      else shiftSelectedDateBy(1);
+    },
+    onSwipeRight: () => {
+      if (resolution === 'month') handlePrevMonth();
+      else if (resolution === 'week') shiftSelectedDateBy(-7);
+      else shiftSelectedDateBy(-1);
+    },
+  });
+
   const handleCalendarDateTap = (ymd: string) => {
     if (!visualSwapMode) {
       setSelectedDate(ymd);
@@ -633,81 +663,90 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
         </div>
       )}
 
-      {/* RESOLUTION 1: COMPACT FULL-MONTH GRID (ALL 5-6 WEEKS VISIBLE ABOVE FLOATING BAR!) */}
+      {/* RESOLUTION 1: COMPACT FULL-MONTH GRID (Swipe Left/Right supported!) */}
       {resolution === 'month' && (
-        <CalendarMonthGrid
-          year={viewYear}
-          monthIndex={viewMonth}
-          selectedDate={selectedDate}
-          onSelectDate={handleCalendarDateTap}
-          onPrevMonth={handlePrevMonth}
-          onNextMonth={handleNextMonth}
-          onToday={handleToday}
-          resolution={resolution}
-          onChangeResolution={setResolution}
-          config={effectiveConfig}
-          events={events}
-          swaps={swaps}
-          visualSwapMode={visualSwapMode}
-          swapFirstDate={swapFirstDate}
-          swapSecondDate={swapSecondDate}
-        />
+        <div {...swipeHandlers}>
+          <CalendarMonthGrid
+            year={viewYear}
+            monthIndex={viewMonth}
+            selectedDate={selectedDate}
+            onSelectDate={handleCalendarDateTap}
+            onPrevMonth={handlePrevMonth}
+            onNextMonth={handleNextMonth}
+            onToday={handleToday}
+            resolution={resolution}
+            onChangeResolution={setResolution}
+            config={effectiveConfig}
+            events={events}
+            swaps={swaps}
+            visualSwapMode={visualSwapMode}
+            swapFirstDate={swapFirstDate}
+            swapSecondDate={swapSecondDate}
+          />
+        </div>
       )}
 
-      {/* RESOLUTION 2: WEEKLY VIEW */}
+      {/* RESOLUTION 2: WEEKLY VIEW (Swipe Left/Right + Inline '+' supported!) */}
       {resolution === 'week' && (
-        <CalendarWeekView
-          selectedDate={selectedDate}
-          onSelectDate={handleCalendarDateTap}
-          onPrevWeek={() => shiftSelectedDateBy(-7)}
-          onNextWeek={() => shiftSelectedDateBy(7)}
-          onToday={handleToday}
-          resolution={resolution}
-          onChangeResolution={setResolution}
-          config={effectiveConfig}
-          events={events}
-          swaps={swaps}
-          visualSwapMode={visualSwapMode}
-          swapFirstDate={swapFirstDate}
-          swapSecondDate={swapSecondDate}
-        />
+        <div {...swipeHandlers}>
+          <CalendarWeekView
+            selectedDate={selectedDate}
+            onSelectDate={handleCalendarDateTap}
+            onQuickAddForDate={(ymd) => {
+              setSelectedDate(ymd);
+              setDaySheetAutoAdd(true);
+              setShowDaySheet(true);
+            }}
+            onPrevWeek={() => shiftSelectedDateBy(-7)}
+            onNextWeek={() => shiftSelectedDateBy(7)}
+            onToday={handleToday}
+            resolution={resolution}
+            onChangeResolution={setResolution}
+            config={effectiveConfig}
+            events={events}
+            swaps={swaps}
+            visualSwapMode={visualSwapMode}
+            swapFirstDate={swapFirstDate}
+            swapSecondDate={swapSecondDate}
+          />
+        </div>
       )}
 
-      {/* RESOLUTION 3: DAILY NAVIGATOR + INLINE AGENDA */}
+      {/* RESOLUTION 3: DAILY NAVIGATOR + INLINE AGENDA (Swipe Left/Right supported!) */}
       {resolution === 'day' && (
-        <>
+        <div {...swipeHandlers} style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              gap: '0.35rem',
+              gap: '0.25rem',
               background: '#ffffff',
-              padding: '0.4rem 0.55rem',
+              padding: '0.36rem 0.45rem',
               borderRadius: '14px',
               border: '1px solid #e2e8f0',
-              flexWrap: 'wrap',
+              flexWrap: 'nowrap',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-              <button type="button" onClick={() => shiftSelectedDateBy(-1)} style={{ padding: '0.3rem 0.55rem', borderRadius: '9px', border: '1px solid #e2e8f0', background: '#f8fafc', fontWeight: 800, fontSize: '0.75rem', cursor: 'pointer' }}>◀ קודם</button>
-              <button type="button" onClick={handleToday} style={{ padding: '0.24rem 0.55rem', borderRadius: '999px', border: '1px solid #c7d2fe', background: '#eef2ff', color: '#4338ca', fontSize: '0.72rem', fontWeight: 900, cursor: 'pointer' }}>היום</button>
-              <button type="button" onClick={() => shiftSelectedDateBy(1)} style={{ padding: '0.3rem 0.55rem', borderRadius: '9px', border: '1px solid #e2e8f0', background: '#f8fafc', fontWeight: 800, fontSize: '0.75rem', cursor: 'pointer' }}>הבא ▶</button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+              <button type="button" onClick={() => shiftSelectedDateBy(-1)} style={{ padding: '0.26rem 0.48rem', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', fontWeight: 800, fontSize: '0.72rem', cursor: 'pointer' }}>◀ קודם</button>
+              <button type="button" onClick={handleToday} style={{ padding: '0.2rem 0.48rem', borderRadius: '999px', border: '1px solid #c7d2fe', background: '#eef2ff', color: '#4338ca', fontSize: '0.68rem', fontWeight: 900, cursor: 'pointer' }}>היום</button>
+              <button type="button" onClick={() => shiftSelectedDateBy(1)} style={{ padding: '0.26rem 0.48rem', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', fontWeight: 800, fontSize: '0.72rem', cursor: 'pointer' }}>הבא ▶</button>
             </div>
-            <div style={{ display: 'inline-flex', background: '#f1f5f9', padding: '2px', borderRadius: '9px', gap: '2px' }}>
+            <div style={{ display: 'inline-flex', background: '#f1f5f9', padding: '2px', borderRadius: '9px', gap: '2px', flexShrink: 0 }}>
               {([{ id: 'month', label: 'חודשי' }, { id: 'week', label: 'שבועי' }, { id: 'day', label: 'יומי' }] as const).map((r) => (
                 <button
                   key={r.id}
                   type="button"
                   onClick={() => setResolution(r.id)}
                   style={{
-                    padding: '0.24rem 0.52rem',
+                    padding: '0.22rem 0.44rem',
                     borderRadius: '7px',
                     border: 'none',
                     background: resolution === r.id ? '#ffffff' : 'transparent',
                     color: resolution === r.id ? '#0f172a' : '#64748b',
                     fontWeight: resolution === r.id ? 900 : 700,
-                    fontSize: '0.71rem',
+                    fontSize: '0.68rem',
                     cursor: 'pointer',
                   }}
                 >
@@ -731,8 +770,10 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
               setSwapModalState({ fromParent: from, initialDate: selectedDate })
             }
             onToggleBagItem={handleToggleBagItem}
+            onAddBagItem={handleAddBagItem}
+            onRemoveBagItem={handleRemoveBagItem}
           />
-        </>
+        </div>
       )}
 
       {/* DAY DETAIL SHEET MODAL — Opens immediately when tapping ANY day or tapping center ➕ FAB! */}
@@ -799,6 +840,8 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
                   setSwapModalState({ fromParent: from, initialDate: selectedDate });
                 }}
                 onToggleBagItem={handleToggleBagItem}
+                onAddBagItem={handleAddBagItem}
+                onRemoveBagItem={handleRemoveBagItem}
               />
             </div>
           </div>,

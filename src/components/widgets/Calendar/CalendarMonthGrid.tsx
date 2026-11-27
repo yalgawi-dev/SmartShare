@@ -88,62 +88,65 @@ export const CalendarMonthGrid: React.FC<CalendarMonthGridProps> = ({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.42rem' }}>
-      {/* UNIFIED COMPACT HEADER: Month Nav + Today + Resolution Switcher on ONE sleek row! */}
+      {/* UNIFIED SINGLE-ROW COMPACT HEADER: Month Nav + Today + Resolution Switcher */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: '0.35rem',
+          gap: '0.25rem',
           background: '#ffffff',
-          padding: '0.4rem 0.55rem',
+          padding: '0.36rem 0.45rem',
           borderRadius: '14px',
           border: '1px solid #e2e8f0',
           boxShadow: '0 2px 8px rgba(15,23,42,0.04)',
-          flexWrap: 'wrap',
+          flexWrap: 'nowrap',
+          overflow: 'hidden',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.22rem', minWidth: 0 }}>
           <button
             type="button"
             onClick={onPrevMonth}
             style={{
-              width: '30px',
-              height: '30px',
-              borderRadius: '9px',
+              width: '28px',
+              height: '28px',
+              borderRadius: '8px',
               border: '1px solid #e2e8f0',
               background: '#f8fafc',
               color: '#1e293b',
               fontWeight: 900,
-              fontSize: '0.78rem',
+              fontSize: '0.72rem',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              flexShrink: 0,
             }}
             title="חודש קודם"
           >
             ◀
           </button>
-          <h3 style={{ margin: 0, fontSize: '0.94rem', fontWeight: 900, color: '#0f172a', whiteSpace: 'nowrap' }}>
+          <h3 style={{ margin: 0, fontSize: '0.86rem', fontWeight: 900, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {HEBREW_MONTHS[monthIndex]} {year}
           </h3>
           <button
             type="button"
             onClick={onNextMonth}
             style={{
-              width: '30px',
-              height: '30px',
-              borderRadius: '9px',
+              width: '28px',
+              height: '28px',
+              borderRadius: '8px',
               border: '1px solid #e2e8f0',
               background: '#f8fafc',
               color: '#1e293b',
               fontWeight: 900,
-              fontSize: '0.78rem',
+              fontSize: '0.72rem',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              flexShrink: 0,
             }}
             title="חודש הבא"
           >
@@ -153,14 +156,15 @@ export const CalendarMonthGrid: React.FC<CalendarMonthGridProps> = ({
             type="button"
             onClick={onToday}
             style={{
-              padding: '0.18rem 0.48rem',
+              padding: '0.16rem 0.42rem',
               borderRadius: '999px',
               border: '1px solid #c7d2fe',
               background: '#eef2ff',
               color: '#4338ca',
-              fontSize: '0.68rem',
+              fontSize: '0.66rem',
               fontWeight: 800,
               cursor: 'pointer',
+              flexShrink: 0,
             }}
           >
             היום
@@ -175,6 +179,7 @@ export const CalendarMonthGrid: React.FC<CalendarMonthGridProps> = ({
             padding: '2px',
             borderRadius: '9px',
             gap: '2px',
+            flexShrink: 0,
           }}
         >
           {(
@@ -191,13 +196,13 @@ export const CalendarMonthGrid: React.FC<CalendarMonthGridProps> = ({
                 type="button"
                 onClick={() => onChangeResolution(r.id)}
                 style={{
-                  padding: '0.24rem 0.52rem',
+                  padding: '0.22rem 0.44rem',
                   borderRadius: '7px',
                   border: 'none',
                   background: active ? '#ffffff' : 'transparent',
                   color: active ? '#0f172a' : '#64748b',
                   fontWeight: active ? 900 : 700,
-                  fontSize: '0.71rem',
+                  fontSize: '0.68rem',
                   cursor: 'pointer',
                   boxShadow: active ? '0 1px 4px rgba(15,23,42,0.1)' : 'none',
                 }}

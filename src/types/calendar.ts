@@ -119,6 +119,13 @@ export type CalendarEventCategory =
 
 export type CalendarEventVisibility = 'shared' | 'private';
 
+export interface CustomCalendarCategory {
+  id: string;
+  label: string;
+  icon: string;
+  color: string;
+}
+
 export interface CalendarEventItem {
   id: string;
   title: string;
@@ -126,6 +133,9 @@ export interface CalendarEventItem {
   time?: string;      // HH:mm
   endTime?: string;   // HH:mm
   category: CalendarEventCategory;
+  /** Optional custom category label & icon when user defines their own category */
+  customCategoryLabel?: string;
+  customCategoryIcon?: string;
   /** 'shared' = visible to space members; 'private' = stored in user's private collection (ONLY creator sees!) */
   visibility?: CalendarEventVisibility;
   /** Task completion checkbox state */
@@ -199,6 +209,7 @@ export interface SmartCalendarConfig {
   activities: KidActivityItem[];
   alimony: AlimonyConfig;
   handoverBag: HandoverBagItem[];
+  customCategories?: CustomCalendarCategory[];
   updatedAt?: string;
 }
 
