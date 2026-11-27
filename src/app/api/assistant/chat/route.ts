@@ -238,32 +238,36 @@ ${formattedHistory}`;
 
     // Benchmarked sub-second models (723ms / 833ms) with strict JSON structured output
     const models = ['gemini-3.5-flash-lite', 'gemini-flash-lite-latest'];
-    let geminiData: any = null;
     let lastStatus = 0;
 
-    for (const model of models) {
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-      const geminiRes = await fetch(geminiUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: `${systemPrompt}\n\nשאלת המשתמש: ${securityCheck.sanitizedText}` }] }],
-          generationConfig: {
-            temperature: 0.1,
-            maxOutputTokens: 1200,
-            responseMimeType: 'application/json'
-          }
-        })
-      });
+    const callGemini = async (promptText: string, maxTokens: number): Promise<any | null> => {
+      for (const model of models) {
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+        const geminiRes = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ role: 'user', parts: [{ text: promptText }] }],
+            generationConfig: {
+              temperature: 0.1,
+              maxOutputTokens: maxTokens,
+              responseMimeType: 'application/json'
+            }
+          })
+        });
 
-      if (geminiRes.ok) {
-        geminiData = await geminiRes.json();
-        break;
+        if (geminiRes.ok) {
+          return await geminiRes.json();
+        }
+        lastStatus = geminiRes.status;
+        const errTxt = await geminiRes.text();
+        console.warn(`Gemini (${model}) error:`, lastStatus, errTxt.slice(0, 200));
       }
-      lastStatus = geminiRes.status;
-      const errTxt = await geminiRes.text();
-      console.warn(`Gemini (${model}) error:`, lastStatus, errTxt.slice(0, 200));
-    }
+      return null;
+    };
+
+    const fullUserPrompt = `${systemPrompt}\n\nשאלת המשתמש: ${securityCheck.sanitizedText}`;
+    let geminiData = await callGemini(fullUserPrompt, 2048);
 
     if (!geminiData) {
       // Explicit transparent notification when shared API quota (429) is temporarily exhausted
@@ -279,7 +283,7 @@ ${formattedHistory}`;
       return NextResponse.json({ error: 'AI unavailable', reason: `gemini_${lastStatus}` }, { status: 502 });
     }
 
-    const rawText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    let rawText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
     if (!rawText) {
       return NextResponse.json({ error: 'Empty AI response', reason: 'gemini_empty' }, { status: 502 });
     }
@@ -314,8 +318,24 @@ ${formattedHistory}`;
       return null;
     };
 
+    // Behind-the-Scenes Auto-Split Recovery:
+    // If output hit MAX_TOKENS or returned malformed JSON, silently ask for ONLY the first atomic step
+    // with continueExploring: true so the autonomous loop chunks the work seamlessly with ZERO user error!
+    let parsed = tryParseModelJson(rawText);
+    const finishReason = geminiData?.candidates?.[0]?.finishReason;
+    if (!parsed || finishReason === 'MAX_TOKENS') {
+      const recoveryPrompt = `${fullUserPrompt}\n\n[הנחיית מערכת דחופה]: הפלט הקודם חרג ממכסת האורך או לא היה JSON תקני. החזר כעת JSON קצר, תקני ומזערי בלבד (answer עד 100 תווים, ללא פירוט מיותר) הכולל אך ורק את הצעד הראשון ההכרחי ביותר ב-proposedAction, והגדר "continueExploring": true כדי ששאר הצעדים יבוצעו אוטומטית בשלב הבא.`;
+      const recoveredData = await callGemini(recoveryPrompt, 1024);
+      const recoveredText = recoveredData?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+      const recoveredParsed = recoveredText ? tryParseModelJson(recoveredText) : null;
+      if (recoveredParsed) {
+        geminiData = recoveredData;
+        rawText = recoveredText;
+        parsed = recoveredParsed;
+      }
+    }
+
     try {
-      const parsed = tryParseModelJson(rawText);
       if (!parsed) {
         throw new Error('json_parse_failed');
       }

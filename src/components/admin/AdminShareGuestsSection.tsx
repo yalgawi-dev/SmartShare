@@ -114,12 +114,20 @@ export const AdminShareGuestsSection: React.FC = () => {
           if (entry.channel && !existing.channels.includes(entry.channel)) {
             existing.channels.push(entry.channel);
           }
-          existing.sharedItems.push({
-            title: entry.itemTitle,
-            spaceTitle: entry.spaceTitle,
-            visits,
-            lastSeenAt: lastTs,
-          });
+          const existingItem = existing.sharedItems.find(
+            (si) => si.title === entry.itemTitle && (si.spaceTitle || '') === (entry.spaceTitle || '')
+          );
+          if (existingItem) {
+            existingItem.visits += visits;
+            existingItem.lastSeenAt = Math.max(existingItem.lastSeenAt, lastTs);
+          } else {
+            existing.sharedItems.push({
+              title: entry.itemTitle,
+              spaceTitle: entry.spaceTitle,
+              visits,
+              lastSeenAt: lastTs,
+            });
+          }
           existing.isReturning = existing.totalVisits >= 2 || existing.sharedItems.length >= 2;
         }
       };
@@ -127,7 +135,7 @@ export const AdminShareGuestsSection: React.FC = () => {
       snap.forEach((docSnap) => {
         const d: any = docSnap.data();
         const token = docSnap.id;
-        const itemTitle = d.itemName || d.title || 'קובץ / תיקייה משותפת';
+        const itemTitle = d.name || d.itemName || d.title || 'קובץ / תיקייה משותפת';
         const spaceTitle = d.spaceTitle || '';
 
         // 1. Multi-recipient & anonymous public link visitors stored in `recipients[]`

@@ -403,6 +403,28 @@ export function detectAnonymousShareChannel(): string {
  * Registers or updates an anonymous guest who identified themselves (name + phone) on a general public link.
  * Deduplicates by normalized phone digits and syncs directly into the Share Wall's recipients list!
  */
+const SHARE_VISIT_COOLDOWN_MS = 15 * 60 * 1000; // 15-minute session window (prevents page refreshes from inflating visit counts!)
+
+/**
+ * DRY Single-Source-of-Truth cooldown guard: returns true only if at least 15 minutes
+ * have elapsed since this browser last counted a visit for this token/visitor.
+ */
+function shouldCountNewShareVisit(token: string, visitorKey = 'default'): boolean {
+  if (typeof window === 'undefined') return true;
+  try {
+    const key = `smartshare_visit_ts_${token}_${visitorKey}`;
+    const lastTs = Number(localStorage.getItem(key) || '0');
+    const now = Date.now();
+    if (lastTs > 0 && now - lastTs < SHARE_VISIT_COOLDOWN_MS) {
+      return false;
+    }
+    localStorage.setItem(key, String(now));
+    return true;
+  } catch {
+    return true;
+  }
+}
+
 export async function registerAnonymousGuestVisit(
   token: string,
   guest: { name: string; phone: string }
@@ -415,6 +437,7 @@ export async function registerAnonymousGuestVisit(
 
   const sourceChannel = detectAnonymousShareChannel();
   const now = Date.now();
+  const countVisit = shouldCountNewShareVisit(token, `anon_${phoneDigits}`);
 
   try {
     const shareDocRef = doc(db, 'shared_links', token);
@@ -433,7 +456,7 @@ export async function registerAnonymousGuestVisit(
       existingList[matchIdx] = {
         ...existingList[matchIdx],
         recipientName: existingList[matchIdx].recipientName || cleanName,
-        viewCount: (existingList[matchIdx].viewCount || 0) + 1,
+        viewCount: (existingList[matchIdx].viewCount || 0) + (countVisit ? 1 : 0),
         lastViewedAt: now,
         sourceChannel: existingList[matchIdx].sourceChannel || sourceChannel,
       };
@@ -526,6 +549,8 @@ export async function registerAnonymousGuestVisit(
  */
 export async function recordPublicShareView(token: string): Promise<void> {
   if (!token || isLinkPreviewBot()) return;
+  // 15-minute session cooldown: page refreshes within 15 min do NOT inflate visit counts!
+  if (!shouldCountNewShareVisit(token, 'view')) return;
   try {
     const shareDocRef = doc(db, 'shared_links', token);
     const snap = await getDoc(shareDocRef);
