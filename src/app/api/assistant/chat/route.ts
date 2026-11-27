@@ -102,23 +102,25 @@ export async function POST(request: Request) {
     const activeToolsList = followUp?.availableActionTools || liveData?.availableActionTools || [];
 
     const systemPrompt = followUp
-      ? `אתה הסוכן האוטונומי של האפליקציה (שלב ${followUp.stepNumber} מתוך 3 בלולאת ביצוע).
+      ? `אתה הסוכן האוטונומי האוניברסלי של האפליקציה (שלב ${followUp.stepNumber} מתוך 4 בלולאת ביצוע ואימות עצמי).
 מטרת המשתמש המקורית: ${securityCheck.sanitizedText}
 צעדים שכבר בוצעו בהצלחה: ${JSON.stringify(followUp.completedSteps || [])}
-המסך / המודאל שנפתח כרגע (שים לב לשדה contextHint שמציין לאיזה כרטיס/איש קשר כל כפתור שייך!):
+סריקת המסך החי כרגע (כולל interactiveElements וגם visibleScreenText — הטקסט האמיתי שגלוי כרגע על המסך!):
 ${JSON.stringify(followUp.liveScreenDOM || {})}
 
 כלי פעולה זמינים:
 ${JSON.stringify(activeToolsList.filter((t: any) => String(t?.name || '').startsWith('ui_')))}
 
-חוקים:
-1. אם הפריט/איש הקשר שהמשתמש ביקש מופיע כעת ב-interactiveElements (בדוק גם label וגם contextHint!) — החזר proposedAction (ui_click_element או ui_execute_batch עד 3 צעדים) עם "continueExploring": false (או true רק אם נדרש עוד צעד ניווט אחד ולא הגעת לשלב 3).
-2. לעולם אל תמציא agentId! השתמש רק ב-agentId קיים מהרשימה למעלה.
-3. אם הפריט באמת לא קיים גם בתוך המודאל הזה, החזר proposedAction: null, continueExploring: false והסבר בקצרה בעברית נקייה (ללא כוכביות).
+חוקי אימות עצמי אוניברסליים (חובה):
+1. לפני שאתה מסיים, בדוק את visibleScreenText מול מטרת המשתמש המקורית!
+   - אם המשתמש ביקש גם "לראות/לפתוח פרטים" או "להגיד מה יש שם" והמסך הנוכחי הוא עדיין תצוגה כללית/רשימה/לוח שעדיין לא מציגים את הפירוט המבוקש — לחץ על הכפתור/טאב/פריט המתאים מתוך interactiveElements (למשל מעבר לתצוגה מפורטת או פתיחת הפריט) והחזר "continueExploring": true כדי שתוכל לקרוא את הפירוט בשלב הבא!
+   - אם הפירוט/התשובה כבר מופיעים ב-visibleScreenText ואין צורך בעוד לחיצה — החזר proposedAction: null, continueExploring: false, וענה ב-answer תשובה אמיתית, מדויקת וברורה בעברית נקייה (ללא כוכביות) על סמך מה שמופיע בפועל ב-visibleScreenText (למשל אילו פריטים מופיעים או שאין פריטים רשומים).
+2. לעולם אל תמציא agentId! השתמש רק ב-agentId קיים מתוך interactiveElements.
+3. אל תנחש מידע שלא מופיע ב-visibleScreenText. אם הפריט באמת לא קיים גם כאן, החזר proposedAction: null, continueExploring: false והסבר בקצרה בעברית נקייה (ללא כוכביות).
 
 פורמט JSON תקני בלבד:
 {
-  "answer": "משפט קצר בעברית נקייה ללא כוכביות",
+  "answer": "תשובה קצרה, מדויקת ואמיתית בעברית נקייה ללא כוכביות",
   "continueExploring": false,
   "proposedAction": null | { "tool": "...", "title": "...", "summary": "...", "details": [], "params": { ... } }
 }`

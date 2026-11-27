@@ -51,6 +51,8 @@ export interface LiveScreenDomInspection {
   visibleButtonsAndActions: string[];
   interactiveElements: InteractiveDomElement[];
   openModalsOrBanners: string[];
+  /** Universal readable text snapshot of the currently visible viewport / active modal (100% app-agnostic, zero-config!) */
+  visibleScreenText?: string;
   /** Layer 2.5 Universal Viewport Grounding (Active container + entities currently visible on screen) */
   activeScope?: ActiveViewportScope | null;
   visibleEntities?: VisibleAgentEntity[];
@@ -388,6 +390,51 @@ export function inspectLiveScreenDOM(): LiveScreenDomInspection {
       });
   }
 
+  // Pass C: Universal Zero-Config Screen Text Reader (works on ANY app — lets the agent verify & read what opened!)
+  let visibleScreenText = '';
+  try {
+    const textSnippets: string[] = [];
+    const seenSnippets = new Set<string>();
+    const roots: Element[] = [];
+    // Prefer the top-most visible modal/dialog if one is open; otherwise scan document.body
+    document.querySelectorAll('[role="dialog"], [aria-modal="true"], div[style*="position: fixed"]').forEach((el) => {
+      if (isInsideIgnoredZone(el)) return;
+      const cs = window.getComputedStyle(el);
+      if (cs.display === 'none' || cs.visibility === 'hidden' || Number(cs.opacity) === 0) return;
+      const z = Number(cs.zIndex || 0);
+      const rect = el.getBoundingClientRect();
+      if (z >= 1000 && rect.width > 180 && rect.height > 120) {
+        roots.push(el);
+      }
+    });
+    const scanRoot = roots.length > 0 ? roots[roots.length - 1] : document.body;
+    const walker = document.createTreeWalker(scanRoot, NodeFilter.SHOW_TEXT);
+    let node: Node | null = walker.nextNode();
+    let totalChars = 0;
+    while (node && totalChars < 850) {
+      const parentEl = node.parentElement;
+      if (
+        parentEl &&
+        !isInsideIgnoredZone(parentEl) &&
+        !['SCRIPT', 'STYLE', 'NOSCRIPT', 'SVG', 'INPUT', 'TEXTAREA'].includes(parentEl.tagName)
+      ) {
+        const txt = cleanLabel(node.textContent);
+        if (txt.length >= 2 && txt.length <= 160 && !seenSnippets.has(txt)) {
+          const rect = parentEl.getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0) {
+            seenSnippets.add(txt);
+            textSnippets.push(txt);
+            totalChars += txt.length + 3;
+          }
+        }
+      }
+      node = walker.nextNode();
+    }
+    visibleScreenText = textSnippets.join(' | ').slice(0, 900);
+  } catch {
+    visibleScreenText = '';
+  }
+
   return {
     urlPath: window.location.pathname + window.location.search,
     pageTitle: cleanLabel(document.title),
@@ -395,6 +442,7 @@ export function inspectLiveScreenDOM(): LiveScreenDomInspection {
     visibleButtonsAndActions: Array.from(actionSet).slice(0, 35),
     interactiveElements,
     openModalsOrBanners: Array.from(modalSet).slice(0, 10),
+    visibleScreenText,
     activeScope,
     visibleEntities
   };

@@ -350,9 +350,16 @@ export const SmartCalendarWidget: React.FC<SmartCalendarWidgetProps> = ({
 
   const handleToday = () => {
     const d = new Date();
+    const todayStr = toYMD(d);
+    const alreadyOnCurrentMonth = viewYear === d.getFullYear() && viewMonth === d.getMonth();
     setViewYear(d.getFullYear());
     setViewMonth(d.getMonth());
-    setSelectedDate(toYMD(d));
+    setSelectedDate(todayStr);
+    // If user is already viewing the current month in Month view, tapping "היום" opens today's Day Sheet immediately!
+    if (resolution === 'month' && alreadyOnCurrentMonth && !visualSwapMode) {
+      setDaySheetAutoAdd(false);
+      setShowDaySheet(true);
+    }
   };
 
   const handleSaveConfig = async (next: SmartCalendarConfig) => {

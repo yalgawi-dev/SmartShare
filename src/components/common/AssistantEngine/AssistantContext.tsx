@@ -791,7 +791,7 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       return;
     }
 
-    const MAX_AUTONOMOUS_STEPS = 3;
+    const MAX_AUTONOMOUS_STEPS = 4;
     const execCtx = {
       user,
       spaces,
@@ -1035,6 +1035,19 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             : m
         )
       );
+    }
+
+    // Smart Auto-Collapse when autonomous UI actions succeeded (reveals the opened screen immediately + shows top toast!)
+    if (completedSteps.length > 0 && (!proposal || !proposal.requiresConfirmation)) {
+      if (actionToastTimerRef.current) clearTimeout(actionToastTimerRef.current);
+      const toastText = finalAnswer || completedSteps[completedSteps.length - 1] || 'הפעולה הושלמה בהצלחה';
+      setTimeout(() => {
+        setIsOpen(false);
+        setActionToast({ message: toastText });
+        actionToastTimerRef.current = setTimeout(() => {
+          setActionToast(null);
+        }, 7000);
+      }, 950);
     }
 
     // Auto-Speak or Background Pre-Synthesis for final answer
