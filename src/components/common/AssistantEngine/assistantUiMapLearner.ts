@@ -13,8 +13,8 @@ import {
   queueCollectiveAction,
   queueScreenDiscoveryDiff,
 } from './agentCollectiveTelemetry';
-import { recordPassiveClickForMacro } from './agentUiMacroLearner';
-import { recordObservedChoice } from './agentChoiceLearner';
+import { recordPassiveClickForMacro, hydrateCloudUiMacros } from './agentUiMacroLearner';
+import { recordObservedChoice, hydrateCloudLearnedChoices } from './agentChoiceLearner';
 
 export interface LearnedUiTransition {
   routePattern: string;
@@ -307,6 +307,8 @@ export function getCompactUiMapForRoute(routePath: string, visibleLabels: string
 export function installPassiveUiMapLearner(): () => void {
   if (typeof window === 'undefined' || typeof document === 'undefined') return () => {};
   hydrateCloudUiMap();
+  hydrateCloudUiMacros();
+  hydrateCloudLearnedChoices();
   const stopTelemetryFlusher = installCollectiveTelemetryFlusher();
 
   if (passiveListenerInstalled) return () => {};

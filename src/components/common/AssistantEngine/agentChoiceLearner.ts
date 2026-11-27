@@ -1,5 +1,8 @@
 'use client';
 
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+
 function normalizeRoutePattern(path: string): string {
   return String(path || '/')
     .split('?')[0]
@@ -32,7 +35,11 @@ export interface LearnedDecisionPointSummary {
 }
 
 const STORAGE_KEY = 'agent_learned_choices_v1';
+const CLOUD_DOC_ID = 'global_choices_v1';
 const MAX_CONTROLS = 80;
+
+let cloudChoicesHydrated = false;
+let cloudChoicesSaveTimer: ReturnType<typeof setTimeout> | null = null;
 
 function cleanText(raw: string | null | undefined): string {
   return String(raw || '')
@@ -54,16 +61,70 @@ export function loadLearnedChoices(): LearnedControlChoices[] {
   }
 }
 
-function saveLearnedChoices(list: LearnedControlChoices[]): void {
+function saveLearnedChoices(list: LearnedControlChoices[], syncToCloud = true): void {
   if (typeof window === 'undefined') return;
+  const sorted = [...list]
+    .sort((a, b) => b.totalSelections - a.totalSelections || b.lastUpdatedAt - a.lastUpdatedAt)
+    .slice(0, MAX_CONTROLS);
   try {
-    const sorted = [...list]
-      .sort((a, b) => b.totalSelections - a.totalSelections || b.lastUpdatedAt - a.lastUpdatedAt)
-      .slice(0, MAX_CONTROLS);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(sorted));
   } catch {
     // Ignore storage quota errors
   }
+
+  // Collective Crowd Intelligence Sync (strictly anonymous structural control/option counts — ZERO PII!)
+  if (syncToCloud) {
+    if (cloudChoicesSaveTimer) clearTimeout(cloudChoicesSaveTimer);
+    cloudChoicesSaveTimer = setTimeout(() => {
+      setDoc(
+        doc(db, 'assistant_ui_map', CLOUD_DOC_ID),
+        { choices: sorted, updatedAt: Date.now() },
+        { merge: true }
+      ).catch(() => {});
+    }, 4500);
+  }
+}
+
+/**
+ * Hydrates global crowd-learned decision points from Firestore once per session (non-blocking).
+ * Merges optionCounts across all users so every user's agent immediately knows which form controls
+ * are genuine active decision points across the entire platform!
+ */
+export function hydrateCloudLearnedChoices(): void {
+  if (typeof window === 'undefined' || cloudChoicesHydrated) return;
+  cloudChoicesHydrated = true;
+  getDoc(doc(db, 'assistant_ui_map', CLOUD_DOC_ID))
+    .then((snap) => {
+      if (!snap.exists()) return;
+      const remote: LearnedControlChoices[] = snap.data()?.choices || [];
+      if (!Array.isArray(remote) || remote.length === 0) return;
+
+      const local = loadLearnedChoices();
+      const merged = new Map<string, LearnedControlChoices>();
+
+      for (const item of [...remote, ...local]) {
+        if (!item?.id || !item?.controlLabel || !item?.optionCounts) continue;
+        const prev = merged.get(item.id);
+        if (!prev) {
+          merged.set(item.id, { ...item, optionCounts: { ...item.optionCounts } });
+        } else {
+          const nextCounts: Record<string, number> = { ...prev.optionCounts };
+          for (const [opt, cnt] of Object.entries(item.optionCounts)) {
+            nextCounts[opt] = Math.max(nextCounts[opt] || 0, Number(cnt) || 0);
+          }
+          const total = Object.values(nextCounts).reduce((sum, v) => sum + v, 0);
+          merged.set(item.id, {
+            ...prev,
+            optionCounts: nextCounts,
+            totalSelections: Math.max(prev.totalSelections, item.totalSelections, total),
+            lastUpdatedAt: Math.max(prev.lastUpdatedAt || 0, item.lastUpdatedAt || 0),
+          });
+        }
+      }
+
+      saveLearnedChoices(Array.from(merged.values()), false);
+    })
+    .catch(() => {});
 }
 
 /**

@@ -1,5 +1,7 @@
 'use client';
 
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import type { LiveScreenDomInspection } from './assistantDomIntrospector';
 import { normalizeRoutePattern } from './assistantUiMapLearner';
 
@@ -17,8 +19,13 @@ export interface LearnedUiMacro {
 }
 
 const STORAGE_KEY = 'agent_learned_ui_macros_v2';
+const CLOUD_MACROS_DOC_ID = 'global_macros_v2';
+const CROWD_CONSENSUS_MIN_COUNT = 2;
 const MAX_MACROS = 60;
 const PASSIVE_CHAIN_WINDOW_MS = 14_000;
+
+let cloudMacrosHydrated = false;
+let cloudMacrosSaveTimer: ReturnType<typeof setTimeout> | null = null;
 
 const DESTRUCTIVE_RE = /מחק|הסר|בטל|סגור חשבון|חסום|אפס|רוקן|delete|remove|destroy|reset|block|revoke/i;
 
@@ -66,16 +73,83 @@ export function loadLearnedUiMacros(): LearnedUiMacro[] {
   }
 }
 
-function saveLearnedUiMacros(list: LearnedUiMacro[]): void {
+function saveLearnedUiMacros(list: LearnedUiMacro[], syncToCloud = true): void {
   if (typeof window === 'undefined') return;
+  const sorted = [...list]
+    .sort((a, b) => b.successCount * 10 + (b.lastUsedAt > a.lastUsedAt ? 1 : 0) - a.successCount * 10)
+    .slice(0, MAX_MACROS);
   try {
-    const sorted = [...list]
-      .sort((a, b) => b.successCount * 10 + (b.lastUsedAt > a.lastUsedAt ? 1 : 0) - a.successCount * 10)
-      .slice(0, MAX_MACROS);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(sorted));
   } catch {
     // Ignore storage quota errors
   }
+
+  // Collective Crowd Intelligence Sync (strictly structural button chains — NEVER leaks private user queries!)
+  if (syncToCloud) {
+    if (cloudMacrosSaveTimer) clearTimeout(cloudMacrosSaveTimer);
+    cloudMacrosSaveTimer = setTimeout(() => {
+      const structuralCrowdMacros = sorted
+        .filter((m) => m.successCount >= CROWD_CONSENSUS_MIN_COUNT && m.steps.length >= 2)
+        .map((m) => ({
+          id: m.id,
+          startRoute: m.startRoute,
+          steps: m.steps,
+          endHeading: m.endHeading || '',
+          // Strictly structural keywords derived only from UI button/heading labels (zero PII!)
+          keywords: extractTokens(`${m.steps.join(' ')} ${m.endHeading || ''}`).slice(0, 16),
+          learnedFrom: m.learnedFrom,
+          successCount: m.successCount,
+          lastUsedAt: m.lastUsedAt,
+        }));
+      if (structuralCrowdMacros.length === 0) return;
+      setDoc(
+        doc(db, 'assistant_ui_map', CLOUD_MACROS_DOC_ID),
+        { macros: structuralCrowdMacros, updatedAt: Date.now() },
+        { merge: true }
+      ).catch(() => {});
+    }, 4500);
+  }
+}
+
+/**
+ * Hydrates crowd-validated multi-step UI macros from Firestore once per session (non-blocking).
+ * Enforces Consensus Guard (successCount >= 2) so a single user's random misclick never pollutes the crowd!
+ */
+export function hydrateCloudUiMacros(): void {
+  if (typeof window === 'undefined' || cloudMacrosHydrated) return;
+  cloudMacrosHydrated = true;
+  getDoc(doc(db, 'assistant_ui_map', CLOUD_MACROS_DOC_ID))
+    .then((snap) => {
+      if (!snap.exists()) return;
+      const remote: LearnedUiMacro[] = snap.data()?.macros || [];
+      if (!Array.isArray(remote) || remote.length === 0) return;
+
+      const local = loadLearnedUiMacros();
+      const merged = new Map<string, LearnedUiMacro>();
+
+      for (const item of [...remote, ...local]) {
+        if (!item?.id || !Array.isArray(item.steps) || item.steps.length < 2) continue;
+        // Skip remote items that haven't reached crowd consensus
+        const isRemoteOnly = !local.some((l) => l.id === item.id);
+        if (isRemoteOnly && (item.successCount || 0) < CROWD_CONSENSUS_MIN_COUNT) continue;
+
+        const prev = merged.get(item.id);
+        if (!prev) {
+          merged.set(item.id, item);
+        } else {
+          merged.set(item.id, {
+            ...prev,
+            endHeading: item.endHeading || prev.endHeading,
+            keywords: Array.from(new Set([...(prev.keywords || []), ...(item.keywords || [])])).slice(0, 24),
+            successCount: Math.max(prev.successCount || 1, item.successCount || 1),
+            lastUsedAt: Math.max(prev.lastUsedAt || 0, item.lastUsedAt || 0),
+          });
+        }
+      }
+
+      saveLearnedUiMacros(Array.from(merged.values()), false);
+    })
+    .catch(() => {});
 }
 
 function upsertMacro(params: {
