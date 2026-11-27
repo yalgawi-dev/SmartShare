@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useSpeechToText } from '@/hooks/useSpeechToText';
 import {
   CalendarEventCategory,
   CalendarEventItem,
@@ -113,6 +114,28 @@ export const CalendarDayDrawer: React.FC<CalendarDayDrawerProps> = ({
   const [showBag, setShowBag] = useState(false);
   const [showKidsNotify, setShowKidsNotify] = useState(false);
   const [newBagItemLabel, setNewBagItemLabel] = useState('');
+  const [activeVoiceField, setActiveVoiceField] = useState<'title' | 'location' | null>(null);
+
+  const { isListening, isSupported: isVoiceSupported, startListening, stopListening } = useSpeechToText({
+    lang: 'he-IL',
+    onTranscript: (liveText) => {
+      if (activeVoiceField === 'location') {
+        setLocation(liveText);
+      } else {
+        setTitle(liveText);
+      }
+    },
+  });
+
+  const handleToggleVoiceForField = (field: 'title' | 'location') => {
+    if (isListening && activeVoiceField === field) {
+      stopListening();
+      setActiveVoiceField(null);
+      return;
+    }
+    setActiveVoiceField(field);
+    startListening(field === 'location' ? location : title);
+  };
 
   const dateObj = parseYMD(selectedDate);
   const dayName = HEBREW_DAYS_FULL[dateObj.getDay()];
@@ -593,24 +616,48 @@ export const CalendarDayDrawer: React.FC<CalendarDayDrawerProps> = ({
             </div>
           )}
 
-          <input
-            type="text"
-            required
-            placeholder={
-              selectedCustomCat
-                ? `כותרת (${selectedCustomCat.label})...`
-                : category === 'task'
-                  ? 'מה המשימה? (למשל: לשלוח אישור, לקנות ציוד)'
-                  : category === 'meeting'
-                    ? 'עם מי הפגישה? (למשל: פגישה עם קבלן / רו״ח)'
-                    : category === 'note'
-                      ? 'כתוב הערה ליום זה...'
-                      : 'כותרת (למשל: רופא שיניים, אסיפת הורים)'
-            }
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            style={{ padding: '0.52rem 0.65rem', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
-          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+            <input
+              type="text"
+              required
+              placeholder={
+                selectedCustomCat
+                  ? `כותרת (${selectedCustomCat.label})...`
+                  : category === 'task'
+                    ? 'מה המשימה? (למשל: לשלוח אישור, לקנות ציוד)'
+                    : category === 'meeting'
+                      ? 'עם מי הפגישה? (למשל: פגישה עם קבלן / רו״ח)'
+                      : category === 'note'
+                        ? 'כתוב הערה ליום זה...'
+                        : 'כותרת (למשל: רופא שיניים, אסיפת הורים)'
+              }
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              style={{ flex: 1, minWidth: 0, padding: '0.52rem 0.65rem', borderRadius: '10px', border: isListening && activeVoiceField === 'title' ? '2px solid #ef4444' : '1px solid #cbd5e1', fontSize: '0.85rem' }}
+            />
+            {isVoiceSupported && (
+              <button
+                type="button"
+                onClick={() => handleToggleVoiceForField('title')}
+                title={isListening && activeVoiceField === 'title' ? 'עצור הכתבה קולית' : 'הכתבה קולית חיה (חינם)'}
+                aria-label="הכתבה קולית לכותרת"
+                style={{
+                  border: 'none',
+                  borderRadius: '10px',
+                  width: '38px',
+                  height: '38px',
+                  flexShrink: 0,
+                  cursor: 'pointer',
+                  fontSize: '1rem',
+                  background: isListening && activeVoiceField === 'title' ? '#ef4444' : '#eef2ff',
+                  color: isListening && activeVoiceField === 'title' ? '#ffffff' : '#4338ca',
+                  boxShadow: isListening && activeVoiceField === 'title' ? '0 0 0 4px rgba(239,68,68,0.22)' : 'none',
+                }}
+              >
+                {isListening && activeVoiceField === 'title' ? '⏹️' : '🎙️'}
+              </button>
+            )}
+          </div>
 
           {/* Clean Optional Time Toggle + Location (replaces confusing empty [ v : v ]!) */}
           <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -646,13 +693,36 @@ export const CalendarDayDrawer: React.FC<CalendarDayDrawerProps> = ({
               </div>
             )}
 
-            <input
-              type="text"
-              placeholder="מיקום / הערה נוספת (אופציונלי)"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              style={{ flex: 1, minWidth: '140px', padding: '0.46rem 0.6rem', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '0.8rem' }}
-            />
+            <div style={{ flex: 1, minWidth: '140px', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+              <input
+                type="text"
+                placeholder="מיקום / הערה נוספת (אופציונלי)"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                style={{ flex: 1, minWidth: 0, padding: '0.46rem 0.6rem', borderRadius: '10px', border: isListening && activeVoiceField === 'location' ? '2px solid #ef4444' : '1px solid #cbd5e1', fontSize: '0.8rem' }}
+              />
+              {isVoiceSupported && (
+                <button
+                  type="button"
+                  onClick={() => handleToggleVoiceForField('location')}
+                  title={isListening && activeVoiceField === 'location' ? 'עצור הכתבה קולית' : 'הכתבה קולית להערה/מיקום'}
+                  aria-label="הכתבה קולית להערה"
+                  style={{
+                    border: 'none',
+                    borderRadius: '10px',
+                    width: '34px',
+                    height: '34px',
+                    flexShrink: 0,
+                    cursor: 'pointer',
+                    fontSize: '0.92rem',
+                    background: isListening && activeVoiceField === 'location' ? '#ef4444' : '#f1f5f9',
+                    color: isListening && activeVoiceField === 'location' ? '#ffffff' : '#475569',
+                  }}
+                >
+                  {isListening && activeVoiceField === 'location' ? '⏹️' : '🎙️'}
+                </button>
+              )}
+            </div>
           </div>
 
           {visibility === 'shared' && config.mode === 'parenting' && (

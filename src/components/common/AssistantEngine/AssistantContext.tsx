@@ -1188,8 +1188,18 @@ export const AssistantProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       });
     }
 
-    // Smart Auto-Collapse when autonomous UI actions succeeded (reveals the opened screen immediately + shows top toast!)
-    if (completedSteps.length > 0 && (!proposal || !proposal.requiresConfirmation)) {
+    // Smart Auto-Collapse ONLY when autonomous UI actions truly finished!
+    // NEVER collapse if Dana stopped to ask the user a clarifying question (?) OR an empty modal form still awaits input!
+    const isAskingUserQuestion = Boolean(finalAnswer && finalAnswer.includes('?'));
+    const hasEmptyOpenModalForm = currentDom.interactiveElements.some(
+      (e) => e.inModal && (e.tag === 'input' || e.tag === 'textarea') && !e.currentValue
+    );
+    if (
+      completedSteps.length > 0 &&
+      (!proposal || !proposal.requiresConfirmation) &&
+      !isAskingUserQuestion &&
+      !hasEmptyOpenModalForm
+    ) {
       if (actionToastTimerRef.current) clearTimeout(actionToastTimerRef.current);
       const toastText = finalAnswer || completedSteps[completedSteps.length - 1] || 'הפעולה הושלמה בהצלחה';
       setTimeout(() => {

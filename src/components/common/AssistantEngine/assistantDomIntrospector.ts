@@ -290,10 +290,16 @@ export function inspectLiveScreenDOM(options?: { assignIds?: boolean }): LiveScr
       const sel = el as HTMLSelectElement;
       const label = cleanLabel(sel.getAttribute('aria-label') || sel.getAttribute('title') || sel.options[sel.selectedIndex]?.text);
       if (!label) return;
-      const options = Array.from(sel.options)
+      const rawOptions = Array.from(sel.options)
         .map((o) => cleanLabel(o.text))
-        .filter(Boolean)
-        .slice(0, 12);
+        .filter(Boolean);
+      // Smart char-budgeted options: includes ALL 24 hours / 31 days on short numeric selects,
+      // and compactly summarizes very long text lists without blind 12-item truncation!
+      const totalChars = rawOptions.reduce((sum, o) => sum + o.length, 0);
+      const options =
+        totalChars <= 180 || rawOptions.length <= 14
+          ? rawOptions.slice(0, 35)
+          : [...rawOptions.slice(0, 10), `... (${rawOptions.length} אפשרויות)`, rawOptions[rawOptions.length - 1]];
       const agentId = `ui_${counter++}`;
       if (assignIds) el.setAttribute('data-agent-action-id', agentId);
       targetBucket.push({
