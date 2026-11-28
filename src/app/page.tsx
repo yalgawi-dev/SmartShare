@@ -865,12 +865,14 @@ export default function Dashboard() {
                     return (
                       <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center', flexWrap: 'wrap' }}>
                         {unreadMsgsCount > 0 && (
-                          <span
-                            title="הודעות שלא נקראו במרחב (בצ'אט או בהודעות מאורחים)"
-                            style={{ background: '#ef4444', color: 'white', borderRadius: '12px', padding: '0.12rem 0.55rem', fontSize: '0.7rem', fontWeight: 800 }}
+                          <Link
+                            href={unreadConvoId ? `/space/${space.id}?openChat=${encodeURIComponent(unreadConvoId)}` : `/space/${space.id}`}
+                            onClick={(e) => e.stopPropagation()}
+                            title="לחץ כדי לפתוח ישירות את ההודעות שלא נקראו"
+                            style={{ background: '#ef4444', color: 'white', borderRadius: '12px', padding: '0.12rem 0.55rem', fontSize: '0.7rem', fontWeight: 800, textDecoration: 'none' }}
                           >
                             💬 {unreadMsgsCount === 1 ? 'הודעה חדשה' : `${unreadMsgsCount} הודעות חדשות`}
-                          </span>
+                          </Link>
                         )}
                         {hasExtension && (
                           <span style={{ background: '#f59e0b', color: 'white', borderRadius: '12px', padding: '0.12rem 0.55rem', fontSize: '0.7rem', fontWeight: 800 }}>

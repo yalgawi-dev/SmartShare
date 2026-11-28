@@ -149,24 +149,34 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   useHardwareBack(isScannerOpen, () => setIsScannerOpen(false), 'space-scanner');
   useHardwareBack(!!activeChatId, () => setActiveChatId(null), 'space-chat');
 
-  const unreadChatCount = useMemo(() => {
-    if (!user || !space || !space.features?.includes('chat')) return 0;
+  const { unreadChatCount, firstUnreadConvoId } = useMemo(() => {
+    if (!user || !space) return { unreadChatCount: 0, firstUnreadConvoId: null as string | null };
     const mySpaceKey = typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('smartshare_keys') || '{}')[space.id]) : null;
     const isCreator = space.creatorId === user.id || user?.spaceKeys?.[space.id]?.role === 'creator' || mySpaceKey?.role === 'creator';
     const partnerToken = user?.spaceKeys?.[space.id]?.token || mySpaceKey?.token;
     const myActualId = isCreator ? (space.creatorId || space.createdBy || user.id) : (partnerToken || user.id);
 
-    // Group chat button badge must ONLY count unread messages from the GROUP conversation!
-    const groupConvo = (space.conversations || []).find((c: any) => c.id === 'group');
-    if (!groupConvo) return 0;
+    let total = 0;
+    let firstId: string | null = null;
 
-    const unread = (groupConvo.messages || []).filter((msg: any) => {
-      if (msg.senderId === user.id || (myActualId && msg.senderId === myActualId)) return false;
-      const isRead = (user.id && msg.readBy?.includes(user.id)) || (myActualId && msg.readBy?.includes(myActualId));
-      return !isRead;
-    });
+    // Count ALL unread conversations in this space (group + 1:1 partners + guest_* for space creator)
+    // so the in-space 💬 badge ALWAYS matches the Home card badge 1:1!
+    for (const convo of (space.conversations || [])) {
+      if (!convo?.id || !Array.isArray(convo.messages)) continue;
+      if (String(convo.id).startsWith('guest_') && !isCreator) continue;
+      const unreadInConvo = convo.messages.filter((msg: any) => {
+        if (!msg || msg.readAt) return false;
+        if (msg.senderId === user.id || (myActualId && msg.senderId === myActualId)) return false;
+        const isRead = (user.id && msg.readBy?.includes(user.id)) || (myActualId && msg.readBy?.includes(myActualId));
+        return !isRead;
+      }).length;
+      if (unreadInConvo > 0) {
+        total += unreadInConvo;
+        if (!firstId) firstId = String(convo.id);
+      }
+    }
 
-    return unread.length;
+    return { unreadChatCount: total, firstUnreadConvoId: firstId };
   }, [space, user]);
   
   const { updateScreenContext } = useAssistant();
@@ -489,6 +499,9 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
     const targetChat = params.get('openChat');
     if (targetChat) {
       setTimeout(() => {
+        if (typeof markConversationRead === 'function' && user?.id && id) {
+          markConversationRead(id, targetChat, user.id, space?.creatorId || user.id);
+        }
         openChat(targetChat);
       }, 400);
     }
@@ -1009,10 +1022,11 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
                 const isCreator = space.creatorId === user?.id || user?.spaceKeys?.[space.id]?.role === 'creator' || mySpaceKey?.role === 'creator';
                 const partnerToken = user?.spaceKeys?.[space.id]?.token || mySpaceKey?.token;
                 const myActualId = isCreator ? (space.creatorId || space.createdBy || user?.id) : (partnerToken || user?.id);
+                const targetConvoId = firstUnreadConvoId || 'group';
                 if (typeof markConversationRead === 'function' && user?.id) {
-                  markConversationRead(space.id, 'group', user.id, myActualId);
+                  markConversationRead(space.id, targetConvoId, user.id, myActualId);
                 }
-                openChat('group');
+                openChat(targetConvoId);
               }}
               style={{
                 background: '#e0e7ff',
