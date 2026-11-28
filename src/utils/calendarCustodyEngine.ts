@@ -358,6 +358,12 @@ export function resolveDayCustody(
   const overallParent: ParentRole | 'split' =
     uniqueParents.size === 1 ? (Array.from(uniqueParents)[0] as ParentRole) : 'split';
 
+  // If swaps cancelled each other out and returned the day to its original base parent,
+  // clear the 'swap' badge so swapping back doesn't leave a stale 🔄 icon!
+  if (source === 'swap' && overallParent === baseParent) {
+    source = 'pattern';
+  }
+
   return {
     date: ymd,
     overallParent,

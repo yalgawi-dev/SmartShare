@@ -829,21 +829,24 @@ export default function Dashboard() {
                   {(() => {
                     const legacyUnread = (space.members || []).reduce((acc: number, m: any) => acc + ((m.messages || []).filter((msg: any) => msg.from === 'partner' && !msg.readAt).length), 0);
                     const isSpaceCreator = Boolean(user?.id && space.creatorId && user.id === space.creatorId);
+                    let unreadConvoId: string | null = null;
                     const convoUnread = Array.isArray(space.conversations)
                       ? space.conversations.reduce((acc: number, convo: any) => {
                           if (!convo?.id || !Array.isArray(convo.messages)) return acc;
                           if (convo.id.startsWith('guest_') && !isSpaceCreator) return acc;
                           const unreadInConvo = convo.messages.filter((msg: any) => {
                             if (!msg) return false;
+                            if (msg.readAt) return false;
                             if (msg.senderId === user?.id || (isSpaceCreator && msg.senderId === space.creatorId)) return false;
                             const isRead = Array.isArray(msg.readBy) && (msg.readBy.includes(user?.id) || (isSpaceCreator && msg.readBy.includes(space.creatorId)));
                             return !isRead;
                           }).length;
+                          if (unreadInConvo > 0 && !unreadConvoId) unreadConvoId = convo.id;
                           return acc + unreadInConvo;
                         }, 0)
                       : 0;
+                    const unreadMsgsCount = legacyUnread + convoUnread;
                     const hasExtension = (space.members || []).some((m: any) => m.status === 'extension_requested');
-                    const count = legacyUnread + convoUnread + (hasExtension ? 1 : 0);
                     
                     // Unread documents count (added by others within 14 days and not read yet)
                     let unreadDocsCount = 0;
@@ -860,10 +863,18 @@ export default function Dashboard() {
                     }
 
                     return (
-                      <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
-                        {count > 0 && (
-                          <span style={{ background: '#ef4444', color: 'white', borderRadius: '12px', padding: '0.1rem 0.5rem', fontSize: '0.7rem', fontWeight: 'bold' }}>
-                            {count} עדכונים
+                      <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                        {unreadMsgsCount > 0 && (
+                          <span
+                            title="הודעות שלא נקראו במרחב (בצ'אט או בהודעות מאורחים)"
+                            style={{ background: '#ef4444', color: 'white', borderRadius: '12px', padding: '0.12rem 0.55rem', fontSize: '0.7rem', fontWeight: 800 }}
+                          >
+                            💬 {unreadMsgsCount === 1 ? 'הודעה חדשה' : `${unreadMsgsCount} הודעות חדשות`}
+                          </span>
+                        )}
+                        {hasExtension && (
+                          <span style={{ background: '#f59e0b', color: 'white', borderRadius: '12px', padding: '0.12rem 0.55rem', fontSize: '0.7rem', fontWeight: 800 }}>
+                            ⏳ בקשת הארכה
                           </span>
                         )}
                         {unreadDocsCount > 0 && (
