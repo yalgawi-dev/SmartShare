@@ -36,12 +36,14 @@ export default function PublicSharePage({ params }: SharePageProps) {
 
   // Guest Direct Chat state & Live Space Subscription
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isSubmissionSheetOpen, setIsSubmissionSheetOpen] = useState(false);
   const [liveSpace, setLiveSpace] = useState<any>(null);
   const [guestLastReadAt, setGuestLastReadAt] = useState<number>(0);
 
   // Android Hardware Back closes guest chat cleanly (1 step back)
   const [brokenThumbIds, setBrokenThumbIds] = useState<Record<string, boolean>>({});
   useHardwareBack(isChatOpen, () => setIsChatOpen(false), 'share_guest_chat');
+  useHardwareBack(isSubmissionSheetOpen, () => setIsSubmissionSheetOpen(false), 'share_guest_upload');
 
   // Pre-warm C++ PDFium WASM engine in background on share pages so opening heavy Garmoshka PDFs has 0ms init delay!
   useEffect(() => {
@@ -1430,135 +1432,16 @@ export default function PublicSharePage({ params }: SharePageProps) {
             </div>
           )}
 
-          {/* TWO-WAY RECIPIENT SUBMISSION / CLIENT & CONTRACTOR PORTAL */}
+          {/* Hidden file input for Floating Guest Response Dock (Submission Bottom Sheet) */}
           {shareData.allowUploads !== false && (
-            <div style={{
-              marginTop: '1.75rem',
-              background: '#ffffff',
-              borderRadius: '24px',
-              border: '1.5px solid #e0e7ff',
-              padding: '1.5rem',
-              boxShadow: '0 8px 24px rgba(79, 70, 229, 0.07)',
-              direction: 'rtl'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.6rem' }}>
-                <span style={{
-                  fontSize: '1.4rem',
-                  background: '#eff6ff',
-                  width: '42px',
-                  height: '42px',
-                  borderRadius: '12px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#4f46e5'
-                }}>
-                  {shareData.recipientRole === 'provider' ? '💼' : (shareData.recipientRole === 'client' ? '📋' : '📤')}
-                </span>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 900, color: '#0f172a' }}>
-                    {shareData.recipientRole === 'provider'
-                      ? `הגשת הצעת מחיר אל ${shareData.businessCard?.businessName || liveSpace?.createdBy || shareData.spaceTitle}`
-                      : `שלח קבצים בחזרה אל ${shareData.businessCard?.businessName || liveSpace?.createdBy || shareData.spaceTitle}`}
-                  </h3>
-                  <p style={{ margin: '2px 0 0 0', fontSize: '0.78rem', color: '#475569', lineHeight: 1.4 }}>
-                    הקבצים שתבחר נשלחים ישירות אל בעל המרחב (<strong>{shareData.businessCard?.businessName || liveSpace?.createdBy || shareData.spaceTitle}</strong>) ותקבל אישור קבלה מיידי על המסך.
-                  </p>
-                </div>
-              </div>
-
-              {/* Hidden file input */}
-              <input
-                ref={submissionFileInputRef}
-                type="file"
-                multiple
-                accept="image/*,application/pdf"
-                style={{ display: 'none' }}
-                onChange={handleRecipientFileUpload}
-              />
-
-              {/* Simplified Intuitive Upload Form (no confusing phone field when user is already identified!) */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginTop: '0.9rem' }}>
-                <input
-                  type="text"
-                  placeholder="הערה קצרה לשולח (אופציונלי, למשל: הצעת מחיר מעודכנת)"
-                  value={submissionNote}
-                  onChange={e => setSubmissionNote(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '0.65rem 0.85rem',
-                    borderRadius: '12px',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '0.82rem',
-                    background: '#f8fafc',
-                    boxSizing: 'border-box'
-                  }}
-                />
-
-                {/* Upload Button */}
-                <button
-                  type="button"
-                  onClick={() => submissionFileInputRef.current?.click()}
-                  disabled={isSubmitting}
-                  style={{
-                    padding: '0.85rem',
-                    borderRadius: '14px',
-                    border: 'none',
-                    background: isSubmitting ? '#94a3b8' : 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)',
-                    color: '#ffffff',
-                    fontWeight: 800,
-                    fontSize: '0.92rem',
-                    cursor: isSubmitting ? 'wait' : 'pointer',
-                    boxShadow: '0 4px 14px rgba(79, 70, 229, 0.25)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '0.5rem'
-                  }}
-                >
-                  <span>{isSubmitting ? '⏳' : '📎'}</span>
-                  <span>
-                    {isSubmitting
-                      ? 'מעלה ושולח לבעל המרחב...'
-                      : `בחר ושלח קבצים אל ${shareData.businessCard?.businessName || liveSpace?.createdBy || 'בעל המרחב'}`}
-                  </span>
-                </button>
-
-                {/* Success Banner */}
-                {submissionSuccess && (
-                  <div style={{
-                    padding: '0.75rem 1rem',
-                    borderRadius: '12px',
-                    background: '#ecfdf5',
-                    border: '1px solid #a7f3d0',
-                    color: '#065f46',
-                    fontSize: '0.82rem',
-                    fontWeight: 700,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    animation: 'fadeIn 0.3s'
-                  }}>
-                    <span>✅</span>
-                    <span>
-                      התקבל בהצלחה! הקבצים נשלחו ישירות אל {shareData.businessCard?.businessName || liveSpace?.createdBy || 'בעל המרחב'} ונשמרו בתיקייה האישית שלך אצלו.
-                    </span>
-                  </div>
-                )}
-
-                {/* Uploaded items in this session */}
-                {uploadedFilesList.length > 0 && (
-                  <div style={{ marginTop: '0.4rem', fontSize: '0.75rem', color: '#475569', background: '#f8fafc', padding: '0.6rem', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                    <span style={{ fontWeight: 800, display: 'block', marginBottom: '4px' }}>קבצים שהועלו על ידך כעת ({uploadedFilesList.length}):</span>
-                    <ul style={{ margin: 0, paddingRight: '1.2rem' }}>
-                      {uploadedFilesList.map((fname, fidx) => (
-                        <li key={fidx}>{fname}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            </div>
+            <input
+              ref={submissionFileInputRef}
+              type="file"
+              multiple
+              accept="image/*,application/pdf"
+              style={{ display: 'none' }}
+              onChange={handleRecipientFileUpload}
+            />
           )}
 
           {/* Smart Bottom Card: Logged-in Member Account Switcher vs Guest Viral Invite */}
@@ -1676,67 +1559,218 @@ export default function PublicSharePage({ params }: SharePageProps) {
           })()}
         </main>
 
-        {/* Floating 2-Way Chat Button (Direct Guest ↔ Owner Chat) - ONLY if Chat feature is enabled on space */}
-        {shareData.spaceId && (liveSpace?.features?.includes('chat') || shareData.features?.includes('chat')) && (
-          <div style={{
-            position: 'fixed',
-            bottom: '20px',
-            right: '20px',
-            zIndex: 99990
-          }}>
-            <button
-              type="button"
-              onClick={() => {
-                setIsChatOpen((prev) => {
-                  const next = !prev;
-                  if (next) markGuestChatReadNow();
-                  return next;
-                });
-              }}
+        {/* Unified Flagship Floating Guest Response Dock (Always 1 tap away: Send Quote/File + Send Message!) */}
+        {(() => {
+          const canUpload = shareData.allowUploads !== false;
+          const canChat = Boolean(shareData.spaceId && (liveSpace?.features?.includes('chat') || shareData.features?.includes('chat')));
+          if (!canUpload && !canChat) return null;
+          return (
+            <div
+              dir="rtl"
               style={{
-                position: 'relative',
-                background: guestUnreadRepliesCount > 0
-                  ? 'linear-gradient(135deg, #059669 0%, #047857 100%)'
-                  : 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '30px',
-                padding: '0.75rem 1.25rem',
-                fontSize: '0.9rem',
-                fontWeight: 800,
-                cursor: 'pointer',
-                boxShadow: guestUnreadRepliesCount > 0
-                  ? '0 6px 20px rgba(5, 150, 105, 0.45)'
-                  : '0 4px 16px rgba(37, 99, 235, 0.4)',
+                position: 'fixed',
+                bottom: 'max(14px, env(safe-area-inset-bottom))',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                width: 'min(94vw, 440px)',
+                zIndex: 99990,
+                background: 'rgba(255, 255, 255, 0.92)',
+                backdropFilter: 'blur(16px)',
+                WebkitBackdropFilter: 'blur(16px)',
+                border: '1.5px solid rgba(199, 210, 254, 0.85)',
+                borderRadius: '22px',
+                padding: '0.45rem',
+                boxShadow: '0 12px 32px rgba(15, 23, 42, 0.22)',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '0.5rem',
-                transition: 'transform 0.15s ease'
+                gap: '0.45rem',
               }}
             >
-              <span style={{ fontSize: '1.2rem' }}>💬</span>
-              <span>{guestUnreadRepliesCount > 0 ? `יש לך ${guestUnreadRepliesCount} תשובה חדשה` : 'שאל את בעל המרחב'}</span>
-              {guestUnreadRepliesCount > 0 && (
-                <span
+              {canUpload && (
+                <button
+                  type="button"
+                  onClick={() => setIsSubmissionSheetOpen(true)}
                   style={{
-                    background: '#ef4444',
+                    flex: 1,
+                    border: 'none',
+                    borderRadius: '16px',
+                    padding: '0.72rem 0.75rem',
+                    background: 'linear-gradient(135deg, #4f46e5 0%, #2563eb 100%)',
                     color: '#ffffff',
-                    borderRadius: '999px',
-                    minWidth: '20px',
-                    height: '20px',
-                    padding: '0 6px',
+                    fontSize: '0.86rem',
+                    fontWeight: 900,
+                    cursor: 'pointer',
                     display: 'inline-flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: '0.72rem',
-                    fontWeight: 900,
-                    boxShadow: '0 2px 6px rgba(0,0,0,0.25)',
+                    gap: '0.4rem',
+                    boxShadow: '0 4px 14px rgba(79, 70, 229, 0.35)',
+                    whiteSpace: 'nowrap',
                   }}
                 >
-                  {guestUnreadRepliesCount}
-                </span>
+                  <span>📤</span>
+                  <span>{shareData.recipientRole === 'provider' ? 'שלח הצעת מחיר' : 'שלח קובץ / הצעה'}</span>
+                  {uploadedFilesList.length > 0 && (
+                    <span style={{ background: '#10b981', color: '#ffffff', borderRadius: '999px', padding: '1px 6px', fontSize: '0.7rem', fontWeight: 900 }}>
+                      ✓ {uploadedFilesList.length}
+                    </span>
+                  )}
+                </button>
               )}
-            </button>
+
+              {canChat && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsChatOpen((prev) => {
+                      const next = !prev;
+                      if (next) markGuestChatReadNow();
+                      return next;
+                    });
+                  }}
+                  style={{
+                    flex: 1,
+                    position: 'relative',
+                    border: guestUnreadRepliesCount > 0 ? 'none' : '1.5px solid #cbd5e1',
+                    borderRadius: '16px',
+                    padding: '0.72rem 0.75rem',
+                    background: guestUnreadRepliesCount > 0
+                      ? 'linear-gradient(135deg, #059669 0%, #047857 100%)'
+                      : '#f8fafc',
+                    color: guestUnreadRepliesCount > 0 ? '#ffffff' : '#0f172a',
+                    fontSize: '0.86rem',
+                    fontWeight: 900,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.4rem',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  <span>💬</span>
+                  <span>{guestUnreadRepliesCount > 0 ? `${guestUnreadRepliesCount} תשובה חדשה` : 'שלח הודעה'}</span>
+                  {guestUnreadRepliesCount > 0 && (
+                    <span style={{ background: '#ef4444', color: '#ffffff', borderRadius: '999px', minWidth: '18px', height: '18px', padding: '0 5px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: 900 }}>
+                      {guestUnreadRepliesCount}
+                    </span>
+                  )}
+                </button>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* Focused Bottom Sheet Modal for Submitting Quotes / Files Back to Space Owner */}
+        {isSubmissionSheetOpen && shareData.allowUploads !== false && (
+          <div
+            onClick={() => setIsSubmissionSheetOpen(false)}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 99995,
+              background: 'rgba(15, 23, 42, 0.55)',
+              backdropFilter: 'blur(4px)',
+              display: 'flex',
+              alignItems: 'flex-end',
+              justifyContent: 'center',
+              padding: '0.65rem',
+            }}
+          >
+            <div
+              dir="rtl"
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: '100%',
+                maxWidth: '460px',
+                background: '#ffffff',
+                borderRadius: '24px',
+                padding: '1.25rem',
+                boxShadow: '0 24px 60px rgba(15, 23, 42, 0.35)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.75rem',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ fontSize: '1.3rem' }}>📤</span>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 900, color: '#0f172a' }}>
+                      שליחת קובץ / הצעת מחיר
+                    </h3>
+                    <div style={{ fontSize: '0.74rem', color: '#64748b' }}>
+                      נשלח ישירות אל <strong>{shareData.businessCard?.businessName || liveSpace?.createdBy || shareData.spaceTitle}</strong>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsSubmissionSheetOpen(false)}
+                  style={{ border: 'none', background: '#f1f5f9', color: '#334155', width: '32px', height: '32px', borderRadius: '50%', fontWeight: 900, cursor: 'pointer' }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              <input
+                type="text"
+                placeholder="הערה קצרה לשולח (אופציונלי, למשל: הצעת מחיר מעודכנת)"
+                value={submissionNote}
+                onChange={(e) => setSubmissionNote(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '0.7rem 0.85rem',
+                  borderRadius: '12px',
+                  border: '1.5px solid #cbd5e1',
+                  fontSize: '0.85rem',
+                  background: '#f8fafc',
+                  boxSizing: 'border-box',
+                }}
+              />
+
+              <button
+                type="button"
+                onClick={() => submissionFileInputRef.current?.click()}
+                disabled={isSubmitting}
+                style={{
+                  width: '100%',
+                  padding: '0.9rem',
+                  borderRadius: '14px',
+                  border: 'none',
+                  background: isSubmitting ? '#94a3b8' : 'linear-gradient(135deg, #4f46e5 0%, #2563eb 100%)',
+                  color: '#ffffff',
+                  fontWeight: 900,
+                  fontSize: '0.95rem',
+                  cursor: isSubmitting ? 'wait' : 'pointer',
+                  boxShadow: '0 6px 18px rgba(79, 70, 229, 0.3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem',
+                }}
+              >
+                <span>{isSubmitting ? '⏳' : '📎'}</span>
+                <span>{isSubmitting ? 'מעלה ושולח...' : 'בחר קובץ / תמונה לשליחה'}</span>
+              </button>
+
+              {submissionSuccess && (
+                <div style={{ padding: '0.7rem 0.9rem', borderRadius: '12px', background: '#ecfdf5', border: '1px solid #a7f3d0', color: '#065f46', fontSize: '0.82rem', fontWeight: 800 }}>
+                  ✅ התקבל בהצלחה! נשלח ישירות אל בעל המרחב.
+                </div>
+              )}
+
+              {uploadedFilesList.length > 0 && (
+                <div style={{ fontSize: '0.76rem', color: '#475569', background: '#f8fafc', padding: '0.6rem 0.75rem', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                  <strong style={{ display: 'block', marginBottom: '3px' }}>קבצים שנשלחו כעת ({uploadedFilesList.length}):</strong>
+                  <ul style={{ margin: 0, paddingRight: '1.1rem' }}>
+                    {uploadedFilesList.map((fname, fidx) => (
+                      <li key={fidx}>{fname}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
