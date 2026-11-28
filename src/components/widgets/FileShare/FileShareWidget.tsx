@@ -58,6 +58,7 @@ export function FileShareWidget({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+  const [activeWallTab, setActiveWallTab] = useState<'my_files' | 'incoming_submissions'>('my_files');
   const [isGuestInboxOpen, setIsGuestInboxOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeShareItem, setActiveShareItem] = useState<FileShareItem | null>(null);
@@ -374,9 +375,38 @@ export function FileShareWidget({
     });
   }, [allItems, currentFolderId, spaceRole, currentUserId, partnerToken, space.creatorId, isManaged, partnerHasExplicitWhitelist, searchQuery]);
 
-  // Split into folders and files
-  const folders = useMemo(() => visibleItems.filter(i => i.type === 'folder'), [visibleItems]);
-  const files = useMemo(() => visibleItems.filter(i => i.type === 'file'), [visibleItems]);
+  // Helper to cleanly separate external guest/contractor submissions & quotes from the owner's own folders!
+  const isIncomingSubmissionFolder = (item: FileShareItem): boolean =>
+    item.type === 'folder' &&
+    (item.id.startsWith('sub_folder_') ||
+      item.id.startsWith('folder_sub_') ||
+      (item.name || '').startsWith('📥 ') ||
+      (item.createdBy || '').startsWith('guest_'));
+
+  const incomingRootFolders = useMemo(
+    () => activeItems.filter((i) => !i.parentId && isIncomingSubmissionFolder(i)),
+    [activeItems]
+  );
+
+  const incomingTotalFilesCount = useMemo(() => {
+    const incomingFolderIds = new Set(incomingRootFolders.map((f) => f.id));
+    return activeItems.filter((i) => i.type === 'file' && i.parentId && incomingFolderIds.has(i.parentId)).length;
+  }, [activeItems, incomingRootFolders]);
+
+  // Split into folders and files (strictly separated at root by activeWallTab: My Files vs Incoming Quotes/Submissions!)
+  const folders = useMemo(() => {
+    const allFolders = visibleItems.filter((i) => i.type === 'folder');
+    if (currentFolderId) return allFolders;
+    if (activeWallTab === 'incoming_submissions') {
+      return allFolders.filter(isIncomingSubmissionFolder);
+    }
+    return allFolders.filter((f) => !isIncomingSubmissionFolder(f));
+  }, [visibleItems, currentFolderId, activeWallTab]);
+
+  const files = useMemo(() => {
+    if (!currentFolderId && activeWallTab === 'incoming_submissions') return [];
+    return visibleItems.filter((i) => i.type === 'file');
+  }, [visibleItems, currentFolderId, activeWallTab]);
   const totalItemsInFolder = folders.length + files.length;
 
   // Save updated items list to Firestore
@@ -1704,6 +1734,82 @@ export function FileShareWidget({
           />
         );
       })()}
+
+      {/* 2.5 DEDICATED 2-TAB SEPARATION: Owner's Shared Files vs Incoming Guest Submissions / Price Quotes */}
+      {!currentFolderId && (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: '0.35rem',
+            padding: '0.28rem',
+            background: '#e2e8f0',
+            borderRadius: '14px',
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              setActiveWallTab('my_files');
+              setCurrentFolderId(null);
+            }}
+            style={{
+              border: 'none',
+              borderRadius: '11px',
+              padding: '0.52rem 0.5rem',
+              fontSize: '0.8rem',
+              fontWeight: 900,
+              cursor: 'pointer',
+              background: activeWallTab === 'my_files' ? '#ffffff' : 'transparent',
+              color: activeWallTab === 'my_files' ? '#0f172a' : '#475569',
+              boxShadow: activeWallTab === 'my_files' ? '0 2px 8px rgba(15,23,42,0.08)' : 'none',
+              transition: 'all 0.15s',
+            }}
+          >
+            📂 הקבצים שלי
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveWallTab('incoming_submissions');
+              setCurrentFolderId(null);
+            }}
+            style={{
+              border: 'none',
+              borderRadius: '11px',
+              padding: '0.52rem 0.5rem',
+              fontSize: '0.8rem',
+              fontWeight: 900,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.35rem',
+              background: activeWallTab === 'incoming_submissions' ? '#ffffff' : 'transparent',
+              color: activeWallTab === 'incoming_submissions' ? '#4338ca' : '#475569',
+              boxShadow: activeWallTab === 'incoming_submissions' ? '0 2px 8px rgba(79,70,229,0.14)' : 'none',
+              transition: 'all 0.15s',
+            }}
+          >
+            <span>📥 הצעות והגשות</span>
+            {(incomingTotalFilesCount > 0 || incomingRootFolders.length > 0) && (
+              <span
+                style={{
+                  background: activeWallTab === 'incoming_submissions' ? '#4f46e5' : '#ef4444',
+                  color: '#ffffff',
+                  fontSize: '0.68rem',
+                  fontWeight: 900,
+                  padding: '1px 6px',
+                  borderRadius: '999px',
+                  lineHeight: 1.3,
+                }}
+              >
+                {incomingTotalFilesCount || incomingRootFolders.length}
+              </span>
+            )}
+          </button>
+        </div>
+      )}
 
       {/* 3. SEARCH BAR & HIDDEN UPLOAD INPUT (Shown only when there are at least 3 items to avoid clutter when empty/minimal) */}
       <input 
