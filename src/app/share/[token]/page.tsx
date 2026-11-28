@@ -394,10 +394,12 @@ export default function PublicSharePage({ params }: SharePageProps) {
         const downloadUrl = await uploadBlobToStorage(file, storagePath);
 
         let identifiedGuestName = shareData.recipientName || '';
-        if (!identifiedGuestName && typeof window !== 'undefined') {
+        let identifiedGuestProfession = '';
+        if (typeof window !== 'undefined') {
           try {
             const savedG = JSON.parse(localStorage.getItem(`smartshare_guest_id_${token}`) || '{}');
-            if (savedG?.name) identifiedGuestName = String(savedG.name);
+            if (!identifiedGuestName && savedG?.name) identifiedGuestName = String(savedG.name);
+            if (savedG?.profession) identifiedGuestProfession = String(savedG.profession);
           } catch {}
         }
 
@@ -411,7 +413,8 @@ export default function PublicSharePage({ params }: SharePageProps) {
           },
           submissionNote.trim(),
           submissionPhone.trim() || shareData.recipientPhone,
-          identifiedGuestName || undefined
+          identifiedGuestName || undefined,
+          identifiedGuestProfession || undefined
         );
 
         if (res.success) {

@@ -9,6 +9,7 @@ import { useChat } from '@/app/context/ChatContext';
 import { compressImage, analyzePdfStructure, isTrueOriginalPdf, convertPdfToOptimizedImage, generatePdfFirstPageThumbnail, extractPdfPages, dataUrlBytes } from '@/utils/imageOptimizer';
 import { FileShareItem, formatFileSize, ShareLinkConfig, revokePublicShare, FolderPartnerPermission, sanitizeFirestoreData, syncPublicFolderShares } from '@/utils/fileShareUtils';
 import { FileShareItemCard } from './FileShareItemCard';
+import { IncomingSenderCardBanner } from './IncomingSenderCardBanner';
 import { CreateShareLinkModal } from './CreateShareLinkModal';
 import { GuestMessagesInboxModal, GuestInboxThread } from './GuestMessagesInboxModal';
 import { ShareHubModal } from './ShareHubModal';
@@ -1809,6 +1810,16 @@ export function FileShareWidget({
             )}
           </button>
         </div>
+      )}
+
+      {/* 2.6 SENDER BUSINESS CARD BANNER (Shown inside any incoming guest/contractor submission folder!) */}
+      {currentFolderItem && isIncomingSubmissionFolder(currentFolderItem) && (
+        <IncomingSenderCardBanner
+          folder={currentFolderItem}
+          allItems={allItems}
+          filesCount={files.length}
+          onOpenChat={(channelId) => openChat(channelId)}
+        />
       )}
 
       {/* 3. SEARCH BAR & HIDDEN UPLOAD INPUT (Shown only when there are at least 3 items to avoid clutter when empty/minimal) */}

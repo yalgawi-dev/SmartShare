@@ -70,6 +70,14 @@ export interface FileShareItem {
   deletedAt?: string;
   linkedSourceId?: string;
   linkedSourceType?: 'vault_doc' | 'vault_folder' | 'invoice';
+  /** Structured business card of the external guest/contractor who submitted files into this folder */
+  senderContactCard?: {
+    name: string;
+    phone?: string;
+    profession?: string;
+    roleLabel?: string;
+    chatChannelId?: string;
+  };
 }
 
 /**
@@ -690,7 +698,8 @@ export async function uploadRecipientSubmission(
   },
   note?: string,
   contactPhone?: string,
-  overrideGuestName?: string
+  overrideGuestName?: string,
+  overrideGuestProfession?: string
 ): Promise<{ success: boolean; folderId?: string; fileId?: string; folderName?: string; spaceOwnerIds?: string[]; error?: string }> {
   try {
     const shareData = await getPublicShare(token);
@@ -721,6 +730,15 @@ export async function uploadRecipientSubmission(
 
     const now = Date.now();
 
+    const effectivePhone = (contactPhone || shareData.recipientPhone || '').trim();
+    const senderCard = {
+      name: recipientName,
+      ...(effectivePhone ? { phone: effectivePhone } : {}),
+      ...(overrideGuestProfession ? { profession: overrideGuestProfession.trim() } : {}),
+      roleLabel: roleHebrew,
+      ...(shareData.chatChannelId ? { chatChannelId: shareData.chatChannelId } : {}),
+    };
+
     if (!targetFolder) {
       targetFolder = {
         id: shareData.recipientId ? `sub_folder_${shareData.recipientId}` : `folder_sub_${now}`,
@@ -730,10 +748,16 @@ export async function uploadRecipientSubmission(
         parentId: null, // Root level folder in fileshare
         createdAt: now,
         createdBy: `guest_${shareData.recipientId || 'external'}`,
-        creatorName: `${recipientName} (${contactPhone || shareData.recipientPhone || 'הגשה חיצונית'})`,
-        allowedPartners: [] // open to space members
+        creatorName: `${recipientName} (${effectivePhone || 'הגשה חיצונית'})`,
+        allowedPartners: [], // open to space members
+        senderContactCard: senderCard,
       };
       items.push(targetFolder);
+    } else if (!targetFolder.senderContactCard || (!targetFolder.senderContactCard.phone && effectivePhone)) {
+      targetFolder.senderContactCard = {
+        ...(targetFolder.senderContactCard || { name: recipientName }),
+        ...senderCard,
+      };
     }
 
     // Create the uploaded file item
