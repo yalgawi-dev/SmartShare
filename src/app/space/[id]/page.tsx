@@ -1044,26 +1044,37 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
               )}
             </button>
             {showChatPicker && (
-              <div
-                dir="rtl"
-                style={{
-                  position: 'absolute',
-                  top: '46px',
-                  left: '0',
-                  width: '275px',
-                  maxHeight: '340px',
-                  overflowY: 'auto',
-                  background: '#ffffff',
-                  borderRadius: '16px',
-                  border: '1.5px solid #c7d2fe',
-                  boxShadow: '0 14px 36px rgba(15, 23, 42, 0.22)',
-                  padding: '0.55rem',
-                  zIndex: 9999,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '0.35rem',
-                }}
-              >
+              <>
+                <div
+                  onClick={() => setShowChatPicker(false)}
+                  style={{
+                    position: 'fixed',
+                    inset: 0,
+                    background: 'rgba(15, 23, 42, 0.28)',
+                    zIndex: 9998,
+                  }}
+                />
+                <div
+                  dir="rtl"
+                  style={{
+                    position: 'fixed',
+                    top: '68px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    width: 'min(92vw, 360px)',
+                    maxHeight: '70dvh',
+                    overflowY: 'auto',
+                    background: '#ffffff',
+                    borderRadius: '18px',
+                    border: '1.5px solid #c7d2fe',
+                    boxShadow: '0 18px 44px rgba(15, 23, 42, 0.28)',
+                    padding: '0.65rem',
+                    zIndex: 9999,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.4rem',
+                  }}
+                >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.15rem 0.3rem 0.35rem', borderBottom: '1px solid #f1f5f9' }}>
                   <span style={{ fontSize: '0.78rem', fontWeight: 900, color: '#0f172a' }}>💬 שיחות במרחב ({spaceUnread.conversations.length})</span>
                   <button type="button" onClick={() => setShowChatPicker(false)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '0.9rem', color: '#64748b' }}>✕</button>
@@ -1115,7 +1126,8 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
                     )}
                   </button>
                 ))}
-              </div>
+                </div>
+              </>
             )}
             </div>
           )}
