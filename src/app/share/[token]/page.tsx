@@ -525,6 +525,22 @@ export default function PublicSharePage({ params }: SharePageProps) {
           if (recId) setGuestRecipientId(recId);
           setSubmissionPhone(phone);
           setGuestIdentified(true);
+          // One-time Push alert ONLY on this guest's FIRST-EVER visit to the link (zero spam on return visits!)
+          if (reg?.isFirstVisit && reg.spaceOwnerIds && reg.spaceOwnerIds.length > 0) {
+            fetch('/api/send-notification', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                userIds: reg.spaceOwnerIds,
+                title: `👀 אורח חדש נכנס לראשונה: ${name}${profession ? ` (${profession})` : ''}`,
+                body: `צופה ב-"${shareData.name}"${phone ? ` • 📱 ${phone}` : ''}`,
+                data: {
+                  url: `/space/${shareData.spaceId}`,
+                  tag: `first_guest_${token}_${recId || 'new'}`,
+                },
+              }),
+            }).catch(() => {});
+          }
           try {
             localStorage.setItem(
               `smartshare_guest_id_${token}`,

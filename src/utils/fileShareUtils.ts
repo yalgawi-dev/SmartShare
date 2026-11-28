@@ -446,7 +446,7 @@ function shouldCountNewShareVisit(token: string, visitorKey = 'default'): boolea
 export async function registerAnonymousGuestVisit(
   token: string,
   guest: { name: string; phone: string; profession?: string; acceptedTermsAt?: number }
-): Promise<{ recipientId: string; sourceChannel: string } | null> {
+): Promise<{ recipientId: string; sourceChannel: string; isFirstVisit: boolean; spaceOwnerIds: string[] } | null> {
   if (!token || isLinkPreviewBot()) return null;
   const cleanName = String(guest.name || '').trim().slice(0, 60);
   const cleanPhone = String(guest.phone || '').trim().slice(0, 24);
@@ -469,6 +469,7 @@ export async function registerAnonymousGuestVisit(
       (r) => r.phone && r.phone.replace(/\D/g, '') === phoneDigits
     );
 
+    const isFirstVisit = matchIdx < 0;
     let recipientId = '';
     if (matchIdx >= 0) {
       recipientId = existingList[matchIdx].id;
@@ -509,11 +510,18 @@ export async function registerAnonymousGuestVisit(
     }));
 
     // Sync into Space's fileShareItems so the owner sees the contractor/visitor immediately in SharePeopleTab
+    const ownerIds = new Set<string>();
     if (data.spaceId && data.itemId) {
       const spaceDocRef = doc(db, 'spaces', data.spaceId);
       const spaceSnap = await getDoc(spaceDocRef);
       if (spaceSnap.exists()) {
         const spaceData = spaceSnap.data();
+        if (spaceData.creatorId) ownerIds.add(String(spaceData.creatorId));
+        if (Array.isArray(spaceData.members)) {
+          spaceData.members.forEach((m: any) => {
+            if (m?.id && (m.role === 'creator' || m.role === 'admin')) ownerIds.add(String(m.id));
+          });
+        }
         const items = Array.isArray(spaceData.fileShareItems) ? [...spaceData.fileShareItems] : [];
         const itemIdx = items.findIndex((i) => i.id === data.itemId);
         if (itemIdx >= 0) {
@@ -529,7 +537,9 @@ export async function registerAnonymousGuestVisit(
             spaceRecipients[sMatchIdx] = {
               ...spaceRecipients[sMatchIdx],
               recipientName: spaceRecipients[sMatchIdx].recipientName || cleanName,
-              viewCount: (spaceRecipients[sMatchIdx].viewCount || 0) + 1,
+              ...(cleanProfession ? { profession: cleanProfession } : {}),
+              ...(guest.acceptedTermsAt ? { acceptedTermsAt: guest.acceptedTermsAt } : {}),
+              viewCount: (spaceRecipients[sMatchIdx].viewCount || 0) + (countVisit ? 1 : 0),
               lastViewedAt: now,
               sourceChannel: spaceRecipients[sMatchIdx].sourceChannel || sourceChannel,
             };
@@ -537,6 +547,8 @@ export async function registerAnonymousGuestVisit(
             spaceRecipients.unshift({
               id: recipientId,
               recipientName: cleanName,
+              ...(cleanProfession ? { profession: cleanProfession } : {}),
+              ...(guest.acceptedTermsAt ? { acceptedTermsAt: guest.acceptedTermsAt } : {}),
               role: 'general',
               phone: cleanPhone,
               token,
@@ -551,7 +563,7 @@ export async function registerAnonymousGuestVisit(
             });
           }
           shareLink.recipients = spaceRecipients;
-          shareLink.viewCount = (shareLink.viewCount || 0) + 1;
+          shareLink.viewCount = (shareLink.viewCount || 0) + (countVisit ? 1 : 0);
           shareLink.lastViewedAt = now;
           items[itemIdx] = { ...it, shareLink };
           await updateDoc(spaceDocRef, sanitizeFirestoreData({ fileShareItems: items }));
@@ -559,7 +571,7 @@ export async function registerAnonymousGuestVisit(
       }
     }
 
-    return { recipientId, sourceChannel };
+    return { recipientId, sourceChannel, isFirstVisit, spaceOwnerIds: Array.from(ownerIds) };
   } catch (err) {
     console.warn('Failed to register anonymous guest visit:', err);
     return null;
