@@ -841,7 +841,7 @@ export default function PublicSharePage({ params }: SharePageProps) {
         </header>
 
         {/* Main Content Area */}
-        <main style={{ flex: 1, maxWidth: '900px', width: '100%', margin: '0 auto', padding: '1.25rem' }}>
+        <main style={{ flex: 1, maxWidth: '900px', width: '100%', margin: '0 auto', padding: '1.25rem 1.25rem 7.5rem 1.25rem' }}>
           
           {/* Member of Space Banner (If current user is partner/manager in this space) */}
           {memberStatusInSpace && shareData.spaceId && (
