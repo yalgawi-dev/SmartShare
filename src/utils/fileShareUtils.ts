@@ -20,6 +20,7 @@ export interface RecipientShareLink {
   chatChannelId?: string; // מזהה שיחה ייעודי עם האורח
   origin?: 'manual' | 'public_link'; // 'public_link' = אורח שנרשם אוטומטית מקישור כללי
   sourceChannel?: string; // זיהוי ערוץ שקט אוטומטי (אינסטגרם / פייסבוק / וואטסאפ / מייל / קישור ישיר)
+  profession?: string; // תחום עיסוק / מקצוע של האורח (קבלן שלד, אינסטלטור, אדריכל, לקוח וכו')
 }
 
 export interface ShareLinkConfig {
@@ -427,11 +428,12 @@ function shouldCountNewShareVisit(token: string, visitorKey = 'default'): boolea
 
 export async function registerAnonymousGuestVisit(
   token: string,
-  guest: { name: string; phone: string }
+  guest: { name: string; phone: string; profession?: string }
 ): Promise<{ recipientId: string; sourceChannel: string } | null> {
   if (!token || isLinkPreviewBot()) return null;
   const cleanName = String(guest.name || '').trim().slice(0, 60);
   const cleanPhone = String(guest.phone || '').trim().slice(0, 24);
+  const cleanProfession = String(guest.profession || '').trim().slice(0, 48);
   const phoneDigits = cleanPhone.replace(/\D/g, '');
   if (cleanName.length < 2 || phoneDigits.length < 7) return null;
 
@@ -456,6 +458,7 @@ export async function registerAnonymousGuestVisit(
       existingList[matchIdx] = {
         ...existingList[matchIdx],
         recipientName: existingList[matchIdx].recipientName || cleanName,
+        ...(cleanProfession ? { profession: cleanProfession } : {}),
         viewCount: (existingList[matchIdx].viewCount || 0) + (countVisit ? 1 : 0),
         lastViewedAt: now,
         sourceChannel: existingList[matchIdx].sourceChannel || sourceChannel,
@@ -465,6 +468,7 @@ export async function registerAnonymousGuestVisit(
       existingList.unshift({
         id: recipientId,
         recipientName: cleanName,
+        ...(cleanProfession ? { profession: cleanProfession } : {}),
         role: 'general',
         phone: cleanPhone,
         token,
@@ -480,7 +484,7 @@ export async function registerAnonymousGuestVisit(
     }
 
     await updateDoc(shareDocRef, sanitizeFirestoreData({
-      viewCount: increment(1),
+      ...(countVisit ? { viewCount: increment(1) } : {}),
       lastViewedAt: now,
       recipients: existingList,
     }));
@@ -685,8 +689,9 @@ export async function uploadRecipientSubmission(
     pages?: string[];
   },
   note?: string,
-  contactPhone?: string
-): Promise<{ success: boolean; folderId?: string; fileId?: string; error?: string }> {
+  contactPhone?: string,
+  overrideGuestName?: string
+): Promise<{ success: boolean; folderId?: string; fileId?: string; folderName?: string; spaceOwnerIds?: string[]; error?: string }> {
   try {
     const shareData = await getPublicShare(token);
     if (!shareData || !shareData.spaceId) {
@@ -702,8 +707,8 @@ export async function uploadRecipientSubmission(
     const spaceData = spaceSnap.data();
     const items: FileShareItem[] = Array.isArray(spaceData.fileShareItems) ? [...spaceData.fileShareItems] : [];
 
-    // Determine recipient display title
-    const recipientName = shareData.recipientName || 'אורח קישור';
+    // Determine recipient display title (use real identified guest name when available!)
+    const recipientName = (overrideGuestName || shareData.recipientName || 'אורח קישור').trim();
     const roleHebrew = shareData.recipientRole === 'provider' ? 'ספק / קבלן' : (shareData.recipientRole === 'client' ? 'לקוח' : 'נמען');
     const folderName = `📥 ${recipientName} (${roleHebrew})`;
 
@@ -759,10 +764,20 @@ export async function uploadRecipientSubmission(
       await syncPublicFolderShares(shareData.spaceId, targetFolder.id, items);
     }
 
+    const ownerIds = new Set<string>();
+    if (spaceData.creatorId) ownerIds.add(String(spaceData.creatorId));
+    if (Array.isArray(spaceData.members)) {
+      spaceData.members.forEach((m: any) => {
+        if (m?.id && (m.role === 'creator' || m.role === 'admin')) ownerIds.add(String(m.id));
+      });
+    }
+
     return {
       success: true,
       folderId: targetFolder.id,
-      fileId: newFileItem.id
+      fileId: newFileItem.id,
+      folderName,
+      spaceOwnerIds: Array.from(ownerIds),
     };
   } catch (err: any) {
     console.error('Failed to upload recipient submission:', err);

@@ -136,14 +136,28 @@ export default function PublicSharePage({ params }: SharePageProps) {
   useEffect(() => {
     if (isUnlocked && !needsGuestIdentity && token) {
       startTimeRef.current = Date.now();
-      // Send heartbeat every 15 seconds
+      let lastActivityAt = Date.now();
+      const IDLE_CUTOFF_MS = 3 * 60 * 1000; // Stop counting dwell time after 3 minutes of inactivity or hidden tab!
+      const markActive = () => {
+        lastActivityAt = Date.now();
+      };
+      window.addEventListener('pointerdown', markActive, { passive: true });
+      window.addEventListener('keydown', markActive, { passive: true });
+      window.addEventListener('scroll', markActive, { passive: true });
+      window.addEventListener('touchstart', markActive, { passive: true });
+
+      // Send heartbeat every 15 seconds ONLY while tab is visible AND user was active within 3 minutes
       intervalRef.current = setInterval(() => {
+        if (document.visibilityState !== 'visible') return;
+        if (Date.now() - lastActivityAt > IDLE_CUTOFF_MS) return;
         recordShareHeartbeat(token, 15, guestRecipientId);
       }, 15000);
 
       const handleUnload = () => {
+        if (document.visibilityState !== 'visible') return;
+        if (Date.now() - lastActivityAt > IDLE_CUTOFF_MS) return;
         const elapsed = Math.round((Date.now() - startTimeRef.current) / 1000);
-        if (elapsed > 0) {
+        if (elapsed > 0 && elapsed % 15 > 0) {
           recordShareHeartbeat(token, elapsed % 15, guestRecipientId);
         }
       };
@@ -152,6 +166,10 @@ export default function PublicSharePage({ params }: SharePageProps) {
       return () => {
         if (intervalRef.current) clearInterval(intervalRef.current);
         window.removeEventListener('beforeunload', handleUnload);
+        window.removeEventListener('pointerdown', markActive);
+        window.removeEventListener('keydown', markActive);
+        window.removeEventListener('scroll', markActive);
+        window.removeEventListener('touchstart', markActive);
       };
     }
   }, [isUnlocked, needsGuestIdentity, token, guestRecipientId]);
@@ -375,6 +393,14 @@ export default function PublicSharePage({ params }: SharePageProps) {
         const storagePath = `spaces/${shareData.spaceId}/submissions/${shareData.recipientId || 'guest'}_${now}_${file.name}`;
         const downloadUrl = await uploadBlobToStorage(file, storagePath);
 
+        let identifiedGuestName = shareData.recipientName || '';
+        if (!identifiedGuestName && typeof window !== 'undefined') {
+          try {
+            const savedG = JSON.parse(localStorage.getItem(`smartshare_guest_id_${token}`) || '{}');
+            if (savedG?.name) identifiedGuestName = String(savedG.name);
+          } catch {}
+        }
+
         const res = await uploadRecipientSubmission(
           token,
           {
@@ -384,11 +410,29 @@ export default function PublicSharePage({ params }: SharePageProps) {
             size: file.size
           },
           submissionNote.trim(),
-          submissionPhone.trim() || shareData.recipientPhone
+          submissionPhone.trim() || shareData.recipientPhone,
+          identifiedGuestName || undefined
         );
 
         if (res.success) {
           uploadedNames.push(file.name);
+          // Notify space owner(s) via real-time Push notification (DRY: uses existing /api/send-notification!)
+          if (res.spaceOwnerIds && res.spaceOwnerIds.length > 0) {
+            const senderDisplay = identifiedGuestName || 'אורח קישור';
+            fetch('/api/send-notification', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                userIds: res.spaceOwnerIds,
+                title: `📥 קובץ חדש התקבל מ-${senderDisplay}`,
+                body: `${file.name}${submissionNote.trim() ? ` • "${submissionNote.trim()}"` : ''} (נשמר בתיקייה ${res.folderName || 'קיר שיתוף'})`,
+                data: {
+                  url: `/space/${shareData.spaceId}`,
+                  tag: `submission_${shareData.spaceId}_${Date.now()}`,
+                },
+              }),
+            }).catch(() => {});
+          }
         }
       }
 
@@ -449,8 +493,8 @@ export default function PublicSharePage({ params }: SharePageProps) {
         spaceLogoUrl={shareData.spaceLogoUrl}
         itemName={shareData.name}
         itemType={shareData.itemType}
-        onSubmit={async ({ name, phone }) => {
-          const reg = await registerAnonymousGuestVisit(token, { name, phone });
+        onSubmit={async ({ name, phone, profession }) => {
+          const reg = await registerAnonymousGuestVisit(token, { name, phone, profession });
           const recId = reg?.recipientId || null;
           if (recId) setGuestRecipientId(recId);
           setSubmissionPhone(phone);
@@ -458,7 +502,7 @@ export default function PublicSharePage({ params }: SharePageProps) {
           try {
             localStorage.setItem(
               `smartshare_guest_id_${token}`,
-              JSON.stringify({ name, phone, recipientId: recId, identifiedAt: Date.now() })
+              JSON.stringify({ name, phone, profession, recipientId: recId, identifiedAt: Date.now() })
             );
           } catch {}
           if (shareData.itemType !== 'folder') {

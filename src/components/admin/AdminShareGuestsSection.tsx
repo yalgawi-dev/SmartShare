@@ -8,6 +8,7 @@ interface AggregatedShareGuest {
   key: string;
   name: string;
   phone: string;
+  profession?: string;
   totalVisits: number;
   totalDurationSeconds: number;
   firstSeenAt: number;
@@ -57,10 +58,13 @@ export const AdminShareGuestsSection: React.FC = () => {
     try {
       const snap = await getDocs(collection(db, 'shared_links'));
       const map = new Map<string, AggregatedShareGuest>();
+      // Prevent double-counting when the same personal token appears BOTH as its own doc AND inside a parent folder's recipients[]
+      const seenTokenRecords = new Set<string>();
 
       const upsertGuest = (entry: {
         name: string;
         phone: string;
+        profession?: string;
         visits: number;
         duration: number;
         createdAt: number;
@@ -69,10 +73,15 @@ export const AdminShareGuestsSection: React.FC = () => {
         itemTitle: string;
         spaceTitle?: string;
         token: string;
+        dedupeToken?: string;
       }) => {
         const digits = (entry.phone || '').replace(/\D/g, '');
         const cleanName = (entry.name || '').trim();
         if (!digits && !cleanName) return;
+
+        const recordKey = `${entry.dedupeToken || entry.token}::${digits || cleanName.toLowerCase()}`;
+        if (seenTokenRecords.has(recordKey)) return;
+        seenTokenRecords.add(recordKey);
 
         const key = digits.length >= 7 ? `phone:${digits}` : `name:${cleanName.toLowerCase()}:${entry.token}`;
         const existing = map.get(key);
@@ -85,6 +94,7 @@ export const AdminShareGuestsSection: React.FC = () => {
             key,
             name: cleanName || 'אורח ללא שם',
             phone: entry.phone || '',
+            profession: entry.profession || undefined,
             totalVisits: visits,
             totalDurationSeconds: entry.duration || 0,
             firstSeenAt: firstTs,
@@ -105,6 +115,7 @@ export const AdminShareGuestsSection: React.FC = () => {
           existing.totalDurationSeconds += entry.duration || 0;
           if (cleanName && existing.name === 'אורח ללא שם') existing.name = cleanName;
           if (entry.phone && !existing.phone) existing.phone = entry.phone;
+          if (entry.profession && !existing.profession) existing.profession = entry.profession;
           if (firstTs > 0 && (existing.firstSeenAt === 0 || firstTs < existing.firstSeenAt)) {
             existing.firstSeenAt = firstTs;
           }
@@ -147,6 +158,7 @@ export const AdminShareGuestsSection: React.FC = () => {
             upsertGuest({
               name: r.recipientName || '',
               phone: r.phone || '',
+              profession: r.profession || '',
               visits: vCount,
               duration: Number(r.totalDurationSeconds || 0),
               createdAt: Number(r.createdAt || d.createdAt || 0),
@@ -155,6 +167,7 @@ export const AdminShareGuestsSection: React.FC = () => {
               itemTitle,
               spaceTitle,
               token,
+              dedupeToken: r.token || token,
             });
           });
         }
@@ -197,6 +210,7 @@ export const AdminShareGuestsSection: React.FC = () => {
       return (
         g.name.toLowerCase().includes(q) ||
         g.phone.toLowerCase().includes(q) ||
+        (g.profession || '').toLowerCase().includes(q) ||
         g.sharedItems.some((it) => it.title.toLowerCase().includes(q) || (it.spaceTitle || '').toLowerCase().includes(q))
       );
     });
@@ -293,7 +307,7 @@ export const AdminShareGuestsSection: React.FC = () => {
           <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap' }}>
             <input
               type="text"
-              placeholder="חפש לפי שם אורח, טלפון או שם קובץ..."
+              placeholder="חפש לפי שם אורח, תחום/מקצוע, טלפון או שם קובץ..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={{
@@ -351,6 +365,21 @@ export const AdminShareGuestsSection: React.FC = () => {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
                         <strong style={{ fontSize: '0.9rem', color: '#0f172a' }}>👤 {g.name}</strong>
+                        {g.profession && (
+                          <span
+                            style={{
+                              fontSize: '0.7rem',
+                              fontWeight: 800,
+                              background: '#eef2ff',
+                              color: '#4338ca',
+                              border: '1px solid #c7d2fe',
+                              padding: '1px 7px',
+                              borderRadius: '999px',
+                            }}
+                          >
+                            🛠️ {g.profession}
+                          </span>
+                        )}
                         {g.phone && (
                           <a
                             href={`tel:${g.phone}`}

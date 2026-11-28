@@ -7,8 +7,10 @@ interface GuestIdentityGateCardProps {
   spaceLogoUrl?: string;
   itemName: string;
   itemType: 'file' | 'folder';
-  onSubmit: (guest: { name: string; phone: string }) => Promise<void> | void;
+  onSubmit: (guest: { name: string; phone: string; profession?: string }) => Promise<void> | void;
 }
+
+const QUICK_PROFESSIONS = ['קבלן', 'אינסטלטור', 'חשמלאי', 'אדריכל / מהנדס', 'ספק / חומרים', 'לקוח'];
 
 export function GuestIdentityGateCard({
   spaceTitle,
@@ -19,6 +21,7 @@ export function GuestIdentityGateCard({
 }: GuestIdentityGateCardProps) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [profession, setProfession] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -26,10 +29,15 @@ export function GuestIdentityGateCard({
     e.preventDefault();
     const cleanName = name.trim();
     const cleanPhone = phone.trim();
+    const cleanProfession = profession.trim();
     const digits = cleanPhone.replace(/\D/g, '');
 
     if (cleanName.length < 2) {
       setError('אנא הזן שם מלא או שם עסק (לפחות 2 תווים).');
+      return;
+    }
+    if (cleanProfession.length < 2) {
+      setError('אנא בחר או הזן את תחום העיסוק / מקצוע שלך.');
       return;
     }
     if (digits.length < 9 || digits.length > 15) {
@@ -40,7 +48,7 @@ export function GuestIdentityGateCard({
     setError(null);
     setSubmitting(true);
     try {
-      await onSubmit({ name: cleanName, phone: cleanPhone });
+      await onSubmit({ name: cleanName, phone: cleanPhone, profession: cleanProfession });
     } finally {
       setSubmitting(false);
     }
@@ -120,6 +128,59 @@ export function GuestIdentityGateCard({
                 borderRadius: '12px',
                 border: '1.5px solid #cbd5e1',
                 fontSize: '0.92rem',
+                fontWeight: 600,
+                boxSizing: 'border-box',
+                outline: 'none',
+              }}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 800, color: '#334155', marginBottom: '0.3rem' }}>
+              תחום / מקצוע *
+            </label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.32rem', marginBottom: '0.45rem' }}>
+              {QUICK_PROFESSIONS.map((prof) => {
+                const active = profession.trim() === prof;
+                return (
+                  <button
+                    key={prof}
+                    type="button"
+                    onClick={() => {
+                      setProfession(prof);
+                      if (error) setError(null);
+                    }}
+                    style={{
+                      padding: '0.28rem 0.58rem',
+                      borderRadius: '999px',
+                      border: active ? '1.5px solid #4f46e5' : '1px solid #cbd5e1',
+                      background: active ? '#eef2ff' : '#f8fafc',
+                      color: active ? '#3730a3' : '#475569',
+                      fontSize: '0.72rem',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {prof}
+                  </button>
+                );
+              })}
+            </div>
+            <input
+              type="text"
+              required
+              placeholder="או הקלד תחום (למשל: קבלן שלד, אלומיניום, מטבחים)..."
+              value={profession}
+              onChange={(e) => {
+                setProfession(e.target.value);
+                if (error) setError(null);
+              }}
+              style={{
+                width: '100%',
+                padding: '0.68rem 0.85rem',
+                borderRadius: '12px',
+                border: '1.5px solid #cbd5e1',
+                fontSize: '0.88rem',
                 fontWeight: 600,
                 boxSizing: 'border-box',
                 outline: 'none',
