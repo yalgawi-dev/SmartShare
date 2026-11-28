@@ -1246,8 +1246,8 @@ export function FileShareWidget({
             </button>
           )}
 
-          {/* Share Entire Wall / Project Link */}
-          {allItems.length > 0 && (
+          {/* Share Entire Wall / Project Link (hidden inside incoming guest submission/quote folders!) */}
+          {allItems.length > 0 && !(currentFolderItem && isIncomingSubmissionFolder(currentFolderItem)) && (
             <button
               type="button"
               onClick={() => {
