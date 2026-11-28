@@ -5,6 +5,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSpaces } from '../../../app/context/SpacesContext';
 import { useAuth } from '../../../app/context/AuthContext';
 import { usePresence } from '../../../hooks/usePresence';
+import { useSpeechToText } from '../../../hooks/useSpeechToText';
 import { resolveUserSpaceIdentity } from '../../../utils/partnerUtils';
 import { playNotificationChime } from '../../../utils/soundEffects';
 
@@ -150,7 +151,19 @@ export default function ChatEngineUI({
     };
   }, [messagesArray.length, conversationId]);
 
+  const {
+    isListening: isVoiceListening,
+    isSupported: isVoiceSupported,
+    stopListening: stopVoiceListening,
+    toggleListening: toggleVoiceListening,
+  } = useSpeechToText({
+    lang: 'he-IL',
+    onTranscript: (liveText) => setMessageText(liveText),
+    onError: (msg) => alert(msg),
+  });
+
   const handleSendMessage = () => {
+    stopVoiceListening('abort');
     if (!messageText.trim()) return;
     if (typeof sendConversationMessage === 'function') {
       sendConversationMessage(space.id, conversationId, resolvedMyId, messageText.trim());
@@ -340,13 +353,13 @@ export default function ChatEngineUI({
               handleSendMessage();
             }
           }}
-          placeholder="הקלד הודעה..."
+          placeholder={isVoiceListening ? '🎙️ מאזין לך... דבר עכשיו' : 'הקלד הודעה...'}
           rows={1}
           style={{
             flex: 1,
             padding: '0.55rem 1rem',
             borderRadius: '24px',
-            border: '1px solid #cbd5e1',
+            border: isVoiceListening ? '1.5px solid #ef4444' : '1px solid #cbd5e1',
             background: '#ffffff',
             fontSize: '0.95rem',
             outline: 'none',
@@ -357,6 +370,31 @@ export default function ChatEngineUI({
             overflowY: 'auto',
           }}
         />
+        {isVoiceSupported && (
+          <button
+            type="button"
+            onClick={() => toggleVoiceListening(messageText)}
+            title={isVoiceListening ? 'עצור הכתבה קולית' : 'הכתבה קולית חיה (חינם)'}
+            aria-label="הכתבה קולית בצ'אט"
+            style={{
+              background: isVoiceListening ? '#ef4444' : '#eef2ff',
+              color: isVoiceListening ? '#ffffff' : '#4338ca',
+              border: 'none',
+              width: '40px',
+              height: '40px',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              fontSize: '1.05rem',
+              flexShrink: 0,
+              boxShadow: isVoiceListening ? '0 0 0 4px rgba(239,68,68,0.22)' : 'none',
+            }}
+          >
+            {isVoiceListening ? '⏹️' : '🎙️'}
+          </button>
+        )}
         <button
           onClick={handleSendMessage}
           disabled={!messageText.trim()}

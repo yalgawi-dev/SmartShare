@@ -21,6 +21,7 @@ import { FloatingActionBar } from '../../../components/widgets/FloatingActionBar
 import ScannerModal from '../../../components/widgets/ScannerModal';
 import { DOCUMENT_MAX_BYTES, compressImageWebP } from '../../../utils/imageOptimizer';
 import { recordSpaceVisit } from '../../../utils/spaceSorting';
+import { getSpaceUnreadSummary } from '../../../utils/chatUnreadUtils';
 import { useTelemetryTracker } from '../../../hooks/useTelemetryTracker';
 import { useAssistant } from '../../../components/common/AssistantEngine/AssistantContext';
 
@@ -149,35 +150,11 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   useHardwareBack(isScannerOpen, () => setIsScannerOpen(false), 'space-scanner');
   useHardwareBack(!!activeChatId, () => setActiveChatId(null), 'space-chat');
 
-  const { unreadChatCount, firstUnreadConvoId } = useMemo(() => {
-    if (!user || !space) return { unreadChatCount: 0, firstUnreadConvoId: null as string | null };
-    const mySpaceKey = typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('smartshare_keys') || '{}')[space.id]) : null;
-    const isCreator = space.creatorId === user.id || user?.spaceKeys?.[space.id]?.role === 'creator' || mySpaceKey?.role === 'creator';
-    const partnerToken = user?.spaceKeys?.[space.id]?.token || mySpaceKey?.token;
-    const myActualId = isCreator ? (space.creatorId || space.createdBy || user.id) : (partnerToken || user.id);
+  const [showChatPicker, setShowChatPicker] = useState(false);
 
-    let total = 0;
-    let firstId: string | null = null;
-
-    // Count ALL unread conversations in this space (group + 1:1 partners + guest_* for space creator)
-    // so the in-space 💬 badge ALWAYS matches the Home card badge 1:1!
-    for (const convo of (space.conversations || [])) {
-      if (!convo?.id || !Array.isArray(convo.messages)) continue;
-      if (String(convo.id).startsWith('guest_') && !isCreator) continue;
-      const unreadInConvo = convo.messages.filter((msg: any) => {
-        if (!msg || msg.readAt) return false;
-        if (msg.senderId === user.id || (myActualId && msg.senderId === myActualId)) return false;
-        const isRead = (user.id && msg.readBy?.includes(user.id)) || (myActualId && msg.readBy?.includes(myActualId));
-        return !isRead;
-      }).length;
-      if (unreadInConvo > 0) {
-        total += unreadInConvo;
-        if (!firstId) firstId = String(convo.id);
-      }
-    }
-
-    return { unreadChatCount: total, firstUnreadConvoId: firstId };
-  }, [space, user]);
+  const spaceUnread = useMemo(() => getSpaceUnreadSummary(space, user), [space, user]);
+  const unreadChatCount = spaceUnread.totalUnread;
+  const firstUnreadConvoId = spaceUnread.firstUnreadConvoId;
   
   const { updateScreenContext } = useAssistant();
 
@@ -1015,9 +992,15 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
             )}
           </div>
           {spaceFeatures.includes('chat') && (
+            <div style={{ position: 'relative' }}>
             <button 
               id="chat-group-btn"
               onClick={() => {
+                // If multiple conversations exist in this space (e.g. Group + Partners + Guests), show picker so user sees everyone & chooses who to read!
+                if (spaceUnread.conversations.length > 1) {
+                  setShowChatPicker((prev) => !prev);
+                  return;
+                }
                 const mySpaceKey = typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('smartshare_keys') || '{}')[space.id]) : null;
                 const isCreator = space.creatorId === user?.id || user?.spaceKeys?.[space.id]?.role === 'creator' || mySpaceKey?.role === 'creator';
                 const partnerToken = user?.spaceKeys?.[space.id]?.token || mySpaceKey?.token;
@@ -1060,6 +1043,81 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
                 </span>
               )}
             </button>
+            {showChatPicker && (
+              <div
+                dir="rtl"
+                style={{
+                  position: 'absolute',
+                  top: '46px',
+                  left: '0',
+                  width: '275px',
+                  maxHeight: '340px',
+                  overflowY: 'auto',
+                  background: '#ffffff',
+                  borderRadius: '16px',
+                  border: '1.5px solid #c7d2fe',
+                  boxShadow: '0 14px 36px rgba(15, 23, 42, 0.22)',
+                  padding: '0.55rem',
+                  zIndex: 9999,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.35rem',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.15rem 0.3rem 0.35rem', borderBottom: '1px solid #f1f5f9' }}>
+                  <span style={{ fontSize: '0.78rem', fontWeight: 900, color: '#0f172a' }}>💬 שיחות במרחב ({spaceUnread.conversations.length})</span>
+                  <button type="button" onClick={() => setShowChatPicker(false)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '0.9rem', color: '#64748b' }}>✕</button>
+                </div>
+                {spaceUnread.conversations.map((c) => (
+                  <button
+                    key={c.conversationId}
+                    type="button"
+                    onClick={() => {
+                      const mySpaceKey = typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('smartshare_keys') || '{}')[space.id]) : null;
+                      const isCreator = space.creatorId === user?.id || user?.spaceKeys?.[space.id]?.role === 'creator' || mySpaceKey?.role === 'creator';
+                      const partnerToken = user?.spaceKeys?.[space.id]?.token || mySpaceKey?.token;
+                      const myActualId = isCreator ? (space.creatorId || space.createdBy || user?.id) : (partnerToken || user?.id);
+                      if (typeof markConversationRead === 'function' && user?.id) {
+                        markConversationRead(space.id, c.conversationId, user.id, myActualId);
+                      }
+                      setShowChatPicker(false);
+                      openChat(c.conversationId);
+                    }}
+                    style={{
+                      border: c.unreadCount > 0 ? '1.5px solid #fca5a5' : '1px solid #e2e8f0',
+                      background: c.unreadCount > 0 ? '#fef2f2' : '#f8fafc',
+                      borderRadius: '11px',
+                      padding: '0.5rem 0.65rem',
+                      textAlign: 'right',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '2px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.35rem' }}>
+                      <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#0f172a' }}>
+                        {c.isGroup ? '👥' : c.isGuest ? '🔗' : '👤'} {c.title}
+                      </span>
+                      {c.unreadCount > 0 && (
+                        <span style={{ background: '#ef4444', color: '#ffffff', fontSize: '0.68rem', fontWeight: 900, padding: '1px 6px', borderRadius: '999px' }}>
+                          {c.unreadCount}
+                        </span>
+                      )}
+                    </div>
+                    {c.subtitle && (
+                      <span style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700 }}>{c.subtitle}</span>
+                    )}
+                    {c.lastMessageText && (
+                      <span style={{ fontSize: '0.73rem', color: '#475569', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {c.lastMessageText}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+            </div>
           )}
           <div style={{ position: 'relative' }}>
               <button onClick={() => {

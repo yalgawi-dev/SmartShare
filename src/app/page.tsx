@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { useSpaces } from './context/SpacesContext';
 import { resolveUserSpaceIdentity } from '../utils/partnerUtils';
 import { getUnreadAlertsCount } from '../utils/spaceAlerts';
+import { getSpaceUnreadSummary } from '../utils/chatUnreadUtils';
 import { useAuth } from './context/AuthContext';
 import { getFeatureById } from './data/features';
 import AuthModal from '../components/auth/AuthModal';
@@ -828,23 +829,7 @@ export default function Dashboard() {
                   })()}
                   {(() => {
                     const legacyUnread = (space.members || []).reduce((acc: number, m: any) => acc + ((m.messages || []).filter((msg: any) => msg.from === 'partner' && !msg.readAt).length), 0);
-                    const isSpaceCreator = Boolean(user?.id && space.creatorId && user.id === space.creatorId);
-                    let unreadConvoId: string | null = null;
-                    const convoUnread = Array.isArray(space.conversations)
-                      ? space.conversations.reduce((acc: number, convo: any) => {
-                          if (!convo?.id || !Array.isArray(convo.messages)) return acc;
-                          if (convo.id.startsWith('guest_') && !isSpaceCreator) return acc;
-                          const unreadInConvo = convo.messages.filter((msg: any) => {
-                            if (!msg) return false;
-                            if (msg.readAt) return false;
-                            if (msg.senderId === user?.id || (isSpaceCreator && msg.senderId === space.creatorId)) return false;
-                            const isRead = Array.isArray(msg.readBy) && (msg.readBy.includes(user?.id) || (isSpaceCreator && msg.readBy.includes(space.creatorId)));
-                            return !isRead;
-                          }).length;
-                          if (unreadInConvo > 0 && !unreadConvoId) unreadConvoId = convo.id;
-                          return acc + unreadInConvo;
-                        }, 0)
-                      : 0;
+                    const { totalUnread: convoUnread, firstUnreadConvoId: unreadConvoId } = getSpaceUnreadSummary(space, user);
                     const unreadMsgsCount = legacyUnread + convoUnread;
                     const hasExtension = (space.members || []).some((m: any) => m.status === 'extension_requested');
                     
