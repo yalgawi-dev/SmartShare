@@ -409,12 +409,21 @@ export default function PublicSharePage({ params }: SharePageProps) {
 
         let identifiedGuestName = shareData.recipientName || '';
         let identifiedGuestProfession = '';
+        let identifiedGuestPhone = submissionPhone.trim() || shareData.recipientPhone || '';
         if (typeof window !== 'undefined') {
           try {
             const savedG = JSON.parse(localStorage.getItem(`smartshare_guest_id_${token}`) || '{}');
             if (!identifiedGuestName && savedG?.name) identifiedGuestName = String(savedG.name);
             if (savedG?.profession) identifiedGuestProfession = String(savedG.profession);
+            if (!identifiedGuestPhone && savedG?.phone) identifiedGuestPhone = String(savedG.phone);
           } catch {}
+        }
+        // Fallback to currently logged-in MySpace user's real profile when uploading on a general link
+        if (!identifiedGuestName && user) {
+          identifiedGuestName = (user.realName || user.email || '').trim();
+        }
+        if (!identifiedGuestPhone && user?.phone) {
+          identifiedGuestPhone = String(user.phone).trim();
         }
 
         const res = await uploadRecipientSubmission(
@@ -426,7 +435,7 @@ export default function PublicSharePage({ params }: SharePageProps) {
             size: file.size
           },
           submissionNote.trim(),
-          submissionPhone.trim() || shareData.recipientPhone,
+          identifiedGuestPhone || undefined,
           identifiedGuestName || undefined,
           identifiedGuestProfession || undefined
         );
@@ -510,8 +519,8 @@ export default function PublicSharePage({ params }: SharePageProps) {
         spaceLogoUrl={shareData.spaceLogoUrl}
         itemName={shareData.name}
         itemType={shareData.itemType}
-        onSubmit={async ({ name, phone, profession }) => {
-          const reg = await registerAnonymousGuestVisit(token, { name, phone, profession });
+        onSubmit={async ({ name, phone, profession, acceptedTermsAt }) => {
+          const reg = await registerAnonymousGuestVisit(token, { name, phone, profession, acceptedTermsAt });
           const recId = reg?.recipientId || null;
           if (recId) setGuestRecipientId(recId);
           setSubmissionPhone(phone);
@@ -519,7 +528,7 @@ export default function PublicSharePage({ params }: SharePageProps) {
           try {
             localStorage.setItem(
               `smartshare_guest_id_${token}`,
-              JSON.stringify({ name, phone, profession, recipientId: recId, identifiedAt: Date.now() })
+              JSON.stringify({ name, phone, profession, acceptedTermsAt, recipientId: recId, identifiedAt: Date.now() })
             );
           } catch {}
           if (shareData.itemType !== 'folder') {

@@ -21,6 +21,7 @@ export interface RecipientShareLink {
   origin?: 'manual' | 'public_link'; // 'public_link' = אורח שנרשם אוטומטית מקישור כללי
   sourceChannel?: string; // זיהוי ערוץ שקט אוטומטי (אינסטגרם / פייסבוק / וואטסאפ / מייל / קישור ישיר)
   profession?: string; // תחום עיסוק / מקצוע של האורח (קבלן שלד, אינסטלטור, אדריכל, לקוח וכו')
+  acceptedTermsAt?: number; // חותמת זמן לאישור תנאי שימוש ומדיניות פרטיות (Audit Trail)
 }
 
 export interface ShareLinkConfig {
@@ -444,7 +445,7 @@ function shouldCountNewShareVisit(token: string, visitorKey = 'default'): boolea
 
 export async function registerAnonymousGuestVisit(
   token: string,
-  guest: { name: string; phone: string; profession?: string }
+  guest: { name: string; phone: string; profession?: string; acceptedTermsAt?: number }
 ): Promise<{ recipientId: string; sourceChannel: string } | null> {
   if (!token || isLinkPreviewBot()) return null;
   const cleanName = String(guest.name || '').trim().slice(0, 60);
@@ -475,6 +476,7 @@ export async function registerAnonymousGuestVisit(
         ...existingList[matchIdx],
         recipientName: existingList[matchIdx].recipientName || cleanName,
         ...(cleanProfession ? { profession: cleanProfession } : {}),
+        ...(guest.acceptedTermsAt ? { acceptedTermsAt: guest.acceptedTermsAt } : {}),
         viewCount: (existingList[matchIdx].viewCount || 0) + (countVisit ? 1 : 0),
         lastViewedAt: now,
         sourceChannel: existingList[matchIdx].sourceChannel || sourceChannel,
@@ -485,6 +487,7 @@ export async function registerAnonymousGuestVisit(
         id: recipientId,
         recipientName: cleanName,
         ...(cleanProfession ? { profession: cleanProfession } : {}),
+        ...(guest.acceptedTermsAt ? { acceptedTermsAt: guest.acceptedTermsAt } : {}),
         role: 'general',
         phone: cleanPhone,
         token,

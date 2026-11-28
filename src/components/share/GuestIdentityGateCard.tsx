@@ -7,7 +7,7 @@ interface GuestIdentityGateCardProps {
   spaceLogoUrl?: string;
   itemName: string;
   itemType: 'file' | 'folder';
-  onSubmit: (guest: { name: string; phone: string; profession?: string }) => Promise<void> | void;
+  onSubmit: (guest: { name: string; phone: string; profession?: string; acceptedTermsAt: number }) => Promise<void> | void;
 }
 
 const QUICK_PROFESSIONS = ['קבלן', 'אינסטלטור', 'חשמלאי', 'אדריכל / מהנדס', 'ספק / חומרים', 'לקוח'];
@@ -22,6 +22,8 @@ export function GuestIdentityGateCard({
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [profession, setProfession] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [showTermsPreview, setShowTermsPreview] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -44,11 +46,20 @@ export function GuestIdentityGateCard({
       setError('אנא הזן מספר טלפון תקין (9–10 ספרות).');
       return;
     }
+    if (!acceptedTerms) {
+      setError('יש לסמן אישור תנאי שימוש ומדיניות פרטיות כדי להמשיך.');
+      return;
+    }
 
     setError(null);
     setSubmitting(true);
     try {
-      await onSubmit({ name: cleanName, phone: cleanPhone, profession: cleanProfession });
+      await onSubmit({
+        name: cleanName,
+        phone: cleanPhone,
+        profession: cleanProfession,
+        acceptedTermsAt: Date.now(),
+      });
     } finally {
       setSubmitting(false);
     }
@@ -215,6 +226,37 @@ export function GuestIdentityGateCard({
                 outline: 'none',
               }}
             />
+          </div>
+
+          {/* Mandatory Legal Terms & Privacy Consent */}
+          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '0.6rem 0.7rem' }}>
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.45rem', cursor: 'pointer', fontSize: '0.75rem', color: '#334155', lineHeight: 1.45 }}>
+              <input
+                type="checkbox"
+                checked={acceptedTerms}
+                onChange={(e) => {
+                  setAcceptedTerms(e.target.checked);
+                  if (error) setError(null);
+                }}
+                style={{ marginTop: '3px', accentColor: '#4f46e5', width: '16px', height: '16px', flexShrink: 0 }}
+              />
+              <span>
+                קראתי ואני מסכים/ה{' '}
+                <button
+                  type="button"
+                  onClick={() => setShowTermsPreview((v) => !v)}
+                  style={{ border: 'none', background: 'none', padding: 0, color: '#4f46e5', fontWeight: 800, textDecoration: 'underline', cursor: 'pointer', fontSize: '0.75rem' }}
+                >
+                  לתנאי השימוש ומדיניות הפרטיות
+                </button>{' '}
+                ולשמירת פרטי ההתקשרות שלי במערכת לצורך מעקב, תיאום ופניות מקצועיות בהמשך. *
+              </span>
+            </label>
+            {showTermsPreview && (
+              <div style={{ marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px dashed #cbd5e1', fontSize: '0.71rem', color: '#475569', lineHeight: 1.5 }}>
+                הפרטים שתזין (שם, תחום עיסוק ומספר טלפון) וכן מועדי הצפייה במסמכים המשותפים נשמרים באופן מאובטח במערכת MySpace, חשופים לבעל המרחב ששיתף איתך את הקישור, ועשויים לשמש ליצירת קשר חוזר, קבלת עדכונים והצעות רלוונטיות. באפשרותך לבקש הסרה בכל עת.
+              </div>
+            )}
           </div>
 
           {error && (
