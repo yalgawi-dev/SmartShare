@@ -5,7 +5,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, deleteField } from 'firebase/firestore';
 import { useAuth } from '@/app/context/AuthContext';
 import { getPublicShare, recordPublicShareView, recordShareHeartbeat, registerAnonymousGuestVisit, isShareExpired, PublicSharedData, formatFileSize, uploadRecipientSubmission } from '@/utils/fileShareUtils';
 import { GuestIdentityGateCard } from '@/components/share/GuestIdentityGateCard';
@@ -134,7 +134,8 @@ export default function PublicSharePage({ params }: SharePageProps) {
   }, [isUnlocked, needsGuestIdentity, shareData, token]);
 
   useEffect(() => {
-    if (isUnlocked && !needsGuestIdentity && token) {
+    // NEVER count Space Owner / Space Members in guest dwell time!
+    if (isUnlocked && !needsGuestIdentity && token && !memberStatusInSpace?.isMember) {
       startTimeRef.current = Date.now();
       let lastActivityAt = Date.now();
       const IDLE_CUTOFF_MS = 3 * 60 * 1000; // Stop counting dwell time after 3 minutes of inactivity or hidden tab!
@@ -172,7 +173,7 @@ export default function PublicSharePage({ params }: SharePageProps) {
         window.removeEventListener('touchstart', markActive);
       };
     }
-  }, [isUnlocked, needsGuestIdentity, token, guestRecipientId]);
+  }, [isUnlocked, needsGuestIdentity, token, guestRecipientId, memberStatusInSpace?.isMember]);
 
   useEffect(() => {
     async function loadData() {
@@ -196,6 +197,19 @@ export default function PublicSharePage({ params }: SharePageProps) {
       }
 
       let enrichedData = { ...data };
+
+      // SELF-HEALING GUARD: If a general public link was previously hijacked by an anonymous `pub_` visitor's
+      // recipientName/recipientPhone, immediately strip those fields in memory AND clean Firestore!
+      if (typeof enrichedData.recipientId === 'string' && enrichedData.recipientId.startsWith('pub_')) {
+        delete enrichedData.recipientId;
+        delete enrichedData.recipientName;
+        delete enrichedData.recipientPhone;
+        updateDoc(doc(db, 'shared_links', token), {
+          recipientId: deleteField(),
+          recipientName: deleteField(),
+          recipientPhone: deleteField(),
+        }).catch(() => {});
+      }
       if ((!enrichedData.businessCard || !enrichedData.spaceLogoUrl) && enrichedData.spaceId) {
         try {
           const spaceSnap = await getDoc(doc(db, 'spaces', enrichedData.spaceId));

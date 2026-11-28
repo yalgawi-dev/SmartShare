@@ -270,17 +270,26 @@ export async function createOrUpdatePublicShare(
     }
   }
 
-  await setDoc(shareDocRef, sanitizeFirestoreData(payload), { merge: true });
+  await setDoc(shareDocRef, {
+    ...sanitizeFirestoreData(payload),
+    // Explicitly keep master general link identity-free so it can NEVER be hijacked by an anonymous guest!
+    recipientId: null,
+    recipientName: null,
+    recipientPhone: null,
+  }, { merge: true });
 
-  // If there are specific recipients, ensure their personal tokens are also stored/updated in shared_links
+  // If there are specific personal recipients (with their own unique token), store/update their personal docs in shared_links.
+  // CRITICAL GUARD: NEVER overwrite or delete the master public link doc for anonymous `public_link` visitors (r.token === token)!
   if (Array.isArray(config.recipients)) {
     for (const r of config.recipients) {
-      if (r.token) {
-        const rDocRef = doc(db, 'shared_links', r.token);
-        if (!r.enabled) {
-          // If disabled/blocked, delete from shared_links
-          await deleteDoc(rDocRef);
-        } else {
+      if (!r.token || r.token === token || r.origin === 'public_link' || String(r.id || '').startsWith('pub_')) {
+        continue;
+      }
+      const rDocRef = doc(db, 'shared_links', r.token);
+      if (!r.enabled) {
+        // If disabled/blocked, delete personal link from shared_links
+        await deleteDoc(rDocRef);
+      } else {
           // Preserve existing live metrics from existing document if already present
           let currentViewCount = r.viewCount || 0;
           let currentDuration = r.totalDurationSeconds || 0;
@@ -318,7 +327,6 @@ export async function createOrUpdatePublicShare(
             createdAt: r.createdAt || now
           };
           await setDoc(rDocRef, sanitizeFirestoreData(rPayload), { merge: true });
-        }
       }
     }
   }

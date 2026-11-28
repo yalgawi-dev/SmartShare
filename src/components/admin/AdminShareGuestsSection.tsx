@@ -173,7 +173,9 @@ export const AdminShareGuestsSection: React.FC = () => {
         }
 
         // 2. Direct single-recipient personal link (recipientName/recipientPhone directly on doc)
-        if ((d.recipientName || d.recipientPhone) && (Number(d.viewCount || 0) > 0 || d.lastViewedAt)) {
+        // Skip hijacked master public docs where recipientId starts with `pub_` (those belong to `recipients[]` above!)
+        const isHijackedMasterDoc = typeof d.recipientId === 'string' && d.recipientId.startsWith('pub_');
+        if (!isHijackedMasterDoc && (d.recipientName || d.recipientPhone) && (Number(d.viewCount || 0) > 0 || d.lastViewedAt)) {
           upsertGuest({
             name: d.recipientName || '',
             phone: d.recipientPhone || '',
